@@ -44,6 +44,8 @@ template <typename T>
 using ValueTypeOf =
     typename std::remove_cv<typename std::remove_reference<T>::type>::type;
 
+// TODO: std::decay_t replacement
+
 //------------------------------------------------------------------------------
 /** Determines if a type is the same as another. */
 //------------------------------------------------------------------------------

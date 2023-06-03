@@ -240,7 +240,7 @@ struct associated_executor<wamp::AnyReusableHandler<S>, E>
 template <typename S, typename A>
 struct associated_allocator<wamp::AnyReusableHandler<S>, A>
 {
-    using type = A;
+    using type = wamp::ValueTypeOf<A>;
 
     static type get(const wamp::AnyReusableHandler<S>&, const A& a = A{})
     {
@@ -251,8 +251,8 @@ struct associated_allocator<wamp::AnyReusableHandler<S>, A>
 };
 
 // Enable boost::asio::uses_executor for AnyReusableHandler.
-template <typename S, typename A>
-struct uses_executor<wamp::AnyReusableHandler<S>, A> : std::true_type
+template <typename S, typename E>
+struct uses_executor<wamp::AnyReusableHandler<S>, E> : std::true_type
 {};
 
 } // namespace asio
@@ -298,37 +298,108 @@ bindFallbackExecutor(H&& handler, const E& fallbackExec)
                                   fallbackExec);
 }
 
-template <typename H, typename... Ts>
-struct BindHandlerResult
+template <typename THandler, typename... TArgs>
+class HandlerBinder
 {
-    using F = typename std::decay<H>::type;
-    using E = typename boost::asio::associated_executor<F>::type;
-    using A = typename boost::asio::associated_allocator<F>::type;
-    using B = decltype(std::bind(std::declval<H>(), std::declval<Ts>()...));
-    using AB = boost::asio::allocator_binder<B, A>;
-    using Type = boost::asio::executor_binder<AB, E>;
+public:
+    template <typename F, typename... Ts>
+    explicit HandlerBinder(F&& handler, Ts&&... args)
+        : handler_(std::forward<F>(handler)),
+          args_(std::forward<Ts>(args)...)
+    {}
+
+    void operator()()
+    {
+        apply(IndexSequenceFor<TArgs...>{});
+    }
+
+    template <typename E>
+    typename boost::asio::associated_executor<THandler, E>::type
+    executorOr(E&& e) const
+    {
+        return boost::asio::get_associated_executor(handler_,
+                                                    std::forward<E>(e));
+    }
+
+    template <typename A>
+    typename boost::asio::associated_allocator<THandler, A>::type
+    allocatorOr(A&& a) const
+    {
+        return boost::asio::get_associated_allocator(handler_,
+                                                     std::forward<A>(a));
+    }
+
+private:
+    template <std::size_t... N>
+    void apply(IndexSequence<N...>)
+    {
+        handler_(std::get<N>(std::move(args_))...);
+    }
+
+    THandler handler_;
+    std::tuple<TArgs...> args_;
 };
 
 } // namespace internal
+} // namespace wamp
+
+
+namespace boost
+{
+namespace asio
+{
+
+// Enable boost::asio::get_associated_executor for AnyReusableHandler.
+template <typename H, typename... Ts, typename E>
+struct associated_executor<wamp::internal::HandlerBinder<H, Ts...>, E>
+{
+    using type = typename associated_executor<H, E>::type;
+
+    static type get(const wamp::internal::HandlerBinder<H, Ts...>& f,
+                    const E& e = E{})
+    {
+        return f.executorOr(e);
+    }
+};
+
+// Enable boost::asio::get_associated_allocator for HandlerBinder.
+template <typename H, typename... Ts, typename A>
+struct associated_allocator<wamp::internal::HandlerBinder<H, Ts...>, A>
+{
+    using type = typename associated_allocator<H, A>::type;
+
+    static type get(const wamp::internal::HandlerBinder<H, Ts...>& f,
+                    const A& a = A{})
+    {
+        return f.allocatorOr(a);
+    }
+};
+
+// Enable boost::asio::uses_executor for HandlerBinder.
+template <typename H, typename... Ts, typename E>
+struct uses_executor<wamp::internal::HandlerBinder<H, Ts...>, E>
+    : uses_executor<H, E>
+{};
+
+} // namespace asio
+} // namespace boost
+
+
+namespace wamp
+{
 
 //------------------------------------------------------------------------------
-// This is needed because std::bind erases away the bound executor and
-// allocator.
-// See http://vinniefalco.github.io/papers/p1133r0.html#Problem
-// TODO: Mimic boost::beast::bind_handler
+/** Binds the given arguments to the given completion handler.
+    Use this instead of std::bind to preserve the executor and allocator
+    associated with the handler. */
 //------------------------------------------------------------------------------
 template <typename H, typename... Ts>
-auto bindHandler(H&& handler, Ts&&... args)
-    -> typename internal::BindHandlerResult<H, Ts...>::Type
+internal::HandlerBinder<typename std::decay<H>::type, ValueTypeOf<Ts>...>
+bindHandler(H&& handler, Ts&&... args)
 {
-    auto e = boost::asio::get_associated_executor(handler);
-    auto a = boost::asio::get_associated_allocator(handler);
-    return boost::asio::bind_executor(
-        std::move(e),
-        boost::asio::bind_allocator(
-            std::move(a),
-            std::bind(std::forward<H>(handler),
-                      std::forward<Ts>(args)...)));
+    using Binder = internal::HandlerBinder<typename std::decay<H>::type,
+                                           ValueTypeOf<Ts>...>;
+    return Binder{std::forward<H>(handler), std::forward<Ts>(args)...};
 }
 
 //------------------------------------------------------------------------------
