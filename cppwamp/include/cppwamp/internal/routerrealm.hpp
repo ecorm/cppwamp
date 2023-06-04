@@ -129,7 +129,7 @@ public:
             }
         };
 
-        safelyDispatch<Dispatched>(std::move(o));
+        safelyDispatch<Dispatched>(std::move(o), std::move(e));
     }
 
     void unobserve(ObserverId observerId)
@@ -224,14 +224,15 @@ public:
         safelyDispatch<Dispatched>(sid, std::move(h));
     }
 
-    void killSession(SessionId sid, Reason r, CompletionHandler<bool> h)
+    void killSessionById(SessionId sid, Reason r,
+                         CompletionHandler<ErrorOr<bool>> h)
     {
         struct Dispatched
         {
             Ptr self;
             SessionId sid;
             Reason r;
-            CompletionHandler<std::size_t> h;
+            CompletionHandler<ErrorOr<bool>> h;
 
             void operator()()
             {
@@ -512,18 +513,17 @@ private:
             return found->second->details();
     }
 
-    bool doKillSession(SessionId sid, Reason reason)
+    ErrorOr<bool> doKillSession(SessionId sid, Reason reason)
     {
         auto iter = sessions_.find(sid);
-        bool found = iter != sessions_.end();
-        if (found)
-        {
-            auto session = iter->second;
-            session->abort(std::move(reason));
-            // session->abort will call RouterRealm::leave,
-            // which will remove the session from the session_ map
-        }
-        return found;
+        if (iter == sessions_.end())
+            return makeUnexpectedError(WampErrc::noSuchSession);
+
+        auto session = iter->second;
+        session->abort(std::move(reason));
+        // session->abort will call RouterRealm::leave,
+        // which will remove the session from the session_ map
+        return true;
     }
 
     std::vector<SessionId> doKillSessions(const SessionFilter& filter,

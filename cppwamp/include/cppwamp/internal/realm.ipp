@@ -88,10 +88,10 @@ CPPWAMP_INLINE void Realm::doLookupSession(
     impl_->lookupSession(sid, std::move(h));
 }
 
-CPPWAMP_INLINE void Realm::doKillSession(SessionId sid, Reason r,
-                                         CompletionHandler<bool> h)
+CPPWAMP_INLINE void Realm::doKillSessionById(SessionId sid, Reason r,
+                                             CompletionHandler<ErrorOr<bool>> h)
 {
-    impl_->killSession(sid, std::move(r), std::move(h));
+    impl_->killSessionById(sid, std::move(r), std::move(h));
 }
 
 CPPWAMP_INLINE void Realm::doKillSessions(SessionFilter f, Reason r,

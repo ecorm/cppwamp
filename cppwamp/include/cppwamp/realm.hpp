@@ -113,12 +113,12 @@ public:
     lookupSession(SessionId sid, C&& completion);
 
     template <typename C>
-    CPPWAMP_NODISCARD Deduced<bool, C>
-    killSession(SessionId sid, C&& completion);
+    CPPWAMP_NODISCARD Deduced<ErrorOr<bool>, C>
+    killSessionById(SessionId sid, C&& completion);
 
     template <typename C>
-    CPPWAMP_NODISCARD Deduced<bool, C>
-    killSession(SessionId sid, Reason r, C&& completion);
+    CPPWAMP_NODISCARD Deduced<ErrorOr<bool>, C>
+    killSessionById(SessionId sid, Reason r, C&& completion);
 
     template <typename C>
     CPPWAMP_NODISCARD Deduced<SessionIdList, C>
@@ -178,7 +178,7 @@ private:
     struct ListSessionsOp;
     struct ForEachSessionOp;
     struct LookupSessionOp;
-    struct KillSessionOp;
+    struct KillSessionByIdOp;
     struct KillSessionsOp;
     struct ListRegistrationsOp;
     struct ForEachRegistrationOp;
@@ -206,7 +206,8 @@ private:
     void doForEachSession(SessionHandler f, CompletionHandler<std::size_t> h);
     void doLookupSession(SessionId sid,
                          CompletionHandler<ErrorOr<SessionDetails>> h);
-    void doKillSession(SessionId sid, Reason r, CompletionHandler<bool> h);
+    void doKillSessionById(SessionId sid, Reason r,
+                           CompletionHandler<ErrorOr<bool>> h);
     void doKillSessions(SessionFilter f, Reason r,
                         CompletionHandler<SessionIdList> h);
     void doListRegistrations(CompletionHandler<RegistrationLists> h);
@@ -368,34 +369,35 @@ Realm::lookupSession(SessionId sid, C&& completion)
 }
 
 //------------------------------------------------------------------------------
-struct Realm::KillSessionOp
+struct Realm::KillSessionByIdOp
 {
-    using ResultValue = std::size_t;
+    using ResultValue = ErrorOr<bool>;
     Realm* self;
     SessionId sid;
     Reason r;
 
     template <typename F> void operator()(F&& f)
     {
-        self->doKillSession(sid, std::move(r),
+        self->doKillSessionById(sid, std::move(r),
                             self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
 template <typename C>
-Realm::Deduced<bool, C>
-Realm::killSession(SessionId sid, C&& completion)
+Realm::Deduced<ErrorOr<bool>, C>
+Realm::killSessionById(SessionId sid, C&& completion)
 {
-    return killSession(sid, Reason{WampErrc::sessionKilled});
+    return killSessionById(sid, Reason{WampErrc::sessionKilled},
+                           std::forward<C>(completion));
 }
 
 template <typename C>
-Realm::Deduced<bool, C>
-Realm::killSession(SessionId sid, Reason r, C&& completion)
+Realm::Deduced<ErrorOr<bool>, C>
+Realm::killSessionById(SessionId sid, Reason r, C&& completion)
 {
     CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
-    return initiate<KillSessionOp>(std::forward<C>(completion), sid,
-                                   std::move(r));
+    return initiate<KillSessionByIdOp>(std::forward<C>(completion), sid,
+                                       std::move(r));
 }
 
 //------------------------------------------------------------------------------
@@ -417,8 +419,8 @@ template <typename C>
 Realm::Deduced<Realm::SessionIdList, C>
 Realm::killSessions(SessionFilter f, C&& completion)
 {
-    return killSession(std::move(f), Reason{WampErrc::sessionKilled},
-                       std::move(completion));
+    return killSessions(std::move(f), Reason{WampErrc::sessionKilled},
+                        std::forward<C>(completion));
 }
 
 template <typename C>
@@ -426,8 +428,8 @@ Realm::Deduced<Realm::SessionIdList, C>
 Realm::killSessions(SessionFilter f, Reason r, C&& completion)
 {
     CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
-    return initiate<KillSessionOp>(std::forward<C>(completion), std::move(f),
-                                   std::move(r));
+    return initiate<KillSessionsOp>(std::forward<C>(completion), std::move(f),
+                                    std::move(r));
 }
 
 //------------------------------------------------------------------------------

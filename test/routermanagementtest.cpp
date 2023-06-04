@@ -177,6 +177,21 @@ void checkRealmSessions(const std::string& info, Realm& realm,
     }
 }
 
+//------------------------------------------------------------------------------
+void checkSessionKilled(const std::string& info, Session& session,
+                        std::vector<Incident>& incidents, WampErrc errc,
+                        YieldContext& yield)
+{
+    INFO(info);
+    while (incidents.empty() || session.state() == SessionState::established)
+        suspendCoro(yield);
+    CHECK(session.state() == SessionState::failed);
+    CHECK(incidents.size() == 1);
+    CHECK(incidents.front().kind() == IncidentKind::abortedByPeer);
+    CHECK(incidents.front().error() == errc);
+    incidents.clear();
+}
+
 } // anomymous namespace
 
 
@@ -303,6 +318,8 @@ TEST_CASE( "Router realm session events", "[WAMP][Router]" )
         CHECK(left.authInfo.sessionId() == welcome.sessionId());
         CHECK(left.features.supports(ClientFeatures::provided()));
 
+        // TODO: RealmObserver::detach
+
         s.disconnect();
     });
 
@@ -310,7 +327,7 @@ TEST_CASE( "Router realm session events", "[WAMP][Router]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "Router realm session management", "[WAMP][Router][thisone]" )
+TEST_CASE( "Router realm session queries", "[WAMP][Router]" )
 {
     if (!test::RouterFixture::enabled())
         return;
@@ -321,46 +338,120 @@ TEST_CASE( "Router realm session management", "[WAMP][Router][thisone]" )
 
     IoContext ioctx;
     auto guard = make_work_guard(ioctx);
-    Session s1{ioctx};
-    Session s2{ioctx};
 
     spawn(ioctx, [&](YieldContext yield)
     {
-        Welcome w1;
-        Welcome w2;
-
-        auto observer = TestRealmObserver::create();
         auto realm = theRouter.realmAt(testRealm).value();
 
+        checkRealmSessions("No sessions joined yet", realm, {}, yield);
+
+        Session s1{ioctx};
+        s1.connect(withTcp, yield).value();
+        Welcome w1 = s1.join(Petition(testRealm), yield).value();
+        checkRealmSessions("s1 joined", realm, {w1}, yield);
+
+        Session s2{ioctx};
+        s2.connect(withTcp, yield).value();
+        Welcome w2 = s2.join(Petition(testRealm), yield).value();
+        checkRealmSessions("s2 joined", realm, {w1, w2}, yield);
+
+        auto errorOrDetails = realm.lookupSession(0, yield);
+        CHECK(errorOrDetails ==
+              makeUnexpectedError(WampErrc::noSuchSession));
+
+        s1.leave(yield).value();
+        checkRealmSessions("s1 left", realm, {w2}, yield);
+
+        s2.leave(yield).value();
+        checkRealmSessions("s2 left", realm, {}, yield);
+
+        s2.disconnect();
+        s1.disconnect();
+        guard.reset();
+    });
+
+    ioctx.run();
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Killing router sessions", "[WAMP][Router]" )
+{
+    if (!test::RouterFixture::enabled())
+        return;
+
+    auto& theRouter = test::RouterFixture::instance().router();
+    RouterLogLevelGuard logLevelGuard{theRouter.logLevel()};
+    theRouter.setLogLevel(LogLevel::off);
+
+    IoContext ioctx;
+    auto guard = make_work_guard(ioctx);
+
+    spawn(ioctx, [&](YieldContext yield)
+    {
         auto any = [](SessionDetails) {return true;};
         auto none = [](SessionDetails) {return false;};
 
+        auto realm = theRouter.realmAt(testRealm).value();
+        auto observer = TestRealmObserver::create();
+        realm.observe(observer);
+
+        Session s1{ioctx};
+        Welcome w1;
+        std::vector<Incident> i1;
+        s1.observeIncidents([&i1](Incident i) {i1.push_back(i);});
+        s1.connect(withTcp, yield).value();
+        w1 = s1.join(Petition(testRealm), yield).value();
+
+        Session s2{ioctx};
+        Welcome w2;
+        std::vector<Incident> i2;
+        s2.observeIncidents([&i2](Incident i) {i2.push_back(i);});
+        s2.connect(withTcp, yield).value();
+        w2 = s2.join(Petition(testRealm), yield).value();
+
         {
-            INFO("Session queries");
+            INFO("Realm::killSessionById - non-existent");
+            auto errorOrDone = realm.killSessionById(0, yield);
+            CHECK(errorOrDone == makeUnexpectedError(WampErrc::noSuchSession));
+            CHECK(i1.empty());
+        }
 
-            auto count = realm.countSessions(yield);
-            CHECK(count == 0);
-            count = realm.countSessions(nullptr, yield);
-            CHECK(count == 0);
-            CHECK(realm.countSessions(any, yield) == 0);
-            CHECK(realm.countSessions(none, yield) == 0);
+        {
+            INFO("Realm::killSessionById");
+            auto errc = WampErrc::invalidArgument;
+            auto errorOrDone = realm.killSessionById(w1.sessionId(), {errc}, yield);
+            REQUIRE(errorOrDone.has_value());
+            CHECK(errorOrDone.value() == true);
+            checkSessionKilled("s1", s1, i1, errc, yield);
 
-            CHECK(realm.listSessions(yield).empty());
-            CHECK(realm.listSessions(nullptr, yield).empty());
-            CHECK(realm.listSessions(any, yield).empty());
-            CHECK(realm.listSessions(none, yield).empty());
-
+            s1.disconnect();
             s1.connect(withTcp, yield).value();
             w1 = s1.join(Petition(testRealm), yield).value();
-            checkRealmSessions("s1 joined", realm, {w1}, yield);
+        }
 
+        {
+            INFO("Realm::killSessions - no matches");
+            auto list = realm.killSessions(none, yield);
+            CHECK(list.empty());
+            CHECK(i1.empty());
+            CHECK(i2.empty());
+        }
+
+        {
+            INFO("Realm::killSessions - with matches");
+            auto list = realm.killSessions(any, yield);
+            std::vector<SessionId> expectedIds = {w1.sessionId(),
+                                                  w2.sessionId()};
+            CHECK_THAT(list, Matchers::UnorderedEquals(expectedIds));
+            checkSessionKilled("s1", s1, i1, WampErrc::sessionKilled, yield);
+            checkSessionKilled("s2", s2, i2, WampErrc::sessionKilled, yield);
+
+            s1.disconnect();
+            s1.connect(withTcp, yield).value();
+            w1 = s1.join(Petition(testRealm), yield).value();
+            s2.disconnect();
             s2.connect(withTcp, yield).value();
             w2 = s2.join(Petition(testRealm), yield).value();
-            checkRealmSessions("s2 joined", realm, {w1, w2}, yield);
-
-            auto errorOrDetails = realm.lookupSession(0, yield);
-            CHECK(errorOrDetails ==
-                  makeUnexpectedError(WampErrc::noSuchSession));
         }
 
         s2.disconnect();

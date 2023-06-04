@@ -101,10 +101,6 @@ TEST_CASE( "WAMP session meta procedures", "[WAMP][Router]" )
     Session s1{ioctx};
     Session s2{ioctx};
 
-    s1.observeIncidents(
-        [](Incident i) {std::cout << i.toLogEntry() << std::endl;});
-    s1.enableTracing();
-
     std::vector<Incident> incidents;
     s2.observeIncidents([&incidents](Incident i) {incidents.push_back(i);});
 
