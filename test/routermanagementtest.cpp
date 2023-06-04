@@ -110,6 +110,73 @@ private:
     LogLevel level_;
 };
 
+//------------------------------------------------------------------------------
+void checkSessionDetails(const SessionDetails& s, const Welcome& w,
+                         const Uri& realmUri)
+{
+    CHECK(s.authInfo.realmUri()  == realmUri);
+    CHECK(s.authInfo.sessionId() == w.sessionId());
+    CHECK(s.authInfo.id()        == w.authId());
+    CHECK(s.authInfo.role()      == w.authRole());
+    CHECK(s.authInfo.method()    == w.authMethod());
+    CHECK(s.authInfo.provider()  == w.authProvider());
+}
+
+//------------------------------------------------------------------------------
+void checkRealmSessions(const std::string& info, Realm& realm,
+                        std::vector<Welcome> expected, YieldContext& yield)
+{
+    INFO(info);
+
+    auto any = [](SessionDetails) {return true;};
+    auto none = [](SessionDetails) {return false;};
+
+    std::vector<SessionId> sidList;
+    for (const auto& w: expected)
+        sidList.push_back(w.sessionId());
+    auto sessionCount = sidList.size();
+
+    // Realm::countSessions
+    CHECK(realm.countSessions(yield) == sessionCount);
+    CHECK(realm.countSessions(nullptr, yield) == sessionCount);
+    CHECK(realm.countSessions(any, yield) == sessionCount);
+    CHECK(realm.countSessions(none, yield) == 0);
+
+    // Realm::listSessions
+    CHECK_THAT(realm.listSessions(yield), Matchers::UnorderedEquals(sidList));
+    CHECK_THAT(realm.listSessions(nullptr, yield),
+               Matchers::UnorderedEquals(sidList));
+    CHECK_THAT(realm.listSessions(any, yield),
+               Matchers::UnorderedEquals(sidList));
+    CHECK(realm.listSessions(none, yield).empty());
+
+    // Realm::forEachSession
+    std::map<SessionId, SessionDetails> details;
+    auto n = realm.forEachSession(
+        [&](SessionDetails d)
+        {
+            details.emplace(d.authInfo.sessionId(), d);
+        },
+        yield);
+    CHECK(n == sessionCount);
+    REQUIRE(details.size() == expected.size());
+    for (const auto& w: expected)
+    {
+        auto sid = w.sessionId();
+        REQUIRE(details.count(sid) != 0);
+        checkSessionDetails(details[sid], w, realm.uri());
+    }
+
+    // Realm::lookupSession
+    for (const auto& w: expected)
+    {
+        auto sid = w.sessionId();
+        auto errorOrDetails = realm.lookupSession(sid, yield);
+        REQUIRE(errorOrDetails.has_value());
+        checkSessionDetails(*errorOrDetails, w, realm.uri());
+    }
+}
+
 } // anomymous namespace
 
 
@@ -252,7 +319,6 @@ TEST_CASE( "Router realm session management", "[WAMP][Router][thisone]" )
     RouterLogLevelGuard logLevelGuard{theRouter.logLevel()};
     theRouter.setLogLevel(LogLevel::off);
 
-    using SessionIdList = std::vector<SessionId>;
     IoContext ioctx;
     auto guard = make_work_guard(ioctx);
     Session s1{ioctx};
@@ -270,7 +336,7 @@ TEST_CASE( "Router realm session management", "[WAMP][Router][thisone]" )
         auto none = [](SessionDetails) {return false;};
 
         {
-            INFO("Counting and listing sessions");
+            INFO("Session queries");
 
             auto count = realm.countSessions(yield);
             CHECK(count == 0);
@@ -286,43 +352,16 @@ TEST_CASE( "Router realm session management", "[WAMP][Router][thisone]" )
 
             s1.connect(withTcp, yield).value();
             w1 = s1.join(Petition(testRealm), yield).value();
-            auto sid1 = w1.sessionId();
-
-            CHECK(realm.countSessions(yield) == 1);
-            CHECK(realm.countSessions(nullptr, yield) == 1);
-            CHECK(realm.countSessions(any, yield) == 1);
-            CHECK(realm.countSessions(none, yield) == 0);
-
-            CHECK_THAT(realm.listSessions(yield),
-                       Matchers::Equals(SessionIdList{sid1}));
-            CHECK_THAT(realm.listSessions(nullptr, yield),
-                       Matchers::Equals(SessionIdList{sid1}));
-            CHECK_THAT(realm.listSessions(any, yield),
-                       Matchers::Equals(SessionIdList{sid1}));
-            CHECK(realm.listSessions(none, yield).empty());
+            checkRealmSessions("s1 joined", realm, {w1}, yield);
 
             s2.connect(withTcp, yield).value();
             w2 = s2.join(Petition(testRealm), yield).value();
-            auto sid2 = w2.sessionId();
+            checkRealmSessions("s2 joined", realm, {w1, w2}, yield);
 
-            CHECK(realm.countSessions(yield) == 2);
-            CHECK(realm.countSessions(nullptr, yield) == 2);
-            CHECK(realm.countSessions(any, yield) == 2);
-            CHECK(realm.countSessions(none, yield) == 0);
-
-            CHECK_THAT(realm.listSessions(yield),
-                       Matchers::UnorderedEquals(SessionIdList{sid1, sid2}));
-            CHECK_THAT(realm.listSessions(nullptr, yield),
-                       Matchers::UnorderedEquals(SessionIdList{sid1, sid2}));
-            CHECK_THAT(realm.listSessions(any, yield),
-                       Matchers::UnorderedEquals(SessionIdList{sid1, sid2}));
-            CHECK(realm.listSessions(none, yield).empty());
+            auto errorOrDetails = realm.lookupSession(0, yield);
+            CHECK(errorOrDetails ==
+                  makeUnexpectedError(WampErrc::noSuchSession));
         }
-
-//        realm.observe(observer, ioctx.get_executor());
-
-//        while (observer->leaveEvents.empty())
-//            suspendCoro(yield);
 
         s2.disconnect();
         s1.disconnect();
@@ -330,7 +369,6 @@ TEST_CASE( "Router realm session management", "[WAMP][Router][thisone]" )
     });
 
     ioctx.run();
-    std::cout << __FILE__ << ":" << __LINE__ << std::endl;
 }
 
 #endif // defined(CPPWAMP_TEST_HAS_CORO)
