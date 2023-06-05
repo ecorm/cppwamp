@@ -241,7 +241,9 @@ CPPWAMP_INLINE RouterFeatures RouterFeatures::provided()
                     F::publicationTrustLevels |
                     F::publisherExclusion |
                     F::publisherIdentification |
-                    F::subscriberBlackWhiteListing;
+                    F::sessionMetaApi |
+                    F::subscriberBlackWhiteListing |
+                    F::subscriptionMetaApi;
     }
 
     {
@@ -253,7 +255,9 @@ CPPWAMP_INLINE RouterFeatures RouterFeatures::provided()
                     F::callerIdentification |
                     // Not supported: F::patternBasedRegistration |
                     F::progressiveCallInvocations |
-                    F::progressiveCallResults;
+                    F::progressiveCallResults |
+                    F::registrationMetaApi |
+                    F::sessionMetaApi;
     }
 
     return f;
@@ -270,12 +274,16 @@ CPPWAMP_INLINE const Object& RouterFeatures::providedRoles()
             {"caller_identification",         true},
             {"progressive_call_invocations",  true},
             {"progressive_call_results",      true},
+            {"registration_meta_api",         true},
+            {"session_meta_api",              true}
         }}}}},
         {"broker", Object{{"features", Object{{
             {"pattern_based_subscription",    true},
             {"publisher_exclusion",           true},
             {"publisher_identification",      true},
-            {"subscriber_blackwhite_listing", true}
+            {"session_meta_api",              true},
+            {"subscriber_blackwhite_listing", true},
+            {"subscription_meta_api",         true}
         }}}}}
     };
     return roles;
@@ -325,7 +333,9 @@ CPPWAMP_INLINE void RouterFeatures::parseBrokerFeatures(const Object& dict)
     parse(broker_, F::publicationTrustLevels,      d, "publication_trustlevels");
     parse(broker_, F::publisherExclusion,          d, "publisher_exclusion");
     parse(broker_, F::publisherIdentification,     d, "publisher_identification");
+    parse(broker_, F::sessionMetaApi,              d, "session_meta_api");
     parse(broker_, F::subscriberBlackWhiteListing, d, "subscriber_blackwhite_listing");
+    parse(broker_, F::subscriptionMetaApi,         d, "subscription_meta_api");
 }
 
 CPPWAMP_INLINE void RouterFeatures::parseDealerFeatures(const Object& dict)
@@ -342,6 +352,8 @@ CPPWAMP_INLINE void RouterFeatures::parseDealerFeatures(const Object& dict)
     parse(dealer_, F::patternBasedRegistration,   d, "pattern_based_registration");
     parse(dealer_, F::progressiveCallInvocations, d, "progressive_call_invocations");
     parse(dealer_, F::progressiveCallResults,     d, "progressive_call_results");
+    parse(dealer_, F::registrationMetaApi,        d, "registration_meta_api");
+    parse(dealer_, F::sessionMetaApi,             d, "session_meta_api");
 
     // Legacy feature keys
     parse(dealer_, F::progressiveCallInvocations, d, "progressive_calls");

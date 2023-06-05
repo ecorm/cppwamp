@@ -145,7 +145,9 @@ enum class BrokerFeatures : uint16_t
     publicationTrustLevels      = 1u << 2,
     publisherExclusion          = 1u << 3,
     publisherIdentification     = 1u << 4,
-    subscriberBlackWhiteListing = 1u << 5
+    sessionMetaApi              = 1u << 5,
+    subscriberBlackWhiteListing = 1u << 6,
+    subscriptionMetaApi         = 1u << 7
 };
 
 //------------------------------------------------------------------------------
@@ -160,7 +162,9 @@ enum class DealerFeatures : uint16_t
     callerIdentification       = 1u << 4,
     patternBasedRegistration   = 1u << 5,
     progressiveCallInvocations = 1u << 6,
-    progressiveCallResults     = 1u << 7
+    progressiveCallResults     = 1u << 7,
+    registrationMetaApi        = 1u << 8,
+    sessionMetaApi             = 1u << 9
 };
 
 template <> struct is_flag<BrokerFeatures> : TrueType {};

@@ -57,32 +57,34 @@ TEST_CASE( "WAMP session meta events", "[WAMP][Router]" )
     spawn(ioctx, [&](YieldContext yield)
     {
         s1.connect(withTcp, yield).value();
-        s1.join(Petition(testRealm), yield).value();
+        auto w1 = s1.join(Petition(testRealm), yield).value();
+        REQUIRE(w1.features().broker()
+                    .all_of(BrokerFeatures::sessionMetaApi));
         s1.subscribe(Topic{"wamp.session.on_join"}, onJoin, yield).value();
         s1.subscribe(Topic{"wamp.session.on_leave"}, onLeave, yield).value();
 
         s2.connect(withTcp, yield).value();
-        auto welcome = s2.join(Petition(testRealm), yield).value();
+        auto w2 = s2.join(Petition(testRealm), yield).value();
 
         while (joinedInfo.sessionId == 0)
             suspendCoro(yield);
-        CHECK(joinedInfo.authId       == welcome.authId());
-        CHECK(joinedInfo.authMethod   == welcome.authMethod());
-        CHECK(joinedInfo.authProvider == welcome.authProvider());
-        CHECK(joinedInfo.authRole     == welcome.authRole());
-        CHECK(joinedInfo.sessionId    == welcome.sessionId());
+        CHECK(joinedInfo.authId       == w2.authId());
+        CHECK(joinedInfo.authMethod   == w2.authMethod());
+        CHECK(joinedInfo.authProvider == w2.authProvider());
+        CHECK(joinedInfo.authRole     == w2.authRole());
+        CHECK(joinedInfo.sessionId    == w2.sessionId());
 
         s2.leave(yield).value();
 
         while (leftInfo.sessionId == 0)
             suspendCoro(yield);
-        CHECK(leftInfo.sessionId == welcome.sessionId());
+        CHECK(leftInfo.sessionId == w2.sessionId());
 
         // Crossbar only provides session ID
         if (test::RouterFixture::enabled())
         {
-            CHECK(leftInfo.authid == welcome.authId());
-            CHECK(leftInfo.authrole == welcome.authRole());
+            CHECK(leftInfo.authid == w2.authId());
+            CHECK(leftInfo.authrole == w2.authRole());
         }
 
         s2.disconnect();
@@ -112,6 +114,7 @@ TEST_CASE( "WAMP session meta procedures", "[WAMP][Router]" )
         auto w2 = s2.join(Petition(testRealm), yield).value();
         std::vector<String> inclusiveAuthRoleList{{"anonymous"}};
         std::vector<String> exclusiveAuthRoleList{{"exclusive"}};
+        REQUIRE(w1.features().dealer().all_of(DealerFeatures::sessionMetaApi));
 
         {
             INFO("wamp.session.count");
@@ -368,7 +371,9 @@ TEST_CASE( "WAMP registration meta events", "[WAMP][Router]" )
         auto after = now + chrono::seconds(60);
 
         s1.connect(withTcp, yield).value();
-        s1.join(Petition(testRealm), yield).value();
+        auto w1 = s1.join(Petition(testRealm), yield).value();
+        REQUIRE(w1.features().dealer()
+                    .all_of(DealerFeatures::registrationMetaApi));
         s1.subscribe(Topic{"wamp.registration.on_create"},
                      onRegistrationCreated, yield).value();
         s1.subscribe(Topic{"wamp.registration.on_register"}, onRegister,
@@ -379,26 +384,26 @@ TEST_CASE( "WAMP registration meta events", "[WAMP][Router]" )
                      onRegistrationDeleted, yield).value();
 
         s2.connect(withTcp, yield).value();
-        auto welcome = s2.join(Petition(testRealm), yield).value();
+        auto w2 = s2.join(Petition(testRealm), yield).value();
         auto reg = s2.enroll(Procedure{"rpc"}, rpc, yield).value();
         while (regInfo.id == 0 || registrationId == 0)
             suspendCoro(yield);
-        CHECK(regCreatedSessionId == welcome.sessionId());
+        CHECK(regCreatedSessionId == w2.sessionId());
         CHECK(regInfo.uri == "rpc");
         CHECK(regInfo.created > before);
         CHECK(regInfo.created < after);
         CHECK(regInfo.id == reg.id());
         CHECK(regInfo.matchPolicy == MatchPolicy::exact);
         CHECK(regInfo.invocationPolicy == InvocationPolicy::single);
-        CHECK(registeredSessionId == welcome.sessionId());
+        CHECK(registeredSessionId == w2.sessionId());
         CHECK(registrationId == reg.id());
 
         reg.unregister();
         while (unregisteredRegId == 0 || deletedRegistrationId == 0)
             suspendCoro(yield);
-        CHECK(unregisteredSessionId == welcome.sessionId());
+        CHECK(unregisteredSessionId == w2.sessionId());
         CHECK(unregisteredRegId == reg.id());
-        CHECK(regDeletedSessionId == welcome.sessionId());
+        CHECK(regDeletedSessionId == w2.sessionId());
         CHECK(deletedRegistrationId == reg.id());
 
         s2.disconnect();
@@ -453,7 +458,9 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
         auto before = now - chrono::seconds(60);
         auto after = now + chrono::seconds(60);
         s1.connect(withTcp, yield).value();
-        s1.join(Petition(testRealm), yield).value();
+        auto w1 = s1.join(Petition(testRealm), yield).value();
+        REQUIRE(w1.features().broker()
+                    .all_of(BrokerFeatures::subscriptionMetaApi));
         s1.subscribe(Topic{"wamp.subscription.on_create"},
                      onSubscriptionCreated, yield).value();
         s1.subscribe(Topic{"wamp.subscription.on_subscribe"}, onSubscribe,
@@ -464,18 +471,18 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
                      onSubDeleted, yield).value();
 
         s2.connect(withTcp, yield).value();
-        auto welcome2 = s2.join(Petition(testRealm), yield).value();
+        auto w2 = s2.join(Petition(testRealm), yield).value();
         auto sub2 = s2.subscribe(Topic{"exact"}, [](Event) {}, yield).value();
 
         while (subInfo.id == 0 || subscriptionId == 0)
             suspendCoro(yield);
-        CHECK(subCreatedSessionId == welcome2.sessionId());
+        CHECK(subCreatedSessionId == w2.sessionId());
         CHECK(subInfo.uri == "exact");
         CHECK(subInfo.created > before);
         CHECK(subInfo.created < after);
         CHECK(subInfo.id == sub2.id());
         CHECK(subInfo.matchPolicy == MatchPolicy::exact);
-        CHECK(subscribedSessionId == welcome2.sessionId());
+        CHECK(subscribedSessionId == w2.sessionId());
         CHECK(subscriptionId == sub2.id());
 
         subInfo.id = 0;
@@ -531,9 +538,9 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
         sub2.unsubscribe();
         while (unsubscribedSubId == 0 || deletedSubId == 0)
             suspendCoro(yield);
-        CHECK(unsubscribedSessionId == welcome2.sessionId());
+        CHECK(unsubscribedSessionId == w2.sessionId());
         CHECK(unsubscribedSubId == sub2.id());
-        CHECK(deletedSessionId == welcome2.sessionId());
+        CHECK(deletedSessionId == w2.sessionId());
         CHECK(deletedSubId == sub2.id());
 
         s4.disconnect();
