@@ -726,6 +726,8 @@ private:
 
     static bool isMetaTopic(const MatchUri& uriAndPolicy)
     {
+        // TODO: Consider allowing meta-meta-events:
+        // https://github.com/wamp-proto/wamp-proto/issues/493
         return uriAndPolicy.uri().rfind("wamp.", 0) == 0;
     }
 

@@ -124,20 +124,38 @@ void checkSessionDetails(const SessionDetails& s, const Welcome& w,
 }
 
 //------------------------------------------------------------------------------
-void checkRegistrationInfo(
-    const RegistrationInfo& r,
+void checkRegistrationDetails(
+    const RegistrationDetails& r,
     const Uri& uri,
     std::chrono::system_clock::time_point when,
     RegistrationId rid,
-    SessionId sid)
+    std::vector<SessionId> callees)
 {
     std::chrono::seconds margin(60);
-    CHECK(r.uri == uri);
-    CHECK(r.created > (when - margin));
-    CHECK(r.created < (when + margin));
-    CHECK(r.id == rid);
-    CHECK(r.matchPolicy == MatchPolicy::exact);
-    CHECK(r.invocationPolicy == InvocationPolicy::single);
+    CHECK(r.info.uri == uri);
+    CHECK(r.info.created > (when - margin));
+    CHECK(r.info.created < (when + margin));
+    CHECK(r.info.id == rid);
+    CHECK(r.info.matchPolicy == MatchPolicy::exact);
+    CHECK(r.info.invocationPolicy == InvocationPolicy::single);
+    CHECK_THAT(r.callees, Matchers::UnorderedEquals(callees));
+}
+
+//------------------------------------------------------------------------------
+void checkSubscriptionDetails(
+    const SubscriptionDetails& s,
+    const Uri& uri,
+    std::chrono::system_clock::time_point when,
+    SubscriptionId subId,
+    std::vector<SessionId> subscribers)
+{
+    std::chrono::seconds margin(60);
+    CHECK(s.info.uri == uri);
+    CHECK(s.info.created > (when - margin));
+    CHECK(s.info.created < (when + margin));
+    CHECK(s.info.id == subId);
+    CHECK(s.info.matchPolicy == MatchPolicy::exact);
+    CHECK_THAT(s.subscribers, Matchers::UnorderedEquals(subscribers));
 }
 
 //------------------------------------------------------------------------------
@@ -510,10 +528,8 @@ TEST_CASE( "Router realm registration events", "[WAMP][Router]" )
             REQUIRE(observer->registerEvents.size() == 1);
             const auto& ev = observer->registerEvents.front();
             checkSessionDetails(ev.first, welcome, testRealm);
-            checkRegistrationInfo(ev.second.info, "foo", when, reg.id(),
-                                  welcome.sessionId());
-            std::vector<SessionId> expectedSessionIds{welcome.sessionId()};
-            CHECK_THAT(ev.second.callees, Matchers::Equals(expectedSessionIds));
+            checkRegistrationDetails(ev.second, "foo", when, reg.id(),
+                                     {welcome.sessionId()});
         }
 
         {
@@ -525,9 +541,7 @@ TEST_CASE( "Router realm registration events", "[WAMP][Router]" )
             REQUIRE(observer->unregisterEvents.size() == 1);
             const auto& ev = observer->unregisterEvents.front();
             checkSessionDetails(ev.first, welcome, testRealm);
-            checkRegistrationInfo(ev.second.info, "foo", when, reg.id(),
-                                  welcome.sessionId());
-            CHECK(ev.second.callees.empty());
+            checkRegistrationDetails(ev.second, "foo", when, reg.id(), {});
         }
 
         s.disconnect();
@@ -536,5 +550,95 @@ TEST_CASE( "Router realm registration events", "[WAMP][Router]" )
     ioctx.run();
 }
 
+//------------------------------------------------------------------------------
+TEST_CASE( "Router realm subscription events", "[WAMP][Router]" )
+{
+    if (!test::RouterFixture::enabled())
+        return;
+
+    auto& theRouter = test::RouterFixture::instance().router();
+    RouterLogLevelGuard logLevelGuard{theRouter.logLevel()};
+    theRouter.setLogLevel(LogLevel::off);
+
+    IoContext ioctx;
+    Session s1{ioctx};
+    Session s2{ioctx};
+
+    auto observer = TestRealmObserver::create();
+    auto realm = theRouter.realmAt(testRealm).value();
+    realm.observe(observer, ioctx.get_executor());
+
+    spawn(ioctx, [&](YieldContext yield)
+    {
+        s1.connect(withTcp, yield).value();
+        auto w1 = s1.join(Petition(testRealm), yield).value();
+        s2.connect(withTcp, yield).value();
+        auto w2 = s2.join(Petition(testRealm), yield).value();
+        std::chrono::system_clock::time_point when;
+        Subscription sub1;
+        Subscription sub2;
+
+        {
+            INFO("Subscription");
+            sub1 = s1.subscribe(Topic{"foo"}, [](Event) {}, yield).value();
+            when = std::chrono::system_clock::now();
+
+            while (observer->subscribeEvents.empty())
+                suspendCoro(yield);
+            REQUIRE(observer->subscribeEvents.size() == 1);
+            const auto& ev = observer->subscribeEvents.front();
+            checkSessionDetails(ev.first, w1, testRealm);
+            checkSubscriptionDetails(ev.second, "foo", when, sub1.id(),
+                                     {w1.sessionId()});
+            observer->subscribeEvents.clear();
+        }
+
+        {
+            INFO("Another subscription to same topic");
+            sub2 = s2.subscribe(Topic{"foo"}, [](Event) {}, yield).value();
+            when = std::chrono::system_clock::now();
+
+            while (observer->subscribeEvents.empty())
+                suspendCoro(yield);
+            REQUIRE(observer->subscribeEvents.size() == 1);
+            const auto& ev = observer->subscribeEvents.front();
+            checkSessionDetails(ev.first, w2, testRealm);
+            checkSubscriptionDetails(ev.second, "foo", when, sub2.id(),
+                                     {w1.sessionId(), w2.sessionId()});
+            observer->subscribeEvents.clear();
+        }
+
+        {
+            INFO("Unsubscription");
+            s1.unsubscribe(sub1, yield).value();
+
+            while (observer->unsubscribeEvents.empty())
+                suspendCoro(yield);
+            REQUIRE(observer->unsubscribeEvents.size() == 1);
+            const auto& ev = observer->unsubscribeEvents.front();
+            checkSessionDetails(ev.first, w1, testRealm);
+            checkSubscriptionDetails(ev.second, "foo", when, sub1.id(),
+                                     {w2.sessionId()});
+            observer->unsubscribeEvents.clear();
+        }
+
+        {
+            INFO("Final unsubscription");
+            s2.unsubscribe(sub2, yield).value();
+
+            while (observer->unsubscribeEvents.empty())
+                suspendCoro(yield);
+            REQUIRE(observer->unsubscribeEvents.size() == 1);
+            const auto& ev = observer->unsubscribeEvents.front();
+            checkSessionDetails(ev.first, w2, testRealm);
+            checkSubscriptionDetails(ev.second, "foo", when, sub2.id(), {});
+        }
+
+        s2.disconnect();
+        s1.disconnect();
+    });
+
+    ioctx.run();
+}
 
 #endif // defined(CPPWAMP_TEST_HAS_CORO)
