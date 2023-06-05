@@ -406,6 +406,25 @@ TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
 
         ioctx.run();
     }
+
+    SECTION("registering a meta-procedure")
+    {
+        lastAction.action = {};
+        client->load(
+        {
+            {{"[1,\"cppwamp.test\",{}]"}}, // HELLO
+            {{"[64,1,{},\"wamp.foo\"]"}}
+        });
+
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            client->connect(yield);
+            checkErrorResponse(client, WampErrc::invalidUri, yield);
+            client->disconnect();
+        });
+
+        ioctx.run();
+    }
 }
 
 #endif // defined(CPPWAMP_TEST_HAS_CORO)

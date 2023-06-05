@@ -602,6 +602,8 @@ public:
     {
         if (registry_.contains(p.uri()))
             return makeUnexpectedError(WampErrc::procedureAlreadyExists);
+        if (isMetaProcedure(p.uri()))
+            return makeUnexpectedError(WampErrc::invalidUri);
         DealerRegistration reg{std::move(p), callee};
         auto key = nextRegistrationId();
         const auto& inserted = registry_.insert(key, std::move(reg));
@@ -761,6 +763,11 @@ public:
     }
 
 private:
+    static bool isMetaProcedure(const Uri& uri)
+    {
+        return uri.rfind("wamp.", 0) == 0;
+    }
+
     RegistrationId nextRegistrationId() {return ++nextRegistrationId_;}
 
     DealerRegistry registry_;
