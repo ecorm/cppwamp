@@ -731,7 +731,7 @@ private:
         return uriAndPolicy.uri().rfind("wamp.", 0) == 0;
     }
 
-    void eraseTopic(const MatchUri& topic, BrokerSubscriptionMap::iterator iter)
+    void eraseTopic(MatchUri topic, BrokerSubscriptionMap::iterator iter)
     {
         subscriptions_.erase(iter);
         switch (topic.policy())

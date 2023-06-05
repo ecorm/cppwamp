@@ -38,6 +38,7 @@ int main(int argc, char* argv[])
         rf.start();
         result = session.run();
         rf.stop();
+        test::RouterFixture::cleanUp();
     }
     else
     {

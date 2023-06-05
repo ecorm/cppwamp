@@ -32,6 +32,7 @@ public:
     };
 
     static RouterFixture& instance();
+    static void cleanUp();
     static bool enabled();
 
     void start();
@@ -45,6 +46,7 @@ private:
 
     RouterFixture();
 
+    static std::shared_ptr<RouterFixture> theRouter_;
     static bool enabled_;
     std::shared_ptr<Impl> impl_;
 };

@@ -50,6 +50,7 @@ protected:
 };
 
 //------------------------------------------------------------------------------
+std::shared_ptr<RouterFixture> RouterFixture::theRouter_;
 bool RouterFixture::enabled_ = false;
 
 //------------------------------------------------------------------------------
@@ -155,8 +156,16 @@ private:
 RouterFixture& RouterFixture::instance()
 {
     enabled_ = true;
-    static RouterFixture theRouter;
-    return theRouter;
+    if (!theRouter_)
+        theRouter_.reset(new RouterFixture);
+    return *theRouter_;
+}
+
+//------------------------------------------------------------------------------
+void RouterFixture::cleanUp()
+{
+    if (theRouter_)
+        theRouter_.reset();
 }
 
 //------------------------------------------------------------------------------

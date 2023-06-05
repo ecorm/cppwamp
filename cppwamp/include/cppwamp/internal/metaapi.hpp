@@ -221,9 +221,9 @@ private:
             return Error{WampErrc::noSuchSession};
 
         auto reason = parseReason(rpc);
-        bool killed = context_.doKillSession(sid, std::move(reason));
+        auto killed = context_.doKillSession(sid, std::move(reason));
         if (!killed)
-            return Error{WampErrc::noSuchSession};
+            return Error{killed.error()};
         return Result{};
     }
 
