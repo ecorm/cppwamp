@@ -530,7 +530,7 @@ public:
             }
 
             publish(Pub{"wamp.registration.on_register"}
-                        .withArgs(sid, toObject(r)));
+                        .withArgs(sid, r.info.id));
         }
 
         if (!observers_.empty())
@@ -597,7 +597,7 @@ public:
             }
 
             publish(Pub{"wamp.subscription.on_subscribe"}
-                        .withArgs(sid, toObject(sub)));
+                        .withArgs(sid, sub.info.id));
         }
 
         if (!observers_.empty())

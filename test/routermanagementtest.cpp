@@ -115,11 +115,29 @@ void checkSessionDetails(const SessionDetails& s, const Welcome& w,
                          const Uri& realmUri)
 {
     CHECK(s.authInfo.realmUri()  == realmUri);
-    CHECK(s.authInfo.sessionId() == w.sessionId());
     CHECK(s.authInfo.id()        == w.authId());
     CHECK(s.authInfo.role()      == w.authRole());
     CHECK(s.authInfo.method()    == w.authMethod());
     CHECK(s.authInfo.provider()  == w.authProvider());
+    CHECK(s.authInfo.sessionId() == w.sessionId());
+    CHECK(s.features.supports(ClientFeatures::provided()));
+}
+
+//------------------------------------------------------------------------------
+void checkRegistrationInfo(
+    const RegistrationInfo& r,
+    const Uri& uri,
+    std::chrono::system_clock::time_point when,
+    RegistrationId rid,
+    SessionId sid)
+{
+    std::chrono::seconds margin(60);
+    CHECK(r.uri == uri);
+    CHECK(r.created > (when - margin));
+    CHECK(r.created < (when + margin));
+    CHECK(r.id == rid);
+    CHECK(r.matchPolicy == MatchPolicy::exact);
+    CHECK(r.invocationPolicy == InvocationPolicy::single);
 }
 
 //------------------------------------------------------------------------------
@@ -280,6 +298,7 @@ TEST_CASE( "Router realm session events", "[WAMP][Router]" )
 
     IoContext ioctx;
     Session s{ioctx};
+    Welcome welcome;
 
     auto observer = TestRealmObserver::create();
     auto realm = theRouter.realmAt(testRealm).value();
@@ -287,37 +306,30 @@ TEST_CASE( "Router realm session events", "[WAMP][Router]" )
 
     spawn(ioctx, [&](YieldContext yield)
     {
-        s.connect(withTcp, yield).value();
-        auto welcome = s.join(Petition(testRealm), yield).value();
+        {
+            INFO("Session joining");
+            s.connect(withTcp, yield).value();
+            welcome = s.join(Petition(testRealm), yield).value();
 
-        while (observer->joinEvents.empty())
-            suspendCoro(yield);
+            while (observer->joinEvents.empty())
+                suspendCoro(yield);
+            REQUIRE(observer->joinEvents.size() == 1);
+            const auto& joined = observer->joinEvents.front();
+            checkSessionDetails(joined, welcome, realm.uri());
+        }
 
-        REQUIRE(observer->joinEvents.size() == 1);
-        const auto& joined = observer->joinEvents.front();
-        CHECK(joined.authInfo.realmUri()  == testRealm);
-        CHECK(joined.authInfo.id()        == welcome.authId());
-        CHECK(joined.authInfo.method()    == welcome.authMethod());
-        CHECK(joined.authInfo.provider()  == welcome.authProvider());
-        CHECK(joined.authInfo.role()      == welcome.authRole());
-        CHECK(joined.authInfo.sessionId() == welcome.sessionId());
-        CHECK(joined.features.supports(ClientFeatures::provided()));
+        {
+            INFO("Session leavinging");
+            s.leave(yield).value();
 
-        s.leave(yield).value();
+            while (observer->leaveEvents.empty())
+                suspendCoro(yield);
+            REQUIRE(observer->leaveEvents.size() == 1);
+            const auto& left = observer->leaveEvents.front();
+            checkSessionDetails(left, welcome, realm.uri());
+        }
 
-        while (observer->leaveEvents.empty())
-            suspendCoro(yield);
-
-        REQUIRE(observer->leaveEvents.size() == 1);
-        const auto& left = observer->leaveEvents.front();
-        CHECK(left.authInfo.realmUri()  == testRealm);
-        CHECK(left.authInfo.id()        == welcome.authId());
-        CHECK(left.authInfo.method()    == welcome.authMethod());
-        CHECK(left.authInfo.provider()  == welcome.authProvider());
-        CHECK(left.authInfo.role()      == welcome.authRole());
-        CHECK(left.authInfo.sessionId() == welcome.sessionId());
-        CHECK(left.features.supports(ClientFeatures::provided()));
-
+        // TODO: Multiple observers
         // TODO: RealmObserver::detach
 
         s.disconnect();
@@ -461,5 +473,68 @@ TEST_CASE( "Killing router sessions", "[WAMP][Router]" )
 
     ioctx.run();
 }
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Router realm registration events", "[WAMP][Router]" )
+{
+    if (!test::RouterFixture::enabled())
+        return;
+
+    auto& theRouter = test::RouterFixture::instance().router();
+    RouterLogLevelGuard logLevelGuard{theRouter.logLevel()};
+    theRouter.setLogLevel(LogLevel::off);
+
+    IoContext ioctx;
+    Session s{ioctx};
+
+    auto observer = TestRealmObserver::create();
+    auto realm = theRouter.realmAt(testRealm).value();
+    realm.observe(observer, ioctx.get_executor());
+
+    spawn(ioctx, [&](YieldContext yield)
+    {
+        s.connect(withTcp, yield).value();
+        auto welcome = s.join(Petition(testRealm), yield).value();
+        std::chrono::system_clock::time_point when;
+        Registration reg;
+
+        {
+            INFO("Registration");
+            reg = s.enroll(Procedure{"foo"},
+                                [](Invocation) -> Outcome {return {};},
+                                yield).value();
+            when = std::chrono::system_clock::now();
+
+            while (observer->registerEvents.empty())
+                suspendCoro(yield);
+            REQUIRE(observer->registerEvents.size() == 1);
+            const auto& ev = observer->registerEvents.front();
+            checkSessionDetails(ev.first, welcome, testRealm);
+            checkRegistrationInfo(ev.second.info, "foo", when, reg.id(),
+                                  welcome.sessionId());
+            std::vector<SessionId> expectedSessionIds{welcome.sessionId()};
+            CHECK_THAT(ev.second.callees, Matchers::Equals(expectedSessionIds));
+        }
+
+        {
+            INFO("Unregistration");
+            s.unregister(reg, yield).value();
+
+            while (observer->unregisterEvents.empty())
+                suspendCoro(yield);
+            REQUIRE(observer->unregisterEvents.size() == 1);
+            const auto& ev = observer->unregisterEvents.front();
+            checkSessionDetails(ev.first, welcome, testRealm);
+            checkRegistrationInfo(ev.second.info, "foo", when, reg.id(),
+                                  welcome.sessionId());
+            CHECK(ev.second.callees.empty());
+        }
+
+        s.disconnect();
+    });
+
+    ioctx.run();
+}
+
 
 #endif // defined(CPPWAMP_TEST_HAS_CORO)
