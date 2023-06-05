@@ -561,7 +561,7 @@ public:
         }
         }
 
-        if (metaTopics_->enabled())
+        if (metaTopics_->enabled() && !isMetaTopic(sub->topic().uri()) )
             metaTopics_->onSubscribe(subscriber->details(), sub->details());
 
         return sub->subscriptionId();
@@ -723,6 +723,11 @@ public:
 
 private:
     using Policy = MatchPolicy;
+
+    static bool isMetaTopic(const Uri& uri)
+    {
+        return uri.rfind("wamp.", 0) == 0;
+    }
 
     void eraseTopic(const MatchUri& topic, BrokerSubscriptionMap::iterator iter)
     {
