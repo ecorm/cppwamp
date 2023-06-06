@@ -22,6 +22,10 @@ CPPWAMP_INLINE Subscription::operator bool() const {return !slot_.expired();}
 
 CPPWAMP_INLINE SubscriptionId Subscription::id() const {return subId_;}
 
+/** The associated event slot is immediately disabled within the execution
+    context where `unsubscribe` is called. In multithreaded use, it's possible
+    for the slot to be concurrently executing while `unsubscribe` is called if
+    both are not serialized by a common strand. */
 CPPWAMP_INLINE void Subscription::unsubscribe()
 {
     auto slot = slot_.lock();

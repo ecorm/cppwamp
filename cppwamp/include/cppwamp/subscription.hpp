@@ -22,8 +22,6 @@
 namespace wamp
 {
 
-// TODO: Try to eliminate race between unsubscribe and handler execution
-
 //------------------------------------------------------------------------------
 /** Represents a pub/sub event subscription.
 
@@ -32,7 +30,7 @@ namespace wamp
 
     It is always safe to unsubscribe via a Subscription object. If the Session
     or the subscription no longer exists, an unsubscribe operation effectively
-    does nothing.
+    does nothing. Duplicate unsubscribes are safely ignored.
 
     @see ScopedSubscription */
 //------------------------------------------------------------------------------

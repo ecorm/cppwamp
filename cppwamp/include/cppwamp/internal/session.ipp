@@ -114,20 +114,13 @@ CPPWAMP_INLINE void Session::terminate()
 
 //------------------------------------------------------------------------------
 /** @details
-    This function can be safely called during any session state. If the
-    subscription is no longer applicable, then this operation will
-    effectively do nothing.
-    @see Subscription, ScopedSubscription
-    @note Duplicate unsubscribes using the same Subscription object
-          are safely ignored.
-    @pre `bool(sub) == true`
-    @throws error::Logic if the given subscription is empty */
+    Equivalent to Subscription::unsubscribe.
+    @see Subscription, ScopedSubscription */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::unsubscribe(
     Subscription sub /**< The subscription to unsubscribe from. */
 )
 {
-    CPPWAMP_LOGIC_CHECK(bool(sub), "The subscription is empty");
     sub.unsubscribe();
 }
 
