@@ -8,6 +8,7 @@
 #define CPPWAMP_INTERNAL_CLIENTCONTEXT_HPP
 
 #include <memory>
+#include <utility>
 #include "../erroror.hpp"
 #include "../wampdefs.hpp"
 
@@ -21,19 +22,31 @@ class Error;
 class Reason;
 class Registration;
 class Result;
-class Subscription;
 
 namespace internal
 {
 
 //------------------------------------------------------------------------------
+struct EventSlotTag {};
+
+//------------------------------------------------------------------------------
+struct CallSlotTag {};
+
+//------------------------------------------------------------------------------
 class ClientLike
 {
 public:
-    virtual void unsubscribe(const Subscription& s) = 0;
+    using SlotId = uint64_t;
+    using EventSlotKey = std::pair<SubscriptionId, SlotId>;
+    using CallSlotKey = SlotId;
+
+    virtual void removeSlot(EventSlotTag, EventSlotKey key) = 0;
+
+    virtual void removeSlot(CallSlotTag, CallSlotKey key) = 0;
 
     virtual void onEventError(Error&& e, SubscriptionId s) = 0;
 
+    // TODO: Remove
     virtual void unregister(const Registration& r) = 0;
 
     virtual void yieldResult(Result&& result, RequestId reqId,
@@ -60,6 +73,10 @@ public:
 class ClientContext
 {
 public:
+    using SlotId = ClientLike::SlotId;
+    using EventSlotKey = std::pair<SubscriptionId, SlotId>;
+    using CallSlotKey = SlotId;
+
     ClientContext() {}
 
     ClientContext(const std::shared_ptr<ClientLike>& client)
@@ -70,11 +87,12 @@ public:
 
     void reset() {client_ = {};}
 
-    void unsubscribe(const Subscription& s)
+    template <typename TSlotTag>
+    void removeSlot(TSlotTag, EventSlotKey key)
     {
         auto c = client_.lock();
         if (c)
-            c->unsubscribe(s);
+            c->removeSlot(TSlotTag{}, key);
     }
 
     void onEventError(Error&& e, SubscriptionId s)

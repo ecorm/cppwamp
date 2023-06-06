@@ -19,6 +19,8 @@
 #include "internal/clientcontext.hpp"
 #include "internal/passkey.hpp"
 
+// TODO: Fix race between unregistration and handler execution
+
 namespace wamp
 {
 

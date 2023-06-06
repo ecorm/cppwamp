@@ -677,11 +677,9 @@ struct Session::UnsubscribeOp
     @returns `true` if the subscription was found.
     @note Duplicate unsubscribes using the same Subscription handle
           are safely ignored.
-    @pre `!!sub == true`
     @par Notable Error Codes
         - WampErrc::noSuchSubscription if the router reports that there was
-          no such subscription.
-    @throws error::Logic if the given subscription is empty */
+          no such subscription. */
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
@@ -694,7 +692,6 @@ Session::unsubscribe(
     C&& completion    ///< Completion handler or token.
     )
 {
-    CPPWAMP_LOGIC_CHECK(bool(sub), "The subscription is empty");
     return initiate<UnsubscribeOp>(std::forward<C>(completion), sub);
 }
 

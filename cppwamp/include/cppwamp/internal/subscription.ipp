@@ -15,69 +15,37 @@ namespace wamp
  * Subscription
 *******************************************************************************/
 
-/** @post `!!(*this) == false` */
+/** @post `bool(*this) == false` */
 CPPWAMP_INLINE Subscription::Subscription() {}
 
-CPPWAMP_INLINE Subscription::Subscription(const Subscription& other)
-    : subscriber_(other.subscriber_),
-      subId_(other.subId_),
-      slotId_(other.slotId_)
-{}
-
-/** @post `!other == true` */
-CPPWAMP_INLINE Subscription::Subscription(Subscription&& other) noexcept
-    : subscriber_(other.subscriber_),
-      subId_(other.subId_),
-      slotId_(other.slotId_)
-{
-    other.subscriber_.reset();
-    other.subId_ = invalidId_;
-    other.slotId_ = invalidId_;
-}
-
-CPPWAMP_INLINE Subscription::operator bool() const
-{
-    return subId_ != invalidId_;
-}
+CPPWAMP_INLINE Subscription::operator bool() const {return !slot_.expired();}
 
 CPPWAMP_INLINE SubscriptionId Subscription::id() const {return subId_;}
 
-CPPWAMP_INLINE Subscription& Subscription::operator=(const Subscription& other)
-{
-    subscriber_ = other.subscriber_;
-    subId_ = other.subId_;
-    slotId_ = other.slotId_;
-    return *this;
-}
-
-/** @post `!other == true` */
-CPPWAMP_INLINE Subscription&
-Subscription::operator=(Subscription&& other) noexcept
-{
-    subscriber_ = other.subscriber_;
-    subId_ = other.subId_;
-    slotId_ = other.slotId_;
-    other.subscriber_.reset();
-    other.subId_ = invalidId_;
-    other.slotId_ = invalidId_;
-    return *this;
-}
-
 CPPWAMP_INLINE void Subscription::unsubscribe()
 {
-    subscriber_.unsubscribe(*this);
+    auto slot = slot_.lock();
+    if (slot)
+        slot->remove();
 }
 
-CPPWAMP_INLINE Subscription::Subscription(internal::PassKey, Context subscriber,
-                                          SubscriptionId subId,
-    SlotId slotId)
-    : subscriber_(subscriber),
-      subId_(subId),
-      slotId_(slotId)
+CPPWAMP_INLINE Subscription::Subscription(internal::PassKey, TrackedSlotPtr p)
+    : slot_(p),
+      subId_(p->key().first)
 {}
 
-CPPWAMP_INLINE Subscription::SlotId
-Subscription::slotId(internal::PassKey) const {return slotId_;}
+CPPWAMP_INLINE Subscription::Key Subscription::key(internal::PassKey) const
+{
+    auto slot = slot_.lock();
+    return slot ? slot->key() : Key{};
+}
+
+CPPWAMP_INLINE void Subscription::disarm(internal::PassKey)
+{
+    auto slot = slot_.lock();
+    if (slot)
+        slot->disarm();
+}
 
 
 /*******************************************************************************

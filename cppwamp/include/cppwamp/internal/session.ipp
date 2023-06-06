@@ -128,7 +128,7 @@ CPPWAMP_INLINE void Session::unsubscribe(
 )
 {
     CPPWAMP_LOGIC_CHECK(bool(sub), "The subscription is empty");
-    impl_->unsubscribe(sub);
+    sub.unsubscribe();
 }
 
 //------------------------------------------------------------------------------

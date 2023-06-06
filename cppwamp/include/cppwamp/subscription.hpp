@@ -16,11 +16,13 @@
 #include <string>
 #include "api.hpp"
 #include "wampdefs.hpp"
-#include "internal/clientcontext.hpp"
 #include "internal/passkey.hpp"
+#include "internal/trackedslot.hpp"
 
 namespace wamp
 {
+
+// TODO: Try to eliminate race between unsubscribe and handler execution
 
 //------------------------------------------------------------------------------
 /** Represents a pub/sub event subscription.
@@ -40,42 +42,28 @@ public:
     /** Constructs an empty subscription */
     Subscription();
 
-    /** Copy constructor. */
-    Subscription(const Subscription& other);
-
-    /** Move constructor. */
-    Subscription(Subscription&& other) noexcept;
-
     /** Returns false if the subscription is empty. */
     explicit operator bool() const;
 
     /** Obtains the ID number of this subscription. */
     SubscriptionId id() const;
 
-    /** Copy assignment. */
-    Subscription& operator=(const Subscription& other);
-
-    /** Move assignment. */
-    Subscription& operator=(Subscription&& other) noexcept;
-
     /** Unsubscribes from the topic. */
     void unsubscribe();
 
 private:
-    using Context = internal::ClientContext;
-    using SlotId = uint64_t;
+    using TrackedSlotPtr = internal::TrackedEventSlot::Ptr;
+    using TrackedSlotWeakPtr = internal::TrackedEventSlot::WeakPtr;
+    using Key = internal::TrackedEventSlot::Key;
 
-    static constexpr SubscriptionId invalidId_ = 0;
-
-    Context subscriber_;
-    SubscriptionId subId_ = invalidId_;
-    SlotId slotId_ = invalidId_;
+    TrackedSlotWeakPtr slot_;
+    SubscriptionId subId_;
 
 public:
     // Internal use only
-    Subscription(internal::PassKey, Context subscriber,
-                 SubscriptionId subId, SlotId slotId);
-    SlotId slotId(internal::PassKey) const;
+    Subscription(internal::PassKey, TrackedSlotPtr p);
+    Key key(internal::PassKey) const;
+    void disarm(internal::PassKey);
 };
 
 

@@ -41,6 +41,7 @@
 #include "streamchannel.hpp"
 #include "peer.hpp"
 #include "timeoutscheduler.hpp"
+#include "trackedslot.hpp"
 
 namespace wamp
 {
@@ -455,11 +456,12 @@ private:
 class Readership
 {
 public:
+    using EventSlotKey = ClientLike::EventSlotKey;
     using EventSlot = AnyReusableHandler<void (Event)>;
 
     Readership(AnyIoExecutor exec) : executor_(std::move(exec)) {}
 
-    Subscription subscribe(MatchUri topic, EventSlot& slot,
+    Subscription subscribe(MatchUri topic, EventSlot& handler,
                            ClientContext subscriber)
     {
         assert(topic.policy() != MatchPolicy::unknown);
@@ -467,46 +469,50 @@ public:
         if (kv == byTopic_.end())
             return {};
 
-        return addSlotToExisingSubscription(kv->second, std::move(slot),
+        return addSlotToExisingSubscription(kv->second, std::move(handler),
                                             std::move(subscriber));
     }
 
     Subscription onSubscribed(SubscriptionId subId, MatchUri topic,
-                              EventSlot&& slot, ClientContext subscriber)
+                              EventSlot&& handler, ClientContext subscriber)
     {
         // Check if the router treats the topic as belonging to an existing
         // subcription.
         auto kv = subscriptions_.find(subId);
         if (kv != subscriptions_.end())
         {
-            return addSlotToExisingSubscription(kv, std::move(slot),
+            return addSlotToExisingSubscription(kv, std::move(handler),
                                                 std::move(subscriber));
         }
 
         auto slotId = nextSlotId();
+        auto trackedSlot = TrackedSlotType::create({subId, slotId},
+                                                   std::move(handler), subscriber);
         auto emplaced =
             subscriptions_.emplace(
                 std::piecewise_construct,
                 std::forward_as_tuple(subId),
-                std::forward_as_tuple(topic, slotId, std::move(slot)));
+                std::forward_as_tuple(topic, slotId, trackedSlot));
         assert(emplaced.second);
 
         auto emplaced2 = byTopic_.emplace(std::move(topic), emplaced.first);
         assert(emplaced2.second);
 
-        return Subscription({}, subscriber, subId, slotId);
+        return Subscription({}, std::move(trackedSlot));
     }
 
     // Returns true if the last local slot was removed from a subscription
     // and the client needs to send an UNSUBSCRIBE message.
-    bool unsubscribe(const Subscription& sub)
+    bool unsubscribe(EventSlotKey key)
     {
-        auto kv = subscriptions_.find(sub.id());
+        auto subId = key.first;
+        auto kv = subscriptions_.find(subId);
         if (kv == subscriptions_.end())
             return false;
 
+        auto slotId = key.second;
         auto& record = kv->second;
-        record.slots.erase(sub.slotId({}));
+        record.slots.erase(slotId);
         if (!record.slots.empty())
             return false;
 
@@ -527,7 +533,7 @@ public:
         for (const auto& kv: record.slots)
         {
             const auto& slot = kv.second;
-            postEvent(slot, event, subscriber, executor_);
+            postEvent(slot, event, subscriber);
         }
         return true;
     }
@@ -549,17 +555,20 @@ public:
     }
 
 private:
-    using SlotId = uint64_t;
+    using SlotId = ClientLike::SlotId;
+
+    using TrackedSlotType = TrackedSlot<EventSlotTag, EventSlotKey,
+                                        void (Event)>;
 
     struct Record
     {
-        Record(MatchUri topic, SlotId slotId, EventSlot&& slot)
+        Record(MatchUri topic, SlotId slotId, TrackedSlotType::Ptr trackedSlot)
             : topic(std::move(topic))
         {
-            slots.emplace(slotId, std::move(slot));
+            slots.emplace(slotId, std::move(trackedSlot));
         }
 
-        std::map<SlotId, EventSlot> slots;
+        std::map<SlotId, TrackedSlotType::Ptr> slots;
         MatchUri topic;
     };
 
@@ -567,31 +576,32 @@ private:
     using ByTopic = std::map<MatchUri, SubscriptionMap::iterator>;
 
     Subscription addSlotToExisingSubscription(SubscriptionMap::iterator iter,
-                                              EventSlot&& slot,
+                                              EventSlot&& handler,
                                               ClientContext&& subscriber)
     {
         auto subId = iter->first;
         auto& record = iter->second;
         auto slotId = nextSlotId();
-        auto emplaced = record.slots.emplace(slotId, std::move(slot));
+        auto slot = TrackedSlotType::create({subId, slotId},
+                                            std::move(handler), subscriber);
+        auto emplaced = record.slots.emplace(slotId, slot);
         assert(emplaced.second);
-        return Subscription{{}, std::move(subscriber), subId, slotId};
+        return Subscription{{}, std::move(slot)};
     }
 
-    void postEvent(const EventSlot& slot, Event event, ClientContext subscriber,
-                   AnyIoExecutor& exec)
+    void postEvent(TrackedSlotType::Ptr slot, Event event,
+                   ClientContext subscriber)
     {
         struct Posted
         {
             ClientContext subscriber;
             Event event;
-            EventSlot slot;
+            TrackedSlotType::Ptr slot;
 
             void operator()()
             {
-                // Copy the subscription and publication IDs before the Event
-                // object gets moved away.
-                auto subId = event.subscriptionId();
+                // Copy the publication ID before the Event object
+                // gets moved away.
                 auto pubId = event.publicationId();
 
                 // The catch clauses are to prevent the publisher crashing
@@ -599,10 +609,12 @@ private:
                 try
                 {
                     assert(event.ready());
-                    slot(std::move(event));
+                    if (slot->armed())
+                        slot->invoke(std::move(event));
                 }
                 catch (Error& error)
                 {
+                    auto subId = slot->key().first;
                     error["subscriptionId"] = subId;
                     error["publicationId"] = pubId;
                     subscriber.onEventError(std::move(error), subId);
@@ -610,6 +622,7 @@ private:
                 catch (const error::BadType& e)
                 {
                     Error error(e);
+                    auto subId = slot->key().first;
                     error["subscriptionId"] = subId;
                     error["publicationId"] = pubId;
                     subscriber.onEventError(std::move(error), subId);
@@ -617,11 +630,11 @@ private:
             }
         };
 
-        auto slotExec = boost::asio::get_associated_executor(slot);
+        auto slotExec = slot->executor();
         event.setExecutor({}, slotExec);
-        Posted posted{subscriber, std::move(event), slot};
+        Posted posted{subscriber, std::move(event), std::move(slot)};
         boost::asio::post(
-            exec,
+            executor_,
             boost::asio::bind_executor(slotExec, std::move(posted)));
     }
 
@@ -1225,19 +1238,7 @@ public:
         safelyDispatch<Dispatched>(std::move(t), std::move(s), std::move(f));
     }
 
-    void unsubscribe(const Subscription& s) override
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Subscription s;
-            void operator()() {self->doUnsubscribe(s);}
-        };
-
-        safelyDispatch<Dispatched>(s);
-    }
-
-    void unsubscribe(const Subscription& s, CompletionHandler<bool>&& f)
+    void unsubscribe(Subscription s, CompletionHandler<bool>&& f)
     {
         struct Dispatched
         {
@@ -1247,7 +1248,8 @@ public:
             void operator()() {self->doUnsubscribe(s, std::move(f));}
         };
 
-        safelyDispatch<Dispatched>(s, std::move(f));
+        s.disarm({});
+        safelyDispatch<Dispatched>(std::move(s), std::move(f));
     }
 
     void publish(Pub&& p)
@@ -1406,6 +1408,23 @@ private:
           requestor_(*peer_, strand_, executor_, userExecutor_)
     {
         peer_->listen(this);
+    }
+
+    void removeSlot(EventSlotTag, EventSlotKey key) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            EventSlotKey key;
+            void operator()() {self->doRemoveSlot(key);}
+        };
+
+        safelyDispatch<Dispatched>(key);
+    }
+
+    void removeSlot(CallSlotTag, SlotId slotId) override
+    {
+        // TODO
     }
 
     void onPeerDisconnect() override
@@ -1877,19 +1896,18 @@ private:
         request(std::move(topic), std::move(requested));
     }
 
-    void doUnsubscribe(const Subscription& sub)
+    void doRemoveSlot(EventSlotKey key)
     {
-        if (readership_.unsubscribe(sub))
-            sendUnsubscribe(sub.id());
+        if (readership_.unsubscribe(key))
+            sendUnsubscribe(key.first);
     }
 
     void doUnsubscribe(const Subscription& sub,
                        CompletionHandler<bool>&& handler)
     {
-        if (readership_.unsubscribe(sub))
-            sendUnsubscribe(sub.id(), std::move(handler));
-        else
-            complete(handler, false);
+        if (!sub || !readership_.unsubscribe(sub.key({})))
+            return complete(handler, false);
+        sendUnsubscribe(sub.id(), std::move(handler));
     }
 
     void onEventError(Error&& error, SubscriptionId subId) override

@@ -109,6 +109,7 @@ set(HEADERS
     include/cppwamp/internal/timeformatting.hpp
     include/cppwamp/internal/timeoutscheduler.hpp
     include/cppwamp/internal/tokentriemapimpl.hpp
+    include/cppwamp/internal/trackedslot.hpp
     include/cppwamp/internal/udsacceptor.hpp
     include/cppwamp/internal/udsopener.hpp
     include/cppwamp/internal/variantdecoding.hpp
