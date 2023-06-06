@@ -12,10 +12,11 @@
     @brief Provides facilities for obtaining realm information. */
 //------------------------------------------------------------------------------
 
+#include <atomic>
 #include <chrono>
-#include <functional>
 #include <memory>
 #include <mutex>
+#include "anyhandler.hpp"
 #include "api.hpp"
 #include "authinfo.hpp"
 #include "features.hpp"
@@ -169,6 +170,7 @@ struct CPPWAMP_API SubscriptionLists
 
 CPPWAMP_API Object toObject(const SubscriptionLists& lists);
 
+namespace internal {class MetaTopics;}
 
 //------------------------------------------------------------------------------
 class CPPWAMP_API RealmObserver
@@ -182,7 +184,9 @@ public:
 
     virtual ~RealmObserver();
 
-    bool attached() const;
+    bool isAttached() const;
+
+    void bindExecutor(AnyCompletionExecutor e);
 
     void detach();
 
@@ -200,14 +204,44 @@ public:
 
     virtual void onUnsubscribe(SessionDetails, SubscriptionDetails);
 
+protected:
+    RealmObserver();
+
+    explicit RealmObserver(AnyCompletionExecutor e);
+
 private:
-    using Detacher = std::function<void ()>;
+    using ObserverId = uint64_t;
+    using SubjectPtr = std::weak_ptr<RealmObserver>;
+    using FallbackExecutor = AnyCompletionExecutor;
 
-    std::function<void ()> detacher_;
-    std::mutex detacherMutex_;
+    virtual void onDetach(ObserverId oid);
 
-public: // Internal use only
-    void attach(internal::PassKey, Detacher f);
+    void attach(SubjectPtr d, ObserverId oid, const FallbackExecutor& e);
+
+    template <typename E, typename F>
+    void notify(E&& executionContext, F&& notifier)
+    {
+        if (!isAttached())
+            return;
+
+        AnyCompletionExecutor e;
+        {
+            std::lock_guard<std::mutex> guard{mutex_};
+            e = executor_;
+        }
+        assert(e != nullptr);
+
+        boost::asio::post(
+            executionContext,
+            boost::asio::bind_executor(e, std::forward<F>(notifier)));
+    }
+
+    std::mutex mutex_;
+    AnyCompletionExecutor executor_;
+    SubjectPtr subject_;
+    std::atomic<ObserverId> observerId_;
+
+    friend class internal::MetaTopics;
 };
 
 } // namespace wamp

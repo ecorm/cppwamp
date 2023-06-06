@@ -51,13 +51,6 @@ CPPWAMP_INLINE void Realm::observe(RealmObserver::Ptr o)
     impl_->observe(std::move(o), fallbackExecutor_);
 }
 
-CPPWAMP_INLINE void Realm::observe(RealmObserver::Ptr o,
-                                   AnyCompletionExecutor e)
-{
-    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
-    impl_->observe(std::move(o), std::move(e));
-}
-
 CPPWAMP_INLINE Realm::Realm(std::shared_ptr<internal::RouterRealm> impl,
                             FallbackExecutor fe)
     : fallbackExecutor_(std::move(fe)),

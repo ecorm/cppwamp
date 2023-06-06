@@ -41,7 +41,7 @@ public:
     using Ptr                 = std::shared_ptr<RouterRealm>;
     using WeakPtr             = std::weak_ptr<RouterRealm>;
     using Executor            = AnyIoExecutor;
-    using ObserverExecutor    = AnyCompletionExecutor;
+    using FallbackExecutor    = AnyCompletionExecutor;
     using ObserverId          = MetaTopics::ObserverId;
     using SessionHandler      = std::function<void (SessionDetails)>;
     using SessionFilter       = std::function<bool (SessionDetails)>;
@@ -115,13 +115,13 @@ public:
         safelyDispatch<Dispatched>(std::move(r));
     }
 
-    void observe(RealmObserver::Ptr o, ObserverExecutor e)
+    void observe(RealmObserver::Ptr o, FallbackExecutor e)
     {
         struct Dispatched
         {
             Ptr self;
             RealmObserver::Ptr o;
-            ObserverExecutor e;
+            FallbackExecutor e;
 
             void operator()()
             {
@@ -130,22 +130,6 @@ public:
         };
 
         safelyDispatch<Dispatched>(std::move(o), std::move(e));
-    }
-
-    void unobserve(ObserverId observerId)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            ObserverId oid;
-
-            void operator()()
-            {
-                self->metaTopics_->removeObserver(oid);
-            }
-        };
-
-        safelyDispatch<Dispatched>(observerId);
     }
 
     void countSessions(SessionFilter f, CompletionHandler<std::size_t> h)

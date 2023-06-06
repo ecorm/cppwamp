@@ -277,13 +277,14 @@ TEST_CASE( "Router realm management", "[WAMP][Router]" )
             CHECK(realm.isOpen());
             CHECK(realm.uri() == uri);
 
-            auto found = theRouter.realmAt(uri);
+            auto found = theRouter.realmAt(uri, ioctx.get_executor());
             REQUIRE(found.has_value());
             CHECK(found->isOpen());
             CHECK(found->uri() == uri);
+            CHECK(found->fallbackExecutor() == ioctx.get_executor());
 
             auto observer = TestRealmObserver::create();
-            realm.observe(observer, ioctx.get_executor());
+            realm.observe(observer);
 
             bool closed = theRouter.closeRealm(uri);
             CHECK(closed);
@@ -319,8 +320,9 @@ TEST_CASE( "Router realm session events", "[WAMP][Router]" )
     Welcome welcome;
 
     auto observer = TestRealmObserver::create();
-    auto realm = theRouter.realmAt(testRealm).value();
-    realm.observe(observer, ioctx.get_executor());
+    auto realm = theRouter.realmAt(testRealm, ioctx.get_executor()).value();
+    REQUIRE(realm.fallbackExecutor() == ioctx.get_executor());
+    realm.observe(observer);
 
     spawn(ioctx, [&](YieldContext yield)
     {
@@ -371,7 +373,8 @@ TEST_CASE( "Router realm session queries", "[WAMP][Router]" )
 
     spawn(ioctx, [&](YieldContext yield)
     {
-        auto realm = theRouter.realmAt(testRealm).value();
+        auto realm = theRouter.realmAt(testRealm, ioctx.get_executor()).value();
+        REQUIRE(realm.fallbackExecutor() == ioctx.get_executor());
 
         checkRealmSessions("No sessions joined yet", realm, {}, yield);
 
@@ -421,7 +424,8 @@ TEST_CASE( "Killing router sessions", "[WAMP][Router]" )
         auto any = [](SessionDetails) {return true;};
         auto none = [](SessionDetails) {return false;};
 
-        auto realm = theRouter.realmAt(testRealm).value();
+        auto realm = theRouter.realmAt(testRealm, ioctx.get_executor()).value();
+        REQUIRE(realm.fallbackExecutor() == ioctx.get_executor());
         auto observer = TestRealmObserver::create();
         realm.observe(observer);
 
@@ -506,8 +510,9 @@ TEST_CASE( "Router realm registration events", "[WAMP][Router]" )
     Session s{ioctx};
 
     auto observer = TestRealmObserver::create();
-    auto realm = theRouter.realmAt(testRealm).value();
-    realm.observe(observer, ioctx.get_executor());
+    auto realm = theRouter.realmAt(testRealm, ioctx.get_executor()).value();
+    REQUIRE(realm.fallbackExecutor() == ioctx.get_executor());
+    realm.observe(observer);
 
     spawn(ioctx, [&](YieldContext yield)
     {
@@ -565,8 +570,9 @@ TEST_CASE( "Router realm subscription events", "[WAMP][Router]" )
     Session s2{ioctx};
 
     auto observer = TestRealmObserver::create();
-    auto realm = theRouter.realmAt(testRealm).value();
-    realm.observe(observer, ioctx.get_executor());
+    auto realm = theRouter.realmAt(testRealm, ioctx.get_executor()).value();
+    REQUIRE(realm.fallbackExecutor() == ioctx.get_executor());
+    realm.observe(observer);
 
     spawn(ioctx, [&](YieldContext yield)
     {
@@ -640,5 +646,7 @@ TEST_CASE( "Router realm subscription events", "[WAMP][Router]" )
 
     ioctx.run();
 }
+
+// TODO: Leaving realm should fire unregister/unsubscribe meta-events
 
 #endif // defined(CPPWAMP_TEST_HAS_CORO)

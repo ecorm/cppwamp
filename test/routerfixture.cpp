@@ -125,7 +125,6 @@ private:
             router_.openServer(tcpTicketConfig());
             router_.openServer(udsConfig());
             ioctx_.run();
-            while (false) {};
         }
         catch (const std::exception& e)
         {

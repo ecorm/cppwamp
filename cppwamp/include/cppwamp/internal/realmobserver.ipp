@@ -217,34 +217,28 @@ CPPWAMP_INLINE Object toObject(const SubscriptionLists& lists)
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE RealmObserver::~RealmObserver()
 {
-    if (detacher_)
-    {
-        detacher_();
-        detacher_ = nullptr;
-    }
+    detach();
 }
 
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE bool RealmObserver::attached() const
+CPPWAMP_INLINE bool RealmObserver::isAttached() const
 {
-    auto& mutex = const_cast<std::mutex&>(detacherMutex_);
-    std::lock_guard<std::mutex> guard(mutex);
-    return detacher_ != nullptr;
+    return observerId_.load() != 0;
 }
 
-//------------------------------------------------------------------------------
+CPPWAMP_INLINE void RealmObserver::bindExecutor(AnyCompletionExecutor e)
+{
+    std::lock_guard<std::mutex> guard(mutex_);
+    executor_ = std::move(e);
+}
+
 CPPWAMP_INLINE void RealmObserver::detach()
 {
-    Detacher detacher;
-
-    {
-        std::lock_guard<std::mutex> guard(detacherMutex_);
-        detacher = std::move(detacher_);
-        detacher_ = nullptr;
-    }
-
-    if (detacher)
-        detacher();
+    auto oid = observerId_.exchange(0);
+    if (oid == 0)
+        return;
+    auto subject = subject_.lock();
+    if (subject)
+        subject->onDetach(oid);
 }
 
 CPPWAMP_INLINE void RealmObserver::onRealmClosed(Uri) {}
@@ -265,10 +259,23 @@ CPPWAMP_INLINE void RealmObserver::onSubscribe(SessionDetails,
 CPPWAMP_INLINE void RealmObserver::onUnsubscribe(SessionDetails,
                                                  SubscriptionDetails) {}
 
-CPPWAMP_INLINE void RealmObserver::attach(internal::PassKey, Detacher f)
+CPPWAMP_INLINE RealmObserver::RealmObserver() : observerId_(0) {}
+
+CPPWAMP_INLINE RealmObserver::RealmObserver(AnyCompletionExecutor e)
+    : executor_(std::move(e)),
+      observerId_(0)
+{}
+
+CPPWAMP_INLINE void RealmObserver::onDetach(ObserverId oid) {}
+
+CPPWAMP_INLINE void RealmObserver::attach(SubjectPtr d, ObserverId oid,
+                                          const FallbackExecutor& e)
 {
-    std::lock_guard<std::mutex> guard(detacherMutex_);
-    detacher_ = std::move(f);
+    std::lock_guard<std::mutex> guard(mutex_);
+    subject_ = std::move(d);
+    observerId_.store(oid);
+    if (!executor_)
+        executor_ = std::move(e);
 }
 
 } // namespace wamp
