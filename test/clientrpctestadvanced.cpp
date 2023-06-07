@@ -999,7 +999,7 @@ GIVEN( "a caller and a callee" )
             ioctx,
             [&, channel](YieldContext yield) mutable
             {
-                // Never send the final chunk
+                // Don't send the final chunk
                 for (unsigned i=0; i<input.size()-1; ++i)
                 {
                     timer.expires_from_now(std::chrono::milliseconds(25));
@@ -1020,9 +1020,16 @@ GIVEN( "a caller and a callee" )
     auto onChunk = [&](CallerChannel channel, ErrorOr<CallerInputChunk> chunk)
     {
         INFO("for output.size()=" << output.size());
+        bool isPenultimate = output.size() == input.size() - 2;
+        if (isPenultimate && callerThrowArmed)
+        {
+            REQUIRE(chunk.has_value());
+            auto n = chunk->args().at(0).to<int>();
+            output.push_back(n);
+            throw Error{WampErrc::invalidArgument};
+        }
+
         bool isFinal = output.size() == input.size() - 1;
-        if (isFinal && callerThrowArmed)
-            throw Reason{WampErrc::invalidArgument};
         if (isFinal)
         {
             REQUIRE_FALSE(chunk.has_value());
@@ -1030,7 +1037,6 @@ GIVEN( "a caller and a callee" )
         }
         else
         {
-            REQUIRE(chunk.has_value());
             auto n = chunk->args().at(0).to<int>();
             output.push_back(n);
         }
@@ -1068,6 +1074,12 @@ GIVEN( "a caller and a callee" )
                 while (output.size() < input.size())
                     suspendCoro(yield);
                 CHECK( input == output );
+                if (callerThrowArmed)
+                {
+                    CHECK(channel.error().errorCode() ==
+                          WampErrc::invalidArgument);
+                }
+
                 output.clear();
                 interruptReceived = false;
             }

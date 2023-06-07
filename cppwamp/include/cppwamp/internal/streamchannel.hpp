@@ -139,7 +139,9 @@ public:
         state_.store(State::abandoned);
         if (!chunkSlot_ || finalChunkReceived_)
             return;
-        error_ = Error{unex.value()};
+        // Don't clobber previously set error
+        if (!error_)
+            error_ = Error{unex.value()};
         postToChunkHandler(unex);
     }
 
