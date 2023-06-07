@@ -593,7 +593,7 @@ private:
                 me.sessions_.erase(found);
                 me.metaTopics_->inhibitSession(sid);
                 me.broker_.removeSubscriber(session);
-                me.dealer_.removeSession(sid);
+                me.dealer_.removeSession(session);
                 if (me.metaTopics_->enabled())
                     me.metaTopics_->onLeave(session->details());
                 me.metaTopics_->clearSessionInhibitions();

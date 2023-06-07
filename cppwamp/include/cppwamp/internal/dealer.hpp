@@ -97,7 +97,7 @@ public:
         return emplaced.first->second;
     }
 
-    ErrorOr<Uri> erase(RouterSession::Ptr callee, Key key,
+    ErrorOr<Uri> erase(RouterSession& callee, Key key,
                        MetaTopics& metaTopics)
     {
         auto found = byKey_.find(key);
@@ -105,28 +105,20 @@ public:
             return makeUnexpectedError(WampErrc::noSuchRegistration);
 
         auto& registration = found->second;
-        if (registration.calleeId() != callee->wampId())
+        if (registration.calleeId() != callee.wampId())
             return makeUnexpectedError(WampErrc::noSuchRegistration);
 
         Uri uri{registration.procedureUri()};
 
         if (metaTopics.enabled())
         {
-            // Grab needed details from the registration before it is
-            // deleted from the map.
             registration.resetCallee();
-            auto details = registration.details();
-            auto erased = byUri_.erase(uri);
-            assert(erased == 1);
-            byKey_.erase(found);
-            metaTopics.onUnregister(callee->details(), std::move(details));
+            metaTopics.onUnregister(callee.details(), registration.details());
         }
-        else
-        {
-            auto erased = byUri_.erase(uri);
-            assert(erased == 1);
-            byKey_.erase(found);
-        }
+
+        auto erased = byUri_.erase(uri);
+        assert(erased == 1);
+        byKey_.erase(found);
 
         return uri;
     }
@@ -139,23 +131,32 @@ public:
         return found->second;
     }
 
-    void removeCallee(SessionId sessionId)
+    void removeCallee(RouterSession& callee, MetaTopics& metaTopics)
     {
+        auto sid = callee.wampId();
+
         auto iter1 = byUri_.begin();
         auto end1 = byUri_.end();
         while (iter1 != end1)
         {
-            if (iter1->second->calleeId() == sessionId)
+            const auto* reg = iter1->second;
+            if (reg->calleeId() == sid)
+            {
+                if (metaTopics.enabled())
+                    metaTopics.onUnregister(callee.details(), reg->details());
                 iter1 = byUri_.erase(iter1);
+            }
             else
+            {
                 ++iter1;
+            }
         }
 
         auto iter2 = byKey_.begin();
         auto end2 = byKey_.end();
         while (iter2 != end2)
         {
-            if (iter2->second.calleeId() == sessionId)
+            if (iter2->second.calleeId() == sid)
                 iter2 = byKey_.erase(iter2);
             else
                 ++iter2;
@@ -615,7 +616,7 @@ public:
         // Consensus on what to do with pending invocations upon unregister
         // appears to be to allow them to continue.
         // https://github.com/wamp-proto/wamp-proto/issues/283#issuecomment-429542748
-        return registry_.erase(std::move(callee), rid, *metaTopics_);
+        return registry_.erase(*callee, rid, *metaTopics_);
     }
 
     ErrorOrDone call(RouterSession::Ptr caller, Rpc& rpc)
@@ -721,10 +722,10 @@ public:
         jobs_.byCalleeErase(iter);
     }
 
-    void removeSession(SessionId sessionId)
+    void removeSession(RouterSession::Ptr session)
     {
-        registry_.removeCallee(sessionId);
-        jobs_.removeSession(sessionId);
+        registry_.removeCallee(*session, *metaTopics_);
+        jobs_.removeSession(session->wampId());
     }
 
     RegistrationLists listRegistrations() const
