@@ -224,16 +224,23 @@ public:
         subscribers_.emplace(sid, std::move(info));
     }
 
-    bool removeSubscriber(SessionId sid) {return subscribers_.erase(sid) != 0;}
+    bool removeSubscriber(RouterSession& subscriber, MetaTopics& metaTopics)
+    {
+        auto wasRemoved = subscribers_.erase(subscriber.wampId()) != 0;
+        if (wasRemoved && metaTopics.enabled())
+            metaTopics.onUnsubscribe(subscriber.details(), details());
+        return wasRemoved;
+    }
 
-    std::size_t publish(BrokerPublication& info) const
+    std::size_t publish(BrokerPublication& info,
+                        SessionId inhibitedSessionId = 0) const
     {
         std::size_t count = 0;
         info.setSubscriptionId(subId_);
         for (auto& kv : subscribers_)
         {
             auto subscriber = kv.second.session.lock();
-            if (subscriber)
+            if (subscriber && (subscriber->wampId() != inhibitedSessionId))
                 count += info.sendTo(*subscriber);
         }
         return count;
@@ -327,14 +334,14 @@ public:
 
     void erase(const Uri& topicUri) {trie_.erase(topicUri);}
 
-    void removeSubscriber(SessionId sessionId)
+    void removeSubscriber(RouterSession& subscriber, MetaTopics& metaTopics)
     {
         auto iter = trie_.begin();
         auto end = trie_.end();
         while (iter != end)
         {
             BrokerSubscription* record = iteratorValue(iter);
-            record->removeSubscriber(sessionId);
+            record->removeSubscriber(subscriber, metaTopics);
             if (record->empty())
                 iter = trie_.erase(iter);
             else
@@ -403,14 +410,15 @@ public:
     template <typename I>
     static BrokerSubscription* iteratorValue(I iter) {return iter.value();}
 
-    size_t publish(BrokerPublication& info)
+    std::size_t publish(BrokerPublication& info,
+                        SessionId inhibitedSessionId = 0)
     {
         auto found = trie_.find(info.topicUri());
         if (found == trie_.end())
             return 0;
 
         const BrokerSubscription* record = found.value();
-        return record->publish(info);
+        return record->publish(info, inhibitedSessionId);
     }
 
     void collectMatches(const Uri& uri,
@@ -438,7 +446,8 @@ public:
         return iter.value();
     }
 
-    std::size_t publish(BrokerPublication& info)
+    std::size_t publish(BrokerPublication& info,
+                        SessionId inhibitedSessionId = 0)
     {
         if (trie_.empty())
             return 0;
@@ -448,10 +457,10 @@ public:
         info.enableTopicDetail();
         trie_.for_each_prefix_of(
             info.topicUri(),
-            [&count, &info] (Iter iter)
+            [&count, &info, &inhibitedSessionId] (Iter iter)
             {
                 const BrokerSubscription* record = iter.value();
-                count += record->publish(info);
+                count += record->publish(info, inhibitedSessionId);
             });
         return count;
     }
@@ -491,7 +500,8 @@ public:
         return iter->second;
     }
 
-    std::size_t publish(BrokerPublication& info)
+    std::size_t publish(BrokerPublication& info,
+                        SessionId inhibitedSessionId = 0)
     {
         if (trie_.empty())
             return 0;
@@ -505,7 +515,7 @@ public:
         while (!matches.done())
         {
             const BrokerSubscription* record = matches.value();
-            count += record->publish(info);
+            count += record->publish(info, inhibitedSessionId);
             matches.next();
         }
         return count;
@@ -575,7 +585,8 @@ public:
             return makeUnexpectedError(WampErrc::noSuchSubscription);
         BrokerSubscription& record = found->second;
         auto uri = record.topic().uri();
-        bool subscriberRemoved = record.removeSubscriber(subscriber->wampId());
+        bool subscriberRemoved = record.removeSubscriber(*subscriber,
+                                                         *metaTopics_);
 
         if (!subscriberRemoved)
         {
@@ -584,27 +595,8 @@ public:
             return makeUnexpectedError(WampErrc::noSuchSubscription);
         }
 
-        if (metaTopics_->enabled())
-        {
-            if (record.empty())
-            {
-                // Grab needed details before the subscription record is
-                // erased from the map.
-                auto details = record.details();
-                eraseTopic(record.topic(), found);
-                metaTopics_->onUnsubscribe(subscriber->details(),
-                                           std::move(details));
-            }
-            else
-            {
-                metaTopics_->onUnsubscribe(subscriber->details(),
-                                           record.details());
-            }
-        }
-        else if (record.empty())
-        {
+        if (record.empty())
             eraseTopic(record.topic(), found);
-        }
 
         return uri;
     }
@@ -621,19 +613,19 @@ public:
         return std::make_pair(info.publicationId(), count);
     }
 
-    void publishMetaEvent(Pub&& pub)
+    void publishMetaEvent(Pub&& pub, SessionId inhibitedSessionId)
     {
         BrokerPublication info(std::move(pub), pubIdGenerator_());
-        byExact_.publish(info);
-        byPrefix_.publish(info);
-        byWildcard_.publish(info);
+        byExact_.publish(info, inhibitedSessionId);
+        byPrefix_.publish(info, inhibitedSessionId);
+        byWildcard_.publish(info, inhibitedSessionId);
     }
 
-    void removeSubscriber(SessionId sessionId)
+    void removeSubscriber(RouterSession::Ptr subscriber)
     {
-        byExact_.removeSubscriber(sessionId);
-        byPrefix_.removeSubscriber(sessionId);
-        byWildcard_.removeSubscriber(sessionId);
+        byExact_.removeSubscriber(*subscriber, *metaTopics_);
+        byPrefix_.removeSubscriber(*subscriber, *metaTopics_);
+        byWildcard_.removeSubscriber(*subscriber, *metaTopics_);
 
         auto iter = subscriptions_.begin();
         auto end = subscriptions_.end();

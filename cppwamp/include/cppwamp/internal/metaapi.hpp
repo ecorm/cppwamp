@@ -393,7 +393,7 @@ private:
 class MetaPublisher
 {
 public:
-    virtual void publishMetaEvent(Pub&& pub) = 0;
+    virtual void publishMetaEvent(Pub&&, SessionId) = 0;
 };
 
 //------------------------------------------------------------------------------
@@ -423,6 +423,10 @@ public:
         o->attach(self, id, e);
         observers_.emplace(id, o);
     }
+
+    void inhibitSession(SessionId sid) {inhibitedSessionId_ = sid;}
+
+    void clearSessionInhibitions() {inhibitedSessionId_ = nullId();}
 
     void onRealmClosed(Uri uri) override
     {
@@ -632,7 +636,10 @@ private:
                               [id, self]() {self->observers_.erase(id);});
     }
 
-    void publish(Pub& pub) {context_.publishMetaEvent(std::move(pub));}
+    void publish(Pub& pub)
+    {
+        context_.publishMetaEvent(std::move(pub), inhibitedSessionId_);
+    }
 
     template <typename TNotifier, typename... Ts>
     void notifyObservers(Ts&&... args)
@@ -654,6 +661,7 @@ private:
     std::map<ObserverId, RealmObserver::WeakPtr> observers_;
     MetaPublisher& context_;
     ObserverId nextObserverId_ = 0;
+    SessionId inhibitedSessionId_ = nullId();
     bool metaApiEnabled_ = false;
 };
 

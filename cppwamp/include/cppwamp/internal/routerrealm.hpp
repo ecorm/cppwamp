@@ -591,10 +591,12 @@ private:
                     return;
                 auto session = found->second;
                 me.sessions_.erase(found);
-                me.broker_.removeSubscriber(sid);
+                me.metaTopics_->inhibitSession(sid);
+                me.broker_.removeSubscriber(session);
                 me.dealer_.removeSession(sid);
                 if (me.metaTopics_->enabled())
                     me.metaTopics_->onLeave(session->details());
+                me.metaTopics_->clearSessionInhibitions();
             }
         };
 
@@ -979,7 +981,10 @@ private:
         postAny(executor_, std::move(f), std::forward<Ts>(args)...);
     }
 
-    void publishMetaEvent(Pub&& pub) {broker_.publishMetaEvent(std::move(pub));}
+    void publishMetaEvent(Pub&& pub, SessionId inhibitedSessionId) override
+    {
+        broker_.publishMetaEvent(std::move(pub), inhibitedSessionId);
+    }
 
     AnyIoExecutor executor_;
     IoStrand strand_;
