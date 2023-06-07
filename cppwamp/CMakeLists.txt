@@ -102,6 +102,7 @@ set(HEADERS
     include/cppwamp/internal/routerserver.hpp
     include/cppwamp/internal/routersession.hpp
     include/cppwamp/internal/socketoptions.hpp
+    include/cppwamp/internal/slotlink.hpp
     include/cppwamp/internal/streamchannel.hpp
     include/cppwamp/internal/surrogateany.hpp
     include/cppwamp/internal/tcpacceptor.hpp
@@ -109,7 +110,6 @@ set(HEADERS
     include/cppwamp/internal/timeformatting.hpp
     include/cppwamp/internal/timeoutscheduler.hpp
     include/cppwamp/internal/tokentriemapimpl.hpp
-    include/cppwamp/internal/trackedslot.hpp
     include/cppwamp/internal/udsacceptor.hpp
     include/cppwamp/internal/udsopener.hpp
     include/cppwamp/internal/variantdecoding.hpp

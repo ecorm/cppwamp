@@ -38,10 +38,10 @@
 #include "clientcontext.hpp"
 #include "commandinfo.hpp"
 #include "matchuri.hpp"
+#include "slotlink.hpp"
 #include "streamchannel.hpp"
 #include "peer.hpp"
 #include "timeoutscheduler.hpp"
-#include "trackedslot.hpp"
 
 namespace wamp
 {
@@ -52,9 +52,23 @@ namespace internal
 //------------------------------------------------------------------------------
 struct StreamRegistration
 {
-    AnyReusableHandler<void (CalleeChannel)> streamSlot;
+    using StreamSlot = AnyReusableHandler<void (CalleeChannel)>;
+
+    StreamRegistration(StreamSlot&& ss, Uri uri, ClientContext ctx,
+                       bool invitationExpected)
+        : streamSlot(std::move(ss)),
+          uri(std::move(uri)),
+          link(RegistrationLink::create(std::move(ctx))),
+          invitationExpected(invitationExpected)
+    {}
+
+    void setRegistrationId(RegistrationId rid) {link->setKey(rid);}
+
+    RegistrationId registrationId() const {return link->key();}
+
+    StreamSlot streamSlot;
     Uri uri;
-    RegistrationId registrationId;
+    RegistrationLink::Ptr link;
     bool invitationExpected;
 };
 
@@ -456,7 +470,7 @@ private:
 class Readership
 {
 public:
-    using EventSlotKey = ClientLike::EventSlotKey;
+    using EventSlotKey = ClientLike::SubscriptionKey;
     using EventSlot = AnyReusableHandler<void (Event)>;
 
     Readership(AnyIoExecutor exec) : executor_(std::move(exec)) {}
@@ -486,19 +500,18 @@ public:
         }
 
         auto slotId = nextSlotId();
-        auto trackedSlot = TrackedSlotType::create({subId, slotId},
-                                                   std::move(handler), subscriber);
+        auto link = Link::create(subscriber, {subId, slotId});
         auto emplaced =
             subscriptions_.emplace(
                 std::piecewise_construct,
                 std::forward_as_tuple(subId),
-                std::forward_as_tuple(topic, slotId, trackedSlot));
+                std::forward_as_tuple(topic, slotId, std::move(handler), link));
         assert(emplaced.second);
 
         auto emplaced2 = byTopic_.emplace(std::move(topic), emplaced.first);
         assert(emplaced2.second);
 
-        return Subscription({}, std::move(trackedSlot));
+        return Subscription({}, std::move(link));
     }
 
     // Returns true if the last local slot was removed from a subscription
@@ -533,7 +546,7 @@ public:
         for (const auto& kv: record.slots)
         {
             const auto& slot = kv.second;
-            postEvent(slot, event, subscriber);
+            postEvent(event, slot);
         }
         return true;
     }
@@ -557,18 +570,25 @@ public:
 private:
     using SlotId = ClientLike::SlotId;
 
-    using TrackedSlotType = TrackedSlot<EventSlotTag, EventSlotKey,
-                                        void (Event)>;
+    using Link = SlotLink<SubscriptionTag, EventSlotKey>;
+
+    struct LinkedSlot
+    {
+        EventSlot handler;
+        Link::Ptr link;
+    };
 
     struct Record
     {
-        Record(MatchUri topic, SlotId slotId, TrackedSlotType::Ptr trackedSlot)
+        Record(MatchUri topic, SlotId slotId, EventSlot&& handler,
+               Link::Ptr link)
             : topic(std::move(topic))
         {
-            slots.emplace(slotId, std::move(trackedSlot));
+            slots.emplace(slotId,
+                          LinkedSlot{std::move(handler), std::move(link)});
         }
 
-        std::map<SlotId, TrackedSlotType::Ptr> slots;
+        std::map<SlotId, LinkedSlot> slots;
         MatchUri topic;
     };
 
@@ -582,21 +602,19 @@ private:
         auto subId = iter->first;
         auto& record = iter->second;
         auto slotId = nextSlotId();
-        auto slot = TrackedSlotType::create({subId, slotId},
-                                            std::move(handler), subscriber);
-        auto emplaced = record.slots.emplace(slotId, slot);
+        auto link = Link::create(subscriber, {subId, slotId});
+        LinkedSlot linkedSlot{std::move(handler), link};
+        auto emplaced = record.slots.emplace(slotId, std::move(linkedSlot));
         assert(emplaced.second);
-        return Subscription{{}, std::move(slot)};
+        return Subscription{{}, std::move(link)};
     }
 
-    void postEvent(TrackedSlotType::Ptr slot, Event event,
-                   ClientContext subscriber)
+    void postEvent(Event event, const LinkedSlot& slot)
     {
         struct Posted
         {
-            ClientContext subscriber;
             Event event;
-            TrackedSlotType::Ptr slot;
+            LinkedSlot slot;
 
             void operator()()
             {
@@ -609,30 +627,30 @@ private:
                 try
                 {
                     assert(event.ready());
-                    if (slot->armed())
-                        slot->invoke(std::move(event));
+                    if (slot.link->armed())
+                        slot.handler(std::move(event));
                 }
                 catch (Error& error)
                 {
-                    auto subId = slot->key().first;
+                    auto subId = slot.link->key().first;
                     error["subscriptionId"] = subId;
                     error["publicationId"] = pubId;
-                    subscriber.onEventError(std::move(error), subId);
+                    slot.link->context().onEventError(std::move(error), subId);
                 }
                 catch (const error::BadType& e)
                 {
                     Error error(e);
-                    auto subId = slot->key().first;
+                    auto subId = slot.link->key().first;
                     error["subscriptionId"] = subId;
                     error["publicationId"] = pubId;
-                    subscriber.onEventError(std::move(error), subId);
+                    slot.link->context().onEventError(std::move(error), subId);
                 }
             }
         };
 
-        auto slotExec = slot->executor();
+        auto slotExec = boost::asio::get_associated_executor(slot.handler);
         event.setExecutor({}, slotExec);
-        Posted posted{subscriber, std::move(event), std::move(slot)};
+        Posted posted{std::move(event), std::move(slot)};
         boost::asio::post(
             executor_,
             boost::asio::bind_executor(slotExec, std::move(posted)));
@@ -653,10 +671,22 @@ struct ProcedureRegistration
     using CallSlot = AnyReusableHandler<Outcome (Invocation)>;
     using InterruptSlot = AnyReusableHandler<Outcome (Interruption)>;
 
+    ProcedureRegistration(CallSlot&& cs, InterruptSlot&& is, Uri uri,
+                          ClientContext ctx)
+        : callSlot(std::move(cs)),
+          interruptSlot(std::move(is)),
+          uri(std::move(uri)),
+          link(RegistrationLink::create(std::move(ctx)))
+    {}
+
+    void setRegistrationId(RegistrationId rid) {link->setKey(rid);}
+
+    RegistrationId registrationId() const {return link->key();}
+
     CallSlot callSlot;
     InterruptSlot interruptSlot;
     Uri uri;
-    RegistrationId registrationId;
+    RegistrationLink::Ptr link;
 };
 
 
@@ -689,31 +719,29 @@ public:
           peer_(peer)
     {}
 
-    ErrorOr<Registration> enroll(ProcedureRegistration&& reg,
-                                 ClientContext callee)
+    ErrorOr<Registration> enroll(ProcedureRegistration&& reg)
     {
-        auto regId = reg.registrationId;
+        auto regId = reg.registrationId();
         auto emplaced = procedures_.emplace(regId, std::move(reg));
         if (!emplaced.second)
             return makeUnexpectedError(WampErrc::procedureAlreadyExists);
-        return Registration{{}, callee, regId};
+        return Registration{{}, emplaced.first->second.link};
     }
 
-    ErrorOr<Registration> enroll(StreamRegistration&& reg,
-                                 ClientContext callee)
+    ErrorOr<Registration> enroll(StreamRegistration&& reg)
     {
-        auto regId = reg.registrationId;
+        auto regId = reg.registrationId();
         auto emplaced = streams_.emplace(regId, std::move(reg));
         if (!emplaced.second)
             return makeUnexpectedError(WampErrc::procedureAlreadyExists);
-        return Registration{{}, callee, regId};
+        return Registration{{}, emplaced.first->second.link};
     }
 
-    bool unregister(const Registration& reg)
+    bool unregister(RegistrationId regId)
     {
-        bool erased = procedures_.erase(reg.id()) != 0;
+        bool erased = procedures_.erase(regId) != 0;
         if (!erased)
-            erased = streams_.erase(reg.id()) != 0;
+            erased = streams_.erase(regId) != 0;
         return erased;
     }
 
@@ -903,7 +931,7 @@ private:
 
         auto& invocationRec = emplaced.first->second;
         invocationRec.closed = true;
-        postRpcRequest(reg.callSlot, inv, reg.registrationId);
+        postRpcRequest(reg.callSlot, inv, reg.link);
         return WampErrc::success;
     }
 
@@ -912,23 +940,25 @@ private:
     {
         if (reg.interruptSlot == nullptr)
             return false;
-        postRpcRequest(reg.interruptSlot, intr, reg.registrationId);
+        postRpcRequest(reg.interruptSlot, intr, reg.link);
         return true;
     }
 
     template <typename TSlot, typename TInvocationOrInterruption>
     void postRpcRequest(TSlot slot, TInvocationOrInterruption& request,
-                        RegistrationId regId)
+                        RegistrationLink::Ptr link)
     {
         struct Posted
         {
-            ClientContext callee;
             TSlot slot;
             TInvocationOrInterruption request;
-            RegistrationId regId;
+            RegistrationLink::Ptr link;
 
             void operator()()
             {
+                if (!link->armed())
+                    return;
+
                 // Copy the request ID before the request object gets moved away.
                 auto requestId = request.requestId();
 
@@ -943,6 +973,8 @@ private:
 
                     case Outcome::Type::result:
                     {
+                        auto callee = link->context();
+                        auto regId = link->key();
                         callee.yieldResult(std::move(outcome).asResult(),
                                            requestId, regId);
                         break;
@@ -950,6 +982,8 @@ private:
 
                     case Outcome::Type::error:
                     {
+                        auto callee = link->context();
+                        auto regId = link->key();
                         callee.yieldError(std::move(outcome).asError(),
                                           requestId, regId);
                         break;
@@ -961,11 +995,15 @@ private:
                 }
                 catch (Error& error)
                 {
+                    auto callee = link->context();
+                    auto regId = link->key();
                     callee.yieldError(std::move(error), requestId, regId);
                 }
                 catch (const error::BadType& e)
                 {
                     // Forward Variant conversion exceptions as ERROR messages.
+                    auto callee = link->context();
+                    auto regId = link->key();
                     callee.yieldError(Error{e}, requestId, regId);
                 }
             }
@@ -973,10 +1011,7 @@ private:
 
         auto slotExec = boost::asio::get_associated_executor(slot);
         request.setExecutor({}, slotExec);
-        auto callee = request.callee({});
-        assert(!callee.expired());
-        Posted posted{std::move(callee), std::move(slot), std::move(request),
-                      regId};
+        Posted posted{std::move(slot), std::move(request), link};
         boost::asio::post(
             executor_,
             boost::asio::bind_executor(slotExec, std::move(posted)));
@@ -984,6 +1019,9 @@ private:
 
     WampErrc onStreamInvocation(Invocation& inv, const StreamRegistration& reg)
     {
+        if (!reg.link->armed())
+            return WampErrc::noSuchProcedure;
+
         auto requestId = inv.requestId();
         auto registrationId = inv.registrationId();
         auto emplaced = invocations_.emplace(requestId,
@@ -1318,19 +1356,7 @@ public:
         safelyDispatch<Dispatched>(std::move(s), std::move(ss), std::move(f));
     }
 
-    void unregister(const Registration& r) override
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Registration r;
-            void operator()() {self->doUnregister(r);}
-        };
-
-        safelyDispatch<Dispatched>(r);
-    }
-
-    void unregister(const Registration& r, CompletionHandler<bool>&& f)
+    void unregister(Registration r, CompletionHandler<bool>&& f)
     {
         struct Dispatched
         {
@@ -1340,7 +1366,8 @@ public:
             void operator()() {self->doUnregister(std::move(r), std::move(f));}
         };
 
-        safelyDispatch<Dispatched>(r, std::move(f));
+        r.disarm({});
+        safelyDispatch<Dispatched>(std::move(r), std::move(f));
     }
 
     void call(Rpc&& r, CompletionHandler<Result>&& f)
@@ -1410,21 +1437,28 @@ private:
         peer_->listen(this);
     }
 
-    void removeSlot(EventSlotTag, EventSlotKey key) override
+    void removeSlot(SubscriptionTag, SubscriptionKey key) override
     {
         struct Dispatched
         {
             Ptr self;
-            EventSlotKey key;
-            void operator()() {self->doRemoveSlot(key);}
+            SubscriptionKey key;
+            void operator()() {self->doUnsubscribe(key);}
         };
 
         safelyDispatch<Dispatched>(key);
     }
 
-    void removeSlot(CallSlotTag, SlotId slotId) override
+    void removeSlot(RegistrationTag, RegistrationKey key) override
     {
-        // TODO
+        struct Dispatched
+        {
+            Ptr self;
+            RegistrationKey key;
+            void operator()() {self->doUnregister(key);}
+        };
+
+        safelyDispatch<Dispatched>(key);
     }
 
     void onPeerDisconnect() override
@@ -1896,7 +1930,7 @@ private:
         request(std::move(topic), std::move(requested));
     }
 
-    void doRemoveSlot(EventSlotKey key)
+    void doUnsubscribe(SubscriptionKey key)
     {
         if (readership_.unsubscribe(key))
             sendUnsubscribe(key.first);
@@ -1988,8 +2022,8 @@ private:
                 if (!me.checkReply(reply, MessageKind::registered, f))
                     return;
                 Registered ack{std::move(*reply)};
-                r.registrationId = ack.registrationId();
-                auto reg = me.registry_.enroll(std::move(r), me.makeContext());
+                r.setRegistrationId(ack.registrationId());
+                auto reg = me.registry_.enroll(std::move(r));
                 me.completeNow(f, std::move(reg));
             }
         };
@@ -1997,7 +2031,8 @@ private:
         if (!checkState(State::established, f))
             return;
 
-        ProcedureRegistration reg{std::move(c), std::move(i), p.uri(), 0};
+        ProcedureRegistration reg{std::move(c), std::move(i), p.uri(),
+                                  makeContext()};
         request(std::move(p),
                 Requested{shared_from_this(), std::move(reg), std::move(f)});
     }
@@ -2017,8 +2052,8 @@ private:
                 if (!me.checkReply(reply, MessageKind::registered, f))
                     return;
                 Registered ack{std::move(*reply)};
-                r.registrationId = ack.registrationId();
-                auto reg = me.registry_.enroll(std::move(r), me.makeContext());
+                r.setRegistrationId(ack.registrationId());
+                auto reg = me.registry_.enroll(std::move(r));
                 me.completeNow(f, std::move(reg));
             }
         };
@@ -2026,13 +2061,13 @@ private:
         if (!checkState(State::established, f))
             return;
 
-        StreamRegistration reg{std::move(ss), s.uri(), 0,
+        StreamRegistration reg{std::move(ss), s.uri(), makeContext(),
                                s.invitationExpected()};
         request(std::move(s),
                 Requested{shared_from_this(), std::move(reg), std::move(f)});
     }
 
-    void doUnregister(const Registration& reg)
+    void doUnregister(RegistrationId regId)
     {
         struct Requested
         {
@@ -2043,9 +2078,9 @@ private:
             }
         };
 
-        if (registry_.unregister(reg) && state() == State::established)
+        if (registry_.unregister(regId) && state() == State::established)
         {
-            Unregister unreg{reg.id()};
+            Unregister unreg{regId};
             request(unreg, Requested{});
         }
     }
@@ -2066,16 +2101,14 @@ private:
             }
         };
 
-        if (registry_.unregister(reg))
+        if (!reg || !registry_.unregister(reg.id()))
+            return complete(handler, false);
+
+        Unregister cmd{reg.id()};
+        if (checkState(State::established, handler))
         {
-            Unregister cmd(reg.id());
-            if (checkState(State::established, handler))
-                request(Unregister{reg.id()},
-                        Requested{shared_from_this(), std::move(handler)});
-        }
-        else
-        {
-            complete(handler, false);
+            request(Unregister{reg.id()},
+                    Requested{shared_from_this(), std::move(handler)});
         }
     }
 

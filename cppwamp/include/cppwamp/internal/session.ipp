@@ -136,21 +136,14 @@ CPPWAMP_INLINE void Session::publish(
 
 //------------------------------------------------------------------------------
 /** @details
-    This function can be safely called during any session state. If the
-    registration is no longer applicable, then this operation will
-    effectively do nothing.
-    @see Registration, ScopedRegistration
-    @note Duplicate unregistrations using the same Registration handle
-          are safely ignored.
-    @pre `bool(reg) == true`
-    @throws error::Logic if the given registration is empty */
+    Equivalent to Registration::unregister.
+    @see Registration, ScopedRegistration */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::unregister(
     Registration reg /**< The RPC registration to unregister. */
 )
 {
-    CPPWAMP_LOGIC_CHECK(bool(reg), "The registration is empty");
-    impl_->unregister(reg);
+    reg.unregister();
 }
 
 //------------------------------------------------------------------------------

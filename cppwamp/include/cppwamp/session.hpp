@@ -272,7 +272,7 @@ public:
     enroll(Procedure procedure, S&& callSlot, I&& interruptSlot,
            C&& completion);
 
-    /** Unregisters a remote procedure call. */
+    /** Unregisters a remote procedure call or stream. */
     void unregister(Registration reg);
 
     /** Unregisters a remote procedure call and waits for router
@@ -838,7 +838,6 @@ Session::unregister(
     C&& completion    ///< Completion handler or token.
     )
 {
-    CPPWAMP_LOGIC_CHECK(bool(reg), "The registration is empty");
     return initiate<UnregisterOp>(std::forward<C>(completion), reg);
 }
 
@@ -912,8 +911,9 @@ struct Session::EnrollStreamOp
           for dispatching/posting/deferring the work to another executor if
           necessary.
     @note CalleeChannel::accept should be called within the invocation context
-          of the StreamSlot in order to losing incoming chunks or interruptions
-          due to their respective slots not being registered in time.
+          of the StreamSlot in order to avoid losing incoming chunks or
+          interruptions due to their respective slots not being registered in
+          time.
     @par Notable Error Codes
         - WampErrc::procedureAlreadyExists if the router reports that a
           stream/procedure with the same URI has already been registered for

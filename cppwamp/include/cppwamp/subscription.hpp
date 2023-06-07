@@ -12,12 +12,10 @@
     @brief Contains the declaration of the Subscription class. */
 //------------------------------------------------------------------------------
 
-#include <memory>
-#include <string>
 #include "api.hpp"
 #include "wampdefs.hpp"
 #include "internal/passkey.hpp"
-#include "internal/trackedslot.hpp"
+#include "internal/slotlink.hpp"
 
 namespace wamp
 {
@@ -40,7 +38,7 @@ public:
     /** Constructs an empty subscription */
     Subscription();
 
-    /** Returns false if the subscription is empty. */
+    /** Returns true if the subscription is still active. */
     explicit operator bool() const;
 
     /** Obtains the ID number of this subscription. */
@@ -50,16 +48,15 @@ public:
     void unsubscribe();
 
 private:
-    using TrackedSlotPtr = internal::TrackedEventSlot::Ptr;
-    using TrackedSlotWeakPtr = internal::TrackedEventSlot::WeakPtr;
-    using Key = internal::TrackedEventSlot::Key;
+    using Link = internal::SubscriptionLink;
+    using Key = Link::Key;
 
-    TrackedSlotWeakPtr slot_;
+    Link::WeakPtr link_;
     SubscriptionId subId_;
 
 public:
     // Internal use only
-    Subscription(internal::PassKey, TrackedSlotPtr p);
+    Subscription(internal::PassKey, Link::Ptr p);
     Key key(internal::PassKey) const;
     void disarm(internal::PassKey);
 };

@@ -27,27 +27,24 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-struct EventSlotTag {};
+struct SubscriptionTag {};
 
 //------------------------------------------------------------------------------
-struct CallSlotTag {};
+struct RegistrationTag {};
 
 //------------------------------------------------------------------------------
 class ClientLike
 {
 public:
     using SlotId = uint64_t;
-    using EventSlotKey = std::pair<SubscriptionId, SlotId>;
-    using CallSlotKey = SlotId;
+    using SubscriptionKey = std::pair<SubscriptionId, SlotId>;
+    using RegistrationKey = SlotId;
 
-    virtual void removeSlot(EventSlotTag, EventSlotKey key) = 0;
+    virtual void removeSlot(SubscriptionTag, SubscriptionKey key) = 0;
 
-    virtual void removeSlot(CallSlotTag, CallSlotKey key) = 0;
+    virtual void removeSlot(RegistrationTag, RegistrationKey key) = 0;
 
     virtual void onEventError(Error&& e, SubscriptionId s) = 0;
-
-    // TODO: Remove
-    virtual void unregister(const Registration& r) = 0;
 
     virtual void yieldResult(Result&& result, RequestId reqId,
                              RegistrationId regId) = 0;
@@ -74,8 +71,8 @@ class ClientContext
 {
 public:
     using SlotId = ClientLike::SlotId;
-    using EventSlotKey = std::pair<SubscriptionId, SlotId>;
-    using CallSlotKey = SlotId;
+    using SubscriptionKey = std::pair<SubscriptionId, SlotId>;
+    using RegistrationKey = SlotId;
 
     ClientContext() {}
 
@@ -87,8 +84,8 @@ public:
 
     void reset() {client_ = {};}
 
-    template <typename TSlotTag>
-    void removeSlot(TSlotTag, EventSlotKey key)
+    template <typename TSlotTag, typename TKey>
+    void removeSlot(TSlotTag, TKey key)
     {
         auto c = client_.lock();
         if (c)
@@ -100,13 +97,6 @@ public:
         auto c = client_.lock();
         if (c)
             c->onEventError(std::move(e), s);
-    }
-
-    void unregister(const Registration& r)
-    {
-        auto c = client_.lock();
-        if (c)
-            c->unregister(r);
     }
 
     void yieldResult(Result&& result, RequestId reqId, RegistrationId regId)

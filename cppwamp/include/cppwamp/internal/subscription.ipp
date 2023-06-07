@@ -18,37 +18,37 @@ namespace wamp
 /** @post `bool(*this) == false` */
 CPPWAMP_INLINE Subscription::Subscription() {}
 
-CPPWAMP_INLINE Subscription::operator bool() const {return !slot_.expired();}
+CPPWAMP_INLINE Subscription::operator bool() const {return !link_.expired();}
 
 CPPWAMP_INLINE SubscriptionId Subscription::id() const {return subId_;}
 
 /** The associated event slot is immediately disabled within the execution
     context where `unsubscribe` is called. In multithreaded use, it's possible
-    for the slot to be concurrently executing while `unsubscribe` is called if
-    both are not serialized by a common strand. */
+    for the slot to be executed just after `unsubscribe` is called if
+    both are not serialized via a common execution strand. */
 CPPWAMP_INLINE void Subscription::unsubscribe()
 {
-    auto slot = slot_.lock();
-    if (slot)
-        slot->remove();
+    auto link = link_.lock();
+    if (link)
+        link->remove();
 }
 
-CPPWAMP_INLINE Subscription::Subscription(internal::PassKey, TrackedSlotPtr p)
-    : slot_(p),
+CPPWAMP_INLINE Subscription::Subscription(internal::PassKey, Link::Ptr p)
+    : link_(p),
       subId_(p->key().first)
 {}
 
 CPPWAMP_INLINE Subscription::Key Subscription::key(internal::PassKey) const
 {
-    auto slot = slot_.lock();
-    return slot ? slot->key() : Key{};
+    auto link = link_.lock();
+    return link ? link->key() : Key{};
 }
 
 CPPWAMP_INLINE void Subscription::disarm(internal::PassKey)
 {
-    auto slot = slot_.lock();
-    if (slot)
-        slot->disarm();
+    auto link = link_.lock();
+    if (link)
+        link->disarm();
 }
 
 

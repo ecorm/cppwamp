@@ -12,14 +12,10 @@
     @brief Contains the declaration of the Registration class. */
 //------------------------------------------------------------------------------
 
-#include <memory>
-#include <string>
 #include "api.hpp"
 #include "wampdefs.hpp"
-#include "internal/clientcontext.hpp"
 #include "internal/passkey.hpp"
-
-// TODO: Fix race between unregistration and handler execution
+#include "internal/slotlink.hpp"
 
 namespace wamp
 {
@@ -32,7 +28,7 @@ namespace wamp
 
     It is always safe to unregister via a Registration object. If the Session
     or the registration no longer exists, an unregister operation effectively
-    does nothing.
+    does nothing. Duplicate unregisters are safely ignored.
 
     @see ScopedRegistration */
 //------------------------------------------------------------------------------
@@ -42,35 +38,27 @@ public:
     /** Constructs an empty registration. */
     Registration();
 
-    /** Copy constructor. */
-    Registration(const Registration& other);
-
-    /** Move constructor. */
-    Registration(Registration&& other) noexcept;
-
-    /** Returns false if the registration is empty. */
+    /** Returns true if the registration is still active. */
     explicit operator bool() const;
 
     /** Obtains the ID number of this registration. */
     RegistrationId id() const;
 
-    /** Copy assignment. */
-    Registration& operator=(const Registration& other);
-
-    /** Move assignment. */
-    Registration& operator=(Registration&& other) noexcept;
-
     /** Unregisters the RPC. */
     void unregister();
 
 private:
-    internal::ClientContext callee_;
-    RegistrationId id_ = nullId();
+    using Link = internal::RegistrationLink;
+    using Key = internal::RegistrationLink::Key;
+
+    Link::WeakPtr link_;
+    RegistrationId regId_;
 
 public:
     // Internal use only
-    Registration(internal::PassKey, internal::ClientContext callee,
-                 RegistrationId id);
+    Registration(internal::PassKey, Link::Ptr p);
+    Key key(internal::PassKey) const;
+    void disarm(internal::PassKey);
 };
 
 

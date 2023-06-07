@@ -15,52 +15,41 @@ namespace wamp
  * Registration
 *******************************************************************************/
 
-/** @post `!!(*this) == false` */
+/** @post `bool(*this) == false` */
 CPPWAMP_INLINE Registration::Registration() {}
 
-CPPWAMP_INLINE Registration::Registration(const Registration& other)
-    : callee_(other.callee_),
-      id_(other.id_)
+CPPWAMP_INLINE Registration::operator bool() const {return !link_.expired();}
+
+CPPWAMP_INLINE RegistrationId Registration::id() const {return regId_;}
+
+/** The associated event slot is immediately disabled within the execution
+    context where `unregister` is called. In multithreaded use, it's possible
+    for the slot to be executed just after `unregister` is called if
+    both are not serialized via a common execution strand. */
+CPPWAMP_INLINE void Registration::unregister()
+{
+    auto link = link_.lock();
+    if (link)
+        link->remove();
+}
+
+CPPWAMP_INLINE Registration::Registration(internal::PassKey, Link::Ptr p)
+    : link_(p),
+      regId_(p->key())
 {}
 
-/** @post `!other == true` */
-CPPWAMP_INLINE Registration::Registration(Registration&& other) noexcept
-    : callee_(other.callee_),
-      id_(other.id_)
+CPPWAMP_INLINE Registration::Key Registration::key(internal::PassKey) const
 {
-    other.callee_.reset();
-    other.id_ = nullId();
+    auto link = link_.lock();
+    return link ? link->key() : Key{};
 }
 
-CPPWAMP_INLINE Registration::operator bool() const {return id_ != nullId();}
-
-CPPWAMP_INLINE RegistrationId Registration::id() const {return id_;}
-
-CPPWAMP_INLINE Registration& Registration::operator=(const Registration& other)
+CPPWAMP_INLINE void Registration::disarm(internal::PassKey)
 {
-    callee_ = other.callee_;
-    id_ = other.id_;
-    return *this;
+    auto link = link_.lock();
+    if (link)
+        link->disarm();
 }
-
-/** @post `!other == true` */
-CPPWAMP_INLINE Registration&
-Registration::operator=(Registration&& other) noexcept
-{
-    callee_ = other.callee_;
-    id_ = other.id_;
-    other.callee_.reset();
-    other.id_ = nullId();
-    return *this;
-}
-
-CPPWAMP_INLINE void Registration::unregister() {callee_.unregister(*this);}
-
-CPPWAMP_INLINE Registration::Registration(
-    internal::PassKey, internal::ClientContext callee, RegistrationId id)
-    : callee_(callee),
-      id_(id)
-{}
 
 
 /*******************************************************************************
