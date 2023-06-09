@@ -549,6 +549,22 @@ TEST_CASE( "Router realm registration events", "[WAMP][Router]" )
             checkRegistrationDetails(ev.second, "foo", when, reg.id(), {});
         }
 
+        {
+            INFO("Unregistration via leaving");
+            reg = s.enroll(Procedure{"foo"},
+                       [](Invocation) -> Outcome {return {};},
+                       yield).value();
+            observer->unregisterEvents.clear();
+            s.leave(yield).value();
+
+            while (observer->unregisterEvents.empty())
+                suspendCoro(yield);
+            REQUIRE(observer->unregisterEvents.size() == 1);
+            const auto& ev = observer->unregisterEvents.front();
+            checkSessionDetails(ev.first, welcome, testRealm);
+            checkRegistrationDetails(ev.second, "foo", when, reg.id(), {});
+        }
+
         s.disconnect();
     });
 
@@ -615,8 +631,8 @@ TEST_CASE( "Router realm subscription events", "[WAMP][Router]" )
         }
 
         {
-            INFO("Unsubscription");
-            s1.unsubscribe(sub1, yield).value();
+            INFO("Unsubscription leaving leaving");
+            s1.leave(yield).value();
 
             while (observer->unsubscribeEvents.empty())
                 suspendCoro(yield);
@@ -646,7 +662,5 @@ TEST_CASE( "Router realm subscription events", "[WAMP][Router]" )
 
     ioctx.run();
 }
-
-// TODO: Leaving realm should fire unregister/unsubscribe meta-events
 
 #endif // defined(CPPWAMP_TEST_HAS_CORO)

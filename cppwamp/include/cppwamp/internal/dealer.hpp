@@ -139,11 +139,14 @@ public:
         auto end1 = byUri_.end();
         while (iter1 != end1)
         {
-            const auto* reg = iter1->second;
+            auto* reg = iter1->second;
             if (reg->calleeId() == sid)
             {
                 if (metaTopics.enabled())
+                {
+                    reg->resetCallee();
                     metaTopics.onUnregister(callee.details(), reg->details());
+                }
                 iter1 = byUri_.erase(iter1);
             }
             else

@@ -406,6 +406,17 @@ TEST_CASE( "WAMP registration meta events", "[WAMP][Router]" )
         CHECK(regDeletedSessionId == w2.sessionId());
         CHECK(deletedRegistrationId == reg.id());
 
+        unregisteredRegId = 0;
+        deletedRegistrationId = 0;
+        reg = s2.enroll(Procedure{"rpc"}, rpc, yield).value();
+        s2.leave(yield).value();
+        while (unregisteredRegId == 0 || deletedRegistrationId == 0)
+            suspendCoro(yield);
+        CHECK(unregisteredSessionId == w2.sessionId());
+        CHECK(unregisteredRegId == reg.id());
+        CHECK(regDeletedSessionId == w2.sessionId());
+        CHECK(deletedRegistrationId == reg.id());
+
         s2.disconnect();
         s1.disconnect();
     });
@@ -517,7 +528,7 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
         CHECK(subscribedSessionId == welcome4.sessionId());
         CHECK(subscriptionId == sub4.id());
 
-        sub3.unsubscribe();
+        s3.leave(yield).value();
         while (unsubscribedSubId == 0) {suspendCoro(yield);}
         CHECK(unsubscribedSessionId == welcome3.sessionId());
         CHECK(unsubscribedSubId == sub3.id());
