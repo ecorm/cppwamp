@@ -73,6 +73,17 @@ TEST_CASE( "WAMP session meta events", "[WAMP][Router]" )
         CHECK(joinedInfo.authProvider == w2.authProvider());
         CHECK(joinedInfo.authRole     == w2.authRole());
         CHECK(joinedInfo.sessionId    == w2.sessionId());
+        auto& t = joinedInfo.transport;
+        CHECK(t["protocol"] == String{"TCP"});
+        CHECK(t["server"] == String{"tcp12345"});
+        auto ipv = t["ip_version"];
+        CHECK((ipv == 4 || ipv == 6));
+        CHECK(wamp::isNumber(t["port"]));
+        auto addr = t["address"];
+        REQUIRE(addr.is<String>());
+        CHECK_FALSE(addr.as<String>().empty());
+        if (ipv == 4)
+            CHECK(wamp::isNumber(t["numeric_address"]));
 
         s2.leave(yield).value();
 
@@ -168,6 +179,17 @@ TEST_CASE( "WAMP session meta procedures", "[WAMP][Router]" )
             CHECK(info.authProvider == w2.authProvider());
             CHECK(info.authRole == w2.authRole());
             CHECK(info.sessionId == w2.sessionId());
+            auto& t = info.transport;
+            CHECK(t["protocol"] == String{"TCP"});
+            CHECK(t["server"] == String{"tcp12345"});
+            auto ipv = t["ip_version"];
+            CHECK((ipv == 4 || ipv == 6));
+            CHECK(wamp::isNumber(t["port"]));
+            auto addr = t["address"];
+            REQUIRE(addr.is<String>());
+            CHECK_FALSE(addr.as<String>().empty());
+            if (ipv == 4)
+                CHECK(wamp::isNumber(t["numeric_address"]));
 
             auto resultOrError = s1.call(rpc.withArgs(0), yield);
             REQUIRE_FALSE(resultOrError.has_value());

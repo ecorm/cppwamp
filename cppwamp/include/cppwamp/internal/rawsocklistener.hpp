@@ -25,8 +25,8 @@ namespace internal
 //------------------------------------------------------------------------------
 struct DefaultRawsockServerConfig
 {
-    template <typename TSocket>
-    using TransportType = RawsockTransport<TSocket>;
+    template <typename TSocket, typename TTraits>
+    using TransportType = RawsockTransport<TSocket, TTraits>;
 
     static uint32_t hostOrderHandshakeBytes(int codecId,
                                             RawsockMaxLength maxRxLength)
@@ -49,8 +49,9 @@ public:
     using CodecIds  = std::set<int>;
     using Handler   = std::function<void (ErrorOr<Transporting::Ptr>)>;
     using Socket    = typename Acceptor::Socket;
+    using Traits    = typename Acceptor::Traits;
     using SocketPtr = std::unique_ptr<Socket>;
-    using Transport = typename TConfig::template TransportType<Socket>;
+    using Transport = typename TConfig::template TransportType<Socket, Traits>;
 
     static Ptr create(IoStrand i, Settings s, CodecIds codecIds)
     {

@@ -72,6 +72,9 @@ public:
     /** Obtains the `authextra` dictionary. */
     const Object& extra() const;
 
+    /** Obtains the `transport` dictionary. */
+    const Object& transport() const;
+
     /** Accesses the note containing arbitrary information set by the
         authenticator. */
     const any& note() const;
@@ -86,12 +89,14 @@ private:
     String method_;
     String provider_;
     Object extra_;
+    Object transport_;
     any note_;
     SessionId sessionId_ = nullId();
 
 public: // Internal use only
     void setId(internal::PassKey, String id);
     void setSessionId(internal::PassKey, SessionId sid);
+    void setTransport(internal::PassKey, Object transport);
     Object join(internal::PassKey, Uri uri, Object routerRoles = {});
 };
 

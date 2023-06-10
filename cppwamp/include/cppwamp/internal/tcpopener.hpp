@@ -15,6 +15,7 @@
 #include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
 #include "../tcphost.hpp"
+#include "tcptraits.hpp"
 
 namespace wamp
 {
@@ -29,6 +30,7 @@ public:
     using Settings  = TcpHost;
     using Socket    = boost::asio::ip::tcp::socket;
     using SocketPtr = std::unique_ptr<Socket>;
+    using Traits    = TcpTraits;
 
     template <typename TExecutorOrStrand>
     TcpOpener(TExecutorOrStrand&& exec, Settings s)

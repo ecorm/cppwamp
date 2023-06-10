@@ -102,7 +102,6 @@ public:
         onClose();
     }
 
-    // TODO: Option for abortive socket close with SO_LINGER=0 ?
     void disconnect()
     {
         auto oldState = setState(State::disconnected);

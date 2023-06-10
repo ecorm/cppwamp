@@ -148,6 +148,7 @@ private:
     ServerSession(const IoStrand& i, Transporting::Ptr&& t, AnyBufferCodec&& c,
                   ServerContext&& s, ServerConfig::Ptr sc, Index sessionIndex)
         : Base(s.logger()),
+          transportDetails_(t->remoteEndpointDetails()),
           strand_(std::move(i)),
           peer_(std::make_shared<NetworkPeer>(true)),
           transport_(t),
@@ -159,6 +160,7 @@ private:
         assert(serverConfig_ != nullptr);
         Base::connect({t->remoteEndpointLabel(), serverConfig_->name(),
                                 sessionIndex});
+        transportDetails_.emplace("server", serverConfig_->name());
         peer_->listen(this);
     }
 
@@ -410,6 +412,7 @@ private:
         auto welcomeDetails = info.join({}, petition.uri(),
                                  RouterFeatures::providedRoles());
         authExchange_.reset();
+        info.setTransport({}, transportDetails_);
         Base::join(std::move(info));
 
         if (!realm_.join(shared_from_this()))
@@ -462,6 +465,7 @@ private:
         dispatch(F{shared_from_this(), std::forward<Ts>(args)...});
     }
 
+    Object transportDetails_;
     IoStrand strand_;
     std::shared_ptr<NetworkPeer> peer_;
     Transporting::Ptr transport_;

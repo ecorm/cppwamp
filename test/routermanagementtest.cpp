@@ -121,6 +121,18 @@ void checkSessionDetails(const SessionDetails& s, const Welcome& w,
     CHECK(s.authInfo.provider()  == w.authProvider());
     CHECK(s.authInfo.sessionId() == w.sessionId());
     CHECK(s.features.supports(ClientFeatures::provided()));
+
+    auto t = s.authInfo.transport();
+    CHECK(t["protocol"] == String{"TCP"});
+    CHECK(t["server"] == String{"tcp12345"});
+    auto ipv = t["ip_version"];
+    CHECK((ipv == 4 || ipv == 6));
+    CHECK(wamp::isNumber(t["port"]));
+    auto addr = t["address"];
+    REQUIRE(addr.is<String>());
+    CHECK_FALSE(addr.as<String>().empty());
+    if (ipv == 4)
+        CHECK(wamp::isNumber(t["numeric_address"]));
 }
 
 //------------------------------------------------------------------------------

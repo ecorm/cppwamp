@@ -13,6 +13,7 @@
 #include <vector>
 #include "erroror.hpp"
 #include "messagebuffer.hpp"
+#include "variant.hpp"
 
 namespace wamp
 {
@@ -73,7 +74,11 @@ public:
     /** Sends a transport-level ping message. */
     virtual void ping(MessageBuffer message, PingHandler handler) = 0;
 
+    /** Obtains human-readable remote endpoint information. */
     virtual std::string remoteEndpointLabel() = 0;
+
+    /** Obtains a dictionary containing remote endpoint information. */
+    virtual Object remoteEndpointDetails() = 0;
 
 protected:
     Transporting() = default;

@@ -14,6 +14,7 @@
 #include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
 #include "../udspath.hpp"
+#include "udstraits.hpp"
 
 namespace wamp
 {
@@ -28,6 +29,7 @@ public:
     using Settings  = UdsPath;
     using Socket    = boost::asio::local::stream_protocol::socket;
     using SocketPtr = std::unique_ptr<Socket>;
+    using Traits    = UdsTraits;
 
     template <typename TExecutorOrStrand>
     UdsAcceptor(TExecutorOrStrand&& exec, Settings s)

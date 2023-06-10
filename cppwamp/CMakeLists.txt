@@ -10,6 +10,7 @@ set(HEADERS
     include/cppwamp/anyhandler.hpp
     include/cppwamp/api.hpp
     include/cppwamp/asiodefs.hpp
+    include/cppwamp/authinfo.hpp
     include/cppwamp/authorizer.hpp
     include/cppwamp/authenticator.hpp
     include/cppwamp/blob.hpp
@@ -107,11 +108,13 @@ set(HEADERS
     include/cppwamp/internal/surrogateany.hpp
     include/cppwamp/internal/tcpacceptor.hpp
     include/cppwamp/internal/tcpopener.hpp
+    include/cppwamp/internal/tcptraits.hpp
     include/cppwamp/internal/timeformatting.hpp
     include/cppwamp/internal/timeoutscheduler.hpp
     include/cppwamp/internal/tokentriemapimpl.hpp
     include/cppwamp/internal/udsacceptor.hpp
     include/cppwamp/internal/udsopener.hpp
+    include/cppwamp/internal/udstraits.hpp
     include/cppwamp/internal/variantdecoding.hpp
     include/cppwamp/internal/variantencoding.hpp
     include/cppwamp/internal/varianttraits.hpp

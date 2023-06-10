@@ -15,6 +15,7 @@
 #include "../asiodefs.hpp"
 #include "../erroror.hpp"
 #include "../tcpendpoint.hpp"
+#include "tcptraits.hpp"
 
 namespace wamp
 {
@@ -29,6 +30,7 @@ public:
     using Settings  = TcpEndpoint;
     using Socket    = boost::asio::ip::tcp::socket;
     using SocketPtr = std::unique_ptr<Socket>;
+    using Traits    = TcpTraits;
 
     template <typename TExecutorOrStrand>
     TcpAcceptor(TExecutorOrStrand&& exec, const Settings& s)

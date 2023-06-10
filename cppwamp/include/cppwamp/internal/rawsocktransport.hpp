@@ -120,7 +120,8 @@ struct DefaultRawsockTransportConfig
 };
 
 //------------------------------------------------------------------------------
-template <typename TSocket, typename TConfig = DefaultRawsockTransportConfig>
+template <typename TSocket, typename TTraits,
+          typename TConfig = DefaultRawsockTransportConfig>
 class RawsockTransport : public Transporting
 {
 public:
@@ -188,13 +189,20 @@ public:
         pingStart_ = std::chrono::high_resolution_clock::now();
     }
 
-    virtual std::string remoteEndpointLabel() override
+    std::string remoteEndpointLabel() override
     {
         if (!socket_)
             return {};
         std::ostringstream oss;
         oss << socket_->remote_endpoint();
         return oss.str();
+    }
+
+    Object remoteEndpointDetails() override
+    {
+        if (!socket_)
+            return {};
+        return TTraits::remoteEndpointDetails(socket_->remote_endpoint());
     }
 
 private:
@@ -204,8 +212,8 @@ private:
 
     RawsockTransport(SocketPtr&& socket, TransportInfo info)
         : strand_(boost::asio::make_strand(socket->get_executor())),
-        socket_(std::move(socket)),
-        info_(info)
+          socket_(std::move(socket)),
+          info_(info)
     {}
 
     RawsockFrame::Ptr enframe(RawsockMsgType type, MessageBuffer&& payload)

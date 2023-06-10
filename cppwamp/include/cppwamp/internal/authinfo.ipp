@@ -47,6 +47,8 @@ CPPWAMP_INLINE const String& AuthInfo::provider() const {return provider_;}
 
 CPPWAMP_INLINE const Object& AuthInfo::extra() const {return extra_;}
 
+CPPWAMP_INLINE const Object& AuthInfo::transport() const {return transport_;}
+
 CPPWAMP_INLINE const any& AuthInfo::note() const {return note_;}
 
 CPPWAMP_INLINE void AuthInfo::clear()
@@ -69,6 +71,11 @@ CPPWAMP_INLINE void AuthInfo::setId(internal::PassKey, String id)
 CPPWAMP_INLINE void AuthInfo::setSessionId(internal::PassKey, SessionId sid)
 {
     sessionId_ = sid;
+}
+
+CPPWAMP_INLINE void AuthInfo::setTransport(internal::PassKey, Object transport)
+{
+    transport_ = std::move(transport);
 }
 
 CPPWAMP_INLINE Object

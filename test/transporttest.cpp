@@ -197,12 +197,13 @@ struct BadMsgTypeTransportConfig : internal::DefaultRawsockTransportConfig
 //------------------------------------------------------------------------------
 using BadMsgTypeTransport =
     internal::RawsockTransport<boost::asio::ip::tcp::socket,
+                               internal::TcpTraits,
                                BadMsgTypeTransportConfig>;
 
 //------------------------------------------------------------------------------
 struct FakeTransportClientConfig : internal::DefaultRawsockClientConfig
 {
-    template <typename>
+    template <typename, typename>
     using TransportType = BadMsgTypeTransport;
 
 };
@@ -210,7 +211,7 @@ struct FakeTransportClientConfig : internal::DefaultRawsockClientConfig
 //------------------------------------------------------------------------------
 struct FakeTransportServerConfig : internal::DefaultRawsockServerConfig
 {
-    template <typename>
+    template <typename, typename>
     using TransportType = BadMsgTypeTransport;
 
 };
