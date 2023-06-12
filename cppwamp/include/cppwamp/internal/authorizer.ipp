@@ -59,9 +59,9 @@ CPPWAMP_INLINE DisclosureRule Authorization::disclosure() const
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE const AuthInfo& AuthorizationRequest::authInfo() const
+CPPWAMP_INLINE const SessionInfo& AuthorizationRequest::info() const
 {
-    return *authInfo_;
+    return *info_;
 }
 
 //------------------------------------------------------------------------------
@@ -106,7 +106,7 @@ CPPWAMP_INLINE AuthorizationRequest::AuthorizationRequest(
     std::shared_ptr<internal::RouterSession> s)
     : realm_(std::move(r)),
       originator_(s),
-      authInfo_(s->sharedAuthInfo())
+    info_(s->sharedInfo())
 {}
 
 

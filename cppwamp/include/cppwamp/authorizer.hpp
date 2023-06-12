@@ -22,9 +22,9 @@
 #include <memory>
 #include <utility>
 #include "api.hpp"
-#include "authinfo.hpp"
 #include "pubsubinfo.hpp"
 #include "rpcinfo.hpp"
+#include "sessioninfo.hpp"
 #include "internal/passkey.hpp"
 #include "internal/routercontext.hpp"
 
@@ -91,8 +91,8 @@ private:
 class CPPWAMP_API AuthorizationRequest
 {
 public:
-    /** Accesses the authentication information of the originator. */
-    const AuthInfo& authInfo() const;
+    /** Accesses information on the originator. */
+    const SessionInfo& info() const;
 
     /** Authorizes a subscribe operation. */
     void authorize(Topic t, Authorization a);
@@ -112,7 +112,7 @@ private:
 
     internal::RealmContext realm_;
     std::weak_ptr<internal::RouterSession> originator_;
-    AuthInfo::Ptr authInfo_;
+    SessionInfo::Ptr info_;
 
 public:
     // Internal use only

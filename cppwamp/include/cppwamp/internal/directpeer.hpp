@@ -36,7 +36,7 @@ public:
 
     DirectRouterSession(DirectPeer& peer);
 
-    void connect(DirectRouterLink&& info);
+    void connect(DirectRouterLink&& link);
 
     Object open(Petition&& hello);
 
@@ -49,8 +49,8 @@ private:
 
     void onRouterAbort(Reason&& r) override;
     void onRouterMessage(Message&& msg) override;
-
-    AuthInfo authInfo_;
+    
+    SessionInfo info_;
     DirectPeer& peer_;
 };
 
@@ -338,31 +338,31 @@ private:
 
 inline DirectRouterSession::DirectRouterSession(DirectPeer& p) : peer_(p) {}
 
-inline void DirectRouterSession::connect(DirectRouterLink&& info)
+inline void DirectRouterSession::connect(DirectRouterLink&& link)
 {
-    authInfo_ = std::move(info.authInfo({}));
+    info_ = std::move(link.sessionInfo({}));
 
-    RouterContext router{info.router({})};
+    RouterContext router{link.router({})};
     Base::setRouterLogger(router.logger());
     auto n = router.nextDirectSessionIndex();
     std::string endpointLabel;
-    if (info.endpointLabel({}).empty())
+    if (link.endpointLabel({}).empty())
         endpointLabel = "direct";
     else
-        endpointLabel = std::move(info.endpointLabel({}));
+        endpointLabel = std::move(link.endpointLabel({}));
     Base::connect({std::move(endpointLabel), "direct", n});
 }
 
 inline Object DirectRouterSession::open(Petition&& hello)
 {
     if (!hello.hasOption("authid"))
-        hello.withAuthId(authInfo_.id());
-    else if (authInfo_.id().empty())
-        authInfo_.setId({}, hello.authId().value_or(""));
+        hello.withAuthId(info_.id());
+    else if (info_.id().empty())
+        info_.setId({}, hello.authId().value_or(""));
 
     Base::open(hello);
-    auto welcomeDetails = authInfo_.join({}, hello.uri());
-    Base::join(AuthInfo{authInfo_});
+    auto welcomeDetails = info_.join({}, hello.uri());
+    Base::join(SessionInfo{info_});
     return welcomeDetails;
 }
 

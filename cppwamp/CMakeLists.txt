@@ -10,7 +10,6 @@ set(HEADERS
     include/cppwamp/anyhandler.hpp
     include/cppwamp/api.hpp
     include/cppwamp/asiodefs.hpp
-    include/cppwamp/authinfo.hpp
     include/cppwamp/authorizer.hpp
     include/cppwamp/authenticator.hpp
     include/cppwamp/blob.hpp
@@ -18,6 +17,7 @@ set(HEADERS
     include/cppwamp/callerstreaming.hpp
     include/cppwamp/cancellation.hpp
     include/cppwamp/cbor.hpp
+    include/cppwamp/clientinfo.hpp
     include/cppwamp/codec.hpp
     include/cppwamp/config.hpp
     include/cppwamp/connector.hpp
@@ -143,13 +143,13 @@ set(INLINES
     include/cppwamp/internal/accesslogging.ipp
     include/cppwamp/internal/authenticator.ipp
     include/cppwamp/internal/authorizer.ipp
-    include/cppwamp/internal/authinfo.ipp
     include/cppwamp/internal/blob.ipp
     include/cppwamp/internal/calleestreaming.ipp
     include/cppwamp/internal/callerstreaming.ipp
     include/cppwamp/internal/cancellation.ipp
     include/cppwamp/internal/cbor.ipp
     include/cppwamp/internal/consolelogger.ipp
+    include/cppwamp/internal/clientinfo.ipp
     include/cppwamp/internal/directsession.ipp
     include/cppwamp/internal/errorcodes.ipp
     include/cppwamp/internal/errorinfo.ipp

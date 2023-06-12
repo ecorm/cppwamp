@@ -14,12 +14,12 @@
 #include <cppwamp/internal/anonymousauthenticator.ipp>
 #include <cppwamp/internal/authorizer.ipp>
 #include <cppwamp/internal/authenticator.ipp>
-#include <cppwamp/internal/authinfo.ipp>
 #include <cppwamp/internal/blob.ipp>
 #include <cppwamp/internal/calleestreaming.ipp>
 #include <cppwamp/internal/callerstreaming.ipp>
 #include <cppwamp/internal/cancellation.ipp>
 #include <cppwamp/internal/cbor.ipp>
+#include <cppwamp/internal/clientinfo.ipp>
 #include <cppwamp/internal/consolelogger.ipp>
 #include <cppwamp/internal/directsession.ipp>
 #include <cppwamp/internal/errorcodes.ipp>

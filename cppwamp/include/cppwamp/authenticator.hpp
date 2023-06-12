@@ -14,8 +14,8 @@
 
 #include <memory>
 #include "any.hpp"
-#include "authinfo.hpp"
 #include "api.hpp"
+#include "clientinfo.hpp"
 #include "sessioninfo.hpp"
 #include "internal/passkey.hpp"
 #include "internal/challenger.hpp"
@@ -56,7 +56,7 @@ public:
 
     /** Sends a WELCOME message to the client with the given authentication
         information. */
-    void welcome(AuthInfo info);
+    void welcome(SessionInfo info);
 
     /** Rejects the authentication request by sending an ABORT message to
         the client. */

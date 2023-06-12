@@ -11,10 +11,9 @@
 #include <cstring>
 #include <memory>
 #include "../accesslogging.hpp"
-#include "../authinfo.hpp"
+#include "../clientinfo.hpp"
 #include "../features.hpp"
 #include "../pubsubinfo.hpp"
-#include "../realmobserver.hpp"
 #include "../rpcinfo.hpp"
 #include "../sessioninfo.hpp"
 #include "random.hpp"
@@ -40,9 +39,9 @@ public:
 
     SessionId wampId() const {return wampId_.get();}
 
-    const AuthInfo& authInfo() const {return *authInfo_;}
+    const SessionInfo& info() const {return *info_;}
 
-    AuthInfo::Ptr sharedAuthInfo() const {return authInfo_;}
+    SessionInfo::Ptr sharedInfo() const {return info_;}
 
     ClientFeatures features() const {return features_;}
 
@@ -50,7 +49,7 @@ public:
     {
         wampId_ = std::move(id);
         sessionInfo_.wampSessionId = wampId();
-        authInfo_->setSessionId({}, wampId());
+        info_->setSessionId({}, wampId());
     }
 
     void report(AccessActionInfo&& action)
@@ -113,7 +112,7 @@ public:
 protected:
     RouterSession(RouterLogger::Ptr logger = nullptr)
         : logger_(std::move(logger)),
-          authInfo_(std::make_shared<AuthInfo>()),
+          info_(std::make_shared<SessionInfo>()),
           nextOutboundRequestId_(0),
           lastInsertedCallRequestId_(0)
     {}
@@ -154,20 +153,20 @@ protected:
         features_ = hello.features();
     }
 
-    void join(AuthInfo&& info)
+    void join(SessionInfo&& info)
     {
         // sessionInfo_.wampSessionId was already set
         // via RouterSession::setWampId
         sessionInfo_.realmUri = info.realmUri();
         sessionInfo_.authId = info.id();
-        *authInfo_ = std::move(info);
+        *info_ = std::move(info);
     }
 
     void close()
     {
         sessionInfo_.reset();
         wampId_.reset();
-        authInfo_->reset();
+        info_->reset();
         features_.reset();
         nextOutboundRequestId_.store(0);
         lastInsertedCallRequestId_.store(0);
@@ -179,7 +178,7 @@ private:
     String logSuffix_;
     ReservedId wampId_;
     RouterLogger::Ptr logger_;
-    AuthInfo::Ptr authInfo_;
+    SessionInfo::Ptr info_;
     ClientFeatures features_;
     std::atomic<RequestId> nextOutboundRequestId_;
     std::atomic<RequestId> lastInsertedCallRequestId_;

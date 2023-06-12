@@ -23,6 +23,7 @@
 #include "asiodefs.hpp"
 #include "calleestreaming.hpp"
 #include "callerstreaming.hpp"
+#include "clientinfo.hpp"
 #include "config.hpp"
 #include "connector.hpp"
 #include "exceptions.hpp"
@@ -31,7 +32,6 @@
 #include "pubsubinfo.hpp"
 #include "registration.hpp"
 #include "rpcinfo.hpp"
-#include "sessioninfo.hpp"
 #include "subscription.hpp"
 #include "wampdefs.hpp"
 

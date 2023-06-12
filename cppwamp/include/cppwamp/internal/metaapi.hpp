@@ -179,7 +179,7 @@ private:
 
         auto authRoles = parseAuthRoles(rpc);
         auto filter =
-            [&authRoles](const AuthInfo& info) -> bool
+            [&authRoles](const SessionInfo& info) -> bool
             {
                 const auto& role = info.role();
                 return authRoles.count(role) != 0;
@@ -194,7 +194,7 @@ private:
 
         auto authRoles = parseAuthRoles(rpc);
         auto filter =
-            [&authRoles](const AuthInfo& info) -> bool
+            [&authRoles](const SessionInfo& info) -> bool
             {
                 const auto& role = info.role();
                 return authRoles.count(role) != 0;
@@ -241,7 +241,7 @@ private:
         rpc.convertTo(authId);
         auto killed = killSessions(
             rpc,
-            [&authId, ownId](const AuthInfo& info) -> bool
+            [&authId, ownId](const SessionInfo& info) -> bool
             {
                 auto sid = info.sessionId();
                 return (sid != ownId) && (info.id() == authId);
@@ -256,7 +256,7 @@ private:
         rpc.convertTo(authRole);
         auto killed = killSessions(
             rpc,
-            [&authRole, ownId](const AuthInfo& info) -> bool
+            [&authRole, ownId](const SessionInfo& info) -> bool
             {
                 auto sid = info.sessionId();
                 return (sid != ownId) && (info.role() == authRole);
@@ -269,7 +269,7 @@ private:
         auto ownId = caller.wampId();
         auto killed = killSessions(
             rpc,
-            [ownId](const AuthInfo& info) -> bool
+            [ownId](const SessionInfo& info) -> bool
             {
                 return info.sessionId() != ownId;
             });
@@ -446,19 +446,19 @@ public:
         if (!observers_.empty())
             notifyObservers<Notifier>(std::move(uri));
     }
-
-    void onJoin(AuthInfo info) override
+    
+    void onJoin(SessionInfo info) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
-            AuthInfo a;
+            SessionInfo s;
 
             void operator()()
             {
                 auto o = observer.lock();
                 if (o)
-                    o->onJoin(std::move(a));
+                    o->onJoin(std::move(s));
             }
         };
 
@@ -468,19 +468,19 @@ public:
         if (!observers_.empty())
             notifyObservers<Notifier>(std::move(info));
     }
-
-    void onLeave(AuthInfo info) override
+    
+    void onLeave(SessionInfo info) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
-            AuthInfo a;
+            SessionInfo s;
 
             void operator()()
             {
                 auto o = observer.lock();
                 if (o)
-                    o->onLeave(std::move(a));
+                    o->onLeave(std::move(s));
             }
         };
 
@@ -491,20 +491,20 @@ public:
         if (!observers_.empty())
             notifyObservers<Notifier>(std::move(info));
     }
-
-    void onRegister(AuthInfo info, RegistrationDetails r) override
+    
+    void onRegister(SessionInfo info, RegistrationDetails r) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
-            AuthInfo a;
+            SessionInfo s;
             RegistrationDetails r;
 
             void operator()()
             {
                 auto o = observer.lock();
                 if (o)
-                    o->onRegister(std::move(a), std::move(r));
+                    o->onRegister(std::move(s), std::move(r));
             }
         };
 
@@ -525,20 +525,20 @@ public:
         if (!observers_.empty())
             notifyObservers<Notifier>(std::move(info), std::move(r));
     }
-
-    void onUnregister(AuthInfo info, RegistrationDetails r) override
+    
+    void onUnregister(SessionInfo info, RegistrationDetails r) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
-            AuthInfo a;
+            SessionInfo s;
             RegistrationDetails r;
 
             void operator()()
             {
                 auto o = observer.lock();
                 if (o)
-                    o->onUnregister(std::move(a), std::move(r));
+                    o->onUnregister(std::move(s), std::move(r));
             }
         };
 
@@ -558,20 +558,20 @@ public:
         if (!observers_.empty())
             notifyObservers<Notifier>(std::move(info), std::move(r));
     }
-
-    void onSubscribe(AuthInfo info, SubscriptionDetails sub) override
+    
+    void onSubscribe(SessionInfo info, SubscriptionDetails sub) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
-            AuthInfo a;
+            SessionInfo s;
             SubscriptionDetails sub;
 
             void operator()()
             {
                 auto o = observer.lock();
                 if (o)
-                    o->onSubscribe(std::move(a), std::move(sub));
+                    o->onSubscribe(std::move(s), std::move(sub));
             }
         };
 
@@ -592,20 +592,20 @@ public:
         if (!observers_.empty())
             notifyObservers<Notifier>(std::move(info), std::move(sub));
     }
-
-    void onUnsubscribe(AuthInfo info, SubscriptionDetails sub) override
+    
+    void onUnsubscribe(SessionInfo info, SubscriptionDetails sub) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
-            AuthInfo a;
+            SessionInfo s;
             SubscriptionDetails sub;
 
             void operator()()
             {
                 auto o = observer.lock();
                 if (o)
-                    o->onUnsubscribe(std::move(a), std::move(sub));
+                    o->onUnsubscribe(std::move(s), std::move(sub));
             }
         };
 

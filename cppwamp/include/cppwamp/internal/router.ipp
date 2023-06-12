@@ -100,13 +100,14 @@ Router::impl(internal::PassKey)
 //******************************************************************************
 
 CPPWAMP_INLINE DirectRouterLink::DirectRouterLink(Router& router)
-    : authInfo_({}, {}, "x_cppwamp_direct", "direct"),
+    : sessionInfo_({}, {}, "x_cppwamp_direct", "direct"),
       router_(router.impl({}))
 {}
 
-CPPWAMP_INLINE DirectRouterLink& DirectRouterLink::withAuthInfo(AuthInfo info)
+CPPWAMP_INLINE DirectRouterLink&
+DirectRouterLink::withSessionInfo(SessionInfo info)
 {
-    authInfo_ = std::move(info);
+    sessionInfo_ = std::move(info);
     return *this;
 }
 
@@ -123,9 +124,9 @@ DirectRouterLink::router(internal::PassKey)
     return router_;
 }
 
-CPPWAMP_INLINE AuthInfo& DirectRouterLink::authInfo(internal::PassKey)
+CPPWAMP_INLINE SessionInfo& DirectRouterLink::sessionInfo(internal::PassKey)
 {
-    return authInfo_;
+    return sessionInfo_;
 }
 
 CPPWAMP_INLINE std::string& DirectRouterLink::endpointLabel(internal::PassKey)

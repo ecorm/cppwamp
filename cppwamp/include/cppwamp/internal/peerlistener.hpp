@@ -11,7 +11,7 @@
 #include <cassert>
 #include <string>
 #include <utility>
-#include "../sessioninfo.hpp"
+#include "../clientinfo.hpp"
 #include "message.hpp"
 
 namespace wamp

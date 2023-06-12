@@ -113,7 +113,7 @@ public:
         if (metaTopics.enabled())
         {
             registration.resetCallee();
-            metaTopics.onUnregister(callee.authInfo(), registration.details());
+            metaTopics.onUnregister(callee.info(), registration.details());
         }
 
         auto erased = byUri_.erase(uri);
@@ -145,7 +145,7 @@ public:
                 if (metaTopics.enabled())
                 {
                     reg->resetCallee();
-                    metaTopics.onUnregister(callee.authInfo(), reg->details());
+                    metaTopics.onUnregister(callee.info(), reg->details());
                 }
                 iter1 = byUri_.erase(iter1);
             }
@@ -243,13 +243,15 @@ public:
 
         if (callerDisclosed)
         {
+            // Disclosed properties are not in the spec, but there is
+            // a consensus here:
             // https://github.com/wamp-proto/wamp-proto/issues/57
-            const auto& authInfo = caller->authInfo();
-            inv.withOption("caller", authInfo.sessionId());
-            if (!authInfo.id().empty())
-                inv.withOption("caller_authid", authInfo.id());
-            if (!authInfo.role().empty())
-                inv.withOption("caller_authrole", authInfo.role());
+            const auto& info = caller->info();
+            inv.withOption("caller", info.sessionId());
+            if (!info.id().empty())
+                inv.withOption("caller_authid", info.id());
+            if (!info.role().empty())
+                inv.withOption("caller_authrole", info.role());
         }
 
         if (isProgressiveCall_)
@@ -610,7 +612,7 @@ public:
         auto key = nextRegistrationId();
         const auto& inserted = registry_.insert(key, std::move(reg));
         if (metaTopics_->enabled())
-            metaTopics_->onRegister(callee->authInfo(), inserted.details());
+            metaTopics_->onRegister(callee->info(), inserted.details());
         return key;
     }
 

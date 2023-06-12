@@ -21,8 +21,8 @@
 #include "api.hpp"
 #include "asiodefs.hpp"
 #include "anyhandler.hpp"
+#include "clientinfo.hpp"
 #include "config.hpp"
-#include "cppwamp/sessioninfo.hpp"
 #include "erroror.hpp"
 #include "exceptions.hpp"
 #include "realmobserver.hpp"
@@ -49,8 +49,8 @@ public:
     using FallbackExecutor    = AnyCompletionExecutor;
     using SessionIdList       = std::vector<SessionId>;
     using SubscriptionIdList  = std::vector<SubscriptionId>;
-    using SessionHandler      = std::function<void (AuthInfo)>;
-    using SessionFilter       = std::function<bool (const AuthInfo&)>;
+    using SessionHandler      = std::function<void (SessionInfo)>;
+    using SessionFilter       = std::function<bool (const SessionInfo&)>;
     using RegistrationHandler = std::function<void (RegistrationDetails)>;
     using SubscriptionHandler = std::function<void (SubscriptionDetails)>;
 
@@ -107,7 +107,7 @@ public:
     forEachSession(SessionHandler f, C&& completion);
 
     template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<AuthInfo>, C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<SessionInfo>, C>
     lookupSession(SessionId sid, C&& completion);
 
     template <typename C>
@@ -203,7 +203,7 @@ private:
     void doListSessions(SessionFilter f, CompletionHandler<SessionIdList> h);
     void doForEachSession(SessionHandler f, CompletionHandler<std::size_t> h);
     void doLookupSession(SessionId sid,
-                         CompletionHandler<ErrorOr<AuthInfo>> h);
+                         CompletionHandler<ErrorOr<SessionInfo>> h);
     void doKillSessionById(SessionId sid, Reason r,
                            CompletionHandler<ErrorOr<bool>> h);
     void doKillSessions(SessionFilter f, Reason r,
@@ -342,7 +342,7 @@ Realm::forEachSession(SessionHandler f, C&& completion)
 //------------------------------------------------------------------------------
 struct Realm::LookupSessionOp
 {
-    using ResultValue = ErrorOr<AuthInfo>;
+    using ResultValue = ErrorOr<SessionInfo>;
     Realm* self;
     SessionId sid;
 
@@ -354,12 +354,12 @@ struct Realm::LookupSessionOp
 };
 
 //------------------------------------------------------------------------------
-/** @tparam C Callable handler with signature `void (ErrorOr<AuthInfo>)`,
+/** @tparam C Callable handler with signature `void (ErrorOr<SessionInfo>)`,
               or a compatible Boost.Asio completion token.
     @return The session's details if found, or an error otherwise. */
 //------------------------------------------------------------------------------
 template <typename C>
-Realm::Deduced<ErrorOr<AuthInfo>, C>
+Realm::Deduced<ErrorOr<SessionInfo>, C>
 Realm::lookupSession(SessionId sid, C&& completion)
 {
     CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");

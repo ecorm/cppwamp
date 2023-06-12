@@ -13,7 +13,7 @@ namespace wamp
 {
 
 class Reason;
-class AuthInfo;
+class SessionInfo;
 
 namespace internal
 {
@@ -25,8 +25,8 @@ public:
     using WeakPtr = std::weak_ptr<Challenger>;
 
     virtual void safeChallenge() = 0;
-
-    virtual void safeWelcome(AuthInfo&&) = 0;
+    
+    virtual void safeWelcome(SessionInfo&&) = 0;
 
     virtual void safeReject(Reason&&) = 0;
 };

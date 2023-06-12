@@ -58,13 +58,15 @@ public:
 
         if (publisherDisclosed)
         {
+            // Disclosed properties are not in the spec, but there is
+            // a consensus here:
             // https://github.com/wamp-proto/wamp-proto/issues/57
-            const auto& authInfo = publisher->authInfo();
-            event_.withOption("publisher", authInfo.sessionId());
-            if (!authInfo.id().empty())
-                event_.withOption("publisher_authid", authInfo.id());
-            if (!authInfo.role().empty())
-                event_.withOption("publisher_authrole", authInfo.role());
+            const auto& info = publisher->info();
+            event_.withOption("publisher", info.sessionId());
+            if (!info.id().empty())
+                event_.withOption("publisher_authid", info.id());
+            if (!info.role().empty())
+                event_.withOption("publisher_authrole", info.role());
         }
 
         if (!customOptions.empty())
@@ -142,8 +144,8 @@ private:
     bool isEligible(const RouterSession& subscriber) const
     {
         auto id = subscriber.wampId();
-        const auto& authId = subscriber.authInfo().id();
-        const auto& authRole = subscriber.authInfo().role();
+        const auto& authId = subscriber.info().id();
+        const auto& authRole = subscriber.info().role();
 
         if (publisherExcluded_ && id == publisherId_)
             return false;
@@ -228,7 +230,7 @@ public:
     {
         auto wasRemoved = subscribers_.erase(subscriber.wampId()) != 0;
         if (wasRemoved && metaTopics.enabled())
-            metaTopics.onUnsubscribe(subscriber.authInfo(), details());
+            metaTopics.onUnsubscribe(subscriber.info(), details());
         return wasRemoved;
     }
 
@@ -572,7 +574,7 @@ public:
         }
 
         if (metaTopics_->enabled() && !isMetaTopic(sub->topic()) )
-            metaTopics_->onSubscribe(subscriber->authInfo(), sub->details());
+            metaTopics_->onSubscribe(subscriber->info(), sub->details());
 
         return sub->subscriptionId();
     }

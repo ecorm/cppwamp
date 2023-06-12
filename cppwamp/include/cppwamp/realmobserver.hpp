@@ -18,14 +18,14 @@
 #include <mutex>
 #include "anyhandler.hpp"
 #include "api.hpp"
-#include "authinfo.hpp"
 #include "pubsubinfo.hpp"
+#include "sessioninfo.hpp"
 
 namespace wamp
 {
 
 //------------------------------------------------------------------------------
-CPPWAMP_API Object toObject(const AuthInfo& info);
+CPPWAMP_API Object toObject(const SessionInfo& info);
 
 
 //------------------------------------------------------------------------------
@@ -180,17 +180,17 @@ public:
 
     virtual void onRealmClosed(Uri);
 
-    virtual void onJoin(AuthInfo);
+    virtual void onJoin(SessionInfo);
 
-    virtual void onLeave(AuthInfo);
+    virtual void onLeave(SessionInfo);
 
-    virtual void onRegister(AuthInfo, RegistrationDetails);
+    virtual void onRegister(SessionInfo, RegistrationDetails);
 
-    virtual void onUnregister(AuthInfo, RegistrationDetails);
+    virtual void onUnregister(SessionInfo, RegistrationDetails);
 
-    virtual void onSubscribe(AuthInfo, SubscriptionDetails);
+    virtual void onSubscribe(SessionInfo, SubscriptionDetails);
 
-    virtual void onUnsubscribe(AuthInfo, SubscriptionDetails);
+    virtual void onUnsubscribe(SessionInfo, SubscriptionDetails);
 
 protected:
     RealmObserver();

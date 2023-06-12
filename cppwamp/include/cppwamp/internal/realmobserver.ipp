@@ -13,7 +13,7 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Object toObject(const AuthInfo& info)
+CPPWAMP_INLINE Object toObject(const SessionInfo& info)
 {
     return Object
     {
@@ -235,18 +235,20 @@ CPPWAMP_INLINE void RealmObserver::detach()
 
 CPPWAMP_INLINE void RealmObserver::onRealmClosed(Uri) {}
 
-CPPWAMP_INLINE void RealmObserver::onJoin(AuthInfo) {}
+CPPWAMP_INLINE void RealmObserver::onJoin(SessionInfo) {}
 
-CPPWAMP_INLINE void RealmObserver::onLeave(AuthInfo) {}
+CPPWAMP_INLINE void RealmObserver::onLeave(SessionInfo) {}
 
-CPPWAMP_INLINE void RealmObserver::onRegister(AuthInfo, RegistrationDetails) {}
+CPPWAMP_INLINE void RealmObserver::onRegister(SessionInfo,
+                                              RegistrationDetails) {}
 
-CPPWAMP_INLINE void RealmObserver::onUnregister(AuthInfo,
+CPPWAMP_INLINE void RealmObserver::onUnregister(SessionInfo,
                                                 RegistrationDetails) {}
 
-CPPWAMP_INLINE void RealmObserver::onSubscribe(AuthInfo, SubscriptionDetails) {}
+CPPWAMP_INLINE void RealmObserver::onSubscribe(SessionInfo,
+                                               SubscriptionDetails) {}
 
-CPPWAMP_INLINE void RealmObserver::onUnsubscribe(AuthInfo,
+CPPWAMP_INLINE void RealmObserver::onUnsubscribe(SessionInfo,
                                                  SubscriptionDetails) {}
 
 CPPWAMP_INLINE RealmObserver::RealmObserver() : observerId_(0) {}

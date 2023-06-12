@@ -396,7 +396,7 @@ private:
         safelyDispatch<Dispatched>();
     }
 
-    void welcome(AuthInfo&& info)
+    void welcome(SessionInfo&& info)
     {
         auto s = state();
         bool readyToWelcome = authExchange_ != nullptr &&
@@ -423,12 +423,12 @@ private:
         peer_->welcome(wampId(), std::move(welcomeDetails));
     }
 
-    void safeWelcome(AuthInfo&& info) override
+    void safeWelcome(SessionInfo&& info) override
     {
         struct Dispatched
         {
             Ptr self;
-            AuthInfo info;
+            SessionInfo info;
             void operator()() {self->welcome(std::move(info));}
         };
 
