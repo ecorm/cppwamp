@@ -15,6 +15,7 @@
 #include <memory>
 #include "any.hpp"
 #include "api.hpp"
+#include "features.hpp"
 #include "wampdefs.hpp"
 #include "variant.hpp"
 #include "internal/passkey.hpp"
@@ -67,7 +68,8 @@ public:
 
     // TODO: Add agent string
     // TODO: Add feature flags
-    // TODO: Add transport
+    // TODO: Rename to SessionDetails
+    // TODO: Pass by shared pointer to const via RealmObserver
 
     /** Obtains the `authextra` dictionary. */
     const Object& extra() const;
@@ -75,12 +77,15 @@ public:
     /** Obtains the `transport` dictionary. */
     const Object& transport() const;
 
-    /** Accesses the note containing arbitrary information set by the
+    /** Obtains the note containing arbitrary information set by the
         authenticator. */
     const any& note() const;
 
+    /** Obtains the client supported features flags. */
+    ClientFeatures features() const;
+
     /** Resets the instance as if it were default-constructed. */
-    void clear();
+    void reset();
 
 private:
     String realmUri_;
@@ -91,12 +96,14 @@ private:
     Object extra_;
     Object transport_;
     any note_;
+    ClientFeatures features_;
     SessionId sessionId_ = nullId();
 
 public: // Internal use only
     void setId(internal::PassKey, String id);
     void setSessionId(internal::PassKey, SessionId sid);
     void setTransport(internal::PassKey, Object transport);
+    void setFeatures(internal::PassKey, ClientFeatures features);
     Object join(internal::PassKey, Uri uri, Object routerRoles = {});
 };
 

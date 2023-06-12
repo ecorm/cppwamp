@@ -113,7 +113,7 @@ public:
         if (metaTopics.enabled())
         {
             registration.resetCallee();
-            metaTopics.onUnregister(callee.details(), registration.details());
+            metaTopics.onUnregister(callee.authInfo(), registration.details());
         }
 
         auto erased = byUri_.erase(uri);
@@ -145,7 +145,7 @@ public:
                 if (metaTopics.enabled())
                 {
                     reg->resetCallee();
-                    metaTopics.onUnregister(callee.details(), reg->details());
+                    metaTopics.onUnregister(callee.authInfo(), reg->details());
                 }
                 iter1 = byUri_.erase(iter1);
             }
@@ -610,7 +610,7 @@ public:
         auto key = nextRegistrationId();
         const auto& inserted = registry_.insert(key, std::move(reg));
         if (metaTopics_->enabled())
-            metaTopics_->onRegister(callee->details(), inserted.details());
+            metaTopics_->onRegister(callee->authInfo(), inserted.details());
         return key;
     }
 

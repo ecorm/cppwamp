@@ -46,8 +46,6 @@ public:
 
     ClientFeatures features() const {return features_;}
 
-    SessionDetails details() const {return {features_, *authInfo_};}
-
     void setWampId(ReservedId&& id)
     {
         wampId_ = std::move(id);
@@ -169,7 +167,7 @@ protected:
     {
         sessionInfo_.reset();
         wampId_.reset();
-        authInfo_->clear();
+        authInfo_->reset();
         features_.reset();
         nextOutboundRequestId_.store(0);
         lastInsertedCallRequestId_.store(0);

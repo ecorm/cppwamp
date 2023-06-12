@@ -13,16 +13,8 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE SessionDetails::SessionDetails() {}
-
-CPPWAMP_INLINE SessionDetails::SessionDetails(ClientFeatures f, AuthInfo a)
-    : features(f),
-      authInfo(std::move(a))
-{}
-
-CPPWAMP_INLINE Object toObject(const SessionDetails& details)
+CPPWAMP_INLINE Object toObject(const AuthInfo& info)
 {
-    const auto& info = details.authInfo;
     return Object
     {
         {"authid",       info.id()},
@@ -243,20 +235,18 @@ CPPWAMP_INLINE void RealmObserver::detach()
 
 CPPWAMP_INLINE void RealmObserver::onRealmClosed(Uri) {}
 
-CPPWAMP_INLINE void RealmObserver::onJoin(SessionDetails) {}
+CPPWAMP_INLINE void RealmObserver::onJoin(AuthInfo) {}
 
-CPPWAMP_INLINE void RealmObserver::onLeave(SessionDetails) {}
+CPPWAMP_INLINE void RealmObserver::onLeave(AuthInfo) {}
 
-CPPWAMP_INLINE void RealmObserver::onRegister(SessionDetails,
-                                              RegistrationDetails) {}
+CPPWAMP_INLINE void RealmObserver::onRegister(AuthInfo, RegistrationDetails) {}
 
-CPPWAMP_INLINE void RealmObserver::onUnregister(SessionDetails,
+CPPWAMP_INLINE void RealmObserver::onUnregister(AuthInfo,
                                                 RegistrationDetails) {}
 
-CPPWAMP_INLINE void RealmObserver::onSubscribe(SessionDetails,
-                                               SubscriptionDetails) {}
+CPPWAMP_INLINE void RealmObserver::onSubscribe(AuthInfo, SubscriptionDetails) {}
 
-CPPWAMP_INLINE void RealmObserver::onUnsubscribe(SessionDetails,
+CPPWAMP_INLINE void RealmObserver::onUnsubscribe(AuthInfo,
                                                  SubscriptionDetails) {}
 
 CPPWAMP_INLINE RealmObserver::RealmObserver() : observerId_(0) {}

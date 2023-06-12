@@ -228,7 +228,7 @@ public:
     {
         auto wasRemoved = subscribers_.erase(subscriber.wampId()) != 0;
         if (wasRemoved && metaTopics.enabled())
-            metaTopics.onUnsubscribe(subscriber.details(), details());
+            metaTopics.onUnsubscribe(subscriber.authInfo(), details());
         return wasRemoved;
     }
 
@@ -572,7 +572,7 @@ public:
         }
 
         if (metaTopics_->enabled() && !isMetaTopic(sub->topic()) )
-            metaTopics_->onSubscribe(subscriber->details(), sub->details());
+            metaTopics_->onSubscribe(subscriber->authInfo(), sub->details());
 
         return sub->subscriptionId();
     }

@@ -43,8 +43,8 @@ public:
     using Executor            = AnyIoExecutor;
     using FallbackExecutor    = AnyCompletionExecutor;
     using ObserverId          = MetaTopics::ObserverId;
-    using SessionHandler      = std::function<void (SessionDetails)>;
-    using SessionFilter       = std::function<bool (SessionDetails)>;
+    using SessionHandler      = std::function<void (AuthInfo)>;
+    using SessionFilter       = std::function<bool (const AuthInfo&)>;
     using RegistrationHandler = std::function<void (RegistrationDetails)>;
     using SubscriptionHandler = std::function<void (SubscriptionDetails)>;
 
@@ -81,7 +81,7 @@ public:
                 session->setWampId(std::move(reservedId));
                 me.sessions_.emplace(id, session);
                 if (me.metaTopics_->enabled())
-                    me.metaTopics_->onJoin(session->details());
+                    me.metaTopics_->onJoin(session->authInfo());
             }
         };
 
@@ -181,7 +181,7 @@ public:
             {
                 auto& me = *self;
                 for (const auto& kv: me.sessions_)
-                    f(kv.second->details());
+                    f(kv.second->authInfo());
                 me.complete(h, me.sessions_.size());
             }
         };
@@ -190,13 +190,13 @@ public:
     }
 
     void lookupSession(SessionId sid,
-                       CompletionHandler<ErrorOr<SessionDetails>> h)
+                       CompletionHandler<ErrorOr<AuthInfo>> h)
     {
         struct Dispatched
         {
             Ptr self;
             SessionId sid;
-            CompletionHandler<ErrorOr<SessionDetails>> h;
+            CompletionHandler<ErrorOr<AuthInfo>> h;
 
             void operator()()
             {
@@ -472,7 +472,7 @@ private:
 
         std::size_t count = 0;
         for (const auto& kv: sessions_)
-            count += filter(kv.second->details()) ? 1 : 0;
+            count += filter(kv.second->authInfo()) ? 1 : 0;
         return count;
     }
 
@@ -481,20 +481,20 @@ private:
         std::vector<SessionId> idList;
         for (const auto& kv: sessions_)
         {
-            if ((filter == nullptr) || filter(kv.second->details()))
+            if ((filter == nullptr) || filter(kv.second->authInfo()))
                 idList.push_back(kv.first);
         }
         return idList;
     }
 
-    ErrorOr<SessionDetails> sessionDetails(SessionId sid) const
+    ErrorOr<AuthInfo> sessionDetails(SessionId sid) const
     {
         static constexpr auto errc = WampErrc::noSuchSession;
         auto found = sessions_.find(sid);
         if (found == sessions_.end())
             return makeUnexpectedError(errc);
         else
-            return found->second->details();
+            return found->second->authInfo();
     }
 
     ErrorOr<bool> doKillSession(SessionId sid, Reason reason)
@@ -518,7 +518,7 @@ private:
 
         for (auto& kv: sessions_)
         {
-            if (filter(kv.second->details()))
+            if (filter(kv.second->authInfo()))
             {
                 killed.push_back(kv.second);
                 killedIds.push_back(kv.first);
@@ -595,7 +595,7 @@ private:
                 me.broker_.removeSubscriber(session);
                 me.dealer_.removeSession(session);
                 if (me.metaTopics_->enabled())
-                    me.metaTopics_->onLeave(session->details());
+                    me.metaTopics_->onLeave(session->authInfo());
                 me.metaTopics_->clearSessionInhibitions();
             }
         };

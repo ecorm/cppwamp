@@ -408,17 +408,18 @@ private:
             return;
         }
 
-        const auto& petition = authExchange_->hello();
-        auto welcomeDetails = info.join({}, petition.uri(),
+        const auto& hello = authExchange_->hello();
+        auto welcomeDetails = info.join({}, hello.uri(),
                                  RouterFeatures::providedRoles());
         authExchange_.reset();
         info.setTransport({}, transportDetails_);
+        info.setFeatures({}, hello.features());
         Base::join(std::move(info));
 
         if (!realm_.join(shared_from_this()))
             return abortSession({WampErrc::noSuchRealm});
 
-        report({AccessAction::serverWelcome, petition.uri(), welcomeDetails});
+        report({AccessAction::serverWelcome, hello.uri(), welcomeDetails});
         peer_->welcome(wampId(), std::move(welcomeDetails));
     }
 

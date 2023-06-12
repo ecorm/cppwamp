@@ -76,7 +76,7 @@ CPPWAMP_INLINE void Realm::doForEachSession(SessionHandler f,
 }
 
 CPPWAMP_INLINE void Realm::doLookupSession(
-    SessionId sid, CompletionHandler<ErrorOr<SessionDetails>> h)
+    SessionId sid, CompletionHandler<ErrorOr<AuthInfo>> h)
 {
     impl_->lookupSession(sid, std::move(h));
 }

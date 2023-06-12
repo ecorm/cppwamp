@@ -19,25 +19,13 @@
 #include "anyhandler.hpp"
 #include "api.hpp"
 #include "authinfo.hpp"
-#include "features.hpp"
 #include "pubsubinfo.hpp"
-#include "internal/passkey.hpp"
 
 namespace wamp
 {
 
 //------------------------------------------------------------------------------
-struct CPPWAMP_API SessionDetails
-{
-    SessionDetails();
-
-    SessionDetails(ClientFeatures f, AuthInfo a);
-
-    ClientFeatures features;
-    AuthInfo authInfo;
-};
-
-CPPWAMP_API Object toObject(const SessionDetails& details);
+CPPWAMP_API Object toObject(const AuthInfo& info);
 
 
 //------------------------------------------------------------------------------
@@ -192,17 +180,17 @@ public:
 
     virtual void onRealmClosed(Uri);
 
-    virtual void onJoin(SessionDetails);
+    virtual void onJoin(AuthInfo);
 
-    virtual void onLeave(SessionDetails);
+    virtual void onLeave(AuthInfo);
 
-    virtual void onRegister(SessionDetails, RegistrationDetails);
+    virtual void onRegister(AuthInfo, RegistrationDetails);
 
-    virtual void onUnregister(SessionDetails, RegistrationDetails);
+    virtual void onUnregister(AuthInfo, RegistrationDetails);
 
-    virtual void onSubscribe(SessionDetails, SubscriptionDetails);
+    virtual void onSubscribe(AuthInfo, SubscriptionDetails);
 
-    virtual void onUnsubscribe(SessionDetails, SubscriptionDetails);
+    virtual void onUnsubscribe(AuthInfo, SubscriptionDetails);
 
 protected:
     RealmObserver();

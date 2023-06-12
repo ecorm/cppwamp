@@ -51,7 +51,9 @@ CPPWAMP_INLINE const Object& AuthInfo::transport() const {return transport_;}
 
 CPPWAMP_INLINE const any& AuthInfo::note() const {return note_;}
 
-CPPWAMP_INLINE void AuthInfo::clear()
+CPPWAMP_INLINE ClientFeatures AuthInfo::features() const {return features_;}
+
+CPPWAMP_INLINE void AuthInfo::reset()
 {
     realmUri_.clear();
     id_.clear();
@@ -76,6 +78,12 @@ CPPWAMP_INLINE void AuthInfo::setSessionId(internal::PassKey, SessionId sid)
 CPPWAMP_INLINE void AuthInfo::setTransport(internal::PassKey, Object transport)
 {
     transport_ = std::move(transport);
+}
+
+CPPWAMP_INLINE void AuthInfo::setFeatures(internal::PassKey,
+                                          ClientFeatures features)
+{
+    features_ = features;
 }
 
 CPPWAMP_INLINE Object

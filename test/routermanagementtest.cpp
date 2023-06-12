@@ -46,34 +46,34 @@ struct TestRealmObserver : public RealmObserver
         realmClosedEvents.push_back(std::move(u));
     }
 
-    void onJoin(SessionDetails s) override
+    void onJoin(AuthInfo a) override
     {
-        joinEvents.push_back(std::move(s));
+        joinEvents.push_back(std::move(a));
     }
 
-    void onLeave(SessionDetails s) override
+    void onLeave(AuthInfo a) override
     {
-        leaveEvents.push_back(std::move(s));
+        leaveEvents.push_back(std::move(a));
     }
 
-    void onRegister(SessionDetails s, RegistrationDetails r) override
+    void onRegister(AuthInfo a, RegistrationDetails r) override
     {
-        registerEvents.push_back({std::move(s), std::move(r)});
+        registerEvents.push_back({std::move(a), std::move(r)});
     }
 
-    void onUnregister(SessionDetails s, RegistrationDetails r) override
+    void onUnregister(AuthInfo a, RegistrationDetails r) override
     {
-        unregisterEvents.push_back({std::move(s), std::move(r)});
+        unregisterEvents.push_back({std::move(a), std::move(r)});
     }
 
-    void onSubscribe(SessionDetails s, SubscriptionDetails d) override
+    void onSubscribe(AuthInfo a, SubscriptionDetails d) override
     {
-        subscribeEvents.push_back({std::move(s), std::move(d)});
+        subscribeEvents.push_back({std::move(a), std::move(d)});
     }
 
-    void onUnsubscribe(SessionDetails s, SubscriptionDetails d) override
+    void onUnsubscribe(AuthInfo a, SubscriptionDetails d) override
     {
-        unsubscribeEvents.push_back({std::move(s), std::move(d)});
+        unsubscribeEvents.push_back({std::move(a), std::move(d)});
     }
 
     void clear()
@@ -88,12 +88,12 @@ struct TestRealmObserver : public RealmObserver
     }
 
     std::vector<Uri> realmClosedEvents;
-    std::vector<SessionDetails> joinEvents;
-    std::vector<SessionDetails> leaveEvents;
-    std::vector<std::pair<SessionDetails, RegistrationDetails>> registerEvents;
-    std::vector<std::pair<SessionDetails, RegistrationDetails>> unregisterEvents;
-    std::vector<std::pair<SessionDetails, SubscriptionDetails>> subscribeEvents;
-    std::vector<std::pair<SessionDetails, SubscriptionDetails>> unsubscribeEvents;
+    std::vector<AuthInfo> joinEvents;
+    std::vector<AuthInfo> leaveEvents;
+    std::vector<std::pair<AuthInfo, RegistrationDetails>> registerEvents;
+    std::vector<std::pair<AuthInfo, RegistrationDetails>> unregisterEvents;
+    std::vector<std::pair<AuthInfo, SubscriptionDetails>> subscribeEvents;
+    std::vector<std::pair<AuthInfo, SubscriptionDetails>> unsubscribeEvents;
 };
 
 //------------------------------------------------------------------------------
@@ -111,18 +111,18 @@ private:
 };
 
 //------------------------------------------------------------------------------
-void checkSessionDetails(const SessionDetails& s, const Welcome& w,
+void checkSessionDetails(const AuthInfo& a, const Welcome& w,
                          const Uri& realmUri)
 {
-    CHECK(s.authInfo.realmUri()  == realmUri);
-    CHECK(s.authInfo.id()        == w.authId());
-    CHECK(s.authInfo.role()      == w.authRole());
-    CHECK(s.authInfo.method()    == w.authMethod());
-    CHECK(s.authInfo.provider()  == w.authProvider());
-    CHECK(s.authInfo.sessionId() == w.sessionId());
-    CHECK(s.features.supports(ClientFeatures::provided()));
+    CHECK(a.realmUri()  == realmUri);
+    CHECK(a.id()        == w.authId());
+    CHECK(a.role()      == w.authRole());
+    CHECK(a.method()    == w.authMethod());
+    CHECK(a.provider()  == w.authProvider());
+    CHECK(a.sessionId() == w.sessionId());
+    CHECK(a.features().supports(ClientFeatures::provided()));
 
-    auto t = s.authInfo.transport();
+    auto t = a.transport();
     CHECK(t["protocol"] == String{"TCP"});
     CHECK(t["server"] == String{"tcp12345"});
     auto ipv = t["ip_version"];
@@ -176,8 +176,8 @@ void checkRealmSessions(const std::string& info, Realm& realm,
 {
     INFO(info);
 
-    auto any = [](SessionDetails) {return true;};
-    auto none = [](SessionDetails) {return false;};
+    auto any = [](const AuthInfo&) {return true;};
+    auto none = [](const AuthInfo&) {return false;};
 
     std::vector<SessionId> sidList;
     for (const auto& w: expected)
@@ -199,11 +199,12 @@ void checkRealmSessions(const std::string& info, Realm& realm,
     CHECK(realm.listSessions(none, yield).empty());
 
     // Realm::forEachSession
-    std::map<SessionId, SessionDetails> details;
+    std::map<SessionId, AuthInfo> details;
     auto n = realm.forEachSession(
-        [&](SessionDetails d)
+        [&](const AuthInfo& a)
         {
-            details.emplace(d.authInfo.sessionId(), d);
+            auto sid = a.sessionId();
+            details.emplace(sid, a);
         },
         yield);
     CHECK(n == sessionCount);
@@ -433,8 +434,8 @@ TEST_CASE( "Killing router sessions", "[WAMP][Router]" )
 
     spawn(ioctx, [&](YieldContext yield)
     {
-        auto any = [](SessionDetails) {return true;};
-        auto none = [](SessionDetails) {return false;};
+        auto any = [](const AuthInfo&) {return true;};
+        auto none = [](const AuthInfo&) {return false;};
 
         auto realm = theRouter.realmAt(testRealm, ioctx.get_executor()).value();
         REQUIRE(realm.fallbackExecutor() == ioctx.get_executor());

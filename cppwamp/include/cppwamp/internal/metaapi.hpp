@@ -179,9 +179,9 @@ private:
 
         auto authRoles = parseAuthRoles(rpc);
         auto filter =
-            [&authRoles](SessionDetails session) -> bool
+            [&authRoles](const AuthInfo& info) -> bool
             {
-                const auto& role = session.authInfo.role();
+                const auto& role = info.role();
                 return authRoles.count(role) != 0;
             };
         return Result{context_.sessionCount(filter)};
@@ -194,9 +194,9 @@ private:
 
         auto authRoles = parseAuthRoles(rpc);
         auto filter =
-            [&authRoles](SessionDetails session) -> bool
+            [&authRoles](const AuthInfo& info) -> bool
             {
-                const auto& role = session.authInfo.role();
+                const auto& role = info.role();
                 return authRoles.count(role) != 0;
             };
 
@@ -241,10 +241,10 @@ private:
         rpc.convertTo(authId);
         auto killed = killSessions(
             rpc,
-            [&authId, ownId](SessionDetails s) -> bool
+            [&authId, ownId](const AuthInfo& info) -> bool
             {
-                auto sid = s.authInfo.sessionId();
-                return (sid != ownId) && (s.authInfo.id() == authId);
+                auto sid = info.sessionId();
+                return (sid != ownId) && (info.id() == authId);
             });
         return Result{std::move(killed)};
     }
@@ -256,10 +256,10 @@ private:
         rpc.convertTo(authRole);
         auto killed = killSessions(
             rpc,
-            [&authRole, ownId](SessionDetails s) -> bool
+            [&authRole, ownId](const AuthInfo& info) -> bool
             {
-                auto sid = s.authInfo.sessionId();
-                return (sid != ownId) && (s.authInfo.role() == authRole);
+                auto sid = info.sessionId();
+                return (sid != ownId) && (info.role() == authRole);
             });
         return Result{killed.size()};
     }
@@ -269,9 +269,9 @@ private:
         auto ownId = caller.wampId();
         auto killed = killSessions(
             rpc,
-            [ownId](SessionDetails s) -> bool
+            [ownId](const AuthInfo& info) -> bool
             {
-                return s.authInfo.sessionId() != ownId;
+                return info.sessionId() != ownId;
             });
         return Result{killed.size()};
     }
@@ -447,72 +447,70 @@ public:
             notifyObservers<Notifier>(std::move(uri));
     }
 
-    void onJoin(SessionDetails s) override
+    void onJoin(AuthInfo info) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
-            SessionDetails s;
+            AuthInfo a;
 
             void operator()()
             {
                 auto o = observer.lock();
                 if (o)
-                    o->onJoin(std::move(s));
+                    o->onJoin(std::move(a));
             }
         };
 
         if (metaApiEnabled_)
-            publish(Pub{"wamp.session.on_join"}.withArgs(toObject(s)));
+            publish(Pub{"wamp.session.on_join"}.withArgs(toObject(info)));
 
         if (!observers_.empty())
-            notifyObservers<Notifier>(std::move(s));
+            notifyObservers<Notifier>(std::move(info));
     }
 
-    void onLeave(SessionDetails s) override
+    void onLeave(AuthInfo info) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
-            SessionDetails s;
+            AuthInfo a;
 
             void operator()()
             {
                 auto o = observer.lock();
                 if (o)
-                    o->onLeave(std::move(s));
+                    o->onLeave(std::move(a));
             }
         };
 
         if (metaApiEnabled_)
             publish(Pub{"wamp.session.on_leave"}
-                        .withArgs(s.authInfo.sessionId(),
-                                  s.authInfo.id(),
-                                  s.authInfo.role()));
+                        .withArgs(info.sessionId(), info.id(), info.role()));
 
         if (!observers_.empty())
-            notifyObservers<Notifier>(std::move(s));
+            notifyObservers<Notifier>(std::move(info));
     }
 
-    void onRegister(SessionDetails s, RegistrationDetails r) override
+    void onRegister(AuthInfo info, RegistrationDetails r) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
-            SessionDetails s;
+            AuthInfo a;
             RegistrationDetails r;
 
             void operator()()
             {
                 auto o = observer.lock();
                 if (o)
-                    o->onRegister(std::move(s), std::move(r));
+                    o->onRegister(std::move(a), std::move(r));
             }
         };
 
         if (metaApiEnabled_)
         {
-            auto sid = s.authInfo.sessionId();
+            auto sid = info.sessionId();
 
             if (r.callees.size() == 1)
             {
@@ -525,28 +523,28 @@ public:
         }
 
         if (!observers_.empty())
-            notifyObservers<Notifier>(std::move(s), std::move(r));
+            notifyObservers<Notifier>(std::move(info), std::move(r));
     }
 
-    void onUnregister(SessionDetails s, RegistrationDetails r) override
+    void onUnregister(AuthInfo info, RegistrationDetails r) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
-            SessionDetails s;
+            AuthInfo a;
             RegistrationDetails r;
 
             void operator()()
             {
                 auto o = observer.lock();
                 if (o)
-                    o->onUnregister(std::move(s), std::move(r));
+                    o->onUnregister(std::move(a), std::move(r));
             }
         };
 
         if (metaApiEnabled_)
         {
-            auto sid = s.authInfo.sessionId();
+            auto sid = info.sessionId();
             publish(Pub{"wamp.registration.on_unregister"}
                         .withArgs(sid, r.info.id));
 
@@ -558,28 +556,28 @@ public:
         }
 
         if (!observers_.empty())
-            notifyObservers<Notifier>(std::move(s), std::move(r));
+            notifyObservers<Notifier>(std::move(info), std::move(r));
     }
 
-    void onSubscribe(SessionDetails s, SubscriptionDetails sub) override
+    void onSubscribe(AuthInfo info, SubscriptionDetails sub) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
-            SessionDetails s;
+            AuthInfo a;
             SubscriptionDetails sub;
 
             void operator()()
             {
                 auto o = observer.lock();
                 if (o)
-                    o->onSubscribe(std::move(s), std::move(sub));
+                    o->onSubscribe(std::move(a), std::move(sub));
             }
         };
 
         if (metaApiEnabled_)
         {
-            auto sid = s.authInfo.sessionId();
+            auto sid = info.sessionId();
 
             if (sub.subscribers.size() == 1)
             {
@@ -592,28 +590,28 @@ public:
         }
 
         if (!observers_.empty())
-            notifyObservers<Notifier>(std::move(s), std::move(sub));
+            notifyObservers<Notifier>(std::move(info), std::move(sub));
     }
 
-    void onUnsubscribe(SessionDetails s, SubscriptionDetails sub) override
+    void onUnsubscribe(AuthInfo info, SubscriptionDetails sub) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
-            SessionDetails s;
+            AuthInfo a;
             SubscriptionDetails sub;
 
             void operator()()
             {
                 auto o = observer.lock();
                 if (o)
-                    o->onUnsubscribe(std::move(s), std::move(sub));
+                    o->onUnsubscribe(std::move(a), std::move(sub));
             }
         };
 
         if (metaApiEnabled_)
         {
-            auto sid = s.authInfo.sessionId();
+            auto sid = info.sessionId();
             publish(Pub{"wamp.subscription.on_unsubscribe"}
                         .withArgs(sid, sub.info.id));
 
@@ -625,7 +623,7 @@ public:
         }
 
         if (!observers_.empty())
-            notifyObservers<Notifier>(std::move(s), std::move(sub));
+            notifyObservers<Notifier>(std::move(info), std::move(sub));
     }
 
 private:
