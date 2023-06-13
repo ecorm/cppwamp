@@ -12,7 +12,6 @@
 #include <memory>
 #include "../accesslogging.hpp"
 #include "../clientinfo.hpp"
-#include "../features.hpp"
 #include "../pubsubinfo.hpp"
 #include "../rpcinfo.hpp"
 #include "../sessioninfo.hpp"
@@ -37,18 +36,27 @@ public:
 
     virtual ~RouterSession() {}
 
+    bool isJoined() const {return info_ != nullptr;}
+
     SessionId wampId() const {return wampId_.get();}
 
-    const SessionInfo& info() const {return *info_;}
+    const SessionInfo& info() const
+    {
+        assert(isJoined());
+        return *info_;
+    }
 
-    SessionInfo::Ptr sharedInfo() const {return info_;}
-
-    ClientFeatures features() const {return features_;}
+    SessionInfo::ConstPtr sharedInfo() const
+    {
+        assert(isJoined());
+        return info_;
+    }
 
     void setWampId(ReservedId&& id)
     {
+        assert(info_ != nullptr);
         wampId_ = std::move(id);
-        sessionInfo_.wampSessionId = wampId();
+        accessInfo_.wampSessionId = wampId();
         info_->setSessionId({}, wampId());
     }
 
@@ -56,7 +64,7 @@ public:
     {
         if (!logger_)
             return;
-        logger_->log(AccessLogEntry{transportInfo_, sessionInfo_,
+        logger_->log(AccessLogEntry{transportInfo_, accessInfo_,
                                     std::move(action)});
     }
 
@@ -74,7 +82,7 @@ public:
         if (logger_)
         {
             auto info = command.info(std::forward<Ts>(accessInfoArgs)...);
-            logger_->log(AccessLogEntry{transportInfo_, sessionInfo_,
+            logger_->log(AccessLogEntry{transportInfo_, accessInfo_,
                                         std::move(info)});
         }
 
@@ -112,7 +120,6 @@ public:
 protected:
     RouterSession(RouterLogger::Ptr logger = nullptr)
         : logger_(std::move(logger)),
-          info_(std::make_shared<SessionInfo>()),
           nextOutboundRequestId_(0),
           lastInsertedCallRequestId_(0)
     {}
@@ -148,38 +155,35 @@ protected:
 
     void open(const Petition& hello)
     {
-        sessionInfo_.agent = hello.agent().value_or("");
-        sessionInfo_.authId = hello.authId().value_or("");
-        features_ = hello.features();
+        accessInfo_.agent = hello.agent().value_or("");
+        accessInfo_.authId = hello.authId().value_or("");
     }
 
-    void join(SessionInfo&& info)
+    void join(SessionInfo::Ptr info)
     {
-        // sessionInfo_.wampSessionId was already set
+        // accessInfo_.wampSessionId was already set
         // via RouterSession::setWampId
-        sessionInfo_.realmUri = info.realmUri();
-        sessionInfo_.authId = info.id();
-        *info_ = std::move(info);
+        accessInfo_.realmUri = info->realmUri();
+        accessInfo_.authId = info->auth().id();
+        info_ = std::move(info);
     }
 
     void close()
     {
-        sessionInfo_.reset();
+        accessInfo_.reset();
         wampId_.reset();
-        info_->reset();
-        features_.reset();
+        info_.reset();
         nextOutboundRequestId_.store(0);
         lastInsertedCallRequestId_.store(0);
     }
 
 private:
     AccessTransportInfo transportInfo_;
-    AccessSessionInfo sessionInfo_;
+    AccessSessionInfo accessInfo_;
     String logSuffix_;
     ReservedId wampId_;
     RouterLogger::Ptr logger_;
     SessionInfo::Ptr info_;
-    ClientFeatures features_;
     std::atomic<RequestId> nextOutboundRequestId_;
     std::atomic<RequestId> lastInsertedCallRequestId_;
 };

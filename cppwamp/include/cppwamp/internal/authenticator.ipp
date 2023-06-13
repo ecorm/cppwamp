@@ -44,11 +44,11 @@ CPPWAMP_INLINE void AuthExchange::challenge(Challenge challenge, any note)
     }
 }
 
-CPPWAMP_INLINE void AuthExchange::welcome(SessionInfo info)
+CPPWAMP_INLINE void AuthExchange::welcome(AuthInfo info)
 {
     auto c = challenger_.lock();
     if (c)
-        c->safeWelcome(std::move(info));
+        c->safeWelcome(SessionInfo::create({}, std::move(info)));
 }
 
 CPPWAMP_INLINE void AuthExchange::reject(Reason r)

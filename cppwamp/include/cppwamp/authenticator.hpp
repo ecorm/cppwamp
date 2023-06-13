@@ -56,7 +56,7 @@ public:
 
     /** Sends a WELCOME message to the client with the given authentication
         information. */
-    void welcome(SessionInfo info);
+    void welcome(AuthInfo info);
 
     /** Rejects the authentication request by sending an ABORT message to
         the client. */

@@ -41,6 +41,7 @@ struct CPPWAMP_API AccessTransportInfo
 };
 
 //------------------------------------------------------------------------------
+// TODO: Merge with SessionInfo?
 struct CPPWAMP_API AccessSessionInfo
 {
     AccessSessionInfo();

@@ -26,34 +26,23 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** Contains authentication and other information associated with a
-    WAMP client session. */
+/** Contains authentication information associated with a client session. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API SessionInfo
+class CPPWAMP_API AuthInfo
 {
 public:
-    /// Shared pointer type.
-    using Ptr = std::shared_ptr<SessionInfo>;
-
-    /** Default constructor. */
-    SessionInfo();
+    /** Defaul constructor. */
+    AuthInfo();
 
     /** Constructor taking essential information. */
-    // TODO: Bundle these in AuthInfo class struct
-    SessionInfo(String id, String role, String method, String provider);
+    AuthInfo(String id, String role, String method, String provider);
 
     /** Adds an `authextra` dictionary to the authentication information. */
-    SessionInfo& withExtra(Object extra);
+    AuthInfo& withExtra(Object extra);
 
     /** Adds an arbitrary note that can be later accessed by dynamic
         authorizers. */
-    SessionInfo& withNote(any note);
-
-    /** Obtains the session ID. */
-    SessionId sessionId() const;
-
-    /** Obtains the realm URI. */
-    const Uri& realmUri() const;
+    AuthInfo& withNote(any note);
 
     /** Obtains the `authid` string. */
     const String& id() const;
@@ -67,40 +56,67 @@ public:
     /** Obtains the `authprovider` string. */
     const String& provider() const;
 
-    // TODO: Add agent string
-    // TODO: Add feature flags
-    // TODO: Pass by shared pointer to const via RealmObserver
-
-    /** Obtains the `authextra` dictionary. */
-    const Object& extra() const;
-
-    /** Obtains the `transport` dictionary. */
-    const Object& transport() const;
-
     /** Obtains the note containing arbitrary information set by the
         authenticator. */
     const any& note() const;
 
-    /** Obtains the client supported features flags. */
-    ClientFeatures features() const;
-
-    /** Resets the instance as if it were default-constructed. */
-    void reset();
-
 private:
-    String realmUri_;
     String id_;
     String role_;
     String method_;
     String provider_;
     Object extra_;
-    Object transport_;
     any note_;
+
+public: // Internal use only
+    Object welcomeDetails(internal::PassKey);
+    void setId(internal::PassKey, String id);
+};
+
+
+//------------------------------------------------------------------------------
+/** Contains meta-data associated with a WAMP client session. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API SessionInfo
+{
+public:
+    /// Shared pointer type.
+    using Ptr = std::shared_ptr<SessionInfo>;
+
+    /// Immutable shared pointer type.
+    using ConstPtr = std::shared_ptr<const SessionInfo>;
+
+    /** Default constructor. */
+    SessionInfo();
+
+    /** Obtains the session ID. */
+    SessionId sessionId() const;
+
+    /** Obtains the realm URI. */
+    const Uri& realmUri() const;
+
+    /** Obtains the authentication information. */
+    const AuthInfo& auth() const;
+
+    // TODO: Add agent string
+
+    /** Obtains the `transport` dictionary. */
+    const Object& transport() const;
+
+    /** Obtains the client supported features flags. */
+    ClientFeatures features() const;
+
+private:
+    explicit SessionInfo(AuthInfo&& auth);
+
+    AuthInfo auth_;
+    String realmUri_;
+    Object transport_;
     ClientFeatures features_;
     SessionId sessionId_ = nullId();
 
 public: // Internal use only
-    void setId(internal::PassKey, String id);
+    static Ptr create(internal::PassKey, AuthInfo auth);
     void setSessionId(internal::PassKey, SessionId sid);
     void setTransport(internal::PassKey, Object transport);
     void setFeatures(internal::PassKey, ClientFeatures features);

@@ -348,7 +348,7 @@ private:
 
     void leaveRealm()
     {
-        realm_.leave(wampId());
+        realm_.leave(shared_from_this());
         close();
     }
 
@@ -396,7 +396,7 @@ private:
         safelyDispatch<Dispatched>();
     }
 
-    void welcome(SessionInfo&& info)
+    void welcome(SessionInfo::Ptr info)
     {
         auto s = state();
         bool readyToWelcome = authExchange_ != nullptr &&
@@ -409,11 +409,11 @@ private:
         }
 
         const auto& hello = authExchange_->hello();
-        auto welcomeDetails = info.join({}, hello.uri(),
-                                 RouterFeatures::providedRoles());
+        auto welcomeDetails = info->join({}, hello.uri(),
+                                         RouterFeatures::providedRoles());
         authExchange_.reset();
-        info.setTransport({}, transportDetails_);
-        info.setFeatures({}, hello.features());
+        info->setTransport({}, transportDetails_);
+        info->setFeatures({}, hello.features());
         Base::join(std::move(info));
 
         if (!realm_.join(shared_from_this()))
@@ -423,12 +423,12 @@ private:
         peer_->welcome(wampId(), std::move(welcomeDetails));
     }
 
-    void safeWelcome(SessionInfo&& info) override
+    void safeWelcome(SessionInfo::Ptr info) override
     {
         struct Dispatched
         {
             Ptr self;
-            SessionInfo info;
+            SessionInfo::Ptr info;
             void operator()() {self->welcome(std::move(info));}
         };
 

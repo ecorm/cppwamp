@@ -50,7 +50,7 @@ private:
     void onRouterAbort(Reason&& r) override;
     void onRouterMessage(Message&& msg) override;
     
-    SessionInfo info_;
+    AuthInfo authInfo_;
     DirectPeer& peer_;
 };
 
@@ -67,10 +67,7 @@ public:
           session_(std::make_shared<DirectRouterSession>(*this))
     {}
 
-    ~DirectPeer()
-    {
-        realm_.leave(session_->wampId());
-    }
+    ~DirectPeer() {realm_.leave(session_);}
 
 private:
     using Base = Peer;
@@ -101,7 +98,7 @@ private:
         session_->close();
         auto s = previousState;
         if (s == State::established || s == State::shuttingDown)
-            realm_.leave(session_->wampId());
+            realm_.leave(session_);
         session_->report({AccessAction::clientDisconnect});
         router_.reset();
         session_->disconnect();
@@ -158,7 +155,7 @@ private:
         assert(state() == State::shuttingDown);
         traceTx(goodbye.message({}));
         session_->report(goodbye.info(false));
-        realm_.leave(session_->wampId());
+        realm_.leave(session_);
         realm_.reset();
         close();
         Reason reason{errorCodeToUri(WampErrc::goodbyeAndOut)};
@@ -303,7 +300,7 @@ private:
         };
 
         setState(State::failed);
-        realm_.leave(session_->wampId());
+        realm_.leave(session_);
         boost::asio::post(*strand_,
                           Posted{shared_from_this(), std::move(why), ec});
         return UnexpectedError(ec);
@@ -340,7 +337,7 @@ inline DirectRouterSession::DirectRouterSession(DirectPeer& p) : peer_(p) {}
 
 inline void DirectRouterSession::connect(DirectRouterLink&& link)
 {
-    info_ = std::move(link.sessionInfo({}));
+    authInfo_ = std::move(link.authInfo({}));
 
     RouterContext router{link.router({})};
     Base::setRouterLogger(router.logger());
@@ -356,13 +353,14 @@ inline void DirectRouterSession::connect(DirectRouterLink&& link)
 inline Object DirectRouterSession::open(Petition&& hello)
 {
     if (!hello.hasOption("authid"))
-        hello.withAuthId(info_.id());
-    else if (info_.id().empty())
-        info_.setId({}, hello.authId().value_or(""));
+        hello.withAuthId(authInfo_.id());
+    else if (authInfo_.id().empty())
+        authInfo_.setId({}, hello.authId().value_or(""));
 
     Base::open(hello);
-    auto welcomeDetails = info_.join({}, hello.uri());
-    Base::join(SessionInfo{info_});
+    auto info = SessionInfo::create({}, authInfo_);
+    auto welcomeDetails = info->join({}, hello.uri());
+    Base::join(std::move(info));
     return welcomeDetails;
 }
 

@@ -112,7 +112,7 @@ private:
 
     internal::RealmContext realm_;
     std::weak_ptr<internal::RouterSession> originator_;
-    SessionInfo::Ptr info_;
+    SessionInfo::ConstPtr info_;
 
 public:
     // Internal use only

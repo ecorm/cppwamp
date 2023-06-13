@@ -113,7 +113,8 @@ public:
         if (metaTopics.enabled())
         {
             registration.resetCallee();
-            metaTopics.onUnregister(callee.info(), registration.details());
+            metaTopics.onUnregister(callee.sharedInfo(),
+                                    registration.details());
         }
 
         auto erased = byUri_.erase(uri);
@@ -131,10 +132,9 @@ public:
         return found->second;
     }
 
-    void removeCallee(RouterSession& callee, MetaTopics& metaTopics)
+    void removeCallee(SessionInfo::ConstPtr calleeInfo, MetaTopics& metaTopics)
     {
-        auto sid = callee.wampId();
-
+        auto sid = calleeInfo->sessionId();
         auto iter1 = byUri_.begin();
         auto end1 = byUri_.end();
         while (iter1 != end1)
@@ -145,7 +145,7 @@ public:
                 if (metaTopics.enabled())
                 {
                     reg->resetCallee();
-                    metaTopics.onUnregister(callee.info(), reg->details());
+                    metaTopics.onUnregister(calleeInfo, reg->details());
                 }
                 iter1 = byUri_.erase(iter1);
             }
@@ -248,10 +248,10 @@ public:
             // https://github.com/wamp-proto/wamp-proto/issues/57
             const auto& info = caller->info();
             inv.withOption("caller", info.sessionId());
-            if (!info.id().empty())
-                inv.withOption("caller_authid", info.id());
-            if (!info.role().empty())
-                inv.withOption("caller_authrole", info.role());
+            if (!info.auth().id().empty())
+                inv.withOption("caller_authid", info.auth().id());
+            if (!info.auth().role().empty())
+                inv.withOption("caller_authrole", info.auth().role());
         }
 
         if (isProgressiveCall_)
@@ -302,8 +302,9 @@ public:
         if (!callee)
             return false; // notifyAbandonedCallee has already sent ERROR
 
+        auto calleeFeatures = callee->info().features().callee();
         bool calleeHasCallCanceling =
-            callee->features().callee().all_of(CalleeFeatures::callCanceling);
+            calleeFeatures.all_of(CalleeFeatures::callCanceling);
         mode = calleeHasCallCanceling ? mode : Mode::skip;
 
         // Reject duplicate cancellations, except for killnowait that
@@ -347,7 +348,8 @@ public:
             return;
 
         auto reqId = calleeKey_.second;
-        if (callee->features().callee().all_of(CalleeFeatures::callCanceling))
+        auto calleeFeatures = callee->info().features().callee();
+        if (calleeFeatures.all_of(CalleeFeatures::callCanceling))
         {
             Interruption intr{{}, reqId, CallCancelMode::killNoWait,
                               WampErrc::cancelled};
@@ -427,7 +429,7 @@ private:
         if (hasTimeout_)
             timeout_ = *timeout;
 
-        auto calleeFeatures = callee->features().callee();
+        auto calleeFeatures = callee->info().features().callee();
         bool calleeHasCallCancelling =
             calleeFeatures.all_of(CalleeFeatures::callCanceling);
 
@@ -612,7 +614,7 @@ public:
         auto key = nextRegistrationId();
         const auto& inserted = registry_.insert(key, std::move(reg));
         if (metaTopics_->enabled())
-            metaTopics_->onRegister(callee->info(), inserted.details());
+            metaTopics_->onRegister(callee->sharedInfo(), inserted.details());
         return key;
     }
 
@@ -727,10 +729,10 @@ public:
         jobs_.byCalleeErase(iter);
     }
 
-    void removeSession(RouterSession::Ptr session)
+    void removeSession(SessionInfo::ConstPtr info)
     {
-        registry_.removeCallee(*session, *metaTopics_);
-        jobs_.removeSession(session->wampId());
+        registry_.removeCallee(info, *metaTopics_);
+        jobs_.removeSession(info->sessionId());
     }
 
     RegistrationLists listRegistrations() const

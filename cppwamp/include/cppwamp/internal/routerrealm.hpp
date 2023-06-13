@@ -81,7 +81,7 @@ public:
                 session->setWampId(std::move(reservedId));
                 me.sessions_.emplace(id, session);
                 if (me.metaTopics_->enabled())
-                    me.metaTopics_->onJoin(session->info());
+                    me.metaTopics_->onJoin(session->sharedInfo());
             }
         };
 
@@ -190,13 +190,13 @@ public:
     }
 
     void lookupSession(SessionId sid,
-                       CompletionHandler<ErrorOr<SessionInfo>> h)
+                       CompletionHandler<ErrorOr<SessionInfo::ConstPtr>> h)
     {
         struct Dispatched
         {
             Ptr self;
             SessionId sid;
-            CompletionHandler<ErrorOr<SessionInfo>> h;
+            CompletionHandler<ErrorOr<SessionInfo::ConstPtr>> h;
 
             void operator()()
             {
@@ -487,14 +487,14 @@ private:
         return idList;
     }
 
-    ErrorOr<SessionInfo> sessionDetails(SessionId sid) const
+    ErrorOr<SessionInfo::ConstPtr> sessionDetails(SessionId sid) const
     {
         static constexpr auto errc = WampErrc::noSuchSession;
         auto found = sessions_.find(sid);
         if (found == sessions_.end())
             return makeUnexpectedError(errc);
         else
-            return found->second->info();
+            return found->second->sharedInfo();
     }
 
     ErrorOr<bool> doKillSession(SessionId sid, Reason reason)
@@ -576,31 +576,33 @@ private:
         return broker_.getSubscription(sid);
     }
 
-    void leave(SessionId sid)
+    void leave(RouterSession::Ptr session)
     {
         struct Dispatched
         {
             Ptr self;
-            SessionId sid;
+            SessionInfo::ConstPtr info;
 
             void operator()()
             {
                 auto& me = *self;
+                auto sid = info->sessionId();
                 auto found = me.sessions_.find(sid);
                 if (found == me.sessions_.end())
                     return;
-                auto session = found->second;
                 me.sessions_.erase(found);
                 me.metaTopics_->inhibitSession(sid);
-                me.broker_.removeSubscriber(session);
-                me.dealer_.removeSession(session);
+                me.broker_.removeSubscriber(info);
+                me.dealer_.removeSession(info);
                 if (me.metaTopics_->enabled())
-                    me.metaTopics_->onLeave(session->info());
+                    me.metaTopics_->onLeave(info);
                 me.metaTopics_->clearSessionInhibitions();
             }
         };
 
-        safelyDispatch<Dispatched>(sid);
+        if (!session->isJoined())
+            return;
+        safelyDispatch<Dispatched>(session->sharedInfo());
     }
 
     template <typename C>
@@ -1035,12 +1037,12 @@ inline bool RealmContext::join(RouterSessionPtr session)
     return true;
 }
 
-inline bool RealmContext::leave(SessionId sessionId)
+inline bool RealmContext::leave(RouterSessionPtr session)
 {
     auto r = realm_.lock();
     if (!r)
         return false;
-    r->leave(sessionId);
+    r->leave(std::move(session));
     return true;
 }
 

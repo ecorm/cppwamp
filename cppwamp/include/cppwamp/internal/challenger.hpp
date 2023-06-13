@@ -26,7 +26,7 @@ public:
 
     virtual void safeChallenge() = 0;
     
-    virtual void safeWelcome(SessionInfo&&) = 0;
+    virtual void safeWelcome(std::shared_ptr<SessionInfo>) = 0;
 
     virtual void safeReject(Reason&&) = 0;
 };

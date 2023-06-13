@@ -180,17 +180,17 @@ public:
 
     virtual void onRealmClosed(Uri);
 
-    virtual void onJoin(SessionInfo);
+    virtual void onJoin(SessionInfo::ConstPtr);
 
-    virtual void onLeave(SessionInfo);
+    virtual void onLeave(SessionInfo::ConstPtr);
 
-    virtual void onRegister(SessionInfo, RegistrationDetails);
+    virtual void onRegister(SessionInfo::ConstPtr, RegistrationDetails);
 
-    virtual void onUnregister(SessionInfo, RegistrationDetails);
+    virtual void onUnregister(SessionInfo::ConstPtr, RegistrationDetails);
 
-    virtual void onSubscribe(SessionInfo, SubscriptionDetails);
+    virtual void onSubscribe(SessionInfo::ConstPtr, SubscriptionDetails);
 
-    virtual void onUnsubscribe(SessionInfo, SubscriptionDetails);
+    virtual void onUnsubscribe(SessionInfo::ConstPtr, SubscriptionDetails);
 
 protected:
     RealmObserver();

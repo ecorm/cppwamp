@@ -63,10 +63,10 @@ public:
             // https://github.com/wamp-proto/wamp-proto/issues/57
             const auto& info = publisher->info();
             event_.withOption("publisher", info.sessionId());
-            if (!info.id().empty())
-                event_.withOption("publisher_authid", info.id());
-            if (!info.role().empty())
-                event_.withOption("publisher_authrole", info.role());
+            if (!info.auth().id().empty())
+                event_.withOption("publisher_authid", info.auth().id());
+            if (!info.auth().role().empty())
+                event_.withOption("publisher_authrole", info.auth().role());
         }
 
         if (!customOptions.empty())
@@ -144,8 +144,8 @@ private:
     bool isEligible(const RouterSession& subscriber) const
     {
         auto id = subscriber.wampId();
-        const auto& authId = subscriber.info().id();
-        const auto& authRole = subscriber.info().role();
+        const auto& authId = subscriber.info().auth().id();
+        const auto& authRole = subscriber.info().auth().role();
 
         if (publisherExcluded_ && id == publisherId_)
             return false;
@@ -226,11 +226,12 @@ public:
         subscribers_.emplace(sid, std::move(info));
     }
 
-    bool removeSubscriber(RouterSession& subscriber, MetaTopics& metaTopics)
+    bool removeSubscriber(SessionInfo::ConstPtr subscriberInfo,
+                          MetaTopics& metaTopics)
     {
-        auto wasRemoved = subscribers_.erase(subscriber.wampId()) != 0;
+        auto wasRemoved = subscribers_.erase(subscriberInfo->sessionId()) != 0;
         if (wasRemoved && metaTopics.enabled())
-            metaTopics.onUnsubscribe(subscriber.info(), details());
+            metaTopics.onUnsubscribe(std::move(subscriberInfo), details());
         return wasRemoved;
     }
 
@@ -336,14 +337,15 @@ public:
 
     void erase(const Uri& topicUri) {trie_.erase(topicUri);}
 
-    void removeSubscriber(RouterSession& subscriber, MetaTopics& metaTopics)
+    void removeSubscriber(SessionInfo::ConstPtr subscriberInfo,
+                          MetaTopics& metaTopics)
     {
         auto iter = trie_.begin();
         auto end = trie_.end();
         while (iter != end)
         {
             BrokerSubscription* record = iteratorValue(iter);
-            record->removeSubscriber(subscriber, metaTopics);
+            record->removeSubscriber(subscriberInfo, metaTopics);
             if (record->empty())
                 iter = trie_.erase(iter);
             else
@@ -574,7 +576,7 @@ public:
         }
 
         if (metaTopics_->enabled() && !isMetaTopic(sub->topic()) )
-            metaTopics_->onSubscribe(subscriber->info(), sub->details());
+            metaTopics_->onSubscribe(subscriber->sharedInfo(), sub->details());
 
         return sub->subscriptionId();
     }
@@ -587,8 +589,8 @@ public:
             return makeUnexpectedError(WampErrc::noSuchSubscription);
         BrokerSubscription& record = found->second;
         auto uri = record.topic().uri();
-        bool subscriberRemoved = record.removeSubscriber(*subscriber,
-                                                         *metaTopics_);
+        bool subscriberRemoved =
+            record.removeSubscriber(subscriber->sharedInfo(), *metaTopics_);
 
         if (!subscriberRemoved)
         {
@@ -623,11 +625,11 @@ public:
         byWildcard_.publish(info, inhibitedSessionId);
     }
 
-    void removeSubscriber(RouterSession::Ptr subscriber)
+    void removeSubscriber(SessionInfo::ConstPtr subscriberInfo)
     {
-        byExact_.removeSubscriber(*subscriber, *metaTopics_);
-        byPrefix_.removeSubscriber(*subscriber, *metaTopics_);
-        byWildcard_.removeSubscriber(*subscriber, *metaTopics_);
+        byExact_.removeSubscriber(subscriberInfo, *metaTopics_);
+        byPrefix_.removeSubscriber(subscriberInfo, *metaTopics_);
+        byWildcard_.removeSubscriber(subscriberInfo, *metaTopics_);
 
         auto iter = subscriptions_.begin();
         auto end = subscriptions_.end();

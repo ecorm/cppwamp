@@ -11,63 +11,87 @@
 namespace wamp
 {
 
-CPPWAMP_INLINE SessionInfo::SessionInfo() {}
+//******************************************************************************
+// AuthInfo
+//******************************************************************************
 
-CPPWAMP_INLINE SessionInfo::SessionInfo(String id, String role, String method,
-                                        String provider)
+CPPWAMP_INLINE AuthInfo::AuthInfo() {}
+
+CPPWAMP_INLINE AuthInfo::AuthInfo(String id, String role, String method,
+                                  String provider)
     : id_(std::move(id)),
       role_(std::move(role)),
       method_(std::move(method)),
       provider_(std::move(provider))
 {}
 
-CPPWAMP_INLINE SessionInfo& SessionInfo::withExtra(Object extra)
+CPPWAMP_INLINE AuthInfo& AuthInfo::withExtra(Object extra)
 {
     extra_ = std::move(extra);
     return *this;
 }
 
-CPPWAMP_INLINE SessionInfo& SessionInfo::withNote(any note)
+CPPWAMP_INLINE AuthInfo& AuthInfo::withNote(any note)
 {
     note_ = std::move(note);
     return *this;
 }
 
+CPPWAMP_INLINE const String& AuthInfo::id() const {return id_;}
+
+CPPWAMP_INLINE const String& AuthInfo::role() const {return role_;}
+
+CPPWAMP_INLINE const String& AuthInfo::method() const {return method_;}
+
+CPPWAMP_INLINE const String& AuthInfo::provider() const {return provider_;}
+
+CPPWAMP_INLINE Object AuthInfo::welcomeDetails(internal::PassKey)
+{
+    Object details;
+    if (!id_.empty())
+        details.emplace("authid", id_);
+    if (!role_.empty())
+        details.emplace("authrole", role_);
+    if (!method_.empty())
+        details.emplace("authmethod", method_);
+    if (!provider_.empty())
+        details.emplace("authprovider", provider_);
+    if (!extra_.empty())
+        details.emplace("authextra", std::move(extra_));
+    extra_.clear();
+    return details;
+}
+
+CPPWAMP_INLINE void AuthInfo::setId(internal::PassKey, String id)
+{
+    id_ = std::move(id);
+}
+
+
+//******************************************************************************
+// SessionInfo
+//******************************************************************************
+
+CPPWAMP_INLINE SessionInfo::SessionInfo() {}
+
 CPPWAMP_INLINE SessionId SessionInfo::sessionId() const {return sessionId_;}
 
 CPPWAMP_INLINE const Uri& SessionInfo::realmUri() const {return realmUri_;}
 
-CPPWAMP_INLINE const String& SessionInfo::id() const {return id_;}
-
-CPPWAMP_INLINE const String& SessionInfo::role() const {return role_;}
-
-CPPWAMP_INLINE const String& SessionInfo::method() const {return method_;}
-
-CPPWAMP_INLINE const String& SessionInfo::provider() const {return provider_;}
-
-CPPWAMP_INLINE const Object& SessionInfo::extra() const {return extra_;}
+CPPWAMP_INLINE const AuthInfo& SessionInfo::auth() const {return auth_;}
 
 CPPWAMP_INLINE const Object& SessionInfo::transport() const {return transport_;}
 
-CPPWAMP_INLINE const any& SessionInfo::note() const {return note_;}
-
 CPPWAMP_INLINE ClientFeatures SessionInfo::features() const {return features_;}
 
-CPPWAMP_INLINE void SessionInfo::reset()
-{
-    realmUri_.clear();
-    id_.clear();
-    role_.clear();
-    method_.clear();
-    provider_.clear();
-    extra_.clear();
-    note_.reset();
-    sessionId_ = nullId();
-}
+CPPWAMP_INLINE SessionInfo::SessionInfo(AuthInfo&& auth)
+    : auth_(std::move(auth))
+{}
 
-CPPWAMP_INLINE void SessionInfo::setId(internal::PassKey, String id)
+CPPWAMP_INLINE SessionInfo::Ptr SessionInfo::create(internal::PassKey,
+                                                    AuthInfo auth)
 {
-    id_ = std::move(id);
+    return Ptr(new SessionInfo(std::move(auth)));
 }
 
 CPPWAMP_INLINE void SessionInfo::setSessionId(internal::PassKey, SessionId sid)
@@ -87,25 +111,14 @@ CPPWAMP_INLINE void SessionInfo::setFeatures(internal::PassKey,
     features_ = features;
 }
 
-CPPWAMP_INLINE Object
-SessionInfo::join(internal::PassKey, Uri uri, Object routerRoles)
+CPPWAMP_INLINE Object SessionInfo::join(internal::PassKey, Uri uri,
+                                        Object routerRoles)
 {
     realmUri_ = std::move(uri);
 
-    Object details;
-    if (!id_.empty())
-        details.emplace("authid", id_);
-    if (!role_.empty())
-        details.emplace("authrole", role_);
-    if (!method_.empty())
-        details.emplace("authmethod", method_);
-    if (!provider_.empty())
-        details.emplace("authprovider", provider_);
-    if (!extra_.empty())
-        details.emplace("authextra", std::move(extra_));
+    auto details = auth_.welcomeDetails({});
     if (!routerRoles.empty())
         details.emplace("roles", std::move(routerRoles));
-    extra_.clear();
     return details;
 }
 

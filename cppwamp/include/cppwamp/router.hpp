@@ -103,20 +103,20 @@ class DirectRouterLink
 public:
     DirectRouterLink(Router& router);
     
-    DirectRouterLink& withSessionInfo(SessionInfo info);
+    DirectRouterLink& withAuthInfo(AuthInfo info);
 
     DirectRouterLink& withEndpointLabel(std::string endpointLabel);
 
 private:
     using RouterImplPtr = std::shared_ptr<internal::RouterImpl>;
     
-    SessionInfo sessionInfo_;
+    AuthInfo authInfo_;
     std::string endpointLabel_;
     RouterImplPtr router_;
 
 public: // Internal use only
     RouterImplPtr router(internal::PassKey);
-    SessionInfo& sessionInfo(internal::PassKey);
+    AuthInfo& authInfo(internal::PassKey);
     std::string& endpointLabel(internal::PassKey);
 };
 

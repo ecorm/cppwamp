@@ -90,7 +90,7 @@ public:
 
     bool join(RouterSessionPtr session);
 
-    bool leave(SessionId sessionId);
+    bool leave(RouterSessionPtr session);
 
     template <typename C>
     bool send(RouterSessionPtr originator, C&& command);

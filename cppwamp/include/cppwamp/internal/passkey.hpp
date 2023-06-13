@@ -10,6 +10,7 @@
 namespace wamp
 {
 
+class AuthExchange;
 class AuthorizationRequest;
 class CalleeInputChunk;
 class DirectRouterLink;
@@ -20,6 +21,7 @@ class Interruption;
 class Invocation;
 class Outcome;
 class Session;
+class SessionInfo;
 
 namespace internal
 {
@@ -28,6 +30,7 @@ namespace internal
         constexpr PassKey() {}
 
         // TODO: Verify these are all needed before next release
+        friend class wamp::AuthExchange;
         friend class wamp::AuthorizationRequest;
         friend class wamp::CalleeInputChunk;
         friend class wamp::DirectRouterLink;
@@ -38,6 +41,7 @@ namespace internal
         friend class wamp::Invocation;
         friend class wamp::Outcome;
         friend class wamp::Session;
+        friend class wamp::SessionInfo;
         template <typename> friend class BasicCalleeChannelImpl;
         template <typename> friend class BasicCallerChannelImpl;
         friend class Broker;

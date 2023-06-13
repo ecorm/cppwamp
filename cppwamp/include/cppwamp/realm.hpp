@@ -86,6 +86,7 @@ public:
 
     void observe(RealmObserver::Ptr o);
 
+    // TODO: Use mutex instead for queries?
     template <typename C>
     CPPWAMP_NODISCARD Deduced<std::size_t, C>
     countSessions(C&& completion);
@@ -107,7 +108,7 @@ public:
     forEachSession(SessionHandler f, C&& completion);
 
     template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<SessionInfo>, C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<SessionInfo::ConstPtr>, C>
     lookupSession(SessionId sid, C&& completion);
 
     template <typename C>
@@ -203,7 +204,7 @@ private:
     void doListSessions(SessionFilter f, CompletionHandler<SessionIdList> h);
     void doForEachSession(SessionHandler f, CompletionHandler<std::size_t> h);
     void doLookupSession(SessionId sid,
-                         CompletionHandler<ErrorOr<SessionInfo>> h);
+                         CompletionHandler<ErrorOr<SessionInfo::ConstPtr> > h);
     void doKillSessionById(SessionId sid, Reason r,
                            CompletionHandler<ErrorOr<bool>> h);
     void doKillSessions(SessionFilter f, Reason r,
@@ -342,7 +343,7 @@ Realm::forEachSession(SessionHandler f, C&& completion)
 //------------------------------------------------------------------------------
 struct Realm::LookupSessionOp
 {
-    using ResultValue = ErrorOr<SessionInfo>;
+    using ResultValue = ErrorOr<SessionInfo::ConstPtr>;
     Realm* self;
     SessionId sid;
 
@@ -359,7 +360,7 @@ struct Realm::LookupSessionOp
     @return The session's details if found, or an error otherwise. */
 //------------------------------------------------------------------------------
 template <typename C>
-Realm::Deduced<ErrorOr<SessionInfo>, C>
+Realm::Deduced<ErrorOr<SessionInfo::ConstPtr>, C>
 Realm::lookupSession(SessionId sid, C&& completion)
 {
     CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
