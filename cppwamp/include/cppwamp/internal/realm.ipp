@@ -51,35 +51,33 @@ CPPWAMP_INLINE void Realm::observe(RealmObserver::Ptr o)
     impl_->observe(std::move(o), fallbackExecutor_);
 }
 
+CPPWAMP_INLINE std::size_t Realm::sessionCount() const
+{
+    return impl_->sessionCount();
+}
+
+CPPWAMP_INLINE std::size_t
+Realm::forEachSession(const SessionPredicate& handler) const
+{
+    if (!isAttached())
+        return 0;
+    return impl_->forEachSession(handler);
+}
+
+CPPWAMP_INLINE ErrorOr<SessionInfo::ConstPtr>
+Realm::lookupSession(SessionId sid) const
+{
+    auto s = impl_->lookupSession(sid);
+    if (!s)
+        return makeUnexpectedError(WampErrc::noSuchSession);
+    return s;
+}
+
 CPPWAMP_INLINE Realm::Realm(std::shared_ptr<internal::RouterRealm> impl,
                             FallbackExecutor fe)
     : fallbackExecutor_(std::move(fe)),
       impl_(std::move(impl))
 {}
-
-CPPWAMP_INLINE void Realm::doCountSessions(SessionFilter f,
-                                           CompletionHandler<std::size_t> h)
-{
-    impl_->countSessions(std::move(f), std::move(h));
-}
-
-CPPWAMP_INLINE void Realm::doListSessions(SessionFilter f,
-                                          CompletionHandler<SessionIdList> h)
-{
-    impl_->listSessions(std::move(f), std::move(h));
-}
-
-CPPWAMP_INLINE void Realm::doForEachSession(SessionHandler f,
-                                            CompletionHandler<std::size_t> h)
-{
-    impl_->forEachSession(std::move(f), std::move(h));
-}
-
-CPPWAMP_INLINE void Realm::doLookupSession(
-    SessionId sid, CompletionHandler<ErrorOr<SessionInfo::ConstPtr>> h)
-{
-    impl_->lookupSession(sid, std::move(h));
-}
 
 CPPWAMP_INLINE void Realm::doKillSessionById(SessionId sid, Reason r,
                                              CompletionHandler<ErrorOr<bool>> h)
@@ -87,7 +85,7 @@ CPPWAMP_INLINE void Realm::doKillSessionById(SessionId sid, Reason r,
     impl_->killSessionById(sid, std::move(r), std::move(h));
 }
 
-CPPWAMP_INLINE void Realm::doKillSessions(SessionFilter f, Reason r,
+CPPWAMP_INLINE void Realm::doKillSessions(SessionPredicate f, Reason r,
                                           CompletionHandler<SessionIdList> h)
 {
     impl_->killSessions(std::move(f), std::move(r), std::move(h));

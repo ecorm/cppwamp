@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -43,8 +44,7 @@ public:
     using Executor            = AnyIoExecutor;
     using FallbackExecutor    = AnyCompletionExecutor;
     using ObserverId          = MetaTopics::ObserverId;
-    using SessionHandler      = std::function<void (SessionInfo)>;
-    using SessionFilter       = std::function<bool (const SessionInfo&)>;
+    using SessionPredicate    = std::function<bool (const SessionInfo&)>;
     using RegistrationHandler = std::function<void (RegistrationDetails)>;
     using SubscriptionHandler = std::function<void (SubscriptionDetails)>;
 
@@ -72,17 +72,7 @@ public:
         {
             Ptr self;
             RouterSession::Ptr session;
-
-            void operator()()
-            {
-                auto& me = *self;
-                auto reservedId = me.router_.reserveSessionId();
-                auto id = reservedId.get();
-                session->setWampId(std::move(reservedId));
-                me.sessions_.emplace(id, session);
-                if (me.metaTopics_->enabled())
-                    me.metaTopics_->onJoin(session->sharedInfo());
-            }
+            void operator()() {self->doJoin(std::move(session));}
         };
 
         safelyDispatch<Dispatched>(std::move(session));
@@ -94,22 +84,7 @@ public:
         {
             Ptr self;
             Reason r;
-
-            void operator()()
-            {
-                auto& me = *self;
-                std::string msg = "Shutting down realm with reason " + r.uri();
-                if (!r.options().empty())
-                    msg += " " + toString(r.options());
-                me.log({LogLevel::info, std::move(msg)});
-
-                for (auto& kv: me.sessions_)
-                    kv.second->abort(r);
-                me.sessions_.clear();
-                me.isOpen_.store(false);
-                if (me.metaTopics_->enabled())
-                    me.metaTopics_->onRealmClosed(me.config_.uri());
-            }
+            void operator()() {self->doClose(std::move(r));}
         };
 
         safelyDispatch<Dispatched>(std::move(r));
@@ -132,80 +107,31 @@ public:
         safelyDispatch<Dispatched>(std::move(o), std::move(e));
     }
 
-    void countSessions(SessionFilter f, CompletionHandler<std::size_t> h)
+    std::size_t sessionCount() const
     {
-        struct Dispatched
-        {
-            Ptr self;
-            SessionFilter f;
-            CompletionHandler<std::size_t> h;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.complete(h, me.sessionCount(f));
-            }
-        };
-
-        safelyDispatch<Dispatched>(std::move(f), std::move(h));
+        std::lock_guard<std::mutex> guard{sessionQueryMutex_};
+        return sessions_.size();
     }
 
-    void listSessions(SessionFilter f,
-                      CompletionHandler<std::vector<SessionId>> h)
+    std::size_t forEachSession(const SessionPredicate& handler) const
     {
-        struct Dispatched
+        std::lock_guard<std::mutex> guard{sessionQueryMutex_};
+        std::size_t count = 0;
+        for (const auto& kv: sessions_)
         {
-            Ptr self;
-            SessionFilter f;
-            CompletionHandler<std::vector<SessionId>> h;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.complete(h, me.sessionList(f));
-            }
-        };
-
-        safelyDispatch<Dispatched>(std::move(f), std::move(h));
+            if (!handler(kv.second->info()))
+                break;
+            ++count;
+        }
+        return count;
     }
 
-    void forEachSession(SessionHandler f, CompletionHandler<std::size_t> h)
+    SessionInfo::ConstPtr lookupSession(SessionId sid) const
     {
-        struct Dispatched
-        {
-            Ptr self;
-            SessionHandler f;
-            CompletionHandler<std::size_t> h;
-
-            void operator()()
-            {
-                auto& me = *self;
-                for (const auto& kv: me.sessions_)
-                    f(kv.second->info());
-                me.complete(h, me.sessions_.size());
-            }
-        };
-
-        safelyDispatch<Dispatched>(std::move(f), std::move(h));
-    }
-
-    void lookupSession(SessionId sid,
-                       CompletionHandler<ErrorOr<SessionInfo::ConstPtr>> h)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            SessionId sid;
-            CompletionHandler<ErrorOr<SessionInfo::ConstPtr>> h;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.complete(h, me.sessionDetails(sid));
-            }
-        };
-
-        safelyDispatch<Dispatched>(sid, std::move(h));
+        std::lock_guard<std::mutex> guard{sessionQueryMutex_};
+        auto found = sessions_.find(sid);
+        return (found == sessions_.end()) ? nullptr
+                                          : found->second->sharedInfo();
     }
 
     void killSessionById(SessionId sid, Reason r,
@@ -228,13 +154,13 @@ public:
         safelyDispatch<Dispatched>(sid, std::move(r), std::move(h));
     }
 
-    void killSessions(SessionFilter f, Reason r,
+    void killSessions(SessionPredicate f, Reason r,
                       CompletionHandler<std::vector<SessionId>> h)
     {
         struct Dispatched
         {
             Ptr self;
-            SessionFilter f;
+            SessionPredicate f;
             Reason r;
             CompletionHandler<std::vector<SessionId>> h;
 
@@ -442,7 +368,9 @@ public:
     }
 
 private:
+    using SessionMap = std::map<SessionId, RouterSession::Ptr>;
     using RealmProcedures = MetaProcedures<RouterRealm>;
+    using MutexGuard = std::lock_guard<std::mutex>;
 
     RouterRealm(Executor&& e, RealmConfig&& c, const RouterConfig& rcfg,
                 RouterContext&& rctx)
@@ -465,36 +393,61 @@ private:
 
     RouterLogger::Ptr logger() const {return logger_;}
 
-    std::size_t sessionCount(const SessionFilter& filter) const
+    void doJoin(RouterSession::Ptr session)
     {
-        if (!filter)
-            return sessions_.size();
+        auto reservedId = router_.reserveSessionId();
+        auto id = reservedId.get();
+        session->setWampId(std::move(reservedId));
 
-        std::size_t count = 0;
-        for (const auto& kv: sessions_)
-            count += filter(kv.second->info()) ? 1 : 0;
-        return count;
-    }
-
-    std::vector<SessionId> sessionList(const SessionFilter& filter) const
-    {
-        std::vector<SessionId> idList;
-        for (const auto& kv: sessions_)
         {
-            if ((filter == nullptr) || filter(kv.second->info()))
-                idList.push_back(kv.first);
+            MutexGuard guard{sessionQueryMutex_};
+            sessions_.emplace(id, session);
         }
-        return idList;
+
+        if (metaTopics_->enabled())
+            metaTopics_->onJoin(session->sharedInfo());
     }
 
-    ErrorOr<SessionInfo::ConstPtr> sessionDetails(SessionId sid) const
+    void doLeave(SessionInfo::ConstPtr info)
     {
-        static constexpr auto errc = WampErrc::noSuchSession;
+        auto sid = info->sessionId();
         auto found = sessions_.find(sid);
         if (found == sessions_.end())
-            return makeUnexpectedError(errc);
-        else
-            return found->second->sharedInfo();
+            return;
+
+        {
+            MutexGuard guard(sessionQueryMutex_);
+            sessions_.erase(found);
+        }
+
+        metaTopics_->inhibitSession(sid);
+        broker_.removeSubscriber(info);
+        dealer_.removeSession(info);
+        if (metaTopics_->enabled())
+            metaTopics_->onLeave(info);
+        metaTopics_->clearSessionInhibitions();
+    }
+
+    void doClose(Reason r)
+    {
+        SessionMap sessions;
+
+        {
+            MutexGuard guard{sessionQueryMutex_};
+            sessions = std::move(sessions_);
+            sessions_.clear();
+        }
+
+        std::string msg = "Shutting down realm with reason " + r.uri();
+        if (!r.options().empty())
+            msg += " " + toString(r.options());
+        log({LogLevel::info, std::move(msg)});
+
+        for (auto& kv: sessions)
+            kv.second->abort(r);
+        isOpen_.store(false);
+        if (metaTopics_->enabled())
+            metaTopics_->onRealmClosed(config_.uri());
     }
 
     ErrorOr<bool> doKillSession(SessionId sid, Reason reason)
@@ -506,11 +459,11 @@ private:
         auto session = iter->second;
         session->abort(std::move(reason));
         // session->abort will call RouterRealm::leave,
-        // which will remove the session from the session_ map
+        // which will remove the session from the sessions_ map
         return true;
     }
 
-    std::vector<SessionId> doKillSessions(const SessionFilter& filter,
+    std::vector<SessionId> doKillSessions(const SessionPredicate& filter,
                                           const Reason& reason)
     {
         std::vector<RouterSession::Ptr> killed;
@@ -582,22 +535,7 @@ private:
         {
             Ptr self;
             SessionInfo::ConstPtr info;
-
-            void operator()()
-            {
-                auto& me = *self;
-                auto sid = info->sessionId();
-                auto found = me.sessions_.find(sid);
-                if (found == me.sessions_.end())
-                    return;
-                me.sessions_.erase(found);
-                me.metaTopics_->inhibitSession(sid);
-                me.broker_.removeSubscriber(info);
-                me.dealer_.removeSession(info);
-                if (me.metaTopics_->enabled())
-                    me.metaTopics_->onLeave(info);
-                me.metaTopics_->clearSessionInhibitions();
-            }
+            void operator()() {self->doLeave(std::move(info));}
         };
 
         if (!session->isJoined())
@@ -988,11 +926,12 @@ private:
         broker_.publishMetaEvent(std::move(pub), inhibitedSessionId);
     }
 
+    mutable std::mutex sessionQueryMutex_;
     AnyIoExecutor executor_;
     IoStrand strand_;
     RealmConfig config_;
     RouterContext router_;
-    std::map<SessionId, RouterSession::Ptr> sessions_;
+    SessionMap sessions_;
     MetaTopics::Ptr metaTopics_;
     Broker broker_;
     Dealer dealer_;

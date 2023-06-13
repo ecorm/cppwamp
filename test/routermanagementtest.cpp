@@ -172,41 +172,27 @@ void checkSubscriptionDetails(
 
 //------------------------------------------------------------------------------
 void checkRealmSessions(const std::string& info, Realm& realm,
-                        std::vector<Welcome> expected, YieldContext& yield)
+                        std::vector<Welcome> expected)
 {
     INFO(info);
-
-    auto any = [](const SessionInfo&) {return true;};
-    auto none = [](const SessionInfo&) {return false;};
 
     std::vector<SessionId> sidList;
     for (const auto& w: expected)
         sidList.push_back(w.sessionId());
     auto sessionCount = sidList.size();
 
-    // Realm::countSessions
-    CHECK(realm.countSessions(yield) == sessionCount);
-    CHECK(realm.countSessions(nullptr, yield) == sessionCount);
-    CHECK(realm.countSessions(any, yield) == sessionCount);
-    CHECK(realm.countSessions(none, yield) == 0);
-
-    // Realm::listSessions
-    CHECK_THAT(realm.listSessions(yield), Matchers::UnorderedEquals(sidList));
-    CHECK_THAT(realm.listSessions(nullptr, yield),
-               Matchers::UnorderedEquals(sidList));
-    CHECK_THAT(realm.listSessions(any, yield),
-               Matchers::UnorderedEquals(sidList));
-    CHECK(realm.listSessions(none, yield).empty());
+    // Realm::sessionCount
+    CHECK(realm.sessionCount() == sessionCount);
 
     // Realm::forEachSession
     std::map<SessionId, SessionInfo> sessionInfos;
     auto n = realm.forEachSession(
-        [&](const SessionInfo& s)
+        [&](const SessionInfo& s) -> bool
         {
             auto sid = s.sessionId();
             sessionInfos.emplace(sid, s);
-        },
-        yield);
+            return true;
+        });
     CHECK(n == sessionCount);
     REQUIRE(sessionInfos.size() == expected.size());
     for (const auto& w: expected)
@@ -220,7 +206,7 @@ void checkRealmSessions(const std::string& info, Realm& realm,
     for (const auto& w: expected)
     {
         auto sid = w.sessionId();
-        auto errorOrDetails = realm.lookupSession(sid, yield);
+        auto errorOrDetails = realm.lookupSession(sid);
         REQUIRE(errorOrDetails.has_value());
         checkSessionDetails(**errorOrDetails, w, realm.uri());
     }
@@ -389,27 +375,27 @@ TEST_CASE( "Router realm session queries", "[WAMP][Router]" )
         auto realm = theRouter.realmAt(testRealm, ioctx.get_executor()).value();
         REQUIRE(realm.fallbackExecutor() == ioctx.get_executor());
 
-        checkRealmSessions("No sessions joined yet", realm, {}, yield);
+        checkRealmSessions("No sessions joined yet", realm, {});
 
         Session s1{ioctx};
         s1.connect(withTcp, yield).value();
         Welcome w1 = s1.join(Petition(testRealm), yield).value();
-        checkRealmSessions("s1 joined", realm, {w1}, yield);
+        checkRealmSessions("s1 joined", realm, {w1});
 
         Session s2{ioctx};
         s2.connect(withTcp, yield).value();
         Welcome w2 = s2.join(Petition(testRealm), yield).value();
-        checkRealmSessions("s2 joined", realm, {w1, w2}, yield);
+        checkRealmSessions("s2 joined", realm, {w1, w2});
 
-        auto errorOrDetails = realm.lookupSession(0, yield);
+        auto errorOrDetails = realm.lookupSession(0);
         CHECK(errorOrDetails ==
               makeUnexpectedError(WampErrc::noSuchSession));
 
         s1.leave(yield).value();
-        checkRealmSessions("s1 left", realm, {w2}, yield);
+        checkRealmSessions("s1 left", realm, {w2});
 
         s2.leave(yield).value();
-        checkRealmSessions("s2 left", realm, {}, yield);
+        checkRealmSessions("s2 left", realm, {});
 
         s2.disconnect();
         s1.disconnect();

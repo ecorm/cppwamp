@@ -96,8 +96,7 @@ public:
 
     RouterRealm::Ptr realmAt(const String& uri) const
     {
-        MutexGuard lock(const_cast<std::mutex&>(realmsMutex_));
-
+        MutexGuard lock{realmsMutex_};
         auto found = realms_.find(uri);
         if (found == realms_.end())
             return nullptr;
@@ -242,8 +241,7 @@ private:
 
     RealmContext realmContextAt(const String& uri) const
     {
-        MutexGuard lock(const_cast<std::mutex&>(realmsMutex_));
-
+        MutexGuard lock{realmsMutex_};
         auto found = realms_.find(uri);
         if (found == realms_.end())
             return {};
@@ -257,7 +255,7 @@ private:
     RouterConfig config_;
     AnyIoExecutor executor_;
     std::mutex serversMutex_;
-    std::mutex realmsMutex_;
+    mutable std::mutex realmsMutex_;
     RandomIdPool::Ptr sessionIdPool_;
     RouterLogger::Ptr logger_;
     std::atomic<uint64_t> nextDirectSessionIndex_;

@@ -23,6 +23,7 @@
 #include "anyhandler.hpp"
 #include "clientinfo.hpp"
 #include "config.hpp"
+#include "cppwamp/internal/routerrealm.hpp"
 #include "erroror.hpp"
 #include "exceptions.hpp"
 #include "realmobserver.hpp"
@@ -49,8 +50,7 @@ public:
     using FallbackExecutor    = AnyCompletionExecutor;
     using SessionIdList       = std::vector<SessionId>;
     using SubscriptionIdList  = std::vector<SubscriptionId>;
-    using SessionHandler      = std::function<void (SessionInfo)>;
-    using SessionFilter       = std::function<bool (const SessionInfo&)>;
+    using SessionPredicate    = std::function<bool (const SessionInfo&)>;
     using RegistrationHandler = std::function<void (RegistrationDetails)>;
     using SubscriptionHandler = std::function<void (SubscriptionDetails)>;
 
@@ -86,30 +86,11 @@ public:
 
     void observe(RealmObserver::Ptr o);
 
-    // TODO: Use mutex instead for queries?
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<std::size_t, C>
-    countSessions(C&& completion);
+    std::size_t sessionCount() const;
 
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<std::size_t, C>
-    countSessions(SessionFilter f, C&& completion);
+    std::size_t forEachSession(const SessionPredicate& handler) const;
 
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<SessionIdList, C>
-    listSessions(C&& completion);
-
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<SessionIdList, C>
-    listSessions(SessionFilter f, C&& completion);
-
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<std::size_t, C>
-    forEachSession(SessionHandler f, C&& completion);
-
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<SessionInfo::ConstPtr>, C>
-    lookupSession(SessionId sid, C&& completion);
+    ErrorOr<SessionInfo::ConstPtr> lookupSession(SessionId sid) const;
 
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<bool>, C>
@@ -121,11 +102,11 @@ public:
 
     template <typename C>
     CPPWAMP_NODISCARD Deduced<SessionIdList, C>
-    killSessions(SessionFilter f, C&& completion);
+    killSessions(SessionPredicate filter, C&& completion);
 
     template <typename C>
     CPPWAMP_NODISCARD Deduced<SessionIdList, C>
-    killSessions(SessionFilter f, Reason r, C&& completion);
+    killSessions(SessionPredicate f, Reason r, C&& completion);
 
     template <typename C>
     CPPWAMP_NODISCARD Deduced<RegistrationLists, C>
@@ -173,10 +154,6 @@ private:
 
     // These initiator function objects are needed due to C++11 lacking
     // generic lambdas.
-    struct CountSessionsOp;
-    struct ListSessionsOp;
-    struct ForEachSessionOp;
-    struct LookupSessionOp;
     struct KillSessionByIdOp;
     struct KillSessionsOp;
     struct ListRegistrationsOp;
@@ -200,14 +177,9 @@ private:
     typename internal::BindFallbackExecutorResult<F>::Type
     bindFallbackExecutor(F&& handler) const;
 
-    void doCountSessions(SessionFilter f, CompletionHandler<std::size_t> h);
-    void doListSessions(SessionFilter f, CompletionHandler<SessionIdList> h);
-    void doForEachSession(SessionHandler f, CompletionHandler<std::size_t> h);
-    void doLookupSession(SessionId sid,
-                         CompletionHandler<ErrorOr<SessionInfo::ConstPtr> > h);
     void doKillSessionById(SessionId sid, Reason r,
                            CompletionHandler<ErrorOr<bool>> h);
-    void doKillSessions(SessionFilter f, Reason r,
+    void doKillSessions(SessionPredicate f, Reason r,
                         CompletionHandler<SessionIdList> h);
     void doListRegistrations(CompletionHandler<RegistrationLists> h);
     void doForEachRegistration(MatchPolicy p, RegistrationHandler f,
@@ -248,126 +220,6 @@ Realm::bindFallbackExecutor(F&& handler) const
 }
 
 //------------------------------------------------------------------------------
-struct Realm::CountSessionsOp
-{
-    using ResultValue = std::size_t;
-    Realm* self;
-    SessionFilter filter;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doCountSessions(std::move(filter),
-                              self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
-
-//------------------------------------------------------------------------------
-/** @tparam C Callable handler with signature `void (std::size_t)`,
-              or a compatible Boost.Asio completion token.
-    @return The number of active sessions meeting the filter criteria. */
-//------------------------------------------------------------------------------
-template <typename C>
-Realm::Deduced<std::size_t, C> Realm::countSessions(
-    C&& completion   /**< Completion handler or token. */
-    )
-{
-    return countSessions(nullptr, std::forward<C>(completion));
-}
-
-//------------------------------------------------------------------------------
-/** @copydetails Realm::countSessions(C&&) */
-//------------------------------------------------------------------------------
-template <typename C>
-Realm::Deduced<std::size_t, C> Realm::countSessions(
-    SessionFilter f, /**< Predicate function used to filter eligible sessions
-                          (no filtering if nullptr) */
-    C&& completion   /**< Completion handler or token. */
-    )
-{
-    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
-    return initiate<CountSessionsOp>(std::forward<C>(completion), std::move(f));
-}
-
-//------------------------------------------------------------------------------
-struct Realm::ListSessionsOp
-{
-    using ResultValue = Realm::SessionIdList;
-    Realm* self;
-    SessionFilter filter;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doListSessions(std::move(filter),
-                             self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
-
-template <typename C>
-Realm::Deduced<Realm::SessionIdList, C>
-Realm::listSessions(C&& completion)
-{
-    return listSessions(nullptr, std::forward<C>(completion));
-}
-
-template <typename C>
-Realm::Deduced<Realm::SessionIdList, C>
-Realm::listSessions(SessionFilter f, C&& completion)
-{
-    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
-    return initiate<ListSessionsOp>(std::forward<C>(completion), std::move(f));
-}
-
-//------------------------------------------------------------------------------
-struct Realm::ForEachSessionOp
-{
-    using ResultValue = std::size_t;
-    Realm* self;
-    SessionHandler onSession;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doForEachSession(std::move(onSession),
-                               self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
-
-template <typename C>
-Realm::Deduced<std::size_t, C>
-Realm::forEachSession(SessionHandler f, C&& completion)
-{
-    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
-    return initiate<ForEachSessionOp>(std::forward<C>(completion),
-                                      std::move(f));
-}
-
-//------------------------------------------------------------------------------
-struct Realm::LookupSessionOp
-{
-    using ResultValue = ErrorOr<SessionInfo::ConstPtr>;
-    Realm* self;
-    SessionId sid;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doLookupSession(sid,
-                              self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
-
-//------------------------------------------------------------------------------
-/** @tparam C Callable handler with signature `void (ErrorOr<SessionInfo>)`,
-              or a compatible Boost.Asio completion token.
-    @return The session's details if found, or an error otherwise. */
-//------------------------------------------------------------------------------
-template <typename C>
-Realm::Deduced<ErrorOr<SessionInfo::ConstPtr>, C>
-Realm::lookupSession(SessionId sid, C&& completion)
-{
-    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
-    return initiate<LookupSessionOp>(std::forward<C>(completion), sid);
-}
-
-//------------------------------------------------------------------------------
 struct Realm::KillSessionByIdOp
 {
     using ResultValue = ErrorOr<bool>;
@@ -404,7 +256,7 @@ struct Realm::KillSessionsOp
 {
     using ResultValue = Realm::SessionIdList;
     Realm* self;
-    SessionFilter filter;
+    SessionPredicate filter;
     Reason r;
 
     template <typename F> void operator()(F&& f)
@@ -416,15 +268,15 @@ struct Realm::KillSessionsOp
 
 template <typename C>
 Realm::Deduced<Realm::SessionIdList, C>
-Realm::killSessions(SessionFilter f, C&& completion)
+Realm::killSessions(SessionPredicate filter, C&& completion)
 {
-    return killSessions(std::move(f), Reason{WampErrc::sessionKilled},
+    return killSessions(std::move(filter), Reason{WampErrc::sessionKilled},
                         std::forward<C>(completion));
 }
 
 template <typename C>
 Realm::Deduced<Realm::SessionIdList, C>
-Realm::killSessions(SessionFilter f, Reason r, C&& completion)
+Realm::killSessions(SessionPredicate f, Reason r, C&& completion)
 {
     CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     return initiate<KillSessionsOp>(std::forward<C>(completion), std::move(f),

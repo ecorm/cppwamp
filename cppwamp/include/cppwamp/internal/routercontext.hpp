@@ -46,12 +46,14 @@ public:
 
     void log(LogEntry entry)
     {
+        // TODO: FIXME: Dispatch via executor
         if (logHandler_ && entry.severity() >= level())
             logHandler_(std::move(entry));
     }
 
     void log(AccessLogEntry entry)
     {
+        // TODO: FIXME: Dispatch via executor
         if (accessLogHandler_)
             accessLogHandler_(std::move(entry));
     }

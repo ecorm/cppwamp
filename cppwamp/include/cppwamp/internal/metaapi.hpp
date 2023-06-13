@@ -174,43 +174,62 @@ private:
 
     Outcome sessionCount(RouterSession&, Rpc& rpc)
     {
+        std::size_t count = 0;
         if (rpc.args().empty())
-            return Result{context_.sessionCount(nullptr)};
-
-        auto authRoles = parseAuthRoles(rpc);
-        auto filter =
-            [&authRoles](const SessionInfo& info) -> bool
-            {
-                const auto& role = info.auth().role();
-                return authRoles.count(role) != 0;
-            };
-        return Result{context_.sessionCount(filter)};
+        {
+            count = context_.sessionCount();
+        }
+        else
+        {
+            auto authRoles = parseAuthRoles(rpc);
+            context_.forEachSession(
+                [&authRoles, &count](const SessionInfo& info) -> bool
+                {
+                    const auto& role = info.auth().role();
+                    count += authRoles.count(role);
+                    return true;
+                });
+        }
+        return Result{count};
     }
 
     Outcome sessionList(RouterSession&, Rpc& rpc)
     {
+        std::vector<SessionId> list;
+
         if (rpc.args().empty())
-            return Result{context_.sessionList(nullptr)};
+        {
+            context_.forEachSession(
+                [&list](const SessionInfo& info) -> bool
+                {
+                    list.push_back(info.sessionId());
+                    return true;
+                });
+        }
+        else
+        {
+            auto authRoles = parseAuthRoles(rpc);
+            context_.forEachSession(
+                [&authRoles, &list](const SessionInfo& info) -> bool
+                {
+                    const auto& role = info.auth().role();
+                    if (authRoles.count(role) != 0)
+                        list.push_back(info.sessionId());
+                    return true;
+                });
+        }
 
-        auto authRoles = parseAuthRoles(rpc);
-        auto filter =
-            [&authRoles](const SessionInfo& info) -> bool
-            {
-                const auto& role = info.auth().role();
-                return authRoles.count(role) != 0;
-            };
-
-        return Result{context_.sessionList(filter)};
+        return Result{std::move(list)};
     }
 
     Outcome sessionDetails(RouterSession&, Rpc& rpc)
     {
         SessionId sid = 0;
         rpc.convertTo(sid);
-        auto details = context_.sessionDetails(sid);
+        auto details = context_.lookupSession(sid);
         if (!details)
-            return Error{details.error()};
-        return Result{toObject(**details)};
+            return Error{WampErrc::noSuchSession};
+        return Result{toObject(*details)};
     }
 
     Outcome killSession(RouterSession& caller, Rpc& rpc)
