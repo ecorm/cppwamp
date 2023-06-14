@@ -641,7 +641,7 @@ public:
             auto sid = info->sessionId();
             publish(Pub{"wamp.registration.on_unregister"}.withArgs(sid, r.id));
 
-            if (r.callees.empty())
+            if (r.calleeCount == 0)
                 publish(Pub{"wamp.registration.on_delete"}.withArgs(sid, r.id));
         }
 
@@ -669,7 +669,7 @@ public:
         {
             auto sid = info->sessionId();
 
-            if (sub.subscribers.size() == 1)
+            if (sub.subscriberCount == 1)
             {
                 publish(Pub{"wamp.subscription.on_create"}
                             .withArgs(sid, Variant::from(sub)));
@@ -706,7 +706,7 @@ public:
             publish(Pub{"wamp.subscription.on_unsubscribe"}
                         .withArgs(sid, sub.id));
 
-            if (sub.subscribers.empty())
+            if (sub.subscriberCount == 0)
             {
                 publish(Pub{"wamp.subscription.on_delete"}
                             .withArgs(sid, sub.id));

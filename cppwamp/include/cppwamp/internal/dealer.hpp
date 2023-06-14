@@ -70,9 +70,10 @@ public:
         if (listCallees)
             return info_;
 
-        return RegistrationInfo{info_.uri, info_.matchPolicy,
-                                info_.invocationPolicy, info_.id,
-                                info_.created};
+        RegistrationInfo r{info_.uri, info_.matchPolicy, info_.invocationPolicy,
+                           info_.id, info_.created};
+        r.calleeCount = info_.calleeCount;
+        return r;
     }
 
 private:

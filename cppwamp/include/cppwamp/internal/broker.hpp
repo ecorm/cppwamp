@@ -212,8 +212,10 @@ public:
         if (listSubscribers)
             return info_;
 
-        return SubscriptionInfo{info_.uri, info_.matchPolicy, info_.id,
-                                info_.created};
+        SubscriptionInfo s{info_.uri, info_.matchPolicy, info_.id,
+                           info_.created};
+        s.subscriberCount = info_.subscriberCount;
+        return s;
     }
 
     void addSubscriber(SessionId sid, BrokerSubscriberInfo info)
