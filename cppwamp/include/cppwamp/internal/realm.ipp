@@ -73,6 +73,31 @@ Realm::lookupSession(SessionId sid) const
     return s;
 }
 
+CPPWAMP_INLINE ErrorOr<RegistrationInfo>
+Realm::getRegistration(RegistrationId rid, bool listCallees) const
+{
+    return impl_->getRegistration(rid, listCallees);
+}
+
+CPPWAMP_INLINE ErrorOr<RegistrationInfo>
+Realm::lookupRegistration(const Uri& uri, MatchPolicy p,
+                          bool listCallees) const
+{
+    return impl_->lookupRegistration(uri, p, listCallees);
+}
+
+CPPWAMP_INLINE ErrorOr<RegistrationInfo>
+Realm::bestRegistrationMatch(const Uri& uri, bool listCallees) const
+{
+    return impl_->bestRegistrationMatch(uri, listCallees);
+}
+
+CPPWAMP_INLINE std::size_t
+Realm::forEachRegistration(MatchPolicy p, const RegistrationPredicate& f) const
+{
+    return impl_->forEachRegistration(p, f);
+}
+
 CPPWAMP_INLINE ErrorOr<SubscriptionInfo>
 Realm::getSubscription(SubscriptionId sid, bool listSubscribers) const
 {
@@ -114,36 +139,6 @@ CPPWAMP_INLINE void Realm::doKillSessions(SessionPredicate f, Reason r,
                                           CompletionHandler<SessionIdList> h)
 {
     impl_->killSessions(std::move(f), std::move(r), std::move(h));
-}
-
-CPPWAMP_INLINE void Realm::doListRegistrations(
-    CompletionHandler<RegistrationLists> h)
-{
-    impl_->listRegistrations(std::move(h));
-}
-
-CPPWAMP_INLINE void Realm::doForEachRegistration(
-    MatchPolicy p, RegistrationHandler f, CompletionHandler<std::size_t> h)
-{
-    impl_->forEachRegistration(p, std::move(f), std::move(h));
-}
-
-CPPWAMP_INLINE void Realm::doLookupRegistration(
-    Uri uri, MatchPolicy p, CompletionHandler<ErrorOr<RegistrationDetails>> h)
-{
-    impl_->lookupRegistration(std::move(uri), p, std::move(h));
-}
-
-CPPWAMP_INLINE void Realm::doMatchRegistration(
-    Uri uri, CompletionHandler<ErrorOr<RegistrationDetails>> h)
-{
-    impl_->matchRegistration(std::move(uri), std::move(h));
-}
-
-CPPWAMP_INLINE void Realm::doGetRegistration(
-    RegistrationId rid, CompletionHandler<ErrorOr<RegistrationDetails>> h)
-{
-    impl_->getRegistration(rid, std::move(h));
 }
 
 } // namespace wamp

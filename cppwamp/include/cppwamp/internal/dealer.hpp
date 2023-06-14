@@ -11,6 +11,7 @@
 #include <chrono>
 #include <functional>
 #include <map>
+#include <mutex>
 #include <utility>
 #include <boost/asio/steady_timer.hpp>
 #include "../asiodefs.hpp"
@@ -33,47 +34,51 @@ class DealerRegistration
 {
 public:
     DealerRegistration(Procedure&& procedure, RouterSession::Ptr callee)
-        : procedureUri_(std::move(procedure).uri({})),
+        : info_(std::move(procedure).uri({}), MatchPolicy::exact,
+                InvocationPolicy::single, 0, std::chrono::system_clock::now()),
           callee_(callee),
-          calleeId_(callee->wampId()),
-          created_(std::chrono::system_clock::now())
-    {}
+          calleeId_(callee->wampId())
+    {
+        info_.callees.emplace(calleeId_);
+        info_.calleeCount = 1;
+    }
 
     DealerRegistration() = default;
 
-    void setRegistrationId(RegistrationId rid) {regId_ = rid;}
+    void setRegistrationId(RegistrationId rid) {info_.id = rid;}
 
     void resetCallee()
     {
         callee_ = {};
         calleeId_ = nullId();
+        info_.callees.clear();
+        info_.calleeCount = 0;
     }
 
-    const Uri& procedureUri() const & {return procedureUri_;}
+    const Uri& procedureUri() const & {return info_.uri;}
 
-    Uri&& procedureUri() && {return std::move(procedureUri_);}
-
-    RegistrationId registrationId() const {return regId_;}
+    Uri&& procedureUri() && {return std::move(info_.uri);} // TODO: Check if legit
 
     RouterSession::WeakPtr callee() const {return callee_;}
 
     SessionId calleeId() const {return calleeId_;}
 
-    RegistrationDetails details() const
+    const RegistrationInfo& info() const {return info_;}
+
+    RegistrationInfo info(bool listCallees) const
     {
-        std::vector<SessionId> calleeIdList;
-        if (calleeId_ != 0)
-            calleeIdList.push_back(calleeId_);
-        return {std::move(calleeIdList),
-                {procedureUri_, created_, regId_, MatchPolicy::exact}};
+        if (listCallees)
+            return info_;
+
+        return RegistrationInfo{info_.uri, info_.matchPolicy,
+                                info_.invocationPolicy, info_.id,
+                                info_.created};
     }
 
 private:
-    Uri procedureUri_;
+    RegistrationInfo info_;
     RouterSession::WeakPtr callee_;
     SessionId calleeId_;
-    RegistrationId regId_ = nullId();
-    std::chrono::system_clock::time_point created_;
 };
 
 //------------------------------------------------------------------------------
@@ -114,7 +119,7 @@ public:
         {
             registration.resetCallee();
             metaTopics.onUnregister(callee.sharedInfo(),
-                                    registration.details());
+                                    registration.info(false));
         }
 
         auto erased = byUri_.erase(uri);
@@ -145,7 +150,7 @@ public:
                 if (metaTopics.enabled())
                 {
                     reg->resetCallee();
-                    metaTopics.onUnregister(calleeInfo, reg->details());
+                    metaTopics.onUnregister(calleeInfo, reg->info(false));
                 }
                 iter1 = byUri_.erase(iter1);
             }
@@ -166,36 +171,33 @@ public:
         }
     }
 
-    std::vector<RegistrationId> listRegistrations() const
+    ErrorOr<RegistrationInfo> at(RegistrationId rid, bool listCallees) const
     {
-        std::vector<RegistrationId> list;
-        for (const auto& kv: byKey_)
-            list.push_back(kv.first);
-        return list;
+        auto found = byKey_.find(rid);
+        if (found == byKey_.end())
+            return makeUnexpectedError(WampErrc::noSuchRegistration);
+        return found->second.info(listCallees);
+    }
+
+    ErrorOr<RegistrationInfo> lookup(const Uri& uri, bool listCallees) const
+    {
+        auto found = byUri_.find(uri);
+        if (found == byUri_.end())
+            return makeUnexpectedError(WampErrc::noSuchRegistration);
+        return found->second->info(listCallees);
     }
 
     template <typename F>
     std::size_t forEachRegistration(F&& functor) const
     {
+        std::size_t count = 0;
         for (const auto& kv: byKey_)
-            functor(kv.second.details());
-        return byKey_.size();
-    }
-
-    ErrorOr<RegistrationDetails> lookup(const Uri& uri) const
-    {
-        auto found = byUri_.find(uri);
-        if (found == byUri_.end())
-            return makeUnexpectedError(WampErrc::noSuchRegistration);
-        return found->second->details();
-    }
-
-    ErrorOr<RegistrationDetails> at(RegistrationId rid) const
-    {
-        auto found = byKey_.find(rid);
-        if (found == byKey_.end())
-            return makeUnexpectedError(WampErrc::noSuchRegistration);
-        return found->second.details();
+        {
+            if (!(std::forward<F>(functor)(kv.second.info())))
+                break;
+            ++count;
+        }
+        return count;
     }
 
 private:
@@ -422,7 +424,7 @@ private:
           callee_(callee),
           callerKey_(caller->wampId(), rpc.requestId({})),
           calleeKey_(callee->wampId(), nullId()),
-          registrationId_(reg.registrationId())
+          registrationId_(reg.info().id)
     {
         auto timeout = rpc.dealerTimeout();
         hasTimeout_ = timeout.has_value() && (*timeout != Timeout{0});
@@ -614,7 +616,7 @@ public:
         auto key = nextRegistrationId();
         const auto& inserted = registry_.insert(key, std::move(reg));
         if (metaTopics_->enabled())
-            metaTopics_->onRegister(callee->sharedInfo(), inserted.details());
+            metaTopics_->onRegister(callee->sharedInfo(), inserted.info(false));
         return key;
     }
 
@@ -735,11 +737,24 @@ public:
         jobs_.removeSession(info->sessionId());
     }
 
-    RegistrationLists listRegistrations() const
+    ErrorOr<RegistrationInfo> getRegistration(RegistrationId rid,
+                                              bool listCallees) const
     {
-        RegistrationLists lists;
-        lists.exact = registry_.listRegistrations();
-        return lists;
+        return registry_.at(rid, listCallees);
+    }
+
+    ErrorOr<RegistrationInfo> lookupRegistration(
+        const Uri& uri, MatchPolicy p, bool listCallees) const
+    {
+        if (p != MatchPolicy::exact)
+            return makeUnexpectedError(WampErrc::noSuchRegistration);
+        return registry_.lookup(uri, listCallees);
+    }
+
+    ErrorOr<RegistrationInfo> bestRegistrationMatch(const Uri& uri,
+                                                    bool listCallees) const
+    {
+        return registry_.lookup(uri, listCallees);
     }
 
     template <typename F>
@@ -750,27 +765,12 @@ public:
         return registry_.forEachRegistration(std::forward<F>(functor));
     }
 
-    ErrorOr<RegistrationDetails> lookupRegistration(const Uri& uri,
-                                                    MatchPolicy p) const
-    {
-        if (p != MatchPolicy::exact)
-            return makeUnexpectedError(WampErrc::noSuchRegistration);
-        return registry_.lookup(uri);
-    }
-
-    ErrorOr<RegistrationDetails> matchRegistration(const Uri& uri) const
-    {
-        return registry_.lookup(uri);
-    }
-
-    ErrorOr<RegistrationDetails> getRegistration(RegistrationId rid) const
-    {
-        return registry_.at(rid);
-    }
-
 private:
+    using MutexGuard = std::lock_guard<std::mutex>;
+
     RegistrationId nextRegistrationId() {return ++nextRegistrationId_;}
 
+    mutable std::mutex queryMutex_;
     DealerRegistry registry_;
     DealerJobMap jobs_;
     RegistrationId nextRegistrationId_ = nullId();

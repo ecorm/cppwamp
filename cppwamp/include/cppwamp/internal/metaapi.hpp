@@ -297,8 +297,38 @@ private:
 
     Outcome listRegistrations(RouterSession&, Rpc& rpc)
     {
-        auto lists = context_.registrationLists();
-        return Result{toObject(context_.registrationLists())};
+        std::vector<RegistrationId> exact;
+        std::vector<RegistrationId> prefix;
+        std::vector<RegistrationId> wildcard;
+
+        context_.forEachRegistration(
+            MatchPolicy::exact,
+            [&exact](const RegistrationInfo& s) -> bool
+            {
+                exact.push_back(s.id);
+                return true;
+            });
+
+        context_.forEachRegistration(
+            MatchPolicy::prefix,
+            [&prefix](const RegistrationInfo& s) -> bool
+            {
+                prefix.push_back(s.id);
+                return true;
+            });
+
+        context_.forEachRegistration(
+            MatchPolicy::wildcard,
+            [&wildcard](const RegistrationInfo& s) -> bool
+            {
+                wildcard.push_back(s.id);
+                return true;
+            });
+
+        return Result{Object{
+            {"exact", std::move(exact)},
+            {"prefix", std::move(prefix)},
+            {"wildcard", std::move(wildcard)}}};
     }
 
     Outcome lookupRegistration(RouterSession&, Rpc& rpc)
@@ -310,44 +340,47 @@ private:
         if (policy == MatchPolicy::unknown)
             return Result{null};
 
-        auto details = context_.registrationDetailsByUri(uri, policy);
-        return details ? Result{details->info.id} : Result{null};
+        auto info = context_.lookupRegistration(uri, policy);
+        return info ? Result{info->id} : Result{null};
     }
 
     Outcome matchRegistration(RouterSession&, Rpc& rpc)
     {
         Uri uri;
         rpc.convertTo(uri);
-        auto match = context_.bestRegistrationMatch(uri);
-        return match ? Result{match->info.id} : Result{null};
+        auto info = context_.bestRegistrationMatch(uri);
+        return info ? Result{info->id} : Result{null};
     }
 
     Outcome registrationDetails(RouterSession&, Rpc& rpc)
     {
         RegistrationId rid;
         rpc.convertTo(rid);
-        auto details = context_.registrationDetailsById(rid);
-        return details ? Result{toObject(*details)} : Result{null};
+        auto info = context_.getRegistration(rid);
+        return info ? Result{Variant::from(*info)} : Result{null};
     }
 
     Outcome listRegistrationCallees(RouterSession&, Rpc& rpc)
     {
         RegistrationId rid;
         rpc.convertTo(rid);
-        auto details = context_.registrationDetailsById(rid);
-        if (!details)
+        auto info = context_.getRegistration(rid, true);
+        if (!info)
             return Error{WampErrc::noSuchRegistration};
-        return Result{details->callees};
+        Array list;
+        for (auto callee: info->callees)
+            list.push_back(callee);
+        return Result{std::move(list)};
     }
 
     Outcome countRegistrationCallees(RouterSession&, Rpc& rpc)
     {
         RegistrationId rid;
         rpc.convertTo(rid);
-        auto details = context_.registrationDetailsById(rid);
-        if (!details)
+        auto info = context_.getRegistration(rid);
+        if (!info)
             return Error{WampErrc::noSuchRegistration};
-        return Result{details->callees.size()};
+        return Result{info->calleeCount};
     }
 
     Outcome listSubscriptions(RouterSession&, Rpc& rpc)
@@ -554,13 +587,13 @@ public:
             notifyObservers<Notifier>(std::move(info));
     }
     
-    void onRegister(SessionInfo::ConstPtr info, RegistrationDetails r) override
+    void onRegister(SessionInfo::ConstPtr info, RegistrationInfo r) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
             SessionInfo::ConstPtr s;
-            RegistrationDetails r;
+            RegistrationInfo r;
 
             void operator()()
             {
@@ -574,28 +607,26 @@ public:
         {
             auto sid = info->sessionId();
 
-            if (r.callees.size() == 1)
+            if (r.calleeCount == 1u)
             {
                 publish(Pub{"wamp.registration.on_create"}
-                            .withArgs(sid, toObject(r)));
+                            .withArgs(sid, Variant::from(r)));
             }
 
-            publish(Pub{"wamp.registration.on_register"}
-                        .withArgs(sid, r.info.id));
+            publish(Pub{"wamp.registration.on_register"}.withArgs(sid, r.id));
         }
 
         if (!observers_.empty())
             notifyObservers<Notifier>(std::move(info), std::move(r));
     }
     
-    void onUnregister(SessionInfo::ConstPtr info,
-                      RegistrationDetails r) override
+    void onUnregister(SessionInfo::ConstPtr info, RegistrationInfo r) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
             SessionInfo::ConstPtr s;
-            RegistrationDetails r;
+            RegistrationInfo r;
 
             void operator()()
             {
@@ -608,14 +639,10 @@ public:
         if (metaApiEnabled_)
         {
             auto sid = info->sessionId();
-            publish(Pub{"wamp.registration.on_unregister"}
-                        .withArgs(sid, r.info.id));
+            publish(Pub{"wamp.registration.on_unregister"}.withArgs(sid, r.id));
 
             if (r.callees.empty())
-            {
-                publish(Pub{"wamp.registration.on_delete"}
-                            .withArgs(sid, r.info.id));
-            }
+                publish(Pub{"wamp.registration.on_delete"}.withArgs(sid, r.id));
         }
 
         if (!observers_.empty())

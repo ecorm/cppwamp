@@ -56,12 +56,12 @@ struct TestRealmObserver : public RealmObserver
         leaveEvents.push_back(*s);
     }
 
-    void onRegister(SessionInfo::ConstPtr s, RegistrationDetails r) override
+    void onRegister(SessionInfo::ConstPtr s, RegistrationInfo r) override
     {
         registerEvents.push_back({*s, std::move(r)});
     }
 
-    void onUnregister(SessionInfo::ConstPtr s, RegistrationDetails r) override
+    void onUnregister(SessionInfo::ConstPtr s, RegistrationInfo r) override
     {
         unregisterEvents.push_back({*s, std::move(r)});
     }
@@ -90,8 +90,8 @@ struct TestRealmObserver : public RealmObserver
     std::vector<Uri> realmClosedEvents;
     std::vector<SessionInfo> joinEvents;
     std::vector<SessionInfo> leaveEvents;
-    std::vector<std::pair<SessionInfo, RegistrationDetails>> registerEvents;
-    std::vector<std::pair<SessionInfo, RegistrationDetails>> unregisterEvents;
+    std::vector<std::pair<SessionInfo, RegistrationInfo>> registerEvents;
+    std::vector<std::pair<SessionInfo, RegistrationInfo>> unregisterEvents;
     std::vector<std::pair<SessionInfo, SubscriptionInfo>> subscribeEvents;
     std::vector<std::pair<SessionInfo, SubscriptionInfo>> unsubscribeEvents;
 };
@@ -137,20 +137,20 @@ void checkSessionDetails(const SessionInfo& s, const Welcome& w,
 
 //------------------------------------------------------------------------------
 void checkRegistrationDetails(
-    const RegistrationDetails& r,
+    const RegistrationInfo& r,
     const Uri& uri,
     std::chrono::system_clock::time_point when,
     RegistrationId rid,
-    std::vector<SessionId> callees)
+    std::set<SessionId> callees)
 {
     std::chrono::seconds margin(60);
-    CHECK(r.info.uri == uri);
-    CHECK(r.info.created > (when - margin));
-    CHECK(r.info.created < (when + margin));
-    CHECK(r.info.id == rid);
-    CHECK(r.info.matchPolicy == MatchPolicy::exact);
-    CHECK(r.info.invocationPolicy == InvocationPolicy::single);
-    CHECK_THAT(r.callees, Matchers::UnorderedEquals(callees));
+    CHECK(r.uri == uri);
+    CHECK(r.created > (when - margin));
+    CHECK(r.created < (when + margin));
+    CHECK(r.id == rid);
+    CHECK(r.matchPolicy == MatchPolicy::exact);
+    CHECK(r.invocationPolicy == InvocationPolicy::single);
+    CHECK(r.callees == callees);
 }
 
 //------------------------------------------------------------------------------

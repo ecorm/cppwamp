@@ -39,13 +39,12 @@ class RouterRealm : public std::enable_shared_from_this<RouterRealm>,
                     public MetaPublisher
 {
 public:
-    using Ptr                 = std::shared_ptr<RouterRealm>;
-    using WeakPtr             = std::weak_ptr<RouterRealm>;
-    using Executor            = AnyIoExecutor;
-    using FallbackExecutor    = AnyCompletionExecutor;
-    using ObserverId          = MetaTopics::ObserverId;
-    using SessionPredicate    = std::function<bool (const SessionInfo&)>;
-    using RegistrationHandler = std::function<void (RegistrationDetails)>;
+    using Ptr              = std::shared_ptr<RouterRealm>;
+    using WeakPtr          = std::weak_ptr<RouterRealm>;
+    using Executor         = AnyIoExecutor;
+    using FallbackExecutor = AnyCompletionExecutor;
+    using ObserverId       = MetaTopics::ObserverId;
+    using SessionPredicate = std::function<bool (const SessionInfo&)>;
 
     template <typename T>
     using CompletionHandler = AnyCompletionHandler<void (T)>;
@@ -174,106 +173,34 @@ public:
         safelyDispatch<Dispatched>(std::move(f), std::move(r), std::move(h));
     }
 
-    void listRegistrations(CompletionHandler<RegistrationLists> h)
+    ErrorOr<RegistrationInfo> getRegistration(RegistrationId rid,
+                                              bool listCallees = false)
     {
-        struct Dispatched
-        {
-            Ptr self;
-            CompletionHandler<RegistrationLists> h;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.complete(h, me.registrationLists());
-            }
-        };
-
-        safelyDispatch<Dispatched>(std::move(h));
+        return dealer_.getRegistration(rid, listCallees);
     }
 
-    void forEachRegistration(MatchPolicy p, RegistrationHandler f,
-                             CompletionHandler<std::size_t> h)
+    ErrorOr<RegistrationInfo> lookupRegistration(const Uri& uri, MatchPolicy p,
+                                                 bool listCallees = false)
     {
-        struct Dispatched
-        {
-            Ptr self;
-            MatchPolicy p;
-            RegistrationHandler f;
-            CompletionHandler<std::size_t> h;
-
-            void operator()()
-            {
-                auto& me = *self;
-                auto count = me.dealer_.forEachRegistration(p, f);
-                me.complete(h, count);
-            }
-        };
-
-        safelyDispatch<Dispatched>(p, std::move(f), std::move(h));
+        return dealer_.lookupRegistration(uri, p, listCallees);
     }
 
-    void lookupRegistration(Uri uri, MatchPolicy p,
-                            CompletionHandler<ErrorOr<RegistrationDetails>> h)
+    ErrorOr<RegistrationInfo> bestRegistrationMatch(const Uri& uri,
+                                                    bool listCallees = false)
     {
-        struct Dispatched
-        {
-            Ptr self;
-            Uri uri;
-            MatchPolicy p;
-            CompletionHandler<ErrorOr<RegistrationDetails>> h;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.complete(h, me.registrationDetailsByUri(uri, p));
-            }
-        };
-
-        safelyDispatch<Dispatched>(std::move(uri), p, std::move(h));
-    }
-
-    void matchRegistration(Uri uri,
-                           CompletionHandler<ErrorOr<RegistrationDetails>> h)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Uri uri;
-            CompletionHandler<ErrorOr<RegistrationDetails>> h;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.complete(h, me.bestRegistrationMatch(uri));
-            }
-        };
-
-        safelyDispatch<Dispatched>(std::move(uri), std::move(h));
-    }
-
-    void getRegistration(RegistrationId rid,
-                         CompletionHandler<ErrorOr<RegistrationDetails>> h)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            RegistrationId rid;
-            CompletionHandler<ErrorOr<RegistrationDetails>> h;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.complete(h, me.registrationDetailsById(rid));
-            }
-        };
-
-        safelyDispatch<Dispatched>(rid, std::move(h));
+        return dealer_.bestRegistrationMatch(uri, listCallees);
     }
 
     template <typename F>
-    std::size_t forEachSubscription(MatchPolicy p, F&& functor) const
+    std::size_t forEachRegistration(MatchPolicy p, F&& functor) const
     {
-        return broker_.forEachSubscription(p, std::forward<F>(functor));
+        return dealer_.forEachRegistration(p, std::forward<F>(functor));
+    }
+
+    ErrorOr<SubscriptionInfo> getSubscription(SubscriptionId sid,
+                                              bool listSubscribers = false)
+    {
+        return broker_.getSubscription(sid, listSubscribers);
     }
 
     ErrorOr<SubscriptionInfo> lookupSubscription(const Uri& uri, MatchPolicy p,
@@ -283,15 +210,15 @@ public:
     }
 
     template <typename F>
+    std::size_t forEachSubscription(MatchPolicy p, F&& functor) const
+    {
+        return broker_.forEachSubscription(p, std::forward<F>(functor));
+    }
+
+    template <typename F>
     std::size_t forEachMatchingSubscription(const Uri& uri, F&& functor) const
     {
         return broker_.forEachMatch(uri, std::forward<F>(functor));
-    }
-
-    ErrorOr<SubscriptionInfo> getSubscription(SubscriptionId sid,
-                                              bool listSubscribers = false)
-    {
-        return broker_.getSubscription(sid, listSubscribers);
     }
 
 private:
@@ -411,28 +338,6 @@ private:
             session->abort(reason);
 
         return killedIds;
-    }
-
-    RegistrationLists registrationLists() const
-    {
-        return dealer_.listRegistrations();
-    }
-
-    ErrorOr<RegistrationDetails> registrationDetailsByUri(const Uri& uri,
-                                                          MatchPolicy p) const
-    {
-        return dealer_.lookupRegistration(uri, p);
-    }
-
-    ErrorOr<RegistrationDetails> bestRegistrationMatch(const Uri& uri) const
-    {
-        return dealer_.matchRegistration(uri);
-    }
-
-    ErrorOr<RegistrationDetails>
-    registrationDetailsById(RegistrationId rid) const
-    {
-        return dealer_.getRegistration(rid);
     }
 
     void leave(RouterSession::Ptr session)

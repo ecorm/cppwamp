@@ -50,7 +50,7 @@ public:
     using FallbackExecutor      = AnyCompletionExecutor;
     using SessionIdList         = std::vector<SessionId>;
     using SessionPredicate      = std::function<bool (const SessionInfo&)>;
-    using RegistrationHandler   = std::function<void (RegistrationDetails)>;
+    using RegistrationPredicate = std::function<bool (const RegistrationInfo&)>;
     using SubscriptionPredicate = std::function<bool (const SubscriptionInfo&)>;
 
     /** Obtains the type returned by [boost::asio::async_initiate]
@@ -107,32 +107,25 @@ public:
     CPPWAMP_NODISCARD Deduced<SessionIdList, C>
     killSessions(SessionPredicate f, Reason r, C&& completion);
 
-    // TODO: Use mutex
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<RegistrationLists, C>
-    listRegistrations(C&& completion);
+    ErrorOr<RegistrationInfo> getRegistration(
+        RegistrationId rid, bool listCallees = false) const;
 
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<std::size_t, C>
-    forEachRegistration(MatchPolicy p, RegistrationHandler f, C&& completion);
+    ErrorOr<RegistrationInfo> lookupRegistration(
+        const Uri& uri, MatchPolicy p = MatchPolicy::exact,
+        bool listCallees = false) const;
 
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<RegistrationDetails>, C>
-    lookupRegistration(Uri uri, MatchPolicy p, C&& completion);
+    ErrorOr<RegistrationInfo> bestRegistrationMatch(
+        const Uri& uri, bool listCallees = false) const;
 
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<RegistrationDetails>, C>
-    matchRegistration(Uri uri, C&& completion);
-
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<RegistrationDetails>, C>
-    getRegistration(RegistrationId rid, C&& completion);
+    std::size_t forEachRegistration(MatchPolicy p,
+                                    const RegistrationPredicate& f) const;
 
     ErrorOr<SubscriptionInfo> getSubscription(
-        SubscriptionId rid, bool listSubscribers = false) const;
+        SubscriptionId sid, bool listSubscribers = false) const;
 
     ErrorOr<SubscriptionInfo> lookupSubscription(
-        const Uri& uri, MatchPolicy p, bool listSubscribers = false) const;
+        const Uri& uri, MatchPolicy p = MatchPolicy::exact,
+        bool listSubscribers = false) const;
 
     std::size_t forEachSubscription(MatchPolicy p,
                                     const SubscriptionPredicate& f) const;
@@ -148,11 +141,6 @@ private:
     // generic lambdas.
     struct KillSessionByIdOp;
     struct KillSessionsOp;
-    struct ListRegistrationsOp;
-    struct ForEachRegistrationOp;
-    struct LookupRegistrationOp;
-    struct MatchRegistrationOp;
-    struct GetRegistrationOp;
 
     template <typename O, typename C, typename... As>
     Deduced<typename O::ResultValue, C> initiate(C&& token, As&&... args);
@@ -168,15 +156,6 @@ private:
                            CompletionHandler<ErrorOr<bool>> h);
     void doKillSessions(SessionPredicate f, Reason r,
                         CompletionHandler<SessionIdList> h);
-    void doListRegistrations(CompletionHandler<RegistrationLists> h);
-    void doForEachRegistration(MatchPolicy p, RegistrationHandler f,
-                               CompletionHandler<std::size_t> h);
-    void doLookupRegistration(Uri uri, MatchPolicy p,
-                              CompletionHandler<ErrorOr<RegistrationDetails>> h);
-    void doMatchRegistration(Uri uri,
-                             CompletionHandler<ErrorOr<RegistrationDetails>> h);
-    void doGetRegistration(RegistrationId rid,
-                           CompletionHandler<ErrorOr<RegistrationDetails>> h);
 
     FallbackExecutor fallbackExecutor_;
     std::shared_ptr<internal::RouterRealm> impl_;
@@ -260,121 +239,6 @@ Realm::killSessions(SessionPredicate f, Reason r, C&& completion)
     CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     return initiate<KillSessionsOp>(std::forward<C>(completion), std::move(f),
                                     std::move(r));
-}
-
-//------------------------------------------------------------------------------
-struct Realm::ListRegistrationsOp
-{
-    using ResultValue = RegistrationLists;
-    Realm* self;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doListRegistrations(
-            self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
-
-template <typename C>
-Realm::Deduced<RegistrationLists, C>
-Realm::listRegistrations(C&& completion)
-{
-    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
-    return initiate<ListRegistrationsOp>(std::forward<C>(completion));
-}
-
-//------------------------------------------------------------------------------
-struct Realm::ForEachRegistrationOp
-{
-    using ResultValue = std::size_t;
-    Realm* self;
-    MatchPolicy p;
-    RegistrationHandler onRegistration;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doForEachRegistration(
-            p, std::move(onRegistration),
-            self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
-
-template <typename C>
-Realm::Deduced<std::size_t, C>
-Realm::forEachRegistration(MatchPolicy p, RegistrationHandler f, C&& completion)
-{
-    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
-    return initiate<ForEachRegistrationOp>(std::forward<C>(completion), p,
-                                           std::move(f));
-}
-
-//------------------------------------------------------------------------------
-struct Realm::LookupRegistrationOp
-{
-    using ResultValue = ErrorOr<RegistrationDetails>;
-    Realm* self;
-    Uri uri;
-    MatchPolicy p;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doLookupRegistration(
-            std::move(uri), p, self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
-
-template <typename C>
-Realm::Deduced<ErrorOr<RegistrationDetails>, C>
-Realm::lookupRegistration(Uri uri, MatchPolicy p, C&& completion)
-{
-    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
-    return initiate<LookupRegistrationOp>(std::forward<C>(completion),
-                                          std::move(uri), p);
-}
-
-//------------------------------------------------------------------------------
-struct Realm::MatchRegistrationOp
-{
-    using ResultValue = ErrorOr<RegistrationDetails>;
-    Realm* self;
-    Uri uri;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doMatchRegistration(
-            std::move(uri), self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
-
-template <typename C>
-Realm::Deduced<ErrorOr<RegistrationDetails>, C>
-Realm::matchRegistration(Uri uri, C&& completion)
-{
-    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
-    return initiate<MatchRegistrationOp>(std::forward<C>(completion),
-                                         std::move(uri));
-}
-
-//------------------------------------------------------------------------------
-struct Realm::GetRegistrationOp
-{
-    using ResultValue = ErrorOr<RegistrationDetails>;
-    Realm* self;
-    RegistrationId rid;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doGetRegistration(rid,
-                                self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
-
-template <typename C>
-Realm::Deduced<ErrorOr<RegistrationDetails>, C>
-Realm::getRegistration(RegistrationId rid, C&& completion)
-{
-    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
-    return initiate<GetRegistrationOp>(std::forward<C>(completion), rid);
 }
 
 //------------------------------------------------------------------------------

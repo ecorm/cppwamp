@@ -124,7 +124,9 @@ private:
 class Registered : public Command<MessageKind::registered>
 {
 public:
-    Registered(RequestId rid, RegistrationId sid) : Base(in_place, rid, sid) {}
+    Registered(RequestId reqId, RegistrationId regId)
+        : Base(in_place, reqId, regId)
+    {}
 
     explicit Registered(Message&& msg) : Base(std::move(msg)) {}
 

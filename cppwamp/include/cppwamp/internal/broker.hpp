@@ -209,7 +209,7 @@ public:
 
     SubscriptionInfo info(bool listSubscribers) const
     {
-        if (!listSubscribers)
+        if (listSubscribers)
             return info_;
 
         return SubscriptionInfo{info_.uri, info_.matchPolicy, info_.id,
@@ -232,7 +232,7 @@ public:
         info_.subscribers.erase(sid);
         info_.subscriberCount = info_.subscribers.size();
         if (wasRemoved && metaTopics.enabled())
-            metaTopics.onUnsubscribe(std::move(subscriberInfo), info());
+            metaTopics.onUnsubscribe(std::move(subscriberInfo), info(false));
         return wasRemoved;
     }
 
@@ -627,8 +627,11 @@ public:
             }
         }
 
-        if (metaTopics_->enabled() && !isMetaTopic(sub->info().uri) )
-            metaTopics_->onSubscribe(subscriber->sharedInfo(), sub->info());
+        if (metaTopics_->enabled() && !isMetaTopic(sub->info().uri))
+        {
+            metaTopics_->onSubscribe(subscriber->sharedInfo(),
+                                     sub->info(false));
+        }
 
         return sub->info().id;
     }
@@ -703,30 +706,14 @@ public:
         }
     }
 
-    template <typename F>
-    std::size_t forEachSubscription(MatchPolicy p, F&& functor) const
+    ErrorOr<SubscriptionInfo> getSubscription(SubscriptionId sid,
+                                              bool listSubscribers) const
     {
         MutexGuard guard{queryMutex_};
-
-        switch (p)
-        {
-        case MatchPolicy::unknown:
-            break;
-
-        case MatchPolicy::exact:
-            return byExact_.forEachSubscription(std::forward<F>(functor));
-
-        case MatchPolicy::prefix:
-            return byPrefix_.forEachSubscription(std::forward<F>(functor));
-
-        case MatchPolicy::wildcard:
-            return byWildcard_.forEachSubscription(std::forward<F>(functor));
-
-        default:
-            assert(false && "Unexpected MatchPolicy enumerator");
-        }
-
-        return 0;
+        auto found = subscriptions_.find(sid);
+        if (found == subscriptions_.end())
+            return makeUnexpectedError(WampErrc::noSuchSubscription);
+        return found->second.info(listSubscribers);
     }
 
     ErrorOr<SubscriptionInfo> lookupSubscription(
@@ -756,6 +743,32 @@ public:
     }
 
     template <typename F>
+    std::size_t forEachSubscription(MatchPolicy p, F&& functor) const
+    {
+        MutexGuard guard{queryMutex_};
+
+        switch (p)
+        {
+        case MatchPolicy::unknown:
+            break;
+
+        case MatchPolicy::exact:
+            return byExact_.forEachSubscription(std::forward<F>(functor));
+
+        case MatchPolicy::prefix:
+            return byPrefix_.forEachSubscription(std::forward<F>(functor));
+
+        case MatchPolicy::wildcard:
+            return byWildcard_.forEachSubscription(std::forward<F>(functor));
+
+        default:
+            assert(false && "Unexpected MatchPolicy enumerator");
+        }
+
+        return 0;
+    }
+
+    template <typename F>
     std::size_t forEachMatch(const Uri& uri, F&& functor) const
     {
         MutexGuard guard{queryMutex_};
@@ -763,16 +776,6 @@ public:
         count += byPrefix_.forEachMatch(uri, std::forward<F>(functor));
         count += byWildcard_.forEachMatch(uri, std::forward<F>(functor));
         return count;
-    }
-
-    ErrorOr<SubscriptionInfo> getSubscription(SubscriptionId sid,
-                                              bool listSubscribers) const
-    {
-        MutexGuard guard{queryMutex_};
-        auto found = subscriptions_.find(sid);
-        if (found == subscriptions_.end())
-            return makeUnexpectedError(WampErrc::noSuchSubscription);
-        return found->second.info(listSubscribers);
     }
 
 private:

@@ -43,6 +43,8 @@
 #include "peer.hpp"
 #include "timeoutscheduler.hpp"
 
+// TODO: Split this into several files
+
 namespace wamp
 {
 

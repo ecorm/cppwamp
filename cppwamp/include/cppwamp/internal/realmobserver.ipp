@@ -54,14 +54,14 @@ CPPWAMP_INLINE SessionLeftInfo parseSessionLeftInfo(const Event& event)
 CPPWAMP_INLINE RegistrationInfo::RegistrationInfo() {}
 
 CPPWAMP_INLINE RegistrationInfo::RegistrationInfo(
-    Uri uri, TimePoint created, RegistrationId id, MatchPolicy mp,
-    InvocationPolicy ip)
+    Uri uri, MatchPolicy mp, InvocationPolicy ip, RegistrationId id,
+    TimePoint created)
     : uri(std::move(uri)), created(created), id(id), matchPolicy(mp),
       invocationPolicy(ip)
 {}
 
-CPPWAMP_INLINE void convert(FromVariantConverter& conv,
-                            RegistrationInfo& r)
+CPPWAMP_INLINE void convertFrom(FromVariantConverter& conv,
+                                RegistrationInfo& r)
     {
         String created;
         Variant match;
@@ -99,48 +99,16 @@ CPPWAMP_INLINE void convert(FromVariantConverter& conv,
         r.matchPolicy = internal::parseMatchPolicy(match);
     }
 
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE RegistrationDetails::RegistrationDetails() {}
-
-CPPWAMP_INLINE RegistrationDetails::RegistrationDetails(SessionIdList callees,
-                                                        RegistrationInfo info)
-    : callees(std::move(callees)),
-      info(std::move(info))
-{}
-
-CPPWAMP_INLINE Object toObject(const RegistrationDetails& r)
+CPPWAMP_INLINE void convertTo(ToVariantConverter& conv,
+                              const RegistrationInfo& r)
 {
-    return Object
-    {
-        {"created", internal::toRfc3339Timestamp<6>(r.info.created)},
-        {"id",      r.info.id},
-        {"invoke",  "single"}, // TODO: Shared registrations
-        {"match",   internal::toString(r.info.matchPolicy)},
-        {"uri",     r.info.uri},
-    };
+    conv("created", internal::toRfc3339Timestamp<6>(r.created))
+        ("id",      r.id)
+        ("invoke",  "single") // TODO: Shared registrations
+        ("match",   internal::toString(r.matchPolicy))
+        ("uri",     r.uri);
 }
 
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE RegistrationLists::RegistrationLists() {}
-
-CPPWAMP_INLINE Object toObject(const RegistrationLists& lists)
-{
-    return Object
-    {
-        {"exact",    lists.exact},
-        {"prefix",   lists.prefix},
-        {"wildcard", lists.exact},
-    };
-}
-
-CPPWAMP_INLINE void convert(FromVariantConverter& conv, RegistrationLists& r)
-{
-    using List = RegistrationLists::List;
-
-    conv("exact",    r.exact,  List{})
-        ("prefix",   r.prefix, List{})
-        ("wildcard", r.exact,  List{});
-}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE SubscriptionInfo::SubscriptionInfo() {}
@@ -216,10 +184,10 @@ CPPWAMP_INLINE void RealmObserver::onJoin(SessionInfo::ConstPtr) {}
 CPPWAMP_INLINE void RealmObserver::onLeave(SessionInfo::ConstPtr) {}
 
 CPPWAMP_INLINE void RealmObserver::onRegister(SessionInfo::ConstPtr,
-                                              RegistrationDetails) {}
+                                              RegistrationInfo) {}
 
 CPPWAMP_INLINE void RealmObserver::onUnregister(SessionInfo::ConstPtr,
-                                                RegistrationDetails) {}
+                                                RegistrationInfo) {}
 
 CPPWAMP_INLINE void RealmObserver::onSubscribe(SessionInfo::ConstPtr,
                                                SubscriptionInfo) {}

@@ -62,54 +62,25 @@ CPPWAMP_API SessionLeftInfo parseSessionLeftInfo(const Event& event);
 struct CPPWAMP_API RegistrationInfo
 {
     using TimePoint = std::chrono::system_clock::time_point;
+    using SessionIdSet = std::set<SessionId>;
 
     RegistrationInfo();
 
-    RegistrationInfo(Uri uri, TimePoint created, RegistrationId id,
-                     MatchPolicy mp = MatchPolicy::exact,
-                     InvocationPolicy ip = InvocationPolicy::single);
+    RegistrationInfo(Uri uri, MatchPolicy mp, InvocationPolicy ip,
+                     RegistrationId id, TimePoint created);
 
+    SessionIdSet callees;
     Uri uri;
     TimePoint created;
     RegistrationId id = 0;
+    size_t calleeCount = 0;
     MatchPolicy matchPolicy = MatchPolicy::unknown;
     InvocationPolicy invocationPolicy = InvocationPolicy::unknown;
 };
 
-CPPWAMP_API void convert(FromVariantConverter& conv, RegistrationInfo& r);
-
-
-//------------------------------------------------------------------------------
-struct CPPWAMP_API RegistrationDetails
-{
-    using SessionIdList = std::vector<SessionId>;
-
-    RegistrationDetails();
-
-    RegistrationDetails(SessionIdList callees, RegistrationInfo info);
-
-    SessionIdList callees;
-    RegistrationInfo info;
-};
-
-CPPWAMP_API Object toObject(const RegistrationDetails& r);
-
-
-//------------------------------------------------------------------------------
-struct CPPWAMP_API RegistrationLists
-{
-    using List = std::vector<RegistrationId>;
-
-    RegistrationLists();
-
-    List exact;
-    List prefix;
-    List wildcard;
-};
-
-CPPWAMP_API Object toObject(const RegistrationLists& lists);
-
-CPPWAMP_API void convert(FromVariantConverter& conv, RegistrationLists& r);
+CPPWAMP_API void convertFrom(FromVariantConverter& conv, RegistrationInfo& r);
+CPPWAMP_API void convertTo(ToVariantConverter& conv, const RegistrationInfo& r);
+CPPWAMP_CONVERSION_SPLIT_FREE(RegistrationInfo)
 
 
 //------------------------------------------------------------------------------
@@ -163,9 +134,9 @@ public:
 
     virtual void onLeave(SessionInfo::ConstPtr);
 
-    virtual void onRegister(SessionInfo::ConstPtr, RegistrationDetails);
+    virtual void onRegister(SessionInfo::ConstPtr, RegistrationInfo);
 
-    virtual void onUnregister(SessionInfo::ConstPtr, RegistrationDetails);
+    virtual void onUnregister(SessionInfo::ConstPtr, RegistrationInfo);
 
     virtual void onSubscribe(SessionInfo::ConstPtr, SubscriptionInfo);
 

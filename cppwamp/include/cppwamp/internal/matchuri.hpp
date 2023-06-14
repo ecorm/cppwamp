@@ -16,6 +16,8 @@ namespace wamp
 namespace internal
 {
 
+// TODO: Move alongside Readership
+
 //------------------------------------------------------------------------------
 class MatchUri
 {
