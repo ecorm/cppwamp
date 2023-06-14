@@ -46,7 +46,6 @@ public:
     using ObserverId          = MetaTopics::ObserverId;
     using SessionPredicate    = std::function<bool (const SessionInfo&)>;
     using RegistrationHandler = std::function<void (RegistrationDetails)>;
-    using SubscriptionHandler = std::function<void (SubscriptionDetails)>;
 
     template <typename T>
     using CompletionHandler = AnyCompletionHandler<void (T)>;
@@ -113,13 +112,14 @@ public:
         return sessions_.size();
     }
 
-    std::size_t forEachSession(const SessionPredicate& handler) const
+    template <typename F>
+    std::size_t forEachSession(F&& functor) const
     {
         std::lock_guard<std::mutex> guard{sessionQueryMutex_};
         std::size_t count = 0;
         for (const auto& kv: sessions_)
         {
-            if (!handler(kv.second->info()))
+            if (!std::forward<F>(functor)(kv.second->info()))
                 break;
             ++count;
         }
@@ -270,101 +270,27 @@ public:
         safelyDispatch<Dispatched>(rid, std::move(h));
     }
 
-    void listSubscriptions(CompletionHandler<SubscriptionLists> h)
+    template <typename F>
+    std::size_t forEachSubscription(MatchPolicy p, F&& functor) const
     {
-        struct Dispatched
-        {
-            Ptr self;
-            CompletionHandler<SubscriptionLists> h;
-
-            void operator()()
-            {
-                auto& me = *self;
-                auto lists = me.broker_.listSubscriptions();
-                me.complete(h, std::move(lists));
-            }
-        };
-
-        safelyDispatch<Dispatched>(std::move(h));
+        return broker_.forEachSubscription(p, std::forward<F>(functor));
     }
 
-    void forEachSubscription(MatchPolicy p, SubscriptionHandler f,
-                             CompletionHandler<std::size_t> h)
+    ErrorOr<SubscriptionDetails> lookupSubscription(const Uri& uri,
+                                                    MatchPolicy p)
     {
-        struct Dispatched
-        {
-            Ptr self;
-            MatchPolicy p;
-            SubscriptionHandler f;
-            CompletionHandler<std::size_t> h;
-
-            void operator()()
-            {
-                auto& me = *self;
-                auto count = me.broker_.forEachSubscription(p, f);
-                me.complete(h, count);
-            }
-        };
-
-        safelyDispatch<Dispatched>(p, std::move(f), std::move(h));
+        return broker_.lookupSubscription(uri, p);
     }
 
-    void lookupSubscription(Uri uri, MatchPolicy p,
-                            CompletionHandler<ErrorOr<SubscriptionDetails>> h)
+    template <typename F>
+    std::size_t forEachMatchingSubscription(const Uri& uri, F&& functor) const
     {
-        struct Dispatched
-        {
-            Ptr self;
-            Uri uri;
-            MatchPolicy p;
-            CompletionHandler<ErrorOr<SubscriptionDetails>> h;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.complete(h, me.subscriptionDetailsByUri(uri, p));
-            }
-        };
-
-        safelyDispatch<Dispatched>(std::move(uri), p, std::move(h));
+        return broker_.forEachMatch(uri, std::forward<F>(functor));
     }
 
-    void matchSubscriptions(Uri uri,
-                            CompletionHandler<std::vector<SubscriptionId>> h)
+    ErrorOr<SubscriptionDetails> getSubscription(SubscriptionId sid)
     {
-        struct Dispatched
-        {
-            Ptr self;
-            Uri uri;
-            CompletionHandler<std::vector<SubscriptionId>> h;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.complete(h, me.subscriptionMatches(uri));
-            }
-        };
-
-        safelyDispatch<Dispatched>(std::move(uri), std::move(h));
-    }
-
-    void getSubscription(SubscriptionId sid,
-                         CompletionHandler<ErrorOr<SubscriptionDetails>> h)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            SubscriptionId sid;
-            CompletionHandler<ErrorOr<SubscriptionDetails>> h;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.complete(h, me.subscriptionDetailsById(sid));
-            }
-        };
-
-        safelyDispatch<Dispatched>(sid, std::move(h));
+        return broker_.getSubscription(sid);
     }
 
 private:
@@ -506,27 +432,6 @@ private:
     registrationDetailsById(RegistrationId rid) const
     {
         return dealer_.getRegistration(rid);
-    }
-
-    SubscriptionLists subscriptionLists() const
-    {
-        return broker_.listSubscriptions();
-    }
-
-    ErrorOr<SubscriptionDetails> subscriptionDetailsByUri(const Uri& uri,
-                                                          MatchPolicy p) const
-    {
-        return broker_.lookupSubscription(uri, p);
-    }
-
-    std::vector<SubscriptionId> subscriptionMatches(const Uri& uri)
-    {
-        return broker_.matchSubscriptions(uri);
-    }
-
-    ErrorOr<SubscriptionDetails> subscriptionDetailsById(SubscriptionId sid)
-    {
-        return broker_.getSubscription(sid);
     }
 
     void leave(RouterSession::Ptr session)

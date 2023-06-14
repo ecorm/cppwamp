@@ -194,19 +194,6 @@ CPPWAMP_INLINE Object toObject(const SubscriptionDetails& s)
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE SubscriptionLists::SubscriptionLists() {}
-
-CPPWAMP_INLINE Object toObject(const SubscriptionLists& lists)
-{
-    return Object
-    {
-        {"exact",    lists.exact},
-        {"prefix",   lists.prefix},
-        {"wildcard", lists.exact},
-    };
-}
-
-//------------------------------------------------------------------------------
 CPPWAMP_INLINE RealmObserver::~RealmObserver()
 {
     detach();

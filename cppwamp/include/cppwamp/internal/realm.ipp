@@ -73,6 +73,30 @@ Realm::lookupSession(SessionId sid) const
     return s;
 }
 
+CPPWAMP_INLINE std::size_t
+Realm::forEachSubscription(MatchPolicy p, const SubscriptionPredicate& f) const
+{
+    return impl_->forEachSubscription(p, f);
+}
+
+CPPWAMP_INLINE ErrorOr<SubscriptionDetails>
+Realm::lookupSubscription(const Uri& uri, MatchPolicy p) const
+{
+    return impl_->lookupSubscription(uri, p);
+}
+
+CPPWAMP_INLINE std::size_t Realm::forEachMatchingSubscription(
+    const Uri& uri, const SubscriptionPredicate& f) const
+{
+    return impl_->forEachMatchingSubscription(uri, f);
+}
+
+CPPWAMP_INLINE ErrorOr<SubscriptionDetails>
+Realm::getSubscription(SubscriptionId sid) const
+{
+    return impl_->getSubscription(sid);
+}
+
 CPPWAMP_INLINE Realm::Realm(std::shared_ptr<internal::RouterRealm> impl,
                             FallbackExecutor fe)
     : fallbackExecutor_(std::move(fe)),
@@ -119,36 +143,6 @@ CPPWAMP_INLINE void Realm::doGetRegistration(
     RegistrationId rid, CompletionHandler<ErrorOr<RegistrationDetails>> h)
 {
     impl_->getRegistration(rid, std::move(h));
-}
-
-CPPWAMP_INLINE void Realm::doListSubscriptions(
-    CompletionHandler<SubscriptionLists> h)
-{
-    impl_->listSubscriptions(std::move(h));
-}
-
-CPPWAMP_INLINE void Realm::doForEachSubscription(
-    MatchPolicy p, SubscriptionHandler f, CompletionHandler<std::size_t> h)
-{
-    impl_->forEachSubscription(p, std::move(f), std::move(h));
-}
-
-CPPWAMP_INLINE void Realm::doLookupSubscription(
-    Uri uri, MatchPolicy p, CompletionHandler<ErrorOr<SubscriptionDetails>> h)
-{
-    impl_->lookupSubscription(std::move(uri), p, std::move(h));
-}
-
-CPPWAMP_INLINE void Realm::doMatchSubscriptions(
-    Uri uri, CompletionHandler<SubscriptionIdList> h)
-{
-    impl_->matchSubscriptions(std::move(uri), std::move(h));
-}
-
-CPPWAMP_INLINE void Realm::doGetSubscription(
-    SubscriptionId sid, CompletionHandler<ErrorOr<SubscriptionDetails>> h)
-{
-    impl_->getSubscription(sid, std::move(h));
 }
 
 } // namespace wamp

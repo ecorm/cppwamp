@@ -11,6 +11,7 @@
 #include <chrono>
 #include <set>
 #include <map>
+#include <mutex>
 #include <utility>
 #include "../errorcodes.hpp"
 #include "../erroror.hpp"
@@ -371,12 +372,15 @@ public:
     {
         auto iter = trie_.begin();
         auto end = trie_.end();
+        std::size_t count = 0;
         while (iter != end)
         {
             BrokerSubscription* record = iteratorValue(iter);
-            functor(record->details());
+            if (!std::forward<F>(functor)(record->details()))
+                break;
+            ++count;
         }
-        return trie_.size();
+        return count;
     }
 
     ErrorOr<SubscriptionDetails> lookupSubscription(const Uri& uri) const
@@ -425,14 +429,15 @@ public:
         return record->publish(info, inhibitedSessionId);
     }
 
-    void collectMatches(const Uri& uri,
-                        std::vector<SubscriptionId>& subIds) const
+    template <typename F>
+    std::size_t forEachMatch(const Uri& uri, F&& functor) const
     {
         auto found = trie_.find(uri);
         if (found == trie_.end())
-            return;
+            return 0;
         BrokerSubscription* record = iteratorValue(found);
-        subIds.push_back(record->subscriptionId());
+        std::forward<F>(functor)(record->details());
+        return 1;
     }
 };
 
@@ -469,23 +474,41 @@ public:
         return count;
     }
 
-    void collectMatches(const Uri& uri,
-                        std::vector<SubscriptionId>& subIds) const
+    template <typename F>
+    std::size_t forEachMatch(const Uri& uri, F&& functor) const
     {
         if (trie_.empty())
-            return;
+            return 0;
 
-        using Iter = utils::TrieMap<BrokerSubscription*>::const_iterator;
-        trie_.for_each_prefix_of(
-            uri,
-            [&subIds] (Iter iter)
-            {
-                const BrokerSubscription* record = iter.value();
-                subIds.push_back(record->subscriptionId());
-            });
+        PrefixTraverser<F> traverser(std::forward<F>(functor));
+        trie_.for_each_prefix_of(uri, traverser);
+        return traverser.count;
     }
 
 private:
+    template <typename F>
+    struct PrefixTraverser
+    {
+        using Iter = utils::TrieMap<BrokerSubscription*>::const_iterator;
+
+        PrefixTraverser(F&& functor) : functor(std::forward<F>(functor)) {}
+
+        void operator()(Iter iter)
+        {
+            if (!more)
+                return;
+
+            const BrokerSubscription* record = iter.value();
+            more = std::forward<F>(functor)(record->details());
+            if (more)
+                ++count;
+        }
+
+        F&& functor;
+        std::size_t count = 0;
+        bool more = true;
+    };
+
     using Base = BrokerTopicMapBase<utils::TrieMap<BrokerSubscription*>,
                                     BrokerPrefixTopicMap>;
 
@@ -542,6 +565,28 @@ public:
             matches.next();
         }
     }
+
+    template <typename F>
+    std::size_t forEachMatch(const Uri& uri, F&& functor) const
+    {
+        if (trie_.empty())
+            return 0;
+
+        auto matches = wildcardMatches(trie_, uri);
+        if (matches.done())
+            return 0;
+
+        std::size_t count = 0;
+        while (!matches.done())
+        {
+            const BrokerSubscription* record = matches.value();
+            if (!(std::forward<F>(functor)(record->details())))
+                break;
+            ++count;
+            matches.next();
+        }
+        return count;
+    }
 };
 
 //------------------------------------------------------------------------------
@@ -557,15 +602,7 @@ public:
     {
         BrokerSubscribeRequest req{std::move(t), subscriber, subscriptions_,
                                    subIdGenerator_};
-        BrokerSubscription* sub = nullptr;
-
-        switch (req.policy())
-        {
-        case Policy::exact:    sub = byExact_.subscribe(req);    break;
-        case Policy::prefix:   sub = byPrefix_.subscribe(req);   break;
-        case Policy::wildcard: sub = byWildcard_.subscribe(req); break;
-
-        default:
+        if (req.policy() == Policy::unknown)
         {
             auto unex = makeUnexpectedError(WampErrc::optionNotAllowed);
             auto error = Error::fromRequest({}, t, unex.value())
@@ -573,6 +610,19 @@ public:
             subscriber->sendRouterCommand(std::move(error), true);
             return unex;
         }
+
+        BrokerSubscription* sub = nullptr;
+
+        {
+            MutexGuard guard{queryMutex_};
+
+            switch (req.policy())
+            {
+            case Policy::exact:    sub = byExact_.subscribe(req);    break;
+            case Policy::prefix:   sub = byPrefix_.subscribe(req);   break;
+            case Policy::wildcard: sub = byWildcard_.subscribe(req); break;
+            default: assert(false && "Unexpected Policy enumerator"); break;
+            }
         }
 
         if (metaTopics_->enabled() && !isMetaTopic(sub->topic()) )
@@ -587,20 +637,25 @@ public:
         auto found = subscriptions_.find(subId);
         if (found == subscriptions_.end())
             return makeUnexpectedError(WampErrc::noSuchSubscription);
+
         BrokerSubscription& record = found->second;
         auto uri = record.topic().uri();
-        bool subscriberRemoved =
-            record.removeSubscriber(subscriber->sharedInfo(), *metaTopics_);
 
-        if (!subscriberRemoved)
         {
+            MutexGuard guard{queryMutex_};
+            bool subscriberRemoved =
+                record.removeSubscriber(subscriber->sharedInfo(), *metaTopics_);
+
+            if (!subscriberRemoved)
+            {
+                if (record.empty())
+                    eraseTopic(record.topic(), found);
+                return makeUnexpectedError(WampErrc::noSuchSubscription);
+            }
+
             if (record.empty())
                 eraseTopic(record.topic(), found);
-            return makeUnexpectedError(WampErrc::noSuchSubscription);
         }
-
-        if (record.empty())
-            eraseTopic(record.topic(), found);
 
         return uri;
     }
@@ -627,6 +682,8 @@ public:
 
     void removeSubscriber(SessionInfo::ConstPtr subscriberInfo)
     {
+        MutexGuard guard{queryMutex_};
+
         byExact_.removeSubscriber(subscriberInfo, *metaTopics_);
         byPrefix_.removeSubscriber(subscriberInfo, *metaTopics_);
         byWildcard_.removeSubscriber(subscriberInfo, *metaTopics_);
@@ -643,18 +700,11 @@ public:
         }
     }
 
-    SubscriptionLists listSubscriptions() const
-    {
-        SubscriptionLists lists;
-        lists.exact = byExact_.listSubscriptions();
-        lists.prefix = byPrefix_.listSubscriptions();
-        lists.wildcard = byWildcard_.listSubscriptions();
-        return lists;
-    }
-
     template <typename F>
     std::size_t forEachSubscription(MatchPolicy p, F&& functor) const
     {
+        MutexGuard guard{queryMutex_};
+
         switch (p)
         {
         case MatchPolicy::unknown:
@@ -679,6 +729,8 @@ public:
     ErrorOr<SubscriptionDetails> lookupSubscription(const Uri& uri,
                                                     MatchPolicy p) const
     {
+        MutexGuard guard{queryMutex_};
+
         switch (p)
         {
         case MatchPolicy::unknown:
@@ -700,17 +752,19 @@ public:
         return makeUnexpectedError(WampErrc::noSuchSubscription);
     }
 
-    std::vector<SubscriptionId> matchSubscriptions(const Uri& uri)
+    template <typename F>
+    std::size_t forEachMatch(const Uri& uri, F&& functor) const
     {
-        std::vector<SubscriptionId> subIds;
-        byExact_.collectMatches(uri, subIds);
-        byPrefix_.collectMatches(uri, subIds);
-        byWildcard_.collectMatches(uri, subIds);
-        return subIds;
+        MutexGuard guard{queryMutex_};
+        auto count = byExact_.forEachMatch(uri, std::forward<F>(functor));
+        count += byPrefix_.forEachMatch(uri, std::forward<F>(functor));
+        count += byWildcard_.forEachMatch(uri, std::forward<F>(functor));
+        return count;
     }
 
-    ErrorOr<SubscriptionDetails> getSubscription(SubscriptionId sid)
+    ErrorOr<SubscriptionDetails> getSubscription(SubscriptionId sid) const
     {
+        MutexGuard guard{queryMutex_};
         auto found = subscriptions_.find(sid);
         if (found == subscriptions_.end())
             return makeUnexpectedError(WampErrc::noSuchSubscription);
@@ -719,6 +773,7 @@ public:
 
 private:
     using Policy = MatchPolicy;
+    using MutexGuard = std::lock_guard<std::mutex>;
 
     static bool isMetaTopic(const MatchUri& uriAndPolicy)
     {
@@ -749,6 +804,7 @@ private:
         }
     }
 
+    mutable std::mutex queryMutex_;
     BrokerSubscriptionMap subscriptions_;
     BrokerExactTopicMap byExact_;
     BrokerPrefixTopicMap byPrefix_;

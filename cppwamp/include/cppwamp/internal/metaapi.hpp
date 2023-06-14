@@ -352,8 +352,38 @@ private:
 
     Outcome listSubscriptions(RouterSession&, Rpc& rpc)
     {
-        auto lists = context_.subscriptionLists();
-        return Result{toObject(context_.subscriptionLists())};
+        std::vector<SubscriptionId> exact;
+        std::vector<SubscriptionId> prefix;
+        std::vector<SubscriptionId> wildcard;
+
+        context_.forEachSubscription(
+            MatchPolicy::exact,
+            [&exact](const SubscriptionDetails& s) -> bool
+            {
+                exact.push_back(s.info.id);
+                return true;
+            });
+
+        context_.forEachSubscription(
+            MatchPolicy::prefix,
+            [&prefix](const SubscriptionDetails& s) -> bool
+            {
+                prefix.push_back(s.info.id);
+                return true;
+            });
+
+        context_.forEachSubscription(
+            MatchPolicy::wildcard,
+            [&wildcard](const SubscriptionDetails& s) -> bool
+            {
+                wildcard.push_back(s.info.id);
+                return true;
+            });
+
+        return Result{Object{
+            {"exact", std::move(exact)},
+            {"prefix", std::move(prefix)},
+            {"wildcard", std::move(wildcard)}}};
     }
 
     Outcome lookupSubscription(RouterSession&, Rpc& rpc)
@@ -365,7 +395,7 @@ private:
         if (policy == MatchPolicy::unknown)
             return Result{null};
 
-        auto details = context_.subscriptionDetailsByUri(uri, policy);
+        auto details = context_.lookupSubscription(uri, policy);
         return details ? Result{details->info.id} : Result{null};
     }
 
@@ -373,22 +403,30 @@ private:
     {
         Uri uri;
         rpc.convertTo(uri);
-        return Result{context_.subscriptionMatches(uri)};
+        std::vector<SubscriptionId> list;
+        context_.forEachMatchingSubscription(
+            uri,
+            [&list](const SubscriptionDetails& s) -> bool
+            {
+                list.push_back(s.info.id);
+                return true;
+            });
+        return Result{std::move(list)};
     }
 
     Outcome subscriptionDetails(RouterSession&, Rpc& rpc)
     {
-        SubscriptionId rid;
-        rpc.convertTo(rid);
-        auto details = context_.subscriptionDetailsById(rid);
+        SubscriptionId sid;
+        rpc.convertTo(sid);
+        auto details = context_.getSubscription(sid);
         return details ? Result{toObject(*details)} : Result{null};
     }
 
     Outcome listSubscribers(RouterSession&, Rpc& rpc)
     {
-        SubscriptionId rid;
-        rpc.convertTo(rid);
-        auto details = context_.subscriptionDetailsById(rid);
+        SubscriptionId sid;
+        rpc.convertTo(sid);
+        auto details = context_.getSubscription(sid);
         if (!details)
             return Error{WampErrc::noSuchSubscription};
         return Result{details->subscribers};
@@ -396,9 +434,9 @@ private:
 
     Outcome countSubscribers(RouterSession&, Rpc& rpc)
     {
-        SubscriptionId rid;
-        rpc.convertTo(rid);
-        auto details = context_.subscriptionDetailsById(rid);
+        SubscriptionId sid;
+        rpc.convertTo(sid);
+        auto details = context_.getSubscription(sid);
         if (!details)
             return Error{WampErrc::noSuchSubscription};
         return Result{details->subscribers.size()};

@@ -145,19 +145,6 @@ CPPWAMP_API Object toObject(const SubscriptionDetails& s);
 
 
 //------------------------------------------------------------------------------
-struct CPPWAMP_API SubscriptionLists
-{
-    using List = std::vector<SubscriptionId>;
-
-    SubscriptionLists();
-
-    List exact;
-    List prefix;
-    List wildcard;
-};
-
-CPPWAMP_API Object toObject(const SubscriptionLists& lists);
-
 namespace internal {class MetaTopics;}
 
 //------------------------------------------------------------------------------

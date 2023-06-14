@@ -46,13 +46,13 @@ class RouterSession;
 class CPPWAMP_API Realm
 {
 public:
-    using Executor            = AnyIoExecutor;
-    using FallbackExecutor    = AnyCompletionExecutor;
-    using SessionIdList       = std::vector<SessionId>;
-    using SubscriptionIdList  = std::vector<SubscriptionId>;
-    using SessionPredicate    = std::function<bool (const SessionInfo&)>;
-    using RegistrationHandler = std::function<void (RegistrationDetails)>;
-    using SubscriptionHandler = std::function<void (SubscriptionDetails)>;
+    using Executor              = AnyIoExecutor;
+    using FallbackExecutor      = AnyCompletionExecutor;
+    using SessionIdList         = std::vector<SessionId>;
+    using SessionPredicate      = std::function<bool (const SessionInfo&)>;
+    using RegistrationHandler   = std::function<void (RegistrationDetails)>;
+    using SubscriptionPredicate
+        = std::function<bool (const SubscriptionDetails&)>;
 
     /** Obtains the type returned by [boost::asio::async_initiate]
         (https://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/async_initiate.html)
@@ -108,6 +108,7 @@ public:
     CPPWAMP_NODISCARD Deduced<SessionIdList, C>
     killSessions(SessionPredicate f, Reason r, C&& completion);
 
+    // TODO: Use mutex
     template <typename C>
     CPPWAMP_NODISCARD Deduced<RegistrationLists, C>
     listRegistrations(C&& completion);
@@ -128,25 +129,16 @@ public:
     CPPWAMP_NODISCARD Deduced<ErrorOr<RegistrationDetails>, C>
     getRegistration(RegistrationId rid, C&& completion);
 
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<SubscriptionLists, C>
-    listSubscriptions(C&& completion);
+    std::size_t forEachSubscription(MatchPolicy p,
+                                    const SubscriptionPredicate& f) const;
 
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<std::size_t, C>
-    forEachSubscription(MatchPolicy p, SubscriptionHandler f, C&& completion);
+    ErrorOr<SubscriptionDetails> lookupSubscription(const Uri& uri,
+                                                    MatchPolicy p) const;
 
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<SubscriptionDetails>, C>
-    lookupSubscription(Uri uri, MatchPolicy p, C&& completion);
+    std::size_t forEachMatchingSubscription(
+        const Uri& uri, const SubscriptionPredicate& f) const;
 
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<SubscriptionIdList>, C>
-    matchSubscriptions(Uri uri, C&& completion);
-
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<SubscriptionDetails>, C>
-    getSubscription(SubscriptionId rid, C&& completion);
+    ErrorOr<SubscriptionDetails> getSubscription(SubscriptionId rid) const;
 
 private:
     template <typename T>
@@ -161,11 +153,6 @@ private:
     struct LookupRegistrationOp;
     struct MatchRegistrationOp;
     struct GetRegistrationOp;
-    struct ListSubscriptionsOp;
-    struct ForEachSubscriptionOp;
-    struct LookupSubscriptionOp;
-    struct MatchSubscriptionsOp;
-    struct GetSubscriptionOp;
 
     template <typename O, typename C, typename... As>
     Deduced<typename O::ResultValue, C> initiate(C&& token, As&&... args);
@@ -190,14 +177,6 @@ private:
                              CompletionHandler<ErrorOr<RegistrationDetails>> h);
     void doGetRegistration(RegistrationId rid,
                            CompletionHandler<ErrorOr<RegistrationDetails>> h);
-    void doListSubscriptions(CompletionHandler<SubscriptionLists> h);
-    void doForEachSubscription(MatchPolicy p, SubscriptionHandler f,
-                               CompletionHandler<std::size_t> h);
-    void doLookupSubscription(Uri uri, MatchPolicy p,
-                              CompletionHandler<ErrorOr<SubscriptionDetails>> h);
-    void doMatchSubscriptions(Uri uri, CompletionHandler<SubscriptionIdList> h);
-    void doGetSubscription(SubscriptionId sid,
-                           CompletionHandler<ErrorOr<SubscriptionDetails>> h);
 
     FallbackExecutor fallbackExecutor_;
     std::shared_ptr<internal::RouterRealm> impl_;
@@ -396,121 +375,6 @@ Realm::getRegistration(RegistrationId rid, C&& completion)
 {
     CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     return initiate<GetRegistrationOp>(std::forward<C>(completion), rid);
-}
-
-//------------------------------------------------------------------------------
-struct Realm::ListSubscriptionsOp
-{
-    using ResultValue = SubscriptionLists;
-    Realm* self;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doListSubscriptions(
-            self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
-
-template <typename C>
-Realm::Deduced<SubscriptionLists, C>
-Realm::listSubscriptions(C&& completion)
-{
-    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
-    return initiate<ListSubscriptionsOp>(std::forward<C>(completion));
-}
-
-//------------------------------------------------------------------------------
-struct Realm::ForEachSubscriptionOp
-{
-    using ResultValue = std::size_t;
-    Realm* self;
-    MatchPolicy p;
-    SubscriptionHandler onSubscription;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doForEachSubscription(
-            p, std::move(onSubscription),
-            self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
-
-template <typename C>
-Realm::Deduced<std::size_t, C>
-Realm::forEachSubscription(MatchPolicy p, SubscriptionHandler f, C&& completion)
-{
-    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
-    return initiate<ForEachSubscriptionOp>(std::forward<C>(completion), p,
-                                           std::move(f));
-}
-
-//------------------------------------------------------------------------------
-struct Realm::LookupSubscriptionOp
-{
-    using ResultValue = ErrorOr<SubscriptionDetails>;
-    Realm* self;
-    Uri uri;
-    MatchPolicy p;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doLookupSubscription(
-            std::move(uri), p, self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
-
-template <typename C>
-Realm::Deduced<ErrorOr<SubscriptionDetails>, C>
-Realm::lookupSubscription(Uri uri, MatchPolicy p, C&& completion)
-{
-    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
-    return initiate<LookupSubscriptionOp>(std::forward<C>(completion),
-                                          std::move(uri), p);
-}
-
-//------------------------------------------------------------------------------
-struct Realm::MatchSubscriptionsOp
-{
-    using ResultValue = Realm::SubscriptionIdList;
-    Realm* self;
-    Uri uri;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doMatchSubscriptions(
-            std::move(uri), self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
-
-template <typename C>
-Realm::Deduced<ErrorOr<Realm::SubscriptionIdList>, C>
-Realm::matchSubscriptions(Uri uri, C&& completion)
-{
-    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
-    return initiate<MatchSubscriptionsOp>(std::forward<C>(completion),
-                                          std::move(uri));
-}
-
-//------------------------------------------------------------------------------
-struct Realm::GetSubscriptionOp
-{
-    using ResultValue = ErrorOr<SubscriptionDetails>;
-    Realm* self;
-    SubscriptionId sid;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doGetSubscription(sid,
-                                self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
-
-template <typename C>
-Realm::Deduced<ErrorOr<SubscriptionDetails>, C>
-Realm::getSubscription(SubscriptionId sid, C&& completion)
-{
-    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
-    return initiate<GetSubscriptionOp>(std::forward<C>(completion), sid);
 }
 
 //------------------------------------------------------------------------------
