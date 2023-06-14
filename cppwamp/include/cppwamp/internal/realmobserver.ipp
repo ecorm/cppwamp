@@ -146,11 +146,11 @@ CPPWAMP_INLINE void convert(FromVariantConverter& conv, RegistrationLists& r)
 CPPWAMP_INLINE SubscriptionInfo::SubscriptionInfo() {}
 
 CPPWAMP_INLINE SubscriptionInfo::SubscriptionInfo(
-    Uri uri, TimePoint created, RegistrationId id, MatchPolicy p)
+    Uri uri, MatchPolicy p, SubscriptionId id, TimePoint created)
     : uri(std::move(uri)), created(created), id(id), matchPolicy(p)
 {}
 
-CPPWAMP_INLINE void convert(FromVariantConverter& conv, SubscriptionInfo& s)
+CPPWAMP_INLINE void convertFrom(FromVariantConverter& conv, SubscriptionInfo& s)
 {
     String created;
     Variant match;
@@ -173,24 +173,13 @@ CPPWAMP_INLINE void convert(FromVariantConverter& conv, SubscriptionInfo& s)
     s.matchPolicy = internal::parseMatchPolicy(match);
 }
 
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE SubscriptionDetails::SubscriptionDetails() {}
-
-CPPWAMP_INLINE SubscriptionDetails::SubscriptionDetails(SessionIdList s,
-                                                        SubscriptionInfo i)
-    : subscribers(std::move(s)),
-      info(std::move(i))
-{}
-
-CPPWAMP_INLINE Object toObject(const SubscriptionDetails& s)
+CPPWAMP_INLINE void convertTo(ToVariantConverter& conv,
+                              const SubscriptionInfo& s)
 {
-    return Object
-    {
-        {"created", internal::toRfc3339Timestamp<6>(s.info.created)},
-        {"id",      s.info.id},
-        {"match",   internal::toString(s.info.matchPolicy)},
-        {"uri",     s.info.uri},
-    };
+    conv("created", internal::toRfc3339Timestamp<6>(s.created))
+        ("id",      s.id)
+        ("match",   internal::toString(s.matchPolicy))
+        ("uri",     s.uri);
 }
 
 //------------------------------------------------------------------------------
@@ -233,10 +222,10 @@ CPPWAMP_INLINE void RealmObserver::onUnregister(SessionInfo::ConstPtr,
                                                 RegistrationDetails) {}
 
 CPPWAMP_INLINE void RealmObserver::onSubscribe(SessionInfo::ConstPtr,
-                                               SubscriptionDetails) {}
+                                               SubscriptionInfo) {}
 
 CPPWAMP_INLINE void RealmObserver::onUnsubscribe(SessionInfo::ConstPtr,
-                                                 SubscriptionDetails) {}
+                                                 SubscriptionInfo) {}
 
 CPPWAMP_INLINE RealmObserver::RealmObserver() : observerId_(0) {}
 

@@ -16,6 +16,8 @@
 #include <chrono>
 #include <memory>
 #include <mutex>
+#include <set>
+#include <vector>
 #include "anyhandler.hpp"
 #include "api.hpp"
 #include "pubsubinfo.hpp"
@@ -114,34 +116,24 @@ CPPWAMP_API void convert(FromVariantConverter& conv, RegistrationLists& r);
 struct CPPWAMP_API SubscriptionInfo
 {
     using TimePoint = std::chrono::system_clock::time_point;
+    using SessionIdSet = std::set<SessionId>;
 
     SubscriptionInfo();
 
-    SubscriptionInfo(Uri uri, TimePoint created, RegistrationId id,
-                     MatchPolicy p = MatchPolicy::exact);
+    SubscriptionInfo(Uri uri, MatchPolicy p, SubscriptionId id,
+                     TimePoint created);
 
+    SessionIdSet subscribers;
     Uri uri;
     TimePoint created;
-    RegistrationId id = 0;
+    SubscriptionId id = 0;
+    size_t subscriberCount = 0;
     MatchPolicy matchPolicy = MatchPolicy::unknown;
 };
 
-CPPWAMP_API void convert(FromVariantConverter& conv, SubscriptionInfo& s);
-
-//------------------------------------------------------------------------------
-struct CPPWAMP_API SubscriptionDetails
-{
-    using SessionIdList = std::vector<SessionId>;
-
-    SubscriptionDetails();
-
-    SubscriptionDetails(SessionIdList s, SubscriptionInfo i);
-
-    SessionIdList subscribers;
-    SubscriptionInfo info;
-};
-
-CPPWAMP_API Object toObject(const SubscriptionDetails& s);
+CPPWAMP_API void convertFrom(FromVariantConverter& conv, SubscriptionInfo& s);
+CPPWAMP_API void convertTo(ToVariantConverter& conv, const SubscriptionInfo& s);
+CPPWAMP_CONVERSION_SPLIT_FREE(SubscriptionInfo)
 
 
 //------------------------------------------------------------------------------
@@ -175,9 +167,9 @@ public:
 
     virtual void onUnregister(SessionInfo::ConstPtr, RegistrationDetails);
 
-    virtual void onSubscribe(SessionInfo::ConstPtr, SubscriptionDetails);
+    virtual void onSubscribe(SessionInfo::ConstPtr, SubscriptionInfo);
 
-    virtual void onUnsubscribe(SessionInfo::ConstPtr, SubscriptionDetails);
+    virtual void onUnsubscribe(SessionInfo::ConstPtr, SubscriptionInfo);
 
 protected:
     RealmObserver();

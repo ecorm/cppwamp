@@ -276,10 +276,10 @@ public:
         return broker_.forEachSubscription(p, std::forward<F>(functor));
     }
 
-    ErrorOr<SubscriptionDetails> lookupSubscription(const Uri& uri,
-                                                    MatchPolicy p)
+    ErrorOr<SubscriptionInfo> lookupSubscription(const Uri& uri, MatchPolicy p,
+                                                 bool listSubscribers = false)
     {
-        return broker_.lookupSubscription(uri, p);
+        return broker_.lookupSubscription(uri, p, listSubscribers);
     }
 
     template <typename F>
@@ -288,9 +288,10 @@ public:
         return broker_.forEachMatch(uri, std::forward<F>(functor));
     }
 
-    ErrorOr<SubscriptionDetails> getSubscription(SubscriptionId sid)
+    ErrorOr<SubscriptionInfo> getSubscription(SubscriptionId sid,
+                                              bool listSubscribers = false)
     {
-        return broker_.getSubscription(sid);
+        return broker_.getSubscription(sid, listSubscribers);
     }
 
 private:

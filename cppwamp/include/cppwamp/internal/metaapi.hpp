@@ -358,25 +358,25 @@ private:
 
         context_.forEachSubscription(
             MatchPolicy::exact,
-            [&exact](const SubscriptionDetails& s) -> bool
+            [&exact](const SubscriptionInfo& s) -> bool
             {
-                exact.push_back(s.info.id);
+                exact.push_back(s.id);
                 return true;
             });
 
         context_.forEachSubscription(
             MatchPolicy::prefix,
-            [&prefix](const SubscriptionDetails& s) -> bool
+            [&prefix](const SubscriptionInfo& s) -> bool
             {
-                prefix.push_back(s.info.id);
+                prefix.push_back(s.id);
                 return true;
             });
 
         context_.forEachSubscription(
             MatchPolicy::wildcard,
-            [&wildcard](const SubscriptionDetails& s) -> bool
+            [&wildcard](const SubscriptionInfo& s) -> bool
             {
-                wildcard.push_back(s.info.id);
+                wildcard.push_back(s.id);
                 return true;
             });
 
@@ -395,8 +395,8 @@ private:
         if (policy == MatchPolicy::unknown)
             return Result{null};
 
-        auto details = context_.lookupSubscription(uri, policy);
-        return details ? Result{details->info.id} : Result{null};
+        auto info = context_.lookupSubscription(uri, policy);
+        return info ? Result{info->id} : Result{null};
     }
 
     Outcome matchSubscriptions(RouterSession&, Rpc& rpc)
@@ -406,9 +406,9 @@ private:
         std::vector<SubscriptionId> list;
         context_.forEachMatchingSubscription(
             uri,
-            [&list](const SubscriptionDetails& s) -> bool
+            [&list](const SubscriptionInfo& s) -> bool
             {
-                list.push_back(s.info.id);
+                list.push_back(s.id);
                 return true;
             });
         return Result{std::move(list)};
@@ -418,28 +418,31 @@ private:
     {
         SubscriptionId sid;
         rpc.convertTo(sid);
-        auto details = context_.getSubscription(sid);
-        return details ? Result{toObject(*details)} : Result{null};
+        auto info = context_.getSubscription(sid);
+        return info ? Result{Variant::from(*info)} : Result{null};
     }
 
     Outcome listSubscribers(RouterSession&, Rpc& rpc)
     {
         SubscriptionId sid;
         rpc.convertTo(sid);
-        auto details = context_.getSubscription(sid);
-        if (!details)
+        auto info = context_.getSubscription(sid, true);
+        if (!info)
             return Error{WampErrc::noSuchSubscription};
-        return Result{details->subscribers};
+        Array list;
+        for (auto subscriber: info->subscribers)
+            list.push_back(subscriber);
+        return Result{std::move(list)};
     }
 
     Outcome countSubscribers(RouterSession&, Rpc& rpc)
     {
         SubscriptionId sid;
         rpc.convertTo(sid);
-        auto details = context_.getSubscription(sid);
-        if (!details)
+        auto info = context_.getSubscription(sid);
+        if (!info)
             return Error{WampErrc::noSuchSubscription};
-        return Result{details->subscribers.size()};
+        return Result{info->subscriberCount};
     }
 
     std::array<Entry, 19> handlers_;
@@ -619,14 +622,13 @@ public:
             notifyObservers<Notifier>(std::move(info), std::move(r));
     }
     
-    void onSubscribe(SessionInfo::ConstPtr info,
-                     SubscriptionDetails sub) override
+    void onSubscribe(SessionInfo::ConstPtr info, SubscriptionInfo sub) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
             SessionInfo::ConstPtr s;
-            SubscriptionDetails sub;
+            SubscriptionInfo sub;
 
             void operator()()
             {
@@ -643,11 +645,11 @@ public:
             if (sub.subscribers.size() == 1)
             {
                 publish(Pub{"wamp.subscription.on_create"}
-                            .withArgs(sid, toObject(sub)));
+                            .withArgs(sid, Variant::from(sub)));
             }
 
             publish(Pub{"wamp.subscription.on_subscribe"}
-                        .withArgs(sid, sub.info.id));
+                        .withArgs(sid, sub.id));
         }
 
         if (!observers_.empty())
@@ -655,13 +657,13 @@ public:
     }
     
     void onUnsubscribe(SessionInfo::ConstPtr info,
-                       SubscriptionDetails sub) override
+                       SubscriptionInfo sub) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
             SessionInfo::ConstPtr s;
-            SubscriptionDetails sub;
+            SubscriptionInfo sub;
 
             void operator()()
             {
@@ -675,12 +677,12 @@ public:
         {
             auto sid = info->sessionId();
             publish(Pub{"wamp.subscription.on_unsubscribe"}
-                        .withArgs(sid, sub.info.id));
+                        .withArgs(sid, sub.id));
 
             if (sub.subscribers.empty())
             {
                 publish(Pub{"wamp.subscription.on_delete"}
-                            .withArgs(sid, sub.info.id));
+                            .withArgs(sid, sub.id));
             }
         }
 

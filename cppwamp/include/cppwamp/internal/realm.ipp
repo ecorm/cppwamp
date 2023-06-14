@@ -73,28 +73,29 @@ Realm::lookupSession(SessionId sid) const
     return s;
 }
 
+CPPWAMP_INLINE ErrorOr<SubscriptionInfo>
+Realm::getSubscription(SubscriptionId sid, bool listSubscribers) const
+{
+    return impl_->getSubscription(sid, listSubscribers);
+}
+
+CPPWAMP_INLINE ErrorOr<SubscriptionInfo>
+Realm::lookupSubscription(const Uri& uri, MatchPolicy p,
+                          bool listSubscribers) const
+{
+    return impl_->lookupSubscription(uri, p, listSubscribers);
+}
+
 CPPWAMP_INLINE std::size_t
 Realm::forEachSubscription(MatchPolicy p, const SubscriptionPredicate& f) const
 {
     return impl_->forEachSubscription(p, f);
 }
 
-CPPWAMP_INLINE ErrorOr<SubscriptionDetails>
-Realm::lookupSubscription(const Uri& uri, MatchPolicy p) const
-{
-    return impl_->lookupSubscription(uri, p);
-}
-
 CPPWAMP_INLINE std::size_t Realm::forEachMatchingSubscription(
     const Uri& uri, const SubscriptionPredicate& f) const
 {
     return impl_->forEachMatchingSubscription(uri, f);
-}
-
-CPPWAMP_INLINE ErrorOr<SubscriptionDetails>
-Realm::getSubscription(SubscriptionId sid) const
-{
-    return impl_->getSubscription(sid);
 }
 
 CPPWAMP_INLINE Realm::Realm(std::shared_ptr<internal::RouterRealm> impl,

@@ -51,8 +51,7 @@ public:
     using SessionIdList         = std::vector<SessionId>;
     using SessionPredicate      = std::function<bool (const SessionInfo&)>;
     using RegistrationHandler   = std::function<void (RegistrationDetails)>;
-    using SubscriptionPredicate
-        = std::function<bool (const SubscriptionDetails&)>;
+    using SubscriptionPredicate = std::function<bool (const SubscriptionInfo&)>;
 
     /** Obtains the type returned by [boost::asio::async_initiate]
         (https://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/async_initiate.html)
@@ -129,16 +128,17 @@ public:
     CPPWAMP_NODISCARD Deduced<ErrorOr<RegistrationDetails>, C>
     getRegistration(RegistrationId rid, C&& completion);
 
+    ErrorOr<SubscriptionInfo> getSubscription(
+        SubscriptionId rid, bool listSubscribers = false) const;
+
+    ErrorOr<SubscriptionInfo> lookupSubscription(
+        const Uri& uri, MatchPolicy p, bool listSubscribers = false) const;
+
     std::size_t forEachSubscription(MatchPolicy p,
                                     const SubscriptionPredicate& f) const;
 
-    ErrorOr<SubscriptionDetails> lookupSubscription(const Uri& uri,
-                                                    MatchPolicy p) const;
-
     std::size_t forEachMatchingSubscription(
         const Uri& uri, const SubscriptionPredicate& f) const;
-
-    ErrorOr<SubscriptionDetails> getSubscription(SubscriptionId rid) const;
 
 private:
     template <typename T>

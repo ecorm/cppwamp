@@ -18,7 +18,6 @@
 #include "../routerconfig.hpp"
 #include "../utils/triemap.hpp"
 #include "../utils/wildcarduri.hpp"
-#include "matchuri.hpp"
 #include "metaapi.hpp"
 #include "random.hpp"
 #include "routersession.hpp"
@@ -200,61 +199,60 @@ class BrokerSubscription
 public:
     BrokerSubscription() = default;
 
-    BrokerSubscription(MatchUri topic, SubscriptionId subId)
-        : topic_(std::move(topic)),
-          subId_(subId),
-          created_(std::chrono::system_clock::now())
+    BrokerSubscription(Uri uri, MatchPolicy policy, SubscriptionId subId)
+        : info_(std::move(uri), policy, subId, std::chrono::system_clock::now())
     {}
 
     bool empty() const {return subscribers_.empty();}
 
-    const MatchUri& topic() const {return topic_;}
+    const SubscriptionInfo& info() const {return info_;}
 
-    SubscriptionId subscriptionId() const {return subId_;}
-
-    SubscriptionDetails details() const
+    SubscriptionInfo info(bool listSubscribers) const
     {
-        std::vector<SessionId> subscribers;
-        for (const auto& kv: subscribers_)
-            subscribers.push_back(kv.first);
-        return {std::move(subscribers),
-                {topic_.uri(), created_, subId_, topic_.policy()}};
+        if (!listSubscribers)
+            return info_;
+
+        return SubscriptionInfo{info_.uri, info_.matchPolicy, info_.id,
+                                info_.created};
     }
 
     void addSubscriber(SessionId sid, BrokerSubscriberInfo info)
     {
         // Does not clobber subscriber info if already subscribed.
         subscribers_.emplace(sid, std::move(info));
+        info_.subscribers.insert(sid);
+        info_.subscriberCount = info_.subscribers.size();
     }
 
     bool removeSubscriber(SessionInfo::ConstPtr subscriberInfo,
                           MetaTopics& metaTopics)
     {
-        auto wasRemoved = subscribers_.erase(subscriberInfo->sessionId()) != 0;
+        auto sid = subscriberInfo->sessionId();
+        auto wasRemoved = subscribers_.erase(sid) != 0;
+        info_.subscribers.erase(sid);
+        info_.subscriberCount = info_.subscribers.size();
         if (wasRemoved && metaTopics.enabled())
-            metaTopics.onUnsubscribe(std::move(subscriberInfo), details());
+            metaTopics.onUnsubscribe(std::move(subscriberInfo), info());
         return wasRemoved;
     }
 
-    std::size_t publish(BrokerPublication& info,
+    std::size_t publish(BrokerPublication& pub,
                         SessionId inhibitedSessionId = 0) const
     {
         std::size_t count = 0;
-        info.setSubscriptionId(subId_);
+        pub.setSubscriptionId(info_.id);
         for (auto& kv : subscribers_)
         {
             auto subscriber = kv.second.session.lock();
             if (subscriber && (subscriber->wampId() != inhibitedSessionId))
-                count += info.sendTo(*subscriber);
+                count += pub.sendTo(*subscriber);
         }
         return count;
     }
 
 private:
     std::map<SessionId, BrokerSubscriberInfo> subscribers_;
-    MatchUri topic_;
-    SubscriptionId subId_ = nullId();
-    std::chrono::system_clock::time_point created_;
+    SubscriptionInfo info_;
 };
 
 //------------------------------------------------------------------------------
@@ -279,21 +277,22 @@ public:
     BrokerSubscribeRequest(Topic&& t, RouterSession::Ptr s,
                            BrokerSubscriptionMap& subs,
                            BrokerSubscriptionIdGenerator& gen)
-        : topic_(std::move(t)),
+        : uri_(std::move(t).uri({})),
           subscriber_({s}),
           sessionId_(s->wampId()),
           subscriptions_(subs),
-          subIdGen_(gen)
+          subIdGen_(gen),
+          policy_(t.matchPolicy())
     {}
 
-    const Uri& topicUri() const {return topic_.uri();}
+    const Uri& uri() const {return uri_;}
 
-    MatchPolicy policy() const {return topic_.policy();}
+    MatchPolicy policy() const {return policy_;}
 
     BrokerSubscription* addNewSubscriptionRecord() &&
     {
         auto subId = subIdGen_();
-        BrokerSubscription record{std::move(topic_), subId};
+        BrokerSubscription record{std::move(uri_), policy_, subId};
         record.addSubscriber(sessionId_, std::move(subscriber_));
         auto emplaced = subscriptions_.emplace(subId, std::move(record));
         assert(emplaced.second);
@@ -306,11 +305,12 @@ public:
     }
 
 private:
-    MatchUri topic_;
+    Uri uri_;
     BrokerSubscriberInfo subscriber_;
     SessionId sessionId_;
     BrokerSubscriptionMap& subscriptions_;
     BrokerSubscriptionIdGenerator& subIdGen_;
+    MatchPolicy policy_;
 };
 
 //------------------------------------------------------------------------------
@@ -320,7 +320,7 @@ class BrokerTopicMapBase
 public:
     BrokerSubscription* subscribe(BrokerSubscribeRequest& req)
     {
-        auto key = req.topicUri();
+        auto key = req.uri();
         BrokerSubscription* record = nullptr;
         auto found = trie_.find(key);
         if (found == trie_.end())
@@ -362,7 +362,7 @@ public:
         while (iter != end)
         {
             BrokerSubscription* record = iteratorValue(iter);
-            subIds.push_back(record->subscriptionId());
+            subIds.push_back(record->info().id);
         }
         return subIds;
     }
@@ -376,20 +376,22 @@ public:
         while (iter != end)
         {
             BrokerSubscription* record = iteratorValue(iter);
-            if (!std::forward<F>(functor)(record->details()))
+            if (!std::forward<F>(functor)(record->info()))
                 break;
             ++count;
         }
         return count;
     }
 
-    ErrorOr<SubscriptionDetails> lookupSubscription(const Uri& uri) const
+    ErrorOr<SubscriptionInfo> lookupSubscription(const Uri& uri,
+                                                 bool listSubscribers) const
     {
         auto found = trie_.find(uri);
         if (found == trie_.end())
             return makeUnexpectedError(WampErrc::noSuchSubscription);
         BrokerSubscription* record = iteratorValue(found);
-        return record->details();
+        return record->info(listSubscribers);
+
     }
 
 protected:
@@ -436,7 +438,7 @@ public:
         if (found == trie_.end())
             return 0;
         BrokerSubscription* record = iteratorValue(found);
-        std::forward<F>(functor)(record->details());
+        std::forward<F>(functor)(record->info());
         return 1;
     }
 };
@@ -499,7 +501,7 @@ private:
                 return;
 
             const BrokerSubscription* record = iter.value();
-            more = std::forward<F>(functor)(record->details());
+            more = std::forward<F>(functor)(record->info());
             if (more)
                 ++count;
         }
@@ -561,7 +563,7 @@ public:
         while (!matches.done())
         {
             const BrokerSubscription* record = matches.value();
-            subIds.push_back(record->subscriptionId());
+            subIds.push_back(record->info().id);
             matches.next();
         }
     }
@@ -580,7 +582,7 @@ public:
         while (!matches.done())
         {
             const BrokerSubscription* record = matches.value();
-            if (!(std::forward<F>(functor)(record->details())))
+            if (!(std::forward<F>(functor)(record->info())))
                 break;
             ++count;
             matches.next();
@@ -625,10 +627,10 @@ public:
             }
         }
 
-        if (metaTopics_->enabled() && !isMetaTopic(sub->topic()) )
-            metaTopics_->onSubscribe(subscriber->sharedInfo(), sub->details());
+        if (metaTopics_->enabled() && !isMetaTopic(sub->info().uri) )
+            metaTopics_->onSubscribe(subscriber->sharedInfo(), sub->info());
 
-        return sub->subscriptionId();
+        return sub->info().id;
     }
 
     ErrorOr<Uri> unsubscribe(RouterSession::Ptr subscriber,
@@ -639,7 +641,8 @@ public:
             return makeUnexpectedError(WampErrc::noSuchSubscription);
 
         BrokerSubscription& record = found->second;
-        auto uri = record.topic().uri();
+        const auto& uri = record.info().uri;
+        auto policy = record.info().matchPolicy;
 
         {
             MutexGuard guard{queryMutex_};
@@ -649,12 +652,12 @@ public:
             if (!subscriberRemoved)
             {
                 if (record.empty())
-                    eraseTopic(record.topic(), found);
+                    eraseTopic(uri, policy, found);
                 return makeUnexpectedError(WampErrc::noSuchSubscription);
             }
 
             if (record.empty())
-                eraseTopic(record.topic(), found);
+                eraseTopic(uri, policy, found);
         }
 
         return uri;
@@ -726,8 +729,8 @@ public:
         return 0;
     }
 
-    ErrorOr<SubscriptionDetails> lookupSubscription(const Uri& uri,
-                                                    MatchPolicy p) const
+    ErrorOr<SubscriptionInfo> lookupSubscription(
+        const Uri& uri, MatchPolicy p, bool listSubscribers) const
     {
         MutexGuard guard{queryMutex_};
 
@@ -737,13 +740,13 @@ public:
             break;
 
         case MatchPolicy::exact:
-            return byExact_.lookupSubscription(uri);
+            return byExact_.lookupSubscription(uri, listSubscribers);
 
         case MatchPolicy::prefix:
-            return byPrefix_.lookupSubscription(uri);
+            return byPrefix_.lookupSubscription(uri, listSubscribers);
 
         case MatchPolicy::wildcard:
-            return byWildcard_.lookupSubscription(uri);
+            return byWildcard_.lookupSubscription(uri, listSubscribers);
 
         default:
             assert(false && "Unexpected MatchPolicy enumerator");
@@ -762,40 +765,42 @@ public:
         return count;
     }
 
-    ErrorOr<SubscriptionDetails> getSubscription(SubscriptionId sid) const
+    ErrorOr<SubscriptionInfo> getSubscription(SubscriptionId sid,
+                                              bool listSubscribers) const
     {
         MutexGuard guard{queryMutex_};
         auto found = subscriptions_.find(sid);
         if (found == subscriptions_.end())
             return makeUnexpectedError(WampErrc::noSuchSubscription);
-        return found->second.details();
+        return found->second.info(listSubscribers);
     }
 
 private:
     using Policy = MatchPolicy;
     using MutexGuard = std::lock_guard<std::mutex>;
 
-    static bool isMetaTopic(const MatchUri& uriAndPolicy)
+    static bool isMetaTopic(const Uri& uri)
     {
         // https://github.com/wamp-proto/wamp-proto/issues/493
-        return uriAndPolicy.uri().rfind("wamp.", 0) == 0;
+        return uri.rfind("wamp.", 0) == 0;
     }
 
-    void eraseTopic(MatchUri topic, BrokerSubscriptionMap::iterator iter)
+    void eraseTopic(Uri uri, Policy policy,
+                    BrokerSubscriptionMap::iterator iter)
     {
         subscriptions_.erase(iter);
-        switch (topic.policy())
+        switch (policy)
         {
         case Policy::exact:
-            byExact_.erase(topic.uri());
+            byExact_.erase(uri);
             break;
 
         case Policy::prefix:
-            byPrefix_.erase(topic.uri());
+            byPrefix_.erase(uri);
             break;
 
         case Policy::wildcard:
-            byWildcard_.erase(topic.uri());
+            byWildcard_.erase(uri);
             break;
 
         default:

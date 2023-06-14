@@ -46,6 +46,7 @@ namespace internal
         template <typename> friend class BasicCallerChannelImpl;
         friend class Broker;
         friend class BrokerPublication;
+        friend class BrokerSubscribeRequest;
         friend class Client;
         friend class Dealer;
         friend class DealerInvocation;

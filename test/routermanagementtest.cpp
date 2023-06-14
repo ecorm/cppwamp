@@ -66,14 +66,14 @@ struct TestRealmObserver : public RealmObserver
         unregisterEvents.push_back({*s, std::move(r)});
     }
 
-    void onSubscribe(SessionInfo::ConstPtr s, SubscriptionDetails d) override
+    void onSubscribe(SessionInfo::ConstPtr s, SubscriptionInfo i) override
     {
-        subscribeEvents.push_back({*s, std::move(d)});
+        subscribeEvents.push_back({*s, std::move(i)});
     }
 
-    void onUnsubscribe(SessionInfo::ConstPtr s, SubscriptionDetails d) override
+    void onUnsubscribe(SessionInfo::ConstPtr s, SubscriptionInfo i) override
     {
-        unsubscribeEvents.push_back({*s, std::move(d)});
+        unsubscribeEvents.push_back({*s, std::move(i)});
     }
 
     void clear()
@@ -92,8 +92,8 @@ struct TestRealmObserver : public RealmObserver
     std::vector<SessionInfo> leaveEvents;
     std::vector<std::pair<SessionInfo, RegistrationDetails>> registerEvents;
     std::vector<std::pair<SessionInfo, RegistrationDetails>> unregisterEvents;
-    std::vector<std::pair<SessionInfo, SubscriptionDetails>> subscribeEvents;
-    std::vector<std::pair<SessionInfo, SubscriptionDetails>> unsubscribeEvents;
+    std::vector<std::pair<SessionInfo, SubscriptionInfo>> subscribeEvents;
+    std::vector<std::pair<SessionInfo, SubscriptionInfo>> unsubscribeEvents;
 };
 
 //------------------------------------------------------------------------------
@@ -154,20 +154,20 @@ void checkRegistrationDetails(
 }
 
 //------------------------------------------------------------------------------
-void checkSubscriptionDetails(
-    const SubscriptionDetails& s,
+void checkSubscriptionInfo(
+    const SubscriptionInfo& s,
     const Uri& uri,
     std::chrono::system_clock::time_point when,
     SubscriptionId subId,
-    std::vector<SessionId> subscribers)
+    std::set<SessionId> subscribers)
 {
     std::chrono::seconds margin(60);
-    CHECK(s.info.uri == uri);
-    CHECK(s.info.created > (when - margin));
-    CHECK(s.info.created < (when + margin));
-    CHECK(s.info.id == subId);
-    CHECK(s.info.matchPolicy == MatchPolicy::exact);
-    CHECK_THAT(s.subscribers, Matchers::UnorderedEquals(subscribers));
+    CHECK(s.uri == uri);
+    CHECK(s.created > (when - margin));
+    CHECK(s.created < (when + margin));
+    CHECK(s.id == subId);
+    CHECK(s.matchPolicy == MatchPolicy::exact);
+    CHECK(s.subscribers == subscribers);
 }
 
 //------------------------------------------------------------------------------
@@ -496,8 +496,10 @@ TEST_CASE( "Killing router sessions", "[WAMP][Router]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "Router realm registration events", "[WAMP][Router]" )
+TEST_CASE( "Router realm registration queries and events", "[WAMP][Router]" )
 {
+    // TODO: Queries
+
     if (!test::RouterFixture::enabled())
         return;
 
@@ -571,8 +573,10 @@ TEST_CASE( "Router realm registration events", "[WAMP][Router]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "Router realm subscription events", "[WAMP][Router]" )
+TEST_CASE( "Router realm subscription queries and events", "[WAMP][Router]" )
 {
+    // TODO: Queries
+
     if (!test::RouterFixture::enabled())
         return;
 
@@ -609,8 +613,8 @@ TEST_CASE( "Router realm subscription events", "[WAMP][Router]" )
             REQUIRE(observer->subscribeEvents.size() == 1);
             const auto& ev = observer->subscribeEvents.front();
             checkSessionDetails(ev.first, w1, testRealm);
-            checkSubscriptionDetails(ev.second, "foo", when, sub1.id(),
-                                     {w1.sessionId()});
+            checkSubscriptionInfo(ev.second, "foo", when, sub1.id(),
+                                  {w1.sessionId()});
             observer->subscribeEvents.clear();
         }
 
@@ -624,8 +628,8 @@ TEST_CASE( "Router realm subscription events", "[WAMP][Router]" )
             REQUIRE(observer->subscribeEvents.size() == 1);
             const auto& ev = observer->subscribeEvents.front();
             checkSessionDetails(ev.first, w2, testRealm);
-            checkSubscriptionDetails(ev.second, "foo", when, sub2.id(),
-                                     {w1.sessionId(), w2.sessionId()});
+            checkSubscriptionInfo(ev.second, "foo", when, sub2.id(),
+                                  {w1.sessionId(), w2.sessionId()});
             observer->subscribeEvents.clear();
         }
 
@@ -638,8 +642,8 @@ TEST_CASE( "Router realm subscription events", "[WAMP][Router]" )
             REQUIRE(observer->unsubscribeEvents.size() == 1);
             const auto& ev = observer->unsubscribeEvents.front();
             checkSessionDetails(ev.first, w1, testRealm);
-            checkSubscriptionDetails(ev.second, "foo", when, sub1.id(),
-                                     {w2.sessionId()});
+            checkSubscriptionInfo(ev.second, "foo", when, sub1.id(),
+                                  {w2.sessionId()});
             observer->unsubscribeEvents.clear();
         }
 
@@ -652,7 +656,7 @@ TEST_CASE( "Router realm subscription events", "[WAMP][Router]" )
             REQUIRE(observer->unsubscribeEvents.size() == 1);
             const auto& ev = observer->unsubscribeEvents.front();
             checkSessionDetails(ev.first, w2, testRealm);
-            checkSubscriptionDetails(ev.second, "foo", when, sub2.id(), {});
+            checkSubscriptionInfo(ev.second, "foo", when, sub2.id(), {});
         }
 
         s2.disconnect();
