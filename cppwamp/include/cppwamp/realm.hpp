@@ -47,7 +47,7 @@ public:
     using Executor              = AnyIoExecutor;
     using FallbackExecutor      = AnyCompletionExecutor;
     using SessionIdSet          = std::set<SessionId>;
-    using SessionPredicate      = std::function<bool (const SessionInfo&)>;
+    using SessionPredicate      = std::function<bool (SessionInfo)>;
     using RegistrationPredicate = std::function<bool (const RegistrationInfo&)>;
     using SubscriptionPredicate = std::function<bool (const SubscriptionInfo&)>;
 
@@ -75,7 +75,7 @@ public:
 
     std::size_t forEachSession(const SessionPredicate& handler) const;
 
-    ErrorOr<SessionInfo::ConstPtr> getSession(SessionId sid) const;
+    ErrorOr<SessionInfo> getSession(SessionId sid) const;
 
     ErrorOr<bool> killSessionById(SessionId sid,
                                   Reason r = defaultKillReason());

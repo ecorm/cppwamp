@@ -138,9 +138,9 @@ public:
         return found->second;
     }
 
-    void removeCallee(SessionInfo::ConstPtr calleeInfo, MetaTopics& metaTopics)
+    void removeCallee(SessionInfo calleeInfo, MetaTopics& metaTopics)
     {
-        auto sid = calleeInfo->sessionId();
+        auto sid = calleeInfo.sessionId();
         auto iter1 = byUri_.begin();
         auto end1 = byUri_.end();
         while (iter1 != end1)
@@ -735,10 +735,10 @@ public:
         jobs_.byCalleeErase(iter);
     }
 
-    void removeSession(SessionInfo::ConstPtr info)
+    void removeSession(SessionInfo info)
     {
         registry_.removeCallee(info, *metaTopics_);
-        jobs_.removeSession(info->sessionId());
+        jobs_.removeSession(info.sessionId());
     }
 
     ErrorOr<RegistrationInfo> getRegistration(RegistrationId rid,

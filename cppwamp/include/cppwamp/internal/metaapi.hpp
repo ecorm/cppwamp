@@ -229,7 +229,7 @@ private:
         auto details = context_.getSession(sid);
         if (!details)
             return Error{WampErrc::noSuchSession};
-        return Result{toObject(*details)};
+        return Result{toObject(details)};
     }
 
     Outcome killSession(RouterSession& caller, Rpc& rpc)
@@ -540,12 +540,12 @@ public:
             notifyObservers<Notifier>(std::move(uri));
     }
     
-    void onJoin(SessionInfo::ConstPtr info) override
+    void onJoin(SessionInfo info) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
-            SessionInfo::ConstPtr s;
+            SessionInfo s;
 
             void operator()()
             {
@@ -556,18 +556,18 @@ public:
         };
 
         if (metaApiEnabled_)
-            publish(Pub{"wamp.session.on_join"}.withArgs(toObject(*info)));
+            publish(Pub{"wamp.session.on_join"}.withArgs(toObject(info)));
 
         if (!observers_.empty())
             notifyObservers<Notifier>(std::move(info));
     }
     
-    void onLeave(SessionInfo::ConstPtr info) override
+    void onLeave(SessionInfo info) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
-            SessionInfo::ConstPtr s;
+            SessionInfo s;
 
             void operator()()
             {
@@ -579,20 +579,20 @@ public:
 
         if (metaApiEnabled_)
             publish(Pub{"wamp.session.on_leave"}
-                        .withArgs(info->sessionId(),
-                                  info->auth().id(),
-                                  info->auth().role()));
+                        .withArgs(info.sessionId(),
+                                  info.auth().id(),
+                                  info.auth().role()));
 
         if (!observers_.empty())
             notifyObservers<Notifier>(std::move(info));
     }
     
-    void onRegister(SessionInfo::ConstPtr info, RegistrationInfo r) override
+    void onRegister(SessionInfo info, RegistrationInfo r) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
-            SessionInfo::ConstPtr s;
+            SessionInfo s;
             RegistrationInfo r;
 
             void operator()()
@@ -605,7 +605,7 @@ public:
 
         if (metaApiEnabled_)
         {
-            auto sid = info->sessionId();
+            auto sid = info.sessionId();
 
             if (r.calleeCount == 1u)
             {
@@ -620,12 +620,12 @@ public:
             notifyObservers<Notifier>(std::move(info), std::move(r));
     }
     
-    void onUnregister(SessionInfo::ConstPtr info, RegistrationInfo r) override
+    void onUnregister(SessionInfo info, RegistrationInfo r) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
-            SessionInfo::ConstPtr s;
+            SessionInfo s;
             RegistrationInfo r;
 
             void operator()()
@@ -638,7 +638,7 @@ public:
 
         if (metaApiEnabled_)
         {
-            auto sid = info->sessionId();
+            auto sid = info.sessionId();
             publish(Pub{"wamp.registration.on_unregister"}.withArgs(sid, r.id));
 
             if (r.calleeCount == 0)
@@ -649,12 +649,12 @@ public:
             notifyObservers<Notifier>(std::move(info), std::move(r));
     }
     
-    void onSubscribe(SessionInfo::ConstPtr info, SubscriptionInfo sub) override
+    void onSubscribe(SessionInfo info, SubscriptionInfo sub) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
-            SessionInfo::ConstPtr s;
+            SessionInfo s;
             SubscriptionInfo sub;
 
             void operator()()
@@ -667,7 +667,7 @@ public:
 
         if (metaApiEnabled_)
         {
-            auto sid = info->sessionId();
+            auto sid = info.sessionId();
 
             if (sub.subscriberCount == 1)
             {
@@ -683,13 +683,12 @@ public:
             notifyObservers<Notifier>(std::move(info), std::move(sub));
     }
     
-    void onUnsubscribe(SessionInfo::ConstPtr info,
-                       SubscriptionInfo sub) override
+    void onUnsubscribe(SessionInfo info, SubscriptionInfo sub) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
-            SessionInfo::ConstPtr s;
+            SessionInfo s;
             SubscriptionInfo sub;
 
             void operator()()
@@ -702,7 +701,7 @@ public:
 
         if (metaApiEnabled_)
         {
-            auto sid = info->sessionId();
+            auto sid = info.sessionId();
             publish(Pub{"wamp.subscription.on_unsubscribe"}
                         .withArgs(sid, sub.id));
 

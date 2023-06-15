@@ -13,79 +13,27 @@
 //------------------------------------------------------------------------------
 
 #include <memory>
-#include "any.hpp"
 #include "api.hpp"
+#include "authinfo.hpp"
 #include "features.hpp"
 #include "wampdefs.hpp"
 #include "variant.hpp"
 #include "internal/passkey.hpp"
 
-// TODO: Add 'transport' dictionary information
-
 namespace wamp
 {
 
-//------------------------------------------------------------------------------
-/** Contains authentication information associated with a client session. */
-//------------------------------------------------------------------------------
-class CPPWAMP_API AuthInfo
-{
-public:
-    /** Defaul constructor. */
-    AuthInfo();
-
-    /** Constructor taking essential information. */
-    AuthInfo(String id, String role, String method, String provider);
-
-    /** Adds an `authextra` dictionary to the authentication information. */
-    AuthInfo& withExtra(Object extra);
-
-    /** Adds an arbitrary note that can be later accessed by dynamic
-        authorizers. */
-    AuthInfo& withNote(any note);
-
-    /** Obtains the `authid` string. */
-    const String& id() const;
-
-    /** Obtains the `authrole` string. */
-    const String& role() const;
-
-    /** Obtains the `authmethod` string. */
-    const String& method() const;
-
-    /** Obtains the `authprovider` string. */
-    const String& provider() const;
-
-    /** Obtains the note containing arbitrary information set by the
-        authenticator. */
-    const any& note() const;
-
-private:
-    String id_;
-    String role_;
-    String method_;
-    String provider_;
-    Object extra_;
-    any note_;
-
-public: // Internal use only
-    Object welcomeDetails(internal::PassKey);
-    void setId(internal::PassKey, String id);
-};
-
+namespace internal {class SessionInfoImpl;}
 
 //------------------------------------------------------------------------------
-/** Contains meta-data associated with a WAMP client session. */
+/** Contains meta-data associated with a WAMP client session.
+
+    This is a reference-counted lightweight proxy to the actual object
+    containing the information. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API SessionInfo
 {
 public:
-    /// Shared pointer type.
-    using Ptr = std::shared_ptr<SessionInfo>;
-
-    /// Immutable shared pointer type.
-    using ConstPtr = std::shared_ptr<const SessionInfo>;
-
     /** Default constructor. */
     SessionInfo();
 
@@ -106,21 +54,16 @@ public:
     /** Obtains the client supported features flags. */
     ClientFeatures features() const;
 
-private:
-    explicit SessionInfo(AuthInfo&& auth);
+    /** Returns true if this proxy object points to an actual
+     *  information object. */
+    explicit operator bool() const;
 
-    AuthInfo auth_;
-    String realmUri_;
-    Object transport_;
-    ClientFeatures features_;
-    SessionId sessionId_ = nullId();
+private:
+    std::shared_ptr<const internal::SessionInfoImpl> impl_;
 
 public: // Internal use only
-    static Ptr create(internal::PassKey, AuthInfo auth);
-    void setSessionId(internal::PassKey, SessionId sid);
-    void setTransport(internal::PassKey, Object transport);
-    void setFeatures(internal::PassKey, ClientFeatures features);
-    Object join(internal::PassKey, Uri uri, Object routerRoles = {});
+    SessionInfo(internal::PassKey,
+                std::shared_ptr<const internal::SessionInfoImpl> impl);
 };
 
 } // namespace wamp

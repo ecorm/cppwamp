@@ -200,20 +200,18 @@ CPPWAMP_INLINE void RealmObserver::detach()
 
 CPPWAMP_INLINE void RealmObserver::onRealmClosed(Uri) {}
 
-CPPWAMP_INLINE void RealmObserver::onJoin(SessionInfo::ConstPtr) {}
+CPPWAMP_INLINE void RealmObserver::onJoin(SessionInfo) {}
 
-CPPWAMP_INLINE void RealmObserver::onLeave(SessionInfo::ConstPtr) {}
+CPPWAMP_INLINE void RealmObserver::onLeave(SessionInfo) {}
 
-CPPWAMP_INLINE void RealmObserver::onRegister(SessionInfo::ConstPtr,
-                                              RegistrationInfo) {}
+CPPWAMP_INLINE void RealmObserver::onRegister(SessionInfo, RegistrationInfo) {}
 
-CPPWAMP_INLINE void RealmObserver::onUnregister(SessionInfo::ConstPtr,
+CPPWAMP_INLINE void RealmObserver::onUnregister(SessionInfo,
                                                 RegistrationInfo) {}
 
-CPPWAMP_INLINE void RealmObserver::onSubscribe(SessionInfo::ConstPtr,
-                                               SubscriptionInfo) {}
+CPPWAMP_INLINE void RealmObserver::onSubscribe(SessionInfo, SubscriptionInfo) {}
 
-CPPWAMP_INLINE void RealmObserver::onUnsubscribe(SessionInfo::ConstPtr,
+CPPWAMP_INLINE void RealmObserver::onUnsubscribe(SessionInfo,
                                                  SubscriptionInfo) {}
 
 CPPWAMP_INLINE RealmObserver::RealmObserver() : observerId_(0) {}

@@ -69,8 +69,7 @@ Realm::forEachSession(const SessionPredicate& handler) const
     return impl_->forEachSession(handler);
 }
 
-CPPWAMP_INLINE ErrorOr<SessionInfo::ConstPtr>
-Realm::getSession(SessionId sid) const
+CPPWAMP_INLINE ErrorOr<SessionInfo> Realm::getSession(SessionId sid) const
 {
     auto s = impl_->getSession(sid);
     if (!s)

@@ -226,10 +226,9 @@ public:
         info_.subscriberCount = info_.subscribers.size();
     }
 
-    bool removeSubscriber(SessionInfo::ConstPtr subscriberInfo,
-                          MetaTopics& metaTopics)
+    bool removeSubscriber(SessionInfo subscriberInfo, MetaTopics& metaTopics)
     {
-        auto sid = subscriberInfo->sessionId();
+        auto sid = subscriberInfo.sessionId();
         auto wasRemoved = subscribers_.erase(sid) != 0;
         info_.subscribers.erase(sid);
         info_.subscriberCount = info_.subscribers.size();
@@ -340,8 +339,7 @@ public:
 
     void erase(const Uri& topicUri) {trie_.erase(topicUri);}
 
-    void removeSubscriber(SessionInfo::ConstPtr subscriberInfo,
-                          MetaTopics& metaTopics)
+    void removeSubscriber(SessionInfo subscriberInfo, MetaTopics& metaTopics)
     {
         auto iter = trie_.begin();
         auto end = trie_.end();
@@ -683,7 +681,7 @@ public:
         byWildcard_.publish(info, inhibitedSessionId);
     }
 
-    void removeSubscriber(SessionInfo::ConstPtr subscriberInfo)
+    void removeSubscriber(SessionInfo subscriberInfo)
     {
         MutexGuard guard{queryMutex_};
 

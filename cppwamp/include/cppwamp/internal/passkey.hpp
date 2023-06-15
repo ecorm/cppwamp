@@ -70,6 +70,7 @@ namespace internal
         friend class RouterRealm;
         friend class RouterServer;
         friend class RouterSession;
+        friend class SessionInfoImpl;
         friend class ServerSession;
         friend class StreamRecord;
         friend class UriChecker;

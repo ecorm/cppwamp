@@ -13,10 +13,11 @@ namespace wamp
 {
 
 class Reason;
-class SessionInfo;
 
 namespace internal
 {
+
+class SessionInfoImpl;
 
 //------------------------------------------------------------------------------
 class Challenger
@@ -26,7 +27,7 @@ public:
 
     virtual void safeChallenge() = 0;
     
-    virtual void safeWelcome(std::shared_ptr<SessionInfo>) = 0;
+    virtual void safeWelcome(std::shared_ptr<SessionInfoImpl>) = 0;
 
     virtual void safeReject(Reason&&) = 0;
 };

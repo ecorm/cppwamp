@@ -117,18 +117,18 @@ public:
         std::size_t count = 0;
         for (const auto& kv: sessions_)
         {
-            if (!std::forward<F>(functor)(kv.second->info()))
+            if (!std::forward<F>(functor)(kv.second->sharedInfo()))
                 break;
             ++count;
         }
         return count;
     }
 
-    SessionInfo::ConstPtr getSession(SessionId sid) const
+    SessionInfo getSession(SessionId sid) const
     {
         MutexGuard guard{sessionQueryMutex_};
         auto found = sessions_.find(sid);
-        return (found == sessions_.end()) ? nullptr
+        return (found == sessions_.end()) ? SessionInfo{}
                                           : found->second->sharedInfo();
     }
 
@@ -171,7 +171,7 @@ public:
             for (const auto& kv: sessions_)
             {
                 const auto& session = kv.second;
-                if (std::forward<F>(filter)(session->info()))
+                if (std::forward<F>(filter)(session->sharedInfo()))
                     set.insert(session->wampId());
             }
         }
@@ -301,9 +301,9 @@ private:
             metaTopics_->onJoin(session->sharedInfo());
     }
 
-    void removeSession(SessionInfo::ConstPtr info)
+    void removeSession(SessionInfo info)
     {
-        auto sid = info->sessionId();
+        auto sid = info.sessionId();
         auto found = sessions_.find(sid);
         if (found == sessions_.end())
             return;
@@ -383,7 +383,7 @@ private:
         for (auto& kv: sessions_)
         {
             auto& session = kv.second;
-            if (filter(session->info()))
+            if (filter(session->sharedInfo()))
             {
                 killedIds.push_back(session->wampId());
                 killedSessions.push_back(session);
@@ -405,7 +405,7 @@ private:
         struct Dispatched
         {
             Ptr self;
-            SessionInfo::ConstPtr info;
+            SessionInfo info;
             void operator()() {self->removeSession(std::move(info));}
         };
 

@@ -358,8 +358,8 @@ inline Object DirectRouterSession::open(Petition&& hello)
         authInfo_.setId({}, hello.authId().value_or(""));
 
     Base::open(hello);
-    auto info = SessionInfo::create({}, authInfo_);
-    auto welcomeDetails = info->join({}, hello.uri());
+    auto info = internal::SessionInfoImpl::create(authInfo_);
+    auto welcomeDetails = info->join(hello.uri());
     Base::join(std::move(info));
     return welcomeDetails;
 }

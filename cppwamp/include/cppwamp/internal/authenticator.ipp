@@ -48,7 +48,7 @@ CPPWAMP_INLINE void AuthExchange::welcome(AuthInfo info)
 {
     auto c = challenger_.lock();
     if (c)
-        c->safeWelcome(SessionInfo::create({}, std::move(info)));
+        c->safeWelcome(internal::SessionInfoImpl::create(std::move(info)));
 }
 
 CPPWAMP_INLINE void AuthExchange::reject(Reason r)

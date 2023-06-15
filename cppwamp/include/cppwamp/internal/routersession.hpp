@@ -17,6 +17,7 @@
 #include "../sessioninfo.hpp"
 #include "random.hpp"
 #include "routercontext.hpp"
+#include "sessioninfoimpl.hpp"
 
 namespace wamp
 {
@@ -40,16 +41,16 @@ public:
 
     SessionId wampId() const {return wampId_.get();}
 
-    const SessionInfo& info() const
+    const SessionInfoImpl& info() const
     {
         assert(isJoined());
         return *info_;
     }
 
-    SessionInfo::ConstPtr sharedInfo() const
+    SessionInfo sharedInfo() const
     {
         assert(isJoined());
-        return info_;
+        return SessionInfo{{}, info_};
     }
 
     void setWampId(ReservedId&& id)
@@ -57,7 +58,7 @@ public:
         assert(info_ != nullptr);
         wampId_ = std::move(id);
         accessInfo_.wampSessionId = wampId();
-        info_->setSessionId({}, wampId());
+        info_->setSessionId(wampId());
     }
 
     void report(AccessActionInfo&& action)
@@ -159,7 +160,7 @@ protected:
         accessInfo_.authId = hello.authId().value_or("");
     }
 
-    void join(SessionInfo::Ptr info)
+    void join(SessionInfoImpl::Ptr info)
     {
         // accessInfo_.wampSessionId was already set
         // via RouterSession::setWampId
@@ -183,7 +184,7 @@ private:
     String logSuffix_;
     ReservedId wampId_;
     RouterLogger::Ptr logger_;
-    SessionInfo::Ptr info_;
+    SessionInfoImpl::Ptr info_;
     std::atomic<RequestId> nextOutboundRequestId_;
     std::atomic<RequestId> lastInsertedCallRequestId_;
 };

@@ -46,34 +46,34 @@ struct TestRealmObserver : public RealmObserver
         realmClosedEvents.push_back(std::move(u));
     }
 
-    void onJoin(SessionInfo::ConstPtr s) override
+    void onJoin(SessionInfo s) override
     {
-        joinEvents.push_back(*s);
+        joinEvents.push_back(s);
     }
 
-    void onLeave(SessionInfo::ConstPtr s) override
+    void onLeave(SessionInfo s) override
     {
-        leaveEvents.push_back(*s);
+        leaveEvents.push_back(s);
     }
 
-    void onRegister(SessionInfo::ConstPtr s, RegistrationInfo r) override
+    void onRegister(SessionInfo s, RegistrationInfo r) override
     {
-        registerEvents.push_back({*s, std::move(r)});
+        registerEvents.push_back({s, std::move(r)});
     }
 
-    void onUnregister(SessionInfo::ConstPtr s, RegistrationInfo r) override
+    void onUnregister(SessionInfo s, RegistrationInfo r) override
     {
-        unregisterEvents.push_back({*s, std::move(r)});
+        unregisterEvents.push_back({s, std::move(r)});
     }
 
-    void onSubscribe(SessionInfo::ConstPtr s, SubscriptionInfo i) override
+    void onSubscribe(SessionInfo s, SubscriptionInfo i) override
     {
-        subscribeEvents.push_back({*s, std::move(i)});
+        subscribeEvents.push_back({s, std::move(i)});
     }
 
-    void onUnsubscribe(SessionInfo::ConstPtr s, SubscriptionInfo i) override
+    void onUnsubscribe(SessionInfo s, SubscriptionInfo i) override
     {
-        unsubscribeEvents.push_back({*s, std::move(i)});
+        unsubscribeEvents.push_back({s, std::move(i)});
     }
 
     void clear()
@@ -217,9 +217,9 @@ void checkRealmSessions(const std::string& info, Realm& realm,
         for (const auto& w: expected)
         {
             auto sid = w.sessionId();
-            auto errorOrDetails = realm.getSession(sid);
-            REQUIRE(errorOrDetails.has_value());
-            checkSessionDetails(**errorOrDetails, w, realm.uri());
+            auto errorOrInfo = realm.getSession(sid);
+            REQUIRE(errorOrInfo.has_value());
+            checkSessionDetails(*errorOrInfo, w, realm.uri());
         }
     }
 }
@@ -563,7 +563,7 @@ TEST_CASE( "Router realm session events", "[WAMP][Router]" )
 
         ~ModifiedRealmObserver() {leaveCountPtr_ = nullptr;}
 
-        void onLeave(SessionInfo::ConstPtr) override
+        void onLeave(SessionInfo) override
         {
             assert(leaveCountPtr_);
             ++(*leaveCountPtr_);
