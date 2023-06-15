@@ -525,8 +525,6 @@ TEST_CASE( "Killing router sessions", "[WAMP][Router]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "Router realm registration queries and events", "[WAMP][Router]" )
 {
-    // TODO: Queries
-
     if (!test::RouterFixture::enabled())
         return;
 
@@ -546,11 +544,12 @@ TEST_CASE( "Router realm registration queries and events", "[WAMP][Router]" )
     {
         s.connect(withTcp, yield).value();
         auto welcome = s.join(Petition(testRealm), yield).value();
+        auto sid = welcome.sessionId();
         std::chrono::system_clock::time_point when;
         Registration reg;
 
         {
-            INFO("Registration");
+            INFO("Registration event");
             reg = s.enroll(Procedure{"foo"},
                                 [](Invocation) -> Outcome {return {};},
                                 yield).value();
@@ -565,7 +564,72 @@ TEST_CASE( "Router realm registration queries and events", "[WAMP][Router]" )
         }
 
         {
-            INFO("Unregistration");
+            INFO("Realm::getRegistration");
+            auto info = realm.getRegistration(reg.id());
+            REQUIRE(info.has_value());
+            checkRegistrationInfo(*info, "foo", when, reg.id(), 1);
+        }
+
+        {
+            INFO("Realm::getRegistration - with callee list");
+            auto info = realm.getRegistration(reg.id(), true);
+            REQUIRE(info.has_value());
+            checkRegistrationInfo(*info, "foo", when, reg.id(), 1, {sid});
+        }
+
+        {
+            INFO("Realm::lookupRegistration");
+            auto info = realm.lookupRegistration("foo");
+            REQUIRE(info.has_value());
+            checkRegistrationInfo(*info, "foo", when, reg.id(), 1);
+        }
+
+        {
+            INFO("Realm::lookupRegistration - with callee list");
+            auto info = realm.lookupRegistration("foo", MatchPolicy::exact,
+                                                 true);
+            REQUIRE(info.has_value());
+            checkRegistrationInfo(*info, "foo", when, reg.id(), 1, {sid});
+        }
+
+        {
+            INFO("Realm::lookupRegistration - bad match policy");
+            auto info = realm.lookupRegistration("foo", MatchPolicy::prefix);
+            CHECK(info == makeUnexpectedError(WampErrc::noSuchRegistration));
+        }
+
+        {
+            INFO("Realm::bestRegistrationMatch");
+            auto info = realm.bestRegistrationMatch("foo");
+            REQUIRE(info.has_value());
+            checkRegistrationInfo(*info, "foo", when, reg.id(), 1);
+        }
+
+        {
+            INFO("Realm::bestRegistrationMatch - with callee list");
+            auto info = realm.bestRegistrationMatch("foo", true);
+            REQUIRE(info.has_value());
+            checkRegistrationInfo(*info, "foo", when, reg.id(), 1, {sid});
+        }
+
+        {
+            INFO("Realm::forEachRegistration");
+            std::vector<RegistrationInfo> infos;
+            auto count = realm.forEachRegistration(
+                MatchPolicy::exact,
+                [&infos](const RegistrationInfo& i) -> bool
+                {
+                    infos.push_back(i);
+                    return true;
+                });
+            CHECK(count == 1);
+            REQUIRE(infos.size() == 1);
+            checkRegistrationInfo(infos.front(), "foo", when, reg.id(), 1,
+                                  {sid});
+        }
+
+        {
+            INFO("Unregistration event");
             s.unregister(reg, yield).value();
 
             while (observer->unregisterEvents.empty())
@@ -577,7 +641,39 @@ TEST_CASE( "Router realm registration queries and events", "[WAMP][Router]" )
         }
 
         {
-            INFO("Unregistration via leaving");
+            INFO("Realm::getRegistration - nonexistent");
+            auto info = realm.getRegistration(reg.id());
+            CHECK(info == makeUnexpectedError(WampErrc::noSuchRegistration));
+        }
+
+        {
+            INFO("Realm::lookupRegistration - nonexistent");
+            auto info = realm.lookupRegistration("foo");
+            CHECK(info == makeUnexpectedError(WampErrc::noSuchRegistration));
+        }
+
+        {
+            INFO("Realm::bestRegistrationMatch - nonexistent");
+            auto info = realm.bestRegistrationMatch("foo");
+            CHECK(info == makeUnexpectedError(WampErrc::noSuchRegistration));
+        }
+
+        {
+            INFO("Realm::forEachRegistration - no registrations");
+            std::size_t filterInvocationCount = 0;
+            auto count = realm.forEachRegistration(
+                MatchPolicy::exact,
+                [&filterInvocationCount](const RegistrationInfo& i) -> bool
+                {
+                    ++filterInvocationCount;
+                    return true;
+                });
+            CHECK(count == 0);
+            CHECK(filterInvocationCount == 0);
+        }
+
+        {
+            INFO("Unregistration event via leaving");
             reg = s.enroll(Procedure{"foo"},
                        [](Invocation) -> Outcome {return {};},
                        yield).value();

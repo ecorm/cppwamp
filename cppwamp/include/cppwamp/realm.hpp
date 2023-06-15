@@ -80,7 +80,7 @@ public:
     ErrorOr<bool> killSessionById(SessionId sid,
                                   Reason r = defaultKillReason());
 
-    SessionIdSet killSessionIf(SessionPredicate f,
+    SessionIdSet killSessionIf(const SessionPredicate& f,
                                Reason r = defaultKillReason());
 
     SessionIdSet killSessions(SessionIdSet set, Reason r = defaultKillReason());
