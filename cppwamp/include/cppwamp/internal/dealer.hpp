@@ -147,29 +147,32 @@ public:
         {
             auto* reg = iter1->second;
             if (reg->calleeId() == sid)
-            {
-                if (metaTopics.enabled())
-                {
-                    reg->resetCallee();
-                    metaTopics.onUnregister(calleeInfo, reg->info(false));
-                }
                 iter1 = byUri_.erase(iter1);
-            }
             else
-            {
                 ++iter1;
-            }
         }
 
         auto iter2 = byKey_.begin();
         auto end2 = byKey_.end();
         while (iter2 != end2)
         {
-            if (iter2->second.calleeId() == sid)
+            auto& reg = iter2->second;
+            if (reg.calleeId() == sid)
+            {
+                if (metaTopics.enabled())
+                {
+                    reg.resetCallee();
+                    metaTopics.onUnregister(calleeInfo, reg.info(false));
+                }
                 iter2 = byKey_.erase(iter2);
+            }
             else
+            {
                 ++iter2;
+            }
         }
+
+        assert(byUri_.size() == byKey_.size());
     }
 
     ErrorOr<RegistrationInfo> at(RegistrationId rid, bool listCallees) const
