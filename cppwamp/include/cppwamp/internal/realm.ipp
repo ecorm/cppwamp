@@ -10,6 +10,11 @@
 namespace wamp
 {
 
+CPPWAMP_INLINE Reason Realm::defaultKillReason()
+{
+    return Reason{WampErrc::sessionKilled};
+}
+
 CPPWAMP_INLINE Realm::Realm() {}
 
 CPPWAMP_INLINE Realm::operator bool() const {return isAttached();}
@@ -73,6 +78,23 @@ Realm::lookupSession(SessionId sid) const
     return s;
 }
 
+CPPWAMP_INLINE ErrorOr<bool> Realm::killSessionById(SessionId sid, Reason r)
+{
+    return impl_->killSessionById(sid, std::move(r));
+}
+
+CPPWAMP_INLINE Realm::SessionIdSet
+Realm::killSessionIf(SessionPredicate filter, Reason r)
+{
+    return impl_->killSessionIf(std::move(filter), std::move(r));
+}
+
+CPPWAMP_INLINE Realm::SessionIdSet Realm::killSessions(SessionIdSet set,
+                                                       Reason r)
+{
+    return impl_->killSessions(std::move(set), std::move(r));
+}
+
 CPPWAMP_INLINE ErrorOr<RegistrationInfo>
 Realm::getRegistration(RegistrationId rid, bool listCallees) const
 {
@@ -128,17 +150,5 @@ CPPWAMP_INLINE Realm::Realm(std::shared_ptr<internal::RouterRealm> impl,
     : fallbackExecutor_(std::move(fe)),
       impl_(std::move(impl))
 {}
-
-CPPWAMP_INLINE void Realm::doKillSessionById(SessionId sid, Reason r,
-                                             CompletionHandler<ErrorOr<bool>> h)
-{
-    impl_->killSessionById(sid, std::move(r), std::move(h));
-}
-
-CPPWAMP_INLINE void Realm::doKillSessions(SessionPredicate f, Reason r,
-                                          CompletionHandler<SessionIdList> h)
-{
-    impl_->killSessions(std::move(f), std::move(r), std::move(h));
-}
 
 } // namespace wamp

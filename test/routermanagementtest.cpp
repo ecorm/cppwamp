@@ -447,7 +447,7 @@ TEST_CASE( "Killing router sessions", "[WAMP][Router]" )
 
         {
             INFO("Realm::killSessionById - non-existent");
-            auto errorOrDone = realm.killSessionById(0, yield);
+            auto errorOrDone = realm.killSessionById(0);
             CHECK(errorOrDone == makeUnexpectedError(WampErrc::noSuchSession));
             CHECK(i1.empty());
         }
@@ -455,7 +455,7 @@ TEST_CASE( "Killing router sessions", "[WAMP][Router]" )
         {
             INFO("Realm::killSessionById");
             auto errc = WampErrc::invalidArgument;
-            auto errorOrDone = realm.killSessionById(w1.sessionId(), {errc}, yield);
+            auto errorOrDone = realm.killSessionById(w1.sessionId(), {errc});
             REQUIRE(errorOrDone.has_value());
             CHECK(errorOrDone.value() == true);
             checkSessionKilled("s1", s1, i1, errc, yield);
@@ -466,19 +466,18 @@ TEST_CASE( "Killing router sessions", "[WAMP][Router]" )
         }
 
         {
-            INFO("Realm::killSessions - no matches");
-            auto list = realm.killSessions(none, yield);
+            INFO("Realm::killSessionIf - no matches");
+            auto list = realm.killSessionIf(none);
             CHECK(list.empty());
             CHECK(i1.empty());
             CHECK(i2.empty());
         }
 
         {
-            INFO("Realm::killSessions - with matches");
-            auto list = realm.killSessions(any, yield);
-            std::vector<SessionId> expectedIds = {w1.sessionId(),
-                                                  w2.sessionId()};
-            CHECK_THAT(list, Matchers::UnorderedEquals(expectedIds));
+            INFO("Realm::killSessionIf - with matches");
+            auto set = realm.killSessionIf(any);
+            std::set<SessionId> expectedIds = {w1.sessionId(), w2.sessionId()};
+            CHECK(set == expectedIds);
             checkSessionKilled("s1", s1, i1, WampErrc::sessionKilled, yield);
             checkSessionKilled("s2", s2, i2, WampErrc::sessionKilled, yield);
 
@@ -488,6 +487,31 @@ TEST_CASE( "Killing router sessions", "[WAMP][Router]" )
             s2.disconnect();
             s2.connect(withTcp, yield).value();
             w2 = s2.join(Petition(testRealm), yield).value();
+        }
+
+        {
+            INFO("Realm::killSessions - empty list");
+            auto set = realm.killSessions({});
+            CHECK(set.empty());
+            CHECK(i1.empty());
+            CHECK(i2.empty());
+        }
+
+        {
+            INFO("Realm::killSessions - nonexistent session");
+            auto set = realm.killSessions({0});
+            CHECK(set.empty());
+            CHECK(i1.empty());
+            CHECK(i2.empty());
+        }
+
+        {
+            INFO("Realm::killSessions - all sessions");
+            std::set<SessionId> expectedIds = {w1.sessionId(), w2.sessionId()};
+            auto set = realm.killSessions(expectedIds);
+            CHECK(set == expectedIds);
+            checkSessionKilled("s1", s1, i1, WampErrc::sessionKilled, yield);
+            checkSessionKilled("s2", s2, i2, WampErrc::sessionKilled, yield);
         }
 
         s2.disconnect();

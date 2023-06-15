@@ -242,7 +242,7 @@ private:
         auto reason = parseReason(rpc);
         auto killed = context_.doKillSession(sid, std::move(reason));
         if (!killed)
-            return Error{killed.error()};
+            return Error{WampErrc::noSuchSession};
         return Result{};
     }
 
@@ -250,7 +250,7 @@ private:
     std::vector<SessionId> killSessions(Rpc& rpc, TFilter&& filter)
     {
         auto reason = parseReason(rpc);
-        return context_.doKillSessions(filter, reason);
+        return context_.doKillSessionIf(filter, reason);
     }
 
     Outcome killSessionsByAuthId(RouterSession& caller, Rpc& rpc)

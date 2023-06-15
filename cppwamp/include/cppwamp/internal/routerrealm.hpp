@@ -12,6 +12,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -45,9 +46,7 @@ public:
     using FallbackExecutor = AnyCompletionExecutor;
     using ObserverId       = MetaTopics::ObserverId;
     using SessionPredicate = std::function<bool (const SessionInfo&)>;
-
-    template <typename T>
-    using CompletionHandler = AnyCompletionHandler<void (T)>;
+    using SessionIdSet     = std::set<SessionId>;
 
     static Ptr create(Executor e, RealmConfig c, const RouterConfig& rcfg,
                       RouterContext rctx)
@@ -70,7 +69,7 @@ public:
         {
             Ptr self;
             RouterSession::Ptr session;
-            void operator()() {self->doJoin(std::move(session));}
+            void operator()() {self->joinSession(std::move(session));}
         };
 
         safelyDispatch<Dispatched>(std::move(session));
@@ -82,7 +81,7 @@ public:
         {
             Ptr self;
             Reason r;
-            void operator()() {self->doClose(std::move(r));}
+            void operator()() {self->closeRealm(std::move(r));}
         };
 
         safelyDispatch<Dispatched>(std::move(r));
@@ -127,50 +126,90 @@ public:
 
     SessionInfo::ConstPtr lookupSession(SessionId sid) const
     {
-        std::lock_guard<std::mutex> guard{sessionQueryMutex_};
+        MutexGuard guard{sessionQueryMutex_};
         auto found = sessions_.find(sid);
         return (found == sessions_.end()) ? nullptr
                                           : found->second->sharedInfo();
     }
 
-    void killSessionById(SessionId sid, Reason r,
-                         CompletionHandler<ErrorOr<bool>> h)
+    ErrorOr<bool> killSessionById(SessionId sid, Reason r)
     {
         struct Dispatched
         {
             Ptr self;
             SessionId sid;
             Reason r;
-            CompletionHandler<ErrorOr<bool>> h;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.complete(h, me.doKillSession(sid, std::move(r)));
-            }
+            void operator()() {self->doKillSession(sid, std::move(r));}
         };
 
-        safelyDispatch<Dispatched>(sid, std::move(r), std::move(h));
+        {
+            MutexGuard guard{sessionQueryMutex_};
+            auto iter = sessions_.find(sid);
+            if (iter == sessions_.end())
+                return makeUnexpectedError(WampErrc::noSuchSession);
+        }
+
+        safelyDispatch<Dispatched>(sid, std::move(r));
+        return true;
     }
 
-    void killSessions(SessionPredicate f, Reason r,
-                      CompletionHandler<std::vector<SessionId>> h)
+    template <typename F>
+    SessionIdSet killSessionIf(F&& filter, Reason r)
     {
         struct Dispatched
         {
             Ptr self;
-            SessionPredicate f;
+            SessionIdSet set;;
             Reason r;
-            CompletionHandler<std::vector<SessionId>> h;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.complete(h, me.doKillSessions(std::move(f), r));
-            }
+            void operator()() {self->doKillSessions(set, r);}
         };
 
-        safelyDispatch<Dispatched>(std::move(f), std::move(r), std::move(h));
+        SessionIdSet set;
+
+        {
+            MutexGuard guard{sessionQueryMutex_};
+            for (const auto& kv: sessions_)
+            {
+                const auto& session = kv.second;
+                if (std::forward<F>(filter)(session->info()))
+                    set.insert(session->wampId());
+            }
+        }
+
+        if (!set.empty())
+            safelyDispatch<Dispatched>(set, std::move(r));
+
+        return set;
+    }
+
+    SessionIdSet killSessions(SessionIdSet set, Reason r)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            SessionIdSet set;
+            Reason r;
+            void operator()() {self->doKillSessions(set, r);}
+        };
+
+        {
+            MutexGuard guard{sessionQueryMutex_};
+            auto end = set.end();
+            auto iter = set.begin();
+            while (iter != end)
+            {
+                SessionId sid = *iter;
+                if (sessions_.count(sid))
+                    ++iter;
+                else
+                    iter = set.erase(iter);
+            }
+        }
+
+        if (!set.empty())
+            safelyDispatch<Dispatched>(set, std::move(r));
+
+        return set;
     }
 
     ErrorOr<RegistrationInfo> getRegistration(RegistrationId rid,
@@ -247,7 +286,7 @@ private:
 
     RouterLogger::Ptr logger() const {return logger_;}
 
-    void doJoin(RouterSession::Ptr session)
+    void joinSession(RouterSession::Ptr session)
     {
         auto reservedId = router_.reserveSessionId();
         auto id = reservedId.get();
@@ -262,7 +301,7 @@ private:
             metaTopics_->onJoin(session->sharedInfo());
     }
 
-    void doLeave(SessionInfo::ConstPtr info)
+    void removeSession(SessionInfo::ConstPtr info)
     {
         auto sid = info->sessionId();
         auto found = sessions_.find(sid);
@@ -282,7 +321,7 @@ private:
         metaTopics_->clearSessionInhibitions();
     }
 
-    void doClose(Reason r)
+    void closeRealm(Reason r)
     {
         SessionMap sessions;
 
@@ -304,38 +343,59 @@ private:
             metaTopics_->onRealmClosed(config_.uri());
     }
 
-    ErrorOr<bool> doKillSession(SessionId sid, Reason reason)
+    bool doKillSession(SessionId sid, Reason reason)
     {
         auto iter = sessions_.find(sid);
         if (iter == sessions_.end())
-            return makeUnexpectedError(WampErrc::noSuchSession);
+            return false;
 
         auto session = iter->second;
         session->abort(std::move(reason));
         // session->abort will call RouterRealm::leave,
         // which will remove the session from the sessions_ map
+
         return true;
     }
 
-    std::vector<SessionId> doKillSessions(const SessionPredicate& filter,
-                                          const Reason& reason)
+    void doKillSessions(const SessionIdSet& set, const Reason& reason)
     {
-        std::vector<RouterSession::Ptr> killed;
-        std::vector<SessionId> killedIds;
+        for (auto sid: set)
+        {
+            auto found = sessions_.find(sid);
+            if (found != sessions_.end())
+            {
+                auto session = found->second;
+                session->abort(reason);
+                // session->abort will call RouterRealm::leave,
+                // which will remove the session from the sessions_ map
+            }
+        }
+    }
 
+    template <typename F>
+    std::vector<SessionId> doKillSessionIf(F&& filter, const Reason& reason)
+    {
+        std::vector<SessionId> killedIds;
+        std::vector<RouterSession::Ptr> killedSessions;
+
+        // Cannot abort sessions as we traverse, as it would invalidate
+        // iterators.
         for (auto& kv: sessions_)
         {
-            if (filter(kv.second->info()))
+            auto& session = kv.second;
+            if (filter(session->info()))
             {
-                killed.push_back(kv.second);
-                killedIds.push_back(kv.first);
-                // Cannot abort the session now as it would remove itself
-                // from the sessions_ map and invalidate iterators.
+                killedIds.push_back(session->wampId());
+                killedSessions.push_back(session);
             }
         }
 
-        for (auto& session: killed)
+        for (auto session: killedSessions)
+        {
             session->abort(reason);
+            // session->abort will call RouterRealm::leave,
+            // which will remove the session from the sessions_ map
+        }
 
         return killedIds;
     }
@@ -346,7 +406,7 @@ private:
         {
             Ptr self;
             SessionInfo::ConstPtr info;
-            void operator()() {self->doLeave(std::move(info));}
+            void operator()() {self->removeSession(std::move(info));}
         };
 
         if (!session->isJoined())
@@ -724,12 +784,6 @@ private:
     {
         boost::asio::dispatch(
             strand(), F{shared_from_this(), std::forward<Ts>(args)...});
-    }
-
-    template <typename S, typename... Ts>
-    void complete(AnyCompletionHandler<S>& f, Ts&&... args)
-    {
-        postAny(executor_, std::move(f), std::forward<Ts>(args)...);
     }
 
     void publishMetaEvent(Pub&& pub, SessionId inhibitedSessionId) override
