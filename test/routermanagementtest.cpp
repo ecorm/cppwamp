@@ -549,7 +549,9 @@ TEST_CASE( "Router realm registration queries and events", "[WAMP][Router]" )
         Registration reg;
 
         {
+            //------------------------------------------------------------------
             INFO("Registration event");
+            //------------------------------------------------------------------
             reg = s.enroll(Procedure{"foo"},
                                 [](Invocation) -> Outcome {return {};},
                                 yield).value();
@@ -629,7 +631,9 @@ TEST_CASE( "Router realm registration queries and events", "[WAMP][Router]" )
         }
 
         {
+            //------------------------------------------------------------------
             INFO("Unregistration event");
+            //------------------------------------------------------------------
             s.unregister(reg, yield).value();
 
             while (observer->unregisterEvents.empty())
@@ -673,7 +677,9 @@ TEST_CASE( "Router realm registration queries and events", "[WAMP][Router]" )
         }
 
         {
+            //------------------------------------------------------------------
             INFO("Unregistration event via leaving");
+            //------------------------------------------------------------------
             reg = s.enroll(Procedure{"foo"},
                        [](Invocation) -> Outcome {return {};},
                        yield).value();
@@ -697,8 +703,6 @@ TEST_CASE( "Router realm registration queries and events", "[WAMP][Router]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "Router realm subscription queries and events", "[WAMP][Router]" )
 {
-    // TODO: Queries
-
     if (!test::RouterFixture::enabled())
         return;
 
@@ -719,14 +723,18 @@ TEST_CASE( "Router realm subscription queries and events", "[WAMP][Router]" )
     {
         s1.connect(withTcp, yield).value();
         auto w1 = s1.join(Petition(testRealm), yield).value();
+        auto sid1 = w1.sessionId();
         s2.connect(withTcp, yield).value();
         auto w2 = s2.join(Petition(testRealm), yield).value();
+        auto sid2 = w2.sessionId();
         std::chrono::system_clock::time_point when;
         Subscription sub1;
         Subscription sub2;
 
         {
-            INFO("Subscription");
+            //------------------------------------------------------------------
+            INFO("Topic creation event");
+            //------------------------------------------------------------------
             sub1 = s1.subscribe(Topic{"foo"}, [](Event) {}, yield).value();
             when = std::chrono::system_clock::now();
 
@@ -740,7 +748,76 @@ TEST_CASE( "Router realm subscription queries and events", "[WAMP][Router]" )
         }
 
         {
-            INFO("Another subscription to same topic");
+            INFO("Realm::getSubscription");
+            auto info = realm.getSubscription(sub1.id());
+            REQUIRE(info.has_value());
+            checkSubscriptionInfo(*info, "foo", when, sub1.id(), 1);
+        }
+
+        {
+            INFO("Realm::getSubscription - with subscriber list");
+            auto info = realm.getSubscription(sub1.id(), true);
+            REQUIRE(info.has_value());
+            checkSubscriptionInfo(*info, "foo", when, sub1.id(), 1, {sid1});
+        }
+
+        {
+            INFO("Realm::lookupSubscription");
+            auto info = realm.lookupSubscription("foo");
+            REQUIRE(info.has_value());
+            checkSubscriptionInfo(*info, "foo", when, sub1.id(), 1);
+        }
+
+        {
+            INFO("Realm::lookupSubscription - with subscriber list");
+            auto info = realm.lookupSubscription("foo", MatchPolicy::exact,
+                                                 true);
+            REQUIRE(info.has_value());
+            checkSubscriptionInfo(*info, "foo", when, sub1.id(), 1, {sid1});
+        }
+
+        {
+            INFO("Realm::lookupSubscription - bad match policy");
+            auto info = realm.lookupSubscription("foo", MatchPolicy::prefix);
+            CHECK(info == makeUnexpectedError(WampErrc::noSuchSubscription));
+        }
+
+        {
+            INFO("Realm::forEachSubscription");
+            std::vector<SubscriptionInfo> infos;
+            auto count = realm.forEachSubscription(
+                MatchPolicy::exact,
+                [&infos](const SubscriptionInfo& i) -> bool
+                {
+                    infos.push_back(i);
+                    return true;
+                });
+            CHECK(count == 1);
+            REQUIRE(infos.size() == 1);
+            checkSubscriptionInfo(infos.front(), "foo", when, sub1.id(), 1,
+                                  {sid1});
+        }
+
+        {
+            INFO("Realm::forEachMatchingSubscription");
+            std::vector<SubscriptionInfo> infos;
+            auto count = realm.forEachMatchingSubscription(
+                "foo",
+                [&infos](const SubscriptionInfo& i) -> bool
+                {
+                    infos.push_back(i);
+                    return true;
+                });
+            CHECK(count == 1);
+            REQUIRE(infos.size() == 1);
+            checkSubscriptionInfo(infos.front(), "foo", when, sub1.id(), 1,
+                                  {sid1});
+        }
+
+        {
+            //------------------------------------------------------------------
+            INFO("Subscription event");
+            //------------------------------------------------------------------
             sub2 = s2.subscribe(Topic{"foo"}, [](Event) {}, yield).value();
             when = std::chrono::system_clock::now();
 
@@ -754,7 +831,72 @@ TEST_CASE( "Router realm subscription queries and events", "[WAMP][Router]" )
         }
 
         {
-            INFO("Unsubscription via leaving");
+            INFO("Realm::getSubscription - multiple subscribers");
+            auto info = realm.getSubscription(sub1.id());
+            REQUIRE(info.has_value());
+            checkSubscriptionInfo(*info, "foo", when, sub1.id(), 2);
+        }
+
+        {
+            INFO("Realm::getSubscription - with multiple subscriber list");
+            auto info = realm.getSubscription(sub1.id(), true);
+            REQUIRE(info.has_value());
+            checkSubscriptionInfo(*info, "foo", when, sub1.id(), 2,
+                                  {sid1, sid2});
+        }
+
+        {
+            INFO("Realm::lookupSubscription - multiple subscribers");
+            auto info = realm.lookupSubscription("foo");
+            REQUIRE(info.has_value());
+            checkSubscriptionInfo(*info, "foo", when, sub1.id(), 2);
+        }
+
+        {
+            INFO("Realm::lookupSubscription - with multiple subscriber list");
+            auto info = realm.lookupSubscription("foo", MatchPolicy::exact,
+                                                 true);
+            REQUIRE(info.has_value());
+            checkSubscriptionInfo(*info, "foo", when, sub1.id(), 2,
+                                  {sid1, sid2});
+        }
+
+        {
+            INFO("Realm::forEachSubscription - multiple subscribers");
+            std::vector<SubscriptionInfo> infos;
+            auto count = realm.forEachSubscription(
+                MatchPolicy::exact,
+                [&infos](const SubscriptionInfo& i) -> bool
+                {
+                    infos.push_back(i);
+                    return true;
+                });
+            CHECK(count == 1);
+            REQUIRE(infos.size() == 1);
+            checkSubscriptionInfo(infos.front(), "foo", when, sub1.id(), 2,
+                                  {sid1, sid2});
+        }
+
+        {
+            INFO("Realm::forEachMatchingSubscription - multiple subscribers");
+            std::vector<SubscriptionInfo> infos;
+            auto count = realm.forEachMatchingSubscription(
+                "foo",
+                [&infos](const SubscriptionInfo& i) -> bool
+                {
+                    infos.push_back(i);
+                    return true;
+                });
+            CHECK(count == 1);
+            REQUIRE(infos.size() == 1);
+            checkSubscriptionInfo(infos.front(), "foo", when, sub1.id(), 2,
+                                  {sid1, sid2});
+        }
+
+        {
+            //------------------------------------------------------------------
+            INFO("Unsubscription via leaving event");
+            //------------------------------------------------------------------
             s1.leave(yield).value();
 
             while (observer->unsubscribeEvents.empty())
@@ -767,7 +909,9 @@ TEST_CASE( "Router realm subscription queries and events", "[WAMP][Router]" )
         }
 
         {
-            INFO("Final unsubscription");
+            //------------------------------------------------------------------
+            INFO("Topic removal event");
+            //------------------------------------------------------------------
             s2.unsubscribe(sub2, yield).value();
 
             while (observer->unsubscribeEvents.empty())
@@ -776,6 +920,46 @@ TEST_CASE( "Router realm subscription queries and events", "[WAMP][Router]" )
             const auto& ev = observer->unsubscribeEvents.front();
             checkSessionDetails(ev.first, w2, testRealm);
             checkSubscriptionInfo(ev.second, "foo", when, sub2.id(), 0);
+        }
+
+        {
+            INFO("Realm::getSubscription - not found");
+            auto info = realm.getSubscription(sub1.id());
+            CHECK(info == makeUnexpectedError(WampErrc::noSuchSubscription));
+        }
+
+        {
+            INFO("Realm::lookupSubscription - not found");
+            auto info = realm.lookupSubscription("foo");
+            CHECK(info == makeUnexpectedError(WampErrc::noSuchSubscription));
+        }
+
+        {
+            INFO("Realm::forEachSubscription - no subscriptions");
+            std::size_t iterationCount = 0;
+            auto count = realm.forEachSubscription(
+                MatchPolicy::exact,
+                [&iterationCount](const SubscriptionInfo& i) -> bool
+                {
+                    ++iterationCount;
+                    return true;
+                });
+            CHECK(count == 0);
+            CHECK(iterationCount == 0);
+        }
+
+        {
+            INFO("Realm::forEachMatchingSubscription - no subscriptions");
+            std::size_t iterationCount = 0;
+            auto count = realm.forEachMatchingSubscription(
+                "foo",
+                [&iterationCount](const SubscriptionInfo& i) -> bool
+                {
+                    ++iterationCount;
+                    return true;
+                });
+            CHECK(count == 0);
+            CHECK(iterationCount == 0);
         }
 
         s2.disconnect();

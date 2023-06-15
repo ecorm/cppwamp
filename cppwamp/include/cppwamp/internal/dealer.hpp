@@ -206,7 +206,7 @@ public:
 
 private:
     std::map<Key, DealerRegistration> byKey_;
-    std::map<Uri, DealerRegistration*> byUri_;
+    std::map<Uri, DealerRegistration*> byUri_; // TODO: Use trie
 };
 
 //------------------------------------------------------------------------------

@@ -372,10 +372,9 @@ public:
     template <typename F>
     std::size_t forEachSubscription(F&& functor) const
     {
-        auto iter = trie_.begin();
         auto end = trie_.end();
         std::size_t count = 0;
-        while (iter != end)
+        for (auto iter = trie_.begin(); iter != end; ++iter)
         {
             BrokerSubscription* record = iteratorValue(iter);
             if (!std::forward<F>(functor)(record->info()))
@@ -654,15 +653,11 @@ public:
             bool subscriberRemoved =
                 record.removeSubscriber(subscriber->sharedInfo(), *metaTopics_);
 
-            if (!subscriberRemoved)
-            {
-                if (record.empty())
-                    eraseTopic(uri, policy, found);
-                return makeUnexpectedError(WampErrc::noSuchSubscription);
-            }
-
             if (record.empty())
                 eraseTopic(uri, policy, found);
+
+            if (!subscriberRemoved)
+                return makeUnexpectedError(WampErrc::noSuchSubscription);
         }
 
         return uri;
