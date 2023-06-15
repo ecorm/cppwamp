@@ -175,6 +175,13 @@ CPPWAMP_INLINE Uri& Petition::uri(internal::PassKey)
     return message().as<String>(uriPos_);
 }
 
+CPPWAMP_INLINE String Petition::agentOrEmptyString(internal::PassKey)
+{
+    auto agentOrError = std::move(*this).optionAs<String>("agent");
+    auto agent = std::move(agentOrError).value_or(String{});
+    return agent;
+}
+
 
 //******************************************************************************
 // Welcome

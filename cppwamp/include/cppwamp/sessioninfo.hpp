@@ -46,16 +46,17 @@ public:
     /** Obtains the authentication information. */
     const AuthInfo& auth() const;
 
-    // TODO: Add agent string
-
     /** Obtains the `transport` dictionary. */
     const Object& transport() const;
+
+    /** Obtains the client agent string. */
+    const String& agent() const;
 
     /** Obtains the client supported features flags. */
     ClientFeatures features() const;
 
     /** Returns true if this proxy object points to an actual
-     *  information object. */
+        information object. */
     explicit operator bool() const;
 
 private:

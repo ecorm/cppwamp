@@ -137,7 +137,7 @@ public:
     /// @}
 
 private:
-    static constexpr unsigned uriPos_     = 1;
+    static constexpr unsigned uriPos_ = 1;
 
     using Base = Options<Petition, internal::MessageKind::hello>;
 
@@ -148,6 +148,7 @@ public:
     Petition(internal::PassKey, internal::Message&& msg);
     Reason* abortReason(internal::PassKey);
     Uri& uri(internal::PassKey);
+    String agentOrEmptyString(internal::PassKey);
 };
 
 

@@ -67,6 +67,7 @@ public:
     using ChallengerPtr = std::weak_ptr<internal::Challenger>;
     static Ptr create(internal::PassKey, Petition&& p, ChallengerPtr c);
     void setAuthentication(internal::PassKey, Authentication&& a);
+    Petition& hello(internal::PassKey);
 
 private:
     AuthExchange(Petition&& p, ChallengerPtr c);

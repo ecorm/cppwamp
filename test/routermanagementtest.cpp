@@ -13,6 +13,7 @@
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
+#include <cppwamp/version.hpp>
 #include "routerfixture.hpp"
 
 using namespace wamp;
@@ -121,6 +122,7 @@ void checkSessionDetails(const SessionInfo& s, const Welcome& w,
     CHECK(s.auth().provider() == w.authProvider());
     CHECK(s.sessionId() == w.sessionId());
     CHECK(s.features().supports(ClientFeatures::provided()));
+    CHECK(s.agent() == Version::agentString());
 
     auto t = s.transport();
     CHECK(t["protocol"] == String{"TCP"});

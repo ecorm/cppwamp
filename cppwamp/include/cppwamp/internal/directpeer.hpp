@@ -11,6 +11,7 @@
 #include "../asiodefs.hpp"
 #include "../errorcodes.hpp"
 #include "../router.hpp"
+#include "../version.hpp"
 #include "message.hpp"
 #include "peer.hpp"
 #include "routercontext.hpp"
@@ -359,6 +360,10 @@ inline Object DirectRouterSession::open(Petition&& hello)
 
     Base::open(hello);
     auto info = internal::SessionInfoImpl::create(authInfo_);
+    Object transport{{"protocol", "direct"},
+                     {"address", Base::endpointLabel()}};
+    info->setClientDetails(std::move(transport), Version::agentString(),
+                           ClientFeatures::provided());
     auto welcomeDetails = info->join(hello.uri());
     Base::join(std::move(info));
     return welcomeDetails;

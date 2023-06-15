@@ -46,13 +46,18 @@ public:
 
     const Object& transport() const {return transport_;}
 
+    const String& agent() const {return agent_;}
+
     ClientFeatures features() const {return features_;}
 
     void setSessionId(SessionId sid) {sessionId_ = sid;}
 
-    void setTransport(Object transport) {transport_ = std::move(transport);}
-
-    void setFeatures(ClientFeatures features) {features_ = features;}
+    void setClientDetails(Object transport, String agent, ClientFeatures f)
+    {
+        transport_ = std::move(transport);
+        agent_ = std::move(agent);
+        features_ = f;
+    }
 
     Object join(Uri uri, Object routerRoles = {})
     {
@@ -73,8 +78,9 @@ private:
     {}
 
     AuthInfo auth_;
-    String realmUri_;
     Object transport_;
+    String realmUri_;
+    String agent_;
     ClientFeatures features_;
     SessionId sessionId_ = nullId();
 };

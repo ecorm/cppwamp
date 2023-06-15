@@ -37,6 +37,12 @@ CPPWAMP_INLINE const Object& SessionInfo::transport() const
     return impl_ ? impl_->transport() : empty;
 }
 
+CPPWAMP_INLINE const String& SessionInfo::agent() const
+{
+    static const String empty;
+    return impl_ ? impl_->agent() : empty;
+}
+
 CPPWAMP_INLINE ClientFeatures SessionInfo::features() const
 {
     return impl_ ? impl_->features() : ClientFeatures{};

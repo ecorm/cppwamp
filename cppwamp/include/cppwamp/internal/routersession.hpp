@@ -178,6 +178,8 @@ protected:
         lastInsertedCallRequestId_.store(0);
     }
 
+    const std::string endpointLabel() const {return transportInfo_.endpoint;}
+
 private:
     AccessTransportInfo transportInfo_;
     AccessSessionInfo accessInfo_;

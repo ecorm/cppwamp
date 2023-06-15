@@ -7,6 +7,7 @@
 #include "../authenticator.hpp"
 #include <utility>
 #include "../api.hpp"
+#include "sessioninfoimpl.hpp"
 
 namespace wamp
 {
@@ -69,6 +70,8 @@ CPPWAMP_INLINE void AuthExchange::setAuthentication(internal::PassKey,
 {
     authentication_ = std::move(a);
 }
+
+CPPWAMP_INLINE Petition& AuthExchange::hello(internal::PassKey) {return hello_;}
 
 CPPWAMP_INLINE AuthExchange::AuthExchange(Petition&& p, ChallengerPtr c)
     : hello_(std::move(p)),
