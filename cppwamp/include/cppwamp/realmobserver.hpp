@@ -69,6 +69,8 @@ struct CPPWAMP_API RegistrationInfo
     RegistrationInfo(Uri uri, MatchPolicy mp, InvocationPolicy ip,
                      RegistrationId id, TimePoint created);
 
+    bool matches(const Uri& procedure) const;
+
     SessionIdSet callees;
     Uri uri;
     TimePoint created;
@@ -93,6 +95,8 @@ struct CPPWAMP_API SubscriptionInfo
 
     SubscriptionInfo(Uri uri, MatchPolicy p, SubscriptionId id,
                      TimePoint created);
+
+    bool matches(const Uri& topic) const;
 
     SessionIdSet subscribers;
     Uri uri;

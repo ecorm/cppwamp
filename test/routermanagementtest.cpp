@@ -152,6 +152,7 @@ void checkRegistrationInfo(
     CHECK(r.matchPolicy == MatchPolicy::exact);
     CHECK(r.invocationPolicy == InvocationPolicy::single);
     CHECK(r.callees == callees);
+    CHECK(r.matches(uri));
 }
 
 //------------------------------------------------------------------------------
@@ -172,6 +173,7 @@ void checkSubscriptionInfo(
     CHECK(s.matchPolicy == policy);
     CHECK(s.subscriberCount == subscriberCount);
     CHECK(s.subscribers == subscribers);
+    CHECK(s.matches(uri));
 }
 
 //------------------------------------------------------------------------------
@@ -1003,25 +1005,27 @@ TEST_CASE( "Router realm subscription matching", "[WAMP][Router]" )
         {
             INFO("exact matches")
             REQUIRE(infos[MatchPolicy::exact].size() == 1);
-            checkSubscriptionInfo(infos[MatchPolicy::exact].front(),
-                                  "foo.bar", when, exactSub.id(), 1,
+            const auto& info = infos[MatchPolicy::exact].front();
+            checkSubscriptionInfo(info, "foo.bar", when, exactSub.id(), 1,
                                   {sid}, MatchPolicy::exact);
         }
 
         {
             INFO("prefix matches")
             REQUIRE(infos[MatchPolicy::prefix].size() == 1);
-            checkSubscriptionInfo(infos[MatchPolicy::prefix].front(),
-                                  "foo", when, prefixSub.id(), 1,
+            const auto& info = infos[MatchPolicy::prefix].front();
+            checkSubscriptionInfo(info, "foo", when, prefixSub.id(), 1,
                                   {sid}, MatchPolicy::prefix);
+            CHECK(info.matches("foo.bar"));
         }
 
         {
             INFO("wildcard matches")
             REQUIRE(infos[MatchPolicy::wildcard].size() == 1);
-            checkSubscriptionInfo(infos[MatchPolicy::wildcard].front(),
-                                  ".bar", when, wildcardSub.id(), 1,
+            const auto& info = infos[MatchPolicy::wildcard].front();
+            checkSubscriptionInfo(info, ".bar", when, wildcardSub.id(), 1,
                                   {sid}, MatchPolicy::wildcard);
+            CHECK(info.matches("foo.bar"));
         }
 
         s.disconnect();

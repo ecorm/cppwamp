@@ -6,6 +6,7 @@
 
 #include "../realmobserver.hpp"
 #include "../api.hpp"
+#include "../utils/wildcarduri.hpp"
 #include "matchpolicyoption.hpp"
 #include "timeformatting.hpp"
 
@@ -57,8 +58,14 @@ CPPWAMP_INLINE RegistrationInfo::RegistrationInfo(
     Uri uri, MatchPolicy mp, InvocationPolicy ip, RegistrationId id,
     TimePoint created)
     : uri(std::move(uri)), created(created), id(id), matchPolicy(mp),
-      invocationPolicy(ip)
+    invocationPolicy(ip)
 {}
+
+CPPWAMP_INLINE bool RegistrationInfo::matches(const Uri& procedure) const
+{
+    // TODO: Pattern-based registrations
+    return procedure == uri;
+}
 
 CPPWAMP_INLINE void convertFrom(FromVariantConverter& conv,
                                 RegistrationInfo& r)
@@ -117,6 +124,20 @@ CPPWAMP_INLINE SubscriptionInfo::SubscriptionInfo(
     Uri uri, MatchPolicy p, SubscriptionId id, TimePoint created)
     : uri(std::move(uri)), created(created), id(id), matchPolicy(p)
 {}
+
+CPPWAMP_INLINE bool SubscriptionInfo::matches(const Uri& topic) const
+{
+    switch (matchPolicy)
+    {
+    case MatchPolicy::exact:    return topic == uri;
+    case MatchPolicy::prefix:   return topic.rfind(uri, 0) == 0;
+    case MatchPolicy::wildcard: return utils::matchesWildcardPattern(topic, uri);
+    default: break;
+    }
+
+    assert(false && "Unexpected MatchPolicy enumerator");
+    return false;
+}
 
 CPPWAMP_INLINE void convertFrom(FromVariantConverter& conv, SubscriptionInfo& s)
 {
