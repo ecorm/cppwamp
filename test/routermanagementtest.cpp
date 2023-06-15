@@ -549,6 +549,30 @@ TEST_CASE( "Router realm session events", "[WAMP][Router]" )
     if (!test::RouterFixture::enabled())
         return;
 
+    struct ModifiedRealmObserver : public TestRealmObserver
+    {
+        static std::shared_ptr<ModifiedRealmObserver>
+        create(unsigned& leaveCount)
+        {
+            return std::make_shared<ModifiedRealmObserver>(leaveCount);
+        }
+
+        ModifiedRealmObserver(unsigned& leaveCount)
+            : leaveCountPtr_(&leaveCount)
+        {}
+
+        ~ModifiedRealmObserver() {leaveCountPtr_ = nullptr;}
+
+        void onLeave(SessionInfo::ConstPtr) override
+        {
+            assert(leaveCountPtr_);
+            ++(*leaveCountPtr_);
+        }
+
+    private:
+        unsigned* leaveCountPtr_ = nullptr;
+    };
+
     auto& theRouter = test::RouterFixture::instance().router();
     RouterLogLevelGuard logLevelGuard{theRouter.logLevel()};
     theRouter.setLogLevel(LogLevel::off);
@@ -557,10 +581,15 @@ TEST_CASE( "Router realm session events", "[WAMP][Router]" )
     Session s{ioctx};
     Welcome welcome;
 
-    auto observer = TestRealmObserver::create();
     auto realm = theRouter.realmAt(testRealm, ioctx.get_executor()).value();
     REQUIRE(realm.fallbackExecutor() == ioctx.get_executor());
-    realm.observe(observer);
+    auto observer1 = TestRealmObserver::create();
+    auto observer2 = TestRealmObserver::create();
+    unsigned leaveCount = 0;
+    auto observer3 = ModifiedRealmObserver::create(leaveCount);
+    realm.observe(observer1);
+    realm.observe(observer2);
+    realm.observe(observer3);
 
     spawn(ioctx, [&](YieldContext yield)
     {
@@ -569,26 +598,46 @@ TEST_CASE( "Router realm session events", "[WAMP][Router]" )
             s.connect(withTcp, yield).value();
             welcome = s.join(Petition(testRealm), yield).value();
 
-            while (observer->joinEvents.empty())
+            while (observer1->joinEvents.empty() ||
+                   observer2->joinEvents.empty() ||
+                   observer3->joinEvents.empty())
+            {
                 suspendCoro(yield);
-            REQUIRE(observer->joinEvents.size() == 1);
-            const auto& joined = observer->joinEvents.front();
+            }
+
+            REQUIRE(observer1->joinEvents.size() == 1);
+            auto joined = observer1->joinEvents.front();
+            checkSessionDetails(joined, welcome, realm.uri());
+
+            REQUIRE(observer2->joinEvents.size() == 1);
+            joined = observer2->joinEvents.front();
+            checkSessionDetails(joined, welcome, realm.uri());
+
+            REQUIRE(observer3->joinEvents.size() == 1);
+            joined = observer3->joinEvents.front();
             checkSessionDetails(joined, welcome, realm.uri());
         }
+
+        // Detach explicitly
+        observer2->detach();
+
+        // Detach via RAII
+        observer3.reset();
 
         {
             INFO("Session leaving");
             s.leave(yield).value();
 
-            while (observer->leaveEvents.empty())
+            while (observer1->leaveEvents.empty())
                 suspendCoro(yield);
-            REQUIRE(observer->leaveEvents.size() == 1);
-            const auto& left = observer->leaveEvents.front();
-            checkSessionDetails(left, welcome, realm.uri());
-        }
 
-        // TODO: Multiple observers
-        // TODO: RealmObserver::detach
+            REQUIRE(observer1->leaveEvents.size() == 1);
+            const auto& left = observer1->leaveEvents.front();
+            checkSessionDetails(left, welcome, realm.uri());
+
+            CHECK(observer2->leaveEvents.empty());
+            CHECK(leaveCount == 0);
+        }
 
         s.disconnect();
     });
