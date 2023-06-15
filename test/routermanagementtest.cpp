@@ -698,6 +698,8 @@ TEST_CASE( "Router realm session queries", "[WAMP][Router]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "Killing router sessions", "[WAMP][Router]" )
 {
+    // TODO: Investigate spurious 'Transport operation aborted' exceptions
+
     if (!test::RouterFixture::enabled())
         return;
 

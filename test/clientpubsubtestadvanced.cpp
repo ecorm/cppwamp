@@ -14,6 +14,7 @@
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
+#include "routerfixture.hpp"
 
 using namespace wamp;
 using namespace Catch::Matchers;
@@ -107,7 +108,6 @@ GIVEN( "a publisher and a subscriber" )
 
     WHEN( "using pattern-based subscriptions" )
     {
-        // TODO: Unknown match policy
         spawn(ioctx, [&](YieldContext yield)
         {
             int prefixMatchCount = 0;
@@ -136,6 +136,20 @@ GIVEN( "a publisher and a subscriber" )
                     ++wildcardMatchCount;
                 },
                 yield).value();
+
+            // Crossbar treats an unknown match option as a protocol error
+            // and aborts the session. The CppWAMP router instead returns
+            // an ERROR message. The spec does not mandate the response one
+            // way or another.
+            if (test::RouterFixture::enabled())
+            {
+                auto errorOrSub = f.subscriber.subscribe(
+                    Topic("com..onEvent").withOption("match", "bogus"),
+                    [](Event) {},
+                    yield);
+                REQUIRE_FALSE(errorOrSub.has_value());
+                CHECK(errorOrSub.error() == WampErrc::optionNotAllowed);
+            }
 
             f.publisher.publish(Pub("com.myapp.foo"), yield).value();
             while (prefixMatchCount < 1)

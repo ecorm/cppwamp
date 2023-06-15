@@ -112,6 +112,21 @@ GIVEN( "a caller and a callee" )
             if (!f.welcome.features().dealer().all_of(
                     DealerFeatures::patternBasedRegistration))
             {
+                auto errorOrReg = f.callee.enroll(
+                    Procedure("com.myapp").withMatchPolicy(MatchPolicy::prefix),
+                    [](Invocation inv) -> Outcome {return {};},
+                    yield);
+                REQUIRE_FALSE(errorOrReg.has_value());
+                CHECK(errorOrReg.error() == WampErrc::optionNotAllowed);
+
+                errorOrReg = f.callee.enroll(
+                    Procedure("com.other..rpc")
+                        .withMatchPolicy(MatchPolicy::wildcard),
+                    [](Invocation inv) -> Outcome {return {};},
+                    yield);
+                REQUIRE_FALSE(errorOrReg.has_value());
+                CHECK(errorOrReg.error() == WampErrc::optionNotAllowed);
+
                 f.disconnect();
                 return;
             }
@@ -427,6 +442,7 @@ GIVEN( "a caller and a callee" )
         ioctx.run();
     }
 
+// TODO: Enable when using CppWAMP router
 // Skip mode cancellation currently does not work properly with Crossbar.
 // https://github.com/crossbario/crossbar/issues/1377#issuecomment-1123050045
 #if 0
