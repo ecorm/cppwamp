@@ -161,14 +161,15 @@ void checkSubscriptionInfo(
     std::chrono::system_clock::time_point when,
     SubscriptionId subId,
     std::size_t subscriberCount,
-    std::set<SessionId> subscribers = {})
+    std::set<SessionId> subscribers = {},
+    MatchPolicy policy = MatchPolicy::exact)
 {
     std::chrono::seconds margin(60);
     CHECK(s.uri == uri);
     CHECK(s.created > (when - margin));
     CHECK(s.created < (when + margin));
     CHECK(s.id == subId);
-    CHECK(s.matchPolicy == MatchPolicy::exact);
+    CHECK(s.matchPolicy == policy);
     CHECK(s.subscriberCount == subscriberCount);
     CHECK(s.subscribers == subscribers);
 }
@@ -355,7 +356,8 @@ void checkRegistrationQueries(const Realm& realm, RegistrationId regId,
 //------------------------------------------------------------------------------
 void checkSubscripionQueries(const Realm& realm, SubscriptionId subId,
                              const Uri& uri, std::set<SessionId> subscribers,
-                             std::chrono::system_clock::time_point when)
+                             std::chrono::system_clock::time_point when,
+                             MatchPolicy policy = MatchPolicy::exact)
 {
     auto subscriberCount = subscribers.size();
 
@@ -369,7 +371,8 @@ void checkSubscripionQueries(const Realm& realm, SubscriptionId subId,
         else
         {
             REQUIRE(info.has_value());
-            checkSubscriptionInfo(*info, uri, when, subId, subscriberCount);
+            checkSubscriptionInfo(*info, uri, when, subId, subscriberCount, {},
+                                  policy);
         }
     }
 
@@ -384,13 +387,13 @@ void checkSubscripionQueries(const Realm& realm, SubscriptionId subId,
         {
             REQUIRE(info.has_value());
             checkSubscriptionInfo(*info, uri, when, subId, subscriberCount,
-                                  subscribers);
+                                  subscribers, policy);
         }
     }
 
     {
         INFO("Realm::lookupSubscription");
-        auto info = realm.lookupSubscription(uri);
+        auto info = realm.lookupSubscription(uri, policy);
         if (subscribers.empty())
         {
             CHECK(info == makeUnexpectedError(WampErrc::noSuchSubscription));
@@ -398,13 +401,14 @@ void checkSubscripionQueries(const Realm& realm, SubscriptionId subId,
         else
         {
             REQUIRE(info.has_value());
-            checkSubscriptionInfo(*info, uri, when, subId, subscriberCount);
+            checkSubscriptionInfo(*info, uri, when, subId, subscriberCount, {},
+                                  policy);
         }
     }
 
     {
         INFO("Realm::lookupSubscription - with subscriber list");
-        auto info = realm.lookupSubscription(uri, MatchPolicy::exact, true);
+        auto info = realm.lookupSubscription(uri, policy, true);
         if (subscribers.empty())
         {
             CHECK(info == makeUnexpectedError(WampErrc::noSuchSubscription));
@@ -413,7 +417,7 @@ void checkSubscripionQueries(const Realm& realm, SubscriptionId subId,
         {
             REQUIRE(info.has_value());
             checkSubscriptionInfo(*info, uri, when, subId, subscriberCount,
-                                  subscribers);
+                                  subscribers, policy);
         }
     }
 
@@ -422,7 +426,7 @@ void checkSubscripionQueries(const Realm& realm, SubscriptionId subId,
         std::size_t expectedCount = subscribers.empty() ? 0 : 1;
         std::vector<SubscriptionInfo> infos;
         auto count = realm.forEachSubscription(
-            MatchPolicy::exact,
+            policy,
             [&infos](const SubscriptionInfo& i) -> bool
             {
                 infos.push_back(i);
@@ -434,7 +438,7 @@ void checkSubscripionQueries(const Realm& realm, SubscriptionId subId,
         if (!subscribers.empty())
         {
             checkSubscriptionInfo(infos.front(), uri, when, subId,
-                                  subscriberCount, subscribers);
+                                  subscriberCount, subscribers, policy);
         }
     }
 
@@ -455,7 +459,7 @@ void checkSubscripionQueries(const Realm& realm, SubscriptionId subId,
         if (!subscribers.empty())
         {
             checkSubscriptionInfo(infos.front(), uri, when, subId,
-                                  subscriberCount, subscribers);
+                                  subscriberCount, subscribers, policy);
         }
     }
 }
@@ -932,6 +936,95 @@ TEST_CASE( "Router realm subscription queries and events", "[WAMP][Router]" )
 
         s2.disconnect();
         s1.disconnect();
+    });
+
+    ioctx.run();
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Router realm subscription matching", "[WAMP][Router]" )
+{
+    if (!test::RouterFixture::enabled())
+        return;
+
+    auto& theRouter = test::RouterFixture::instance().router();
+    RouterLogLevelGuard logLevelGuard{theRouter.logLevel()};
+    theRouter.setLogLevel(LogLevel::off);
+
+    IoContext ioctx;
+    Session s{ioctx};
+
+    auto observer = TestRealmObserver::create();
+    auto realm = theRouter.realmAt(testRealm, ioctx.get_executor()).value();
+    REQUIRE(realm.fallbackExecutor() == ioctx.get_executor());
+    realm.observe(observer);
+
+    spawn(ioctx, [&](YieldContext yield)
+    {
+        s.connect(withTcp, yield).value();
+        auto welcome = s.join(Petition(testRealm), yield).value();
+        auto sid = welcome.sessionId();
+        auto when = std::chrono::system_clock::now();
+
+        auto exactSub = s.subscribe(Topic{"foo.bar"}, [](Event) {},
+                                    yield).value();
+
+        auto prefixSub =
+            s.subscribe(Topic{"foo"}.withMatchPolicy(MatchPolicy::prefix),
+                        [](Event) {}, yield).value();
+
+        auto wildcardSub =
+            s.subscribe(Topic{".bar"}.withMatchPolicy(MatchPolicy::wildcard),
+                 [](Event) {}, yield).value();
+
+        {
+            INFO("Prefix match queries");
+            checkSubscripionQueries(realm, prefixSub.id(), "foo", {sid}, when,
+                                    MatchPolicy::prefix);
+        }
+
+        {
+            INFO("Wildcard match queries");
+            checkSubscripionQueries(realm, wildcardSub.id(), ".bar", {sid},
+                                    when, MatchPolicy::wildcard);
+        }
+
+        std::map<MatchPolicy, std::vector<SubscriptionInfo>> infos;
+        auto count = realm.forEachMatchingSubscription(
+            "foo.bar",
+            [&infos](const SubscriptionInfo& i) -> bool
+            {
+                infos[i.matchPolicy].push_back(i);
+                return true;
+            });
+
+        CHECK(count == 3);
+
+        {
+            INFO("exact matches")
+            REQUIRE(infos[MatchPolicy::exact].size() == 1);
+            checkSubscriptionInfo(infos[MatchPolicy::exact].front(),
+                                  "foo.bar", when, exactSub.id(), 1,
+                                  {sid}, MatchPolicy::exact);
+        }
+
+        {
+            INFO("prefix matches")
+            REQUIRE(infos[MatchPolicy::prefix].size() == 1);
+            checkSubscriptionInfo(infos[MatchPolicy::prefix].front(),
+                                  "foo", when, prefixSub.id(), 1,
+                                  {sid}, MatchPolicy::prefix);
+        }
+
+        {
+            INFO("wildcard matches")
+            REQUIRE(infos[MatchPolicy::wildcard].size() == 1);
+            checkSubscriptionInfo(infos[MatchPolicy::wildcard].front(),
+                                  ".bar", when, wildcardSub.id(), 1,
+                                  {sid}, MatchPolicy::wildcard);
+        }
+
+        s.disconnect();
     });
 
     ioctx.run();
