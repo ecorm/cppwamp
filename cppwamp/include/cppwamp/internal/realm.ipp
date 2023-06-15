@@ -70,9 +70,9 @@ Realm::forEachSession(const SessionPredicate& handler) const
 }
 
 CPPWAMP_INLINE ErrorOr<SessionInfo::ConstPtr>
-Realm::lookupSession(SessionId sid) const
+Realm::getSession(SessionId sid) const
 {
-    auto s = impl_->lookupSession(sid);
+    auto s = impl_->getSession(sid);
     if (!s)
         return makeUnexpectedError(WampErrc::noSuchSession);
     return s;

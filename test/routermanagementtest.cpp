@@ -184,34 +184,40 @@ void checkRealmSessions(const std::string& info, Realm& realm,
         sidList.push_back(w.sessionId());
     auto sessionCount = sidList.size();
 
-    // Realm::sessionCount
-    CHECK(realm.sessionCount() == sessionCount);
-
-    // Realm::forEachSession
-    std::map<SessionId, SessionInfo> sessionInfos;
-    auto n = realm.forEachSession(
-        [&](const SessionInfo& s) -> bool
-        {
-            auto sid = s.sessionId();
-            sessionInfos.emplace(sid, s);
-            return true;
-        });
-    CHECK(n == sessionCount);
-    REQUIRE(sessionInfos.size() == expected.size());
-    for (const auto& w: expected)
     {
-        auto sid = w.sessionId();
-        REQUIRE(sessionInfos.count(sid) != 0);
-        checkSessionDetails(sessionInfos[sid], w, realm.uri());
+        INFO("Realm::sessionCount");
+        CHECK(realm.sessionCount() == sessionCount);
     }
 
-    // Realm::lookupSession
-    for (const auto& w: expected)
     {
-        auto sid = w.sessionId();
-        auto errorOrDetails = realm.lookupSession(sid);
-        REQUIRE(errorOrDetails.has_value());
-        checkSessionDetails(**errorOrDetails, w, realm.uri());
+        INFO("Realm::forEachSession");
+        std::map<SessionId, SessionInfo> sessionInfos;
+        auto n = realm.forEachSession(
+            [&](const SessionInfo& s) -> bool
+            {
+                auto sid = s.sessionId();
+                sessionInfos.emplace(sid, s);
+                return true;
+            });
+        CHECK(n == sessionCount);
+        REQUIRE(sessionInfos.size() == expected.size());
+        for (const auto& w: expected)
+        {
+            auto sid = w.sessionId();
+            REQUIRE(sessionInfos.count(sid) != 0);
+            checkSessionDetails(sessionInfos[sid], w, realm.uri());
+        }
+    }
+
+    {
+        INFO("Realm::getSession");
+        for (const auto& w: expected)
+        {
+            auto sid = w.sessionId();
+            auto errorOrDetails = realm.getSession(sid);
+            REQUIRE(errorOrDetails.has_value());
+            checkSessionDetails(**errorOrDetails, w, realm.uri());
+        }
     }
 }
 
@@ -614,7 +620,7 @@ TEST_CASE( "Router realm session queries", "[WAMP][Router]" )
         Welcome w2 = s2.join(Petition(testRealm), yield).value();
         checkRealmSessions("s2 joined", realm, {w1, w2});
 
-        auto errorOrDetails = realm.lookupSession(0);
+        auto errorOrDetails = realm.getSession(0);
         CHECK(errorOrDetails ==
               makeUnexpectedError(WampErrc::noSuchSession));
 

@@ -226,7 +226,7 @@ private:
     {
         SessionId sid = 0;
         rpc.convertTo(sid);
-        auto details = context_.lookupSession(sid);
+        auto details = context_.getSession(sid);
         if (!details)
             return Error{WampErrc::noSuchSession};
         return Result{toObject(*details)};

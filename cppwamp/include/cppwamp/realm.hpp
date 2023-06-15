@@ -75,7 +75,7 @@ public:
 
     std::size_t forEachSession(const SessionPredicate& handler) const;
 
-    ErrorOr<SessionInfo::ConstPtr> lookupSession(SessionId sid) const;
+    ErrorOr<SessionInfo::ConstPtr> getSession(SessionId sid) const;
 
     ErrorOr<bool> killSessionById(SessionId sid,
                                   Reason r = defaultKillReason());

@@ -124,7 +124,7 @@ public:
         return count;
     }
 
-    SessionInfo::ConstPtr lookupSession(SessionId sid) const
+    SessionInfo::ConstPtr getSession(SessionId sid) const
     {
         MutexGuard guard{sessionQueryMutex_};
         auto found = sessions_.find(sid);
