@@ -26,10 +26,36 @@ const unsigned short testPort = 12345;
 const auto withTcp = TcpHost("localhost", testPort).withFormat(json);
 
 //------------------------------------------------------------------------------
-inline void suspendCoro(YieldContext& yield)
+void suspendCoro(YieldContext& yield)
 {
     auto exec = boost::asio::get_associated_executor(yield);
     boost::asio::post(exec, yield);
+}
+
+//------------------------------------------------------------------------------
+void checkJoinInfo(const SessionJoinInfo& info, const Welcome& w)
+{
+    CHECK(info.authId       == w.authId());
+    CHECK(info.authMethod   == w.authMethod());
+    CHECK(info.authProvider == w.authProvider());
+    CHECK(info.authRole     == w.authRole());
+    CHECK(info.sessionId    == w.sessionId());
+
+    // The transport property is optional and implementation-defined
+    if (test::RouterFixture::enabled())
+    {
+        auto t = info.transport;
+        CHECK(t["protocol"] == String{"TCP"});
+        CHECK(t["server"] == String{"tcp12345"});
+        auto ipv = t["ip_version"];
+        CHECK((ipv == 4 || ipv == 6));
+        CHECK(wamp::isNumber(t["port"]));
+        auto addr = t["address"];
+        REQUIRE(addr.is<String>());
+        CHECK_FALSE(addr.as<String>().empty());
+        if (ipv == 4)
+            CHECK(wamp::isNumber(t["numeric_address"]));
+    }
 }
 
 } // anomymous namespace
@@ -68,27 +94,7 @@ TEST_CASE( "WAMP session meta events", "[WAMP][Router]" )
 
         while (joinedInfo.sessionId == 0)
             suspendCoro(yield);
-        CHECK(joinedInfo.authId       == w2.authId());
-        CHECK(joinedInfo.authMethod   == w2.authMethod());
-        CHECK(joinedInfo.authProvider == w2.authProvider());
-        CHECK(joinedInfo.authRole     == w2.authRole());
-        CHECK(joinedInfo.sessionId    == w2.sessionId());
-
-        // The transport property is optional and implementation-defined
-        if (test::RouterFixture::enabled())
-        {
-            auto& t = joinedInfo.transport;
-            CHECK(t["protocol"] == String{"TCP"});
-            CHECK(t["server"] == String{"tcp12345"});
-            auto ipv = t["ip_version"];
-            CHECK((ipv == 4 || ipv == 6));
-            CHECK(wamp::isNumber(t["port"]));
-            auto addr = t["address"];
-            REQUIRE(addr.is<String>());
-            CHECK_FALSE(addr.as<String>().empty());
-            if (ipv == 4)
-                CHECK(wamp::isNumber(t["numeric_address"]));
-        }
+        checkJoinInfo(joinedInfo, w2);
 
         s2.leave(yield).value();
 
@@ -179,31 +185,7 @@ TEST_CASE( "WAMP session meta procedures", "[WAMP][Router]" )
             auto result = s1.call(rpc.withArgs(w2.sessionId()), yield).value();
             REQUIRE(result.args().size() == 1);
             result.convertTo(info);
-            CHECK(info.authId == w2.authId());
-            CHECK(info.authMethod == w2.authMethod());
-            CHECK(info.authProvider == w2.authProvider());
-            CHECK(info.authRole == w2.authRole());
-            CHECK(info.sessionId == w2.sessionId());
-
-            // The transport property is optional and implementation-defined
-            if (test::RouterFixture::enabled())
-            {
-                auto& t = info.transport;
-                CHECK(t["protocol"] == String{"TCP"});
-                CHECK(t["server"] == String{"tcp12345"});
-                auto ipv = t["ip_version"];
-                CHECK((ipv == 4 || ipv == 6));
-                CHECK(wamp::isNumber(t["port"]));
-                auto addr = t["address"];
-                REQUIRE(addr.is<String>());
-                CHECK_FALSE(addr.as<String>().empty());
-                if (ipv == 4)
-                    CHECK(wamp::isNumber(t["numeric_address"]));
-
-                auto resultOrError = s1.call(rpc.withArgs(0), yield);
-                REQUIRE_FALSE(resultOrError.has_value());
-                CHECK(resultOrError.error() == WampErrc::noSuchSession);
-            }
+            checkJoinInfo(info, w2);
         }
 
         {
