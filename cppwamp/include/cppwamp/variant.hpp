@@ -257,8 +257,8 @@ public:
 
     /** Obtains the variant's value converted to the given type, or the given
         fallback value if the variant is null. */
-    template <typename T>
-    ValueTypeOf<T> valueOr(T&& fallback) const;
+    template <typename T, typename U>
+    T valueOr(U&& fallback) const;
 
     /** Returns the number of elements contained by the variant. */
     SizeType size() const;
@@ -975,17 +975,18 @@ template <typename T> void Variant::to(T& value) const
 
 //------------------------------------------------------------------------------
 /** @tparam T The target type of the result.
+    @tparam U (deduced) The fallback value type.
     @pre The variant is null, or is convertible to the destination type.
     @throws error::Conversion if the variant is not null and is not convertible
             to the destination type. */
 //------------------------------------------------------------------------------
-template <typename T>
-ValueTypeOf<T> Variant::valueOr(T&& fallback) const
+template <typename T, typename U>
+T Variant::valueOr(U&& fallback) const
 {
     if (!*this)
-        return std::forward<T>(fallback);
+        return std::forward<U>(fallback);
     else
-        return this->to< ValueTypeOf<T> >();
+        return this->to<T>();
 }
 
 //------------------------------------------------------------------------------

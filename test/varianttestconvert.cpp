@@ -22,14 +22,14 @@ void checkConvert(int level, const Variant& from, const TTo& to)
     INFO( "For type#" << level << ", converting from '" << from <<
           "' to '" << to << "'");
     CHECK( from.to<TTo>() == to );
-    CHECK( from.valueOr(to) == to );
-    CHECK( from.valueOr(TTo()) == to );
+    CHECK( from.valueOr<TTo>(to) == to );
+    CHECK( from.valueOr<TTo>(TTo()) == to );
     TTo val;
     from.to(val);
     CHECK( val == to );
 
     Variant nullVariant;
-    CHECK( nullVariant.valueOr(to) == to );
+    CHECK( nullVariant.valueOr<TTo>(to) == to );
 }
 
 //------------------------------------------------------------------------------
@@ -68,7 +68,7 @@ template <typename TTo, typename... TTos> struct CheckBadConvert<TTo, TTos...>
             TTo val;
             CHECK_THROWS_AS( from.to(val), error::Conversion );
             if (!!from)
-                CHECK_THROWS_AS( from.valueOr(val), error::Conversion );
+                CHECK_THROWS_AS( from.valueOr<TTo>(val), error::Conversion );
         }
         CheckBadConvert<TTos...>::check(from, level+1);
     }
