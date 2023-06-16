@@ -51,6 +51,13 @@ CPPWAMP_INLINE void Registration::disarm(internal::PassKey)
         link->disarm();
 }
 
+CPPWAMP_INLINE bool Registration::canUnregister(
+    internal::PassKey, const internal::ClientLike& owner) const
+{
+    auto link = link_.lock();
+    return link ? link->canRemove(owner) : true;
+}
+
 
 /*******************************************************************************
     ScopedRegistration

@@ -14,9 +14,6 @@
 #include "mockclient.hpp"
 #include "routerfixture.hpp"
 
-// TODO: Unregister a registration for another callee
-// TODO: Unsubscribe a subscription for another subscriber
-
 using namespace wamp;
 using internal::MockClient;
 using internal::MessageKind;
@@ -104,6 +101,7 @@ TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
     IoContext ioctx;
     Session session{ioctx};
     auto client = internal::MockClient::create(ioctx, testPort);
+    auto client2 = internal::MockClient::create(ioctx, testPort);
     AccessActionInfo lastAction;
     auto guard = test::RouterFixture::instance().attachToAccessLog(
         [&lastAction](AccessLogEntry e) {lastAction = e.action;});
@@ -426,6 +424,66 @@ TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
             client->connect(yield);
             checkNormalOperation(client, MessageKind::subscribed, yield);
             client->disconnect();
+        });
+
+        ioctx.run();
+    }
+
+    SECTION("Unregistering a non-owned registration")
+    {
+        // TODO: Follow up on
+        // https://github.com/wamp-proto/wamp-proto/discussions/496
+        lastAction.action = {};
+        client->load(
+        {
+            {{"[1,\"cppwamp.test\",{}]"}}, // HELLO
+            {{"[64,1,{},\"rpc\"]"}}        // REGISTER
+        });
+
+        client2->load(
+        {
+            {{"[1,\"cppwamp.test\",{}]"}}, // HELLO
+            {{"[66,1,1]"}}                 // UNREGISTER
+        });
+
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            client->connect(yield);
+            checkNormalOperation(client, MessageKind::registered, yield);
+            client2->connect(yield);
+            checkErrorResponse(client2, WampErrc::noSuchRegistration, yield);
+            client->disconnect();
+            client2->disconnect();
+        });
+
+        ioctx.run();
+    }
+
+    SECTION("Unsubscribing a non-owned subscription")
+    {
+        // TODO: Follow up on
+        // https://github.com/wamp-proto/wamp-proto/discussions/496
+        lastAction.action = {};
+        client->load(
+        {
+            {{"[1,\"cppwamp.test\",{}]"}}, // HELLO
+            {{"[32,1,{},\"topic\"]"}}      // SUBSCRIBE
+        });
+
+        client2->load(
+        {
+            {{"[1,\"cppwamp.test\",{}]"}}, // HELLO
+            {{"[34,1,1]"}}                 // UNSUBSCRIBE
+        });
+
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            client->connect(yield);
+            checkNormalOperation(client, MessageKind::subscribed, yield);
+            client2->connect(yield);
+            checkErrorResponse(client2, WampErrc::noSuchSubscription, yield);
+            client->disconnect();
+            client2->disconnect();
         });
 
         ioctx.run();

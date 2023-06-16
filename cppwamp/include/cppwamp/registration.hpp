@@ -59,6 +59,8 @@ public:
     Registration(internal::PassKey, Link::Ptr p);
     Key key(internal::PassKey) const;
     void disarm(internal::PassKey);
+    bool canUnregister(internal::PassKey,
+                       const internal::ClientLike& owner) const;
 };
 
 

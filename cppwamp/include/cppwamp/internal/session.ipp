@@ -115,12 +115,16 @@ CPPWAMP_INLINE void Session::terminate()
 //------------------------------------------------------------------------------
 /** @details
     Equivalent to Subscription::unsubscribe.
+    @throws error::Logic if the subscription is active and not owned
+            by the Session
     @see Subscription, ScopedSubscription */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::unsubscribe(
     Subscription sub /**< The subscription to unsubscribe from. */
 )
 {
+    CPPWAMP_LOGIC_CHECK(canUnsubscribe(sub),
+                        "Session does not own the subscription");
     sub.unsubscribe();
 }
 
@@ -143,6 +147,8 @@ CPPWAMP_INLINE void Session::unregister(
     Registration reg /**< The RPC registration to unregister. */
 )
 {
+    CPPWAMP_LOGIC_CHECK(canUnregister(reg),
+                        "Session does not own the registration");
     reg.unregister();
 }
 
@@ -166,6 +172,18 @@ CPPWAMP_INLINE Session::Session(std::shared_ptr<internal::Peer> peer,
 CPPWAMP_INLINE void Session::directConnect(any link)
 {
     impl_->directConnect(std::move(link));
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE bool Session::canUnsubscribe(const Subscription& sub) const
+{
+    return sub.canUnsubscribe({}, *impl_);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE bool Session::canUnregister(const Registration& reg) const
+{
+    return reg.canUnregister({}, *impl_);
 }
 
 //------------------------------------------------------------------------------

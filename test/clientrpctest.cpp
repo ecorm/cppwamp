@@ -915,6 +915,27 @@ GIVEN( "an IO service and a ConnectionWish" )
         });
         ioctx.run();
     }
+
+    WHEN( "Unregistering using a Registration object from another Session" )
+    {
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            Session s1{ioctx};
+            s1.connect(withTcp, yield).value();
+            s1.join(testRealm, yield).value();
+            auto reg = s1.enroll(Procedure{"foo"},
+                                 [](Invocation) -> Outcome {return {};},
+                                 yield).value();
+
+            Session s2{ioctx};
+            s2.connect(withTcp, yield).value();
+            s2.join(testRealm, yield).value();
+            CHECK_THROWS_AS(s2.unregister(reg), error::Logic);
+            CHECK_THROWS_AS(s2.unregister(reg, yield), error::Logic);
+        });
+
+        ioctx.run();
+    }
 }}
 
 //------------------------------------------------------------------------------

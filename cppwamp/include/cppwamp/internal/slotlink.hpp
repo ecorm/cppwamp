@@ -53,6 +53,11 @@ public:
 
     ClientContext context() const {return context_;}
 
+    bool canRemove(const ClientLike& owner) const
+    {
+        return context_.canRemoveSlot(owner);
+    }
+
 private:
     SlotLink(TKey key, ClientContext&& context)
         : key_(std::move(key)),

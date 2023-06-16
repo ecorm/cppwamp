@@ -491,6 +491,25 @@ GIVEN( "an IO service and a ConnectionWish" )
         });
         ioctx.run();
     }
+
+    WHEN( "Unsubscribing using a Subscription object from another Session" )
+    {
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            Session s1{ioctx};
+            s1.connect(withTcp, yield).value();
+            s1.join(testRealm, yield).value();
+            auto sub = s1.subscribe(Topic{"foo"}, [](Event) {}, yield).value();
+
+            Session s2{ioctx};
+            s2.connect(withTcp, yield).value();
+            s2.join(testRealm, yield).value();
+            CHECK_THROWS_AS(s2.unsubscribe(sub), error::Logic);
+            CHECK_THROWS_AS(s2.unsubscribe(sub, yield), error::Logic);
+        });
+
+        ioctx.run();
+    }
 }}
 
 

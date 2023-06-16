@@ -158,6 +158,12 @@ public:
             c->failAuthentication(std::move(r));
     }
 
+    bool canRemoveSlot(const ClientLike& client) const
+    {
+        auto c = client_.lock();
+        return c ? (c.get() == &client) : true;
+    }
+
 private:
     std::weak_ptr<ClientLike> client_;
 };

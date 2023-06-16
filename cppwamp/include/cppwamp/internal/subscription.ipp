@@ -51,6 +51,13 @@ CPPWAMP_INLINE void Subscription::disarm(internal::PassKey)
         link->disarm();
 }
 
+CPPWAMP_INLINE bool Subscription::canUnsubscribe(
+    internal::PassKey, const internal::ClientLike& owner) const
+{
+    auto link = link_.lock();
+    return link ? link->canRemove(owner) : true;
+}
+
 
 /*******************************************************************************
  * ScopedSubscription

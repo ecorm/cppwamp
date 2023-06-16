@@ -59,6 +59,8 @@ public:
     Subscription(internal::PassKey, Link::Ptr p);
     Key key(internal::PassKey) const;
     void disarm(internal::PassKey);
+    bool canUnsubscribe(internal::PassKey,
+                        const internal::ClientLike& owner) const;
 };
 
 

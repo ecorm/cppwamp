@@ -361,6 +361,8 @@ private:
     Deduced<ErrorOr<typename O::ResultValue>, C>
     initiate(C&& token, As&&... args);
 
+    bool canUnsubscribe(const Subscription& sub) const;
+    bool canUnregister(const Registration& reg) const;
     void setIncidentHandler(IncidentSlot&& s);
     void doConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f);
     void doJoin(Petition&& p, ChallengeSlot&& s,
@@ -675,6 +677,8 @@ struct Session::UnsubscribeOp
     completion handler.
     @see Subscription, ScopedSubscription
     @returns `true` if the subscription was found.
+    @throws error::Logic if the subscription is active and not owned
+            by the Session
     @note Duplicate unsubscribes using the same Subscription handle
           are safely ignored.
     @par Notable Error Codes
@@ -692,6 +696,8 @@ Session::unsubscribe(
     C&& completion    ///< Completion handler or token.
     )
 {
+    CPPWAMP_LOGIC_CHECK(canUnsubscribe(sub),
+                        "Session does not own the subscription");
     return initiate<UnsubscribeOp>(std::forward<C>(completion), sub);
 }
 
@@ -820,6 +826,8 @@ struct Session::UnregisterOp
     completion handler.
     @see Registration, ScopedRegistration
     @returns `true` if the registration was found.
+    @throws error::Logic if the registration is active and not owned
+            by the Session
     @note Duplicate unregistrations using the same Registration handle
           are safely ignored.
     @pre `!!reg == true`
@@ -838,6 +846,8 @@ Session::unregister(
     C&& completion    ///< Completion handler or token.
     )
 {
+    CPPWAMP_LOGIC_CHECK(canUnregister(reg),
+                        "Session does not own the registration");
     return initiate<UnregisterOp>(std::forward<C>(completion), reg);
 }
 
