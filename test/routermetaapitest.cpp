@@ -73,17 +73,22 @@ TEST_CASE( "WAMP session meta events", "[WAMP][Router]" )
         CHECK(joinedInfo.authProvider == w2.authProvider());
         CHECK(joinedInfo.authRole     == w2.authRole());
         CHECK(joinedInfo.sessionId    == w2.sessionId());
-        auto& t = joinedInfo.transport;
-        CHECK(t["protocol"] == String{"TCP"});
-        CHECK(t["server"] == String{"tcp12345"});
-        auto ipv = t["ip_version"];
-        CHECK((ipv == 4 || ipv == 6));
-        CHECK(wamp::isNumber(t["port"]));
-        auto addr = t["address"];
-        REQUIRE(addr.is<String>());
-        CHECK_FALSE(addr.as<String>().empty());
-        if (ipv == 4)
-            CHECK(wamp::isNumber(t["numeric_address"]));
+
+        // The transport property is optional and implementation-defined
+        if (test::RouterFixture::enabled())
+        {
+            auto& t = joinedInfo.transport;
+            CHECK(t["protocol"] == String{"TCP"});
+            CHECK(t["server"] == String{"tcp12345"});
+            auto ipv = t["ip_version"];
+            CHECK((ipv == 4 || ipv == 6));
+            CHECK(wamp::isNumber(t["port"]));
+            auto addr = t["address"];
+            REQUIRE(addr.is<String>());
+            CHECK_FALSE(addr.as<String>().empty());
+            if (ipv == 4)
+                CHECK(wamp::isNumber(t["numeric_address"]));
+        }
 
         s2.leave(yield).value();
 
@@ -179,21 +184,26 @@ TEST_CASE( "WAMP session meta procedures", "[WAMP][Router]" )
             CHECK(info.authProvider == w2.authProvider());
             CHECK(info.authRole == w2.authRole());
             CHECK(info.sessionId == w2.sessionId());
-            auto& t = info.transport;
-            CHECK(t["protocol"] == String{"TCP"});
-            CHECK(t["server"] == String{"tcp12345"});
-            auto ipv = t["ip_version"];
-            CHECK((ipv == 4 || ipv == 6));
-            CHECK(wamp::isNumber(t["port"]));
-            auto addr = t["address"];
-            REQUIRE(addr.is<String>());
-            CHECK_FALSE(addr.as<String>().empty());
-            if (ipv == 4)
-                CHECK(wamp::isNumber(t["numeric_address"]));
 
-            auto resultOrError = s1.call(rpc.withArgs(0), yield);
-            REQUIRE_FALSE(resultOrError.has_value());
-            CHECK(resultOrError.error() == WampErrc::noSuchSession);
+            // The transport property is optional and implementation-defined
+            if (test::RouterFixture::enabled())
+            {
+                auto& t = info.transport;
+                CHECK(t["protocol"] == String{"TCP"});
+                CHECK(t["server"] == String{"tcp12345"});
+                auto ipv = t["ip_version"];
+                CHECK((ipv == 4 || ipv == 6));
+                CHECK(wamp::isNumber(t["port"]));
+                auto addr = t["address"];
+                REQUIRE(addr.is<String>());
+                CHECK_FALSE(addr.as<String>().empty());
+                if (ipv == 4)
+                    CHECK(wamp::isNumber(t["numeric_address"]));
+
+                auto resultOrError = s1.call(rpc.withArgs(0), yield);
+                REQUIRE_FALSE(resultOrError.has_value());
+                CHECK(resultOrError.error() == WampErrc::noSuchSession);
+            }
         }
 
         {
@@ -375,12 +385,20 @@ TEST_CASE( "WAMP registration meta events", "[WAMP][Router]" )
 
     auto onUnregister = [&](Event event)
     {
-        event.convertTo(unregisteredSessionId, unregisteredRegId);
+        // Crossbar nulls the session ID in the meta event when
+        // the callee leaves.
+        Variant maybeSessionId;
+        event.convertTo(maybeSessionId, unregisteredRegId);
+        unregisteredSessionId = maybeSessionId.valueOr<SessionId>(0);
     };
 
     auto onRegistrationDeleted = [&](Event event)
     {
-        event.convertTo(regDeletedSessionId, deletedRegistrationId);
+        // Crossbar nulls the session ID in the meta event when
+        // the callee leaves.
+        Variant maybeSessionId;
+        event.convertTo(maybeSessionId, deletedRegistrationId);
+        regDeletedSessionId = maybeSessionId.valueOr<SessionId>(0);
     };
 
     auto rpc = [](Invocation) -> Outcome {return {};};
@@ -434,10 +452,16 @@ TEST_CASE( "WAMP registration meta events", "[WAMP][Router]" )
         s2.leave(yield).value();
         while (unregisteredRegId == 0 || deletedRegistrationId == 0)
             suspendCoro(yield);
-        CHECK(unregisteredSessionId == w2.sessionId());
         CHECK(unregisteredRegId == reg.id());
-        CHECK(regDeletedSessionId == w2.sessionId());
         CHECK(deletedRegistrationId == reg.id());
+
+        // Crossbar nulls the session ID in the meta event when
+        // the callee leaves.
+        if (test::RouterFixture::enabled())
+        {
+            CHECK(unregisteredSessionId == w2.sessionId());
+            CHECK(regDeletedSessionId == w2.sessionId());
+        }
 
         s2.disconnect();
         s1.disconnect();
@@ -476,12 +500,20 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
 
     auto onUnsubscribe = [&](Event event)
     {
-        event.convertTo(unsubscribedSessionId, unsubscribedSubId);
+        // Crossbar nulls the session ID in the meta event when
+        // the subscriber leaves.
+        Variant maybeSessionId;
+        event.convertTo(maybeSessionId, unsubscribedSubId);
+        unsubscribedSessionId = maybeSessionId.valueOr<SessionId>(0);
     };
 
     auto onSubDeleted = [&](Event event)
     {
-        event.convertTo(deletedSessionId, deletedSubId);
+        // Crossbar nulls the session ID in the meta event when
+        // the subscriber leaves.
+        Variant maybeSessionId;
+        event.convertTo(maybeSessionId, deletedSubId);
+        deletedSessionId = maybeSessionId.valueOr<SessionId>(0);
     };
 
     spawn(ioctx, [&](YieldContext yield)
@@ -550,12 +582,12 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
         CHECK(subscribedSessionId == welcome4.sessionId());
         CHECK(subscriptionId == sub4.id());
 
-        s3.leave(yield).value();
+        sub3.unsubscribe();
         while (unsubscribedSubId == 0) {suspendCoro(yield);}
-        CHECK(unsubscribedSessionId == welcome3.sessionId());
         CHECK(unsubscribedSubId == sub3.id());
-        CHECK(deletedSessionId == 0);
         CHECK(deletedSubId == 0);
+        CHECK(unsubscribedSessionId == welcome3.sessionId());
+        CHECK(deletedSessionId == 0);
 
         unsubscribedSubId = 0;
         sub4.unsubscribe();
@@ -568,13 +600,18 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
 
         unsubscribedSubId = 0;
         deletedSubId = 0;
-        sub2.unsubscribe();
+        s2.leave(yield).value();
         while (unsubscribedSubId == 0 || deletedSubId == 0)
             suspendCoro(yield);
-        CHECK(unsubscribedSessionId == w2.sessionId());
         CHECK(unsubscribedSubId == sub2.id());
-        CHECK(deletedSessionId == w2.sessionId());
         CHECK(deletedSubId == sub2.id());
+        // Crossbar nulls the session ID in the meta event when
+        // the callee leaves.
+        if (test::RouterFixture::enabled())
+        {
+            CHECK(unsubscribedSessionId == w2.sessionId());
+            CHECK(deletedSessionId == w2.sessionId());
+        }
 
         s4.disconnect();
         s3.disconnect();
