@@ -369,6 +369,7 @@ TEST_CASE( "WAMP registration meta events", "[WAMP][Router]" )
     {
         // Crossbar nulls the session ID in the meta event when
         // the callee leaves.
+        // https://github.com/crossbario/crossbar/issues/2084
         Variant maybeSessionId;
         event.convertTo(maybeSessionId, unregisteredRegId);
         unregisteredSessionId = maybeSessionId.valueOr<SessionId>(0);
@@ -378,6 +379,7 @@ TEST_CASE( "WAMP registration meta events", "[WAMP][Router]" )
     {
         // Crossbar nulls the session ID in the meta event when
         // the callee leaves.
+        // https://github.com/crossbario/crossbar/issues/2084
         Variant maybeSessionId;
         event.convertTo(maybeSessionId, deletedRegistrationId);
         regDeletedSessionId = maybeSessionId.valueOr<SessionId>(0);
@@ -439,6 +441,7 @@ TEST_CASE( "WAMP registration meta events", "[WAMP][Router]" )
 
         // Crossbar nulls the session ID in the meta event when
         // the callee leaves.
+        // https://github.com/crossbario/crossbar/issues/2084
         if (test::RouterFixture::enabled())
         {
             CHECK(unregisteredSessionId == w2.sessionId());
@@ -484,6 +487,7 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
     {
         // Crossbar nulls the session ID in the meta event when
         // the subscriber leaves.
+        // https://github.com/crossbario/crossbar/issues/2084
         Variant maybeSessionId;
         event.convertTo(maybeSessionId, unsubscribedSubId);
         unsubscribedSessionId = maybeSessionId.valueOr<SessionId>(0);
@@ -493,6 +497,7 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
     {
         // Crossbar nulls the session ID in the meta event when
         // the subscriber leaves.
+        // https://github.com/crossbario/crossbar/issues/2084
         Variant maybeSessionId;
         event.convertTo(maybeSessionId, deletedSubId);
         deletedSessionId = maybeSessionId.valueOr<SessionId>(0);
@@ -587,8 +592,10 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
             suspendCoro(yield);
         CHECK(unsubscribedSubId == sub2.id());
         CHECK(deletedSubId == sub2.id());
+
         // Crossbar nulls the session ID in the meta event when
         // the callee leaves.
+        // https://github.com/crossbario/crossbar/issues/2084
         if (test::RouterFixture::enabled())
         {
             CHECK(unsubscribedSessionId == w2.sessionId());

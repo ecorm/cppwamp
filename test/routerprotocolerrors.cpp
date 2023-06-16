@@ -182,6 +182,30 @@ TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
         ioctx.run();
     }
 
+    SECTION("Reinvoking a non-progressive CALL")
+    {
+        lastAction.action = {};
+        client->load(
+        {
+            {{"[1,\"cppwamp.test\",{}]"}}, // HELLO
+            {{"[64,1,{},\"rpc\"]"}},       // REGISTER
+            {
+                {"[48,2,{},\"rpc\",[1]]"},                  // CALL
+                {"[48,2,{\"progress\":true},\"rpc\",[1]]"}, // CALL
+            }
+        });
+
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            client->connect(yield);
+            checkProtocolViolation(client, "reinvoke", yield);
+            checkLastAction("reinvoke");
+            client->disconnect();
+        });
+
+        ioctx.run();
+    }
+
     SECTION("inbound YIELD request ID exceeds outbound INVOCATION watermark")
     {
         lastAction.action = {};
