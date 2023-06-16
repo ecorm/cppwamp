@@ -11,7 +11,6 @@
 #include <cppwamp/internal/message.hpp>
 
 // TODO: Test Options
-// TODO: Test hasKwarg, kwargByKey, kwargOr, kwargAs
 
 using namespace wamp;
 
@@ -320,18 +319,37 @@ GIVEN( "a Payload object with positional and keyword arguments" )
         CHECK( p["b"] == testMap["b"] );
         CHECK( p["c"] == testMap["c"] );
         CHECK( p["d"] == testMap["d"] );
+
         p["a"] = "hello";
         CHECK( p["a"] == "hello" );
+        CHECK( p.hasKwarg("a") );
+        CHECK( p.kwargByKey("a") == String{"hello"} );
+        CHECK( p.kwargOr<String>("a", "fallback") == String{"hello"} );
+        CHECK( p.kwargAs<String>("a") == String{"hello"} );
+
         Object kwargs = p.kwargs();
         CHECK( kwargs["a"] == "hello" );
+
+        auto a = std::move(p).kwargAs<String>("a");
+        CHECK( a == String{"hello"});
+        CHECK( p["a"].as<String>().empty() );
     }
 
     WHEN( "indexing non-existent keyword arguments" )
     {
         p["e"] = 123.4;
         CHECK( p["e"] == 123.4 );
+        CHECK_FALSE( p.hasKwarg("f") );
+        CHECK( p.kwargByKey("f") == null);
+        CHECK( p.kwargOr<String>("f", "fallback") == String{"fallback"} );
+        CHECK( p.kwargAs<String>("f") == makeUnexpectedError(MiscErrc::absent) );
+        CHECK( p.kwargAs<String>("e") == makeUnexpectedError(MiscErrc::badType) );
+
         Object kwargs = p.kwargs();
         CHECK( kwargs["e"] == 123.4 );
+
+        auto a = std::move(p).kwargAs<String>("e");
+        CHECK( a == makeUnexpectedError(MiscErrc::badType) );
     }
 
     WHEN( "indexing out-of-range positional arguments" )

@@ -299,6 +299,13 @@ Variant& Payload<D,K>::operator[](size_t index)
 }
 
 //------------------------------------------------------------------------------
+template <typename D, internal::MessageKind K>
+bool Payload<D, K>::hasKwarg(const String& key) const
+{
+    return kwargs().count(key) != 0;
+}
+
+//------------------------------------------------------------------------------
 /** @details
     @pre `this->args().size() > index`
     @throws std::out_of_range if the given index is not within the range
