@@ -21,7 +21,7 @@
 #include "options.hpp"
 #include "payload.hpp"
 #include "tagtypes.hpp"
-#include "variantdefs.hpp"
+#include "variant.hpp"
 #include "wampdefs.hpp"
 #include "internal/clientcontext.hpp"
 #include "internal/passkey.hpp"

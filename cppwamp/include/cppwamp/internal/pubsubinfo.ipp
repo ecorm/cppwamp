@@ -8,7 +8,6 @@
 #include <utility>
 #include "../api.hpp"
 #include "../exceptions.hpp"
-#include "../variantdefs.hpp"
 #include "matchpolicyoption.hpp"
 
 namespace wamp

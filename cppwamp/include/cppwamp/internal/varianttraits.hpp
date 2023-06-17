@@ -20,8 +20,15 @@
 namespace wamp
 {
 
+// Forward declaration
+class Variant;
+
 namespace internal
 {
+
+//------------------------------------------------------------------------------
+using ArrayType  = std::vector<Variant>;
+using ObjectType = std::map<String, Variant>;
 
 //------------------------------------------------------------------------------
 template <TypeId typeId> struct FieldTypeForId {};
@@ -32,8 +39,8 @@ template <> struct FieldTypeForId<TypeId::uint>    {using Type = UInt;};
 template <> struct FieldTypeForId<TypeId::real>    {using Type = Real;};
 template <> struct FieldTypeForId<TypeId::string>  {using Type = String;};
 template <> struct FieldTypeForId<TypeId::blob>    {using Type = Blob;};
-template <> struct FieldTypeForId<TypeId::array>   {using Type = Array;};
-template <> struct FieldTypeForId<TypeId::object>  {using Type = Object;};
+template <> struct FieldTypeForId<TypeId::array>   {using Type = ArrayType;};
+template <> struct FieldTypeForId<TypeId::object>  {using Type = ObjectType;};
 
 
 //------------------------------------------------------------------------------
@@ -93,14 +100,14 @@ template <> struct FieldTraits<Blob>
     static String typeName()        {return "Blob";}
 };
 
-template <> struct FieldTraits<Array>
+template <> struct FieldTraits<ArrayType>
 {
     static constexpr bool isValid   = true;
     static constexpr TypeId typeId  = TypeId::array;
     static String typeName()        {return "Array";}
 };
 
-template <> struct FieldTraits<Object>
+template <> struct FieldTraits<ObjectType>
 {
     static constexpr bool isValid   = true;
     static constexpr TypeId typeId  = TypeId::object;
@@ -197,11 +204,11 @@ template <> struct ArgTraits<Blob>
     using FieldType                 = Blob;
 };
 
-template <> struct ArgTraits<Array>
+template <> struct ArgTraits<ArrayType>
 {
     static constexpr bool isValid   = true;
     static String typeName()        {return "Array";}
-    using FieldType                 = Array;
+    using FieldType                 = ArrayType;
 };
 
 template <typename TElem>
@@ -210,14 +217,14 @@ struct ArgTraits<std::vector<TElem>, Needs<!isSameType<TElem,Variant>()>>
     static constexpr bool isValid   = ArgTraits<TElem>::isValid;
     static String typeName()        {return "std::vector<" +
                                      ArgTraits<TElem>::typeName() + '>';}
-    using FieldType                 = Array;
+    using FieldType                 = ArrayType;
 };
 
-template <> struct ArgTraits<Object>
+template <> struct ArgTraits<ObjectType>
 {
     static constexpr bool isValid   = true;
     static String typeName()        {return "Object";}
-    using FieldType                 = Object;
+    using FieldType                 = ObjectType;
 };
 
 template <typename TValue>
@@ -227,7 +234,7 @@ struct ArgTraits<std::map<String, TValue>,
     static constexpr bool isValid   = ArgTraits<TValue>::isValid;
     static String typeName()        {return "std::map<String, "
                                      + ArgTraits<TValue>::typeName() + '>';}
-    using FieldType                 = Object;
+    using FieldType                 = ObjectType;
 };
 
 } // namespace internal

@@ -179,8 +179,8 @@ public:
     using Real   = wamp::Real;   ///< Floating-point number type
     using String = wamp::String; ///< String type
     using Blob   = wamp::Blob;   ///< Binary data as an array of bytes
-    using Array  = wamp::Array;  ///< Dynamic array of variants
-    using Object = wamp::Object; ///< Dictionary of variants
+    using Array  = internal::ArrayType;  ///< Dynamic array of variants
+    using Object = internal::ObjectType; ///< Dictionary of variants
     /// @}
 
     /** Integer type used to access array elements. */
@@ -433,6 +433,14 @@ private:
 
     TypeId typeId_;
 };
+
+//------------------------------------------------------------------------------
+/** @name Composite Variant bound types */
+//------------------------------------------------------------------------------
+/// @{
+using Array  = std::vector<Variant>;      ///< Variant bound type for arrays of variants
+using Object = std::map<String, Variant>; ///< Variant bound type for maps of variants
+/// @}
 
 
 //------------------------------------------------------------------------------

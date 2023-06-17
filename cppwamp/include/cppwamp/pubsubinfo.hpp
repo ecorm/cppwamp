@@ -13,7 +13,7 @@
 #include "erroror.hpp"
 #include "options.hpp"
 #include "payload.hpp"
-#include "variantdefs.hpp"
+#include "variant.hpp"
 #include "wampdefs.hpp"
 #include "internal/message.hpp"
 #include "internal/passkey.hpp"

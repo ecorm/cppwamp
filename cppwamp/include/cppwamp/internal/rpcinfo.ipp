@@ -9,7 +9,6 @@
 #include <utility>
 #include "../api.hpp"
 #include "../exceptions.hpp"
-#include "../variant.hpp"
 #include "clientcontext.hpp"
 
 namespace wamp

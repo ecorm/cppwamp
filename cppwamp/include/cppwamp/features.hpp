@@ -10,7 +10,7 @@
 #include <cstddef>
 #include "api.hpp"
 #include "flags.hpp"
-#include "variantdefs.hpp"
+#include "variant.hpp"
 
 namespace wamp
 {
