@@ -64,7 +64,7 @@ public:
     {
         if (!logger_)
             return;
-        logger_->log(AccessLogEntry{transportInfo_, SessionInfo{{}, info_},
+        logger_->log(AccessLogEntry{connectionInfo_, SessionInfo{{}, info_},
                                     std::move(action)});
     }
 
@@ -82,7 +82,7 @@ public:
         if (logger_)
         {
             auto info = command.info(std::forward<Ts>(accessInfoArgs)...);
-            logger_->log(AccessLogEntry{transportInfo_, SessionInfo{{}, info_},
+            logger_->log(AccessLogEntry{connectionInfo_, SessionInfo{{}, info_},
                                         std::move(info)});
         }
 
@@ -146,11 +146,11 @@ protected:
         logger_->log(std::move(e));
     }
 
-    void connect(AccessTransportInfo&& info)
+    void connect(AccessConnectionInfo&& info)
     {
         logSuffix_ = " [Session " + info.serverName + '/' +
                      std::to_string(info.serverSessionIndex) + ']';
-        transportInfo_ = std::move(info);
+        connectionInfo_ = std::move(info);
     }
 
     void open(const Petition& hello)
@@ -171,10 +171,10 @@ protected:
         lastInsertedCallRequestId_.store(0);
     }
 
-    const std::string endpointLabel() const {return transportInfo_.endpoint;}
+    const std::string endpointLabel() const {return connectionInfo_.endpoint;}
 
 private:
-    AccessTransportInfo transportInfo_;
+    AccessConnectionInfo connectionInfo_;
     String logSuffix_;
     ReservedId wampId_;
     RouterLogger::Ptr logger_;

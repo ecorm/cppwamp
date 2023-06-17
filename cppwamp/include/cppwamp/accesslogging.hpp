@@ -29,14 +29,13 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-// TODO: Rename to AccessConnectionInfo
 // TODO: Pass via shared_ptr
-struct CPPWAMP_API AccessTransportInfo
+struct CPPWAMP_API AccessConnectionInfo
 {
-    AccessTransportInfo();
+    AccessConnectionInfo();
 
-    AccessTransportInfo(std::string endpoint, std::string serverName,
-                        uint64_t serverSessionIndex);
+    AccessConnectionInfo(std::string endpoint, std::string serverName,
+                         uint64_t serverSessionIndex);
 
     std::string endpoint;
     std::string serverName;
@@ -139,11 +138,11 @@ struct CPPWAMP_API AccessLogEntry
     static std::ostream& outputTime(std::ostream& out, TimePoint when);
 
     /** Constructor. */
-    AccessLogEntry(AccessTransportInfo transport, SessionInfo session,
+    AccessLogEntry(AccessConnectionInfo connection, SessionInfo session,
                    AccessActionInfo action);
 
-    /** The transport information. */
-    AccessTransportInfo transport;
+    /** The connection information. */
+    AccessConnectionInfo connection;
 
     /** The session information. */
     SessionInfo session;

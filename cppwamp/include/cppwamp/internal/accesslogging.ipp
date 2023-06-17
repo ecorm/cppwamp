@@ -37,7 +37,7 @@ CPPWAMP_INLINE void outputAccessLogEntry(
         }
     };
 
-    const auto& t = entry.transport;
+    const auto& t = entry.connection;
     const auto& s = entry.session;
     const auto& a = entry.action;
     AccessLogEntry::outputTime(out, entry.when);
@@ -69,12 +69,12 @@ CPPWAMP_INLINE void outputAccessLogEntry(
 
 
 //******************************************************************************
-// AccessTransportInfo
+// AccessConnectionInfo
 //******************************************************************************
 
-CPPWAMP_INLINE AccessTransportInfo::AccessTransportInfo() {}
+CPPWAMP_INLINE AccessConnectionInfo::AccessConnectionInfo() {}
 
-CPPWAMP_INLINE AccessTransportInfo::AccessTransportInfo(
+CPPWAMP_INLINE AccessConnectionInfo::AccessConnectionInfo(
     std::string endpoint, std::string serverName, uint64_t serverSessionIndex)
     : endpoint(std::move(endpoint)),
       serverName(std::move(serverName)),
@@ -199,9 +199,10 @@ CPPWAMP_INLINE std::ostream& AccessLogEntry::outputTime(std::ostream& out,
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE AccessLogEntry::AccessLogEntry(
-    AccessTransportInfo transport, SessionInfo session, AccessActionInfo action)
-    : transport(std::move(transport)),
+CPPWAMP_INLINE AccessLogEntry::AccessLogEntry(AccessConnectionInfo connection,
+                                              SessionInfo session,
+                                              AccessActionInfo action)
+    : connection(std::move(connection)),
       session(std::move(session)),
       action(std::move(action)),
       when(std::chrono::system_clock::now())
