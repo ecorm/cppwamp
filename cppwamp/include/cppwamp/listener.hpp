@@ -17,6 +17,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <type_traits>
 #include "api.hpp"
 #include "asiodefs.hpp"
 #include "erroror.hpp"

@@ -47,32 +47,28 @@ struct AnyReqs
     template <typename T>
     static constexpr bool constructible()
     {
-        using D = typename std::decay<T>::type;
-        return isConstructible<T>(std::is_same<D, SurrogateAny>{});
+        return isConstructible<T>(std::is_same<Decay<T>, SurrogateAny>{});
     }
 
     template <typename T, typename... As>
     static constexpr bool emplaceable()
     {
-        using D = typename std::decay<T>::type;
-        return std::is_constructible<D, As...>::value &&
-               std::is_copy_constructible<D>::value;
+        return std::is_constructible<Decay<T>, As...>::value &&
+               std::is_copy_constructible<Decay<T>>::value;
     }
 
     template <typename T, typename U, typename... As>
     static constexpr bool listEmplaceable()
     {
-        using D = typename std::decay<T>::type;
         using L = std::initializer_list<U>;
-        return std::is_constructible<D, L, As...>::value &&
-               std::is_copy_constructible<D>::value;
+        return std::is_constructible<Decay<T>, L, As...>::value &&
+               std::is_copy_constructible<Decay<T>>::value;
     }
 
     template <typename T>
     static constexpr bool assignable()
     {
-        using D = typename std::decay<T>::type;
-        return isAssignable<T>(std::is_same<D, SurrogateAny>{});
+        return isAssignable<T>(std::is_same<Decay<T>, SurrogateAny>{});
     }
 
 private:
@@ -85,8 +81,8 @@ private:
     template <typename T>
     static constexpr bool isConstructible(FalseType)
     {
-        using D = typename std::decay<T>::type;
-        return !isInPlaceType<D>() && std::is_copy_constructible<D>::value;
+        return !isInPlaceType<Decay<T>>() &&
+               std::is_copy_constructible<Decay<T>>::value;
     }
 
     template <typename T>
@@ -98,8 +94,7 @@ private:
     template <typename T>
     static constexpr bool isAssignable(FalseType)
     {
-        using D = typename std::decay<T>::type;
-        return std::is_copy_constructible<D>::value;
+        return std::is_copy_constructible<Decay<T>>::value;
     }
 };
 
@@ -107,9 +102,6 @@ private:
 class SurrogateAny
 {
 private:
-    template <typename T>
-    using Decayed = typename std::decay<T>::type;
-
     using Reqs = internal::AnyReqs;
 
 public:
@@ -125,20 +117,20 @@ public:
 
     template <typename T, Needs<Reqs::constructible<T>()> = 0>
     SurrogateAny(T&& value)
-        : box_(construct<Decayed<T>>(std::forward<T>(value)))
+        : box_(construct<Decay<T>>(std::forward<T>(value)))
     {}
 
     template <typename T, typename... As,
               Needs<Reqs::emplaceable<T, As...>()> = 0>
     explicit SurrogateAny(in_place_type_t<T>, As&&... args)
-        : box_(construct<Decayed<T>>(std::forward<As>(args)...))
+        : box_(construct<Decay<T>>(std::forward<As>(args)...))
     {}
 
     template<typename T, typename U, typename... As,
              Needs<Reqs::listEmplaceable<T, U, As...>()> = 0>
     explicit SurrogateAny(in_place_type_t<T>, std::initializer_list<U> list,
                  As&&... args )
-        : box_(construct<Decayed<T>>(list, std::forward<As>(args)...))
+        : box_(construct<Decay<T>>(list, std::forward<As>(args)...))
     {}
 
     SurrogateAny& operator=(const SurrogateAny& rhs)
@@ -174,18 +166,17 @@ public:
     typename std::decay<T>::type& emplace(As&&... args)
     {
         reset();
-        auto b = construct<Decayed<T>>(std::forward<As>(args)...);
+        auto b = construct<Decay<T>>(std::forward<As>(args)...);
         box_ = b;
         return b->value;
     }
 
     template <typename T, class U, class... As,
               Needs<Reqs::listEmplaceable<T, U, As...>()> = 0>
-    typename std::decay<T>::type& emplace(std::initializer_list<U> list,
-                                          As&&... args)
+    Decay<T>& emplace(std::initializer_list<U> list, As&&... args)
     {
         reset();
-        auto b = construct<Decayed<T>>(list, std::forward<As>(args)...);
+        auto b = construct<Decay<T>>(list, std::forward<As>(args)...);
         box_ = b;
         return b->value;
     }

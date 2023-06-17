@@ -8,6 +8,7 @@
 #define CPPWAMP_SOCKETOPTIONS_HPP
 
 #include <memory>
+#include <type_traits>
 #include <utility>
 #include <vector>
 

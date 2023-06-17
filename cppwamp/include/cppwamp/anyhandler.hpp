@@ -72,9 +72,8 @@ private:
     template <typename F>
     static constexpr bool fnConstructible() noexcept
     {
-        using Decayed = typename std::decay<F>::type;
-        return !isSameType<Decayed, AnyReusableHandler>() &&
-               !isSameType<Decayed, std::nullptr_t>() &&
+        return !isSameType<Decay<F>, AnyReusableHandler>() &&
+               !isSameType<Decay<F>, std::nullptr_t>() &&
                std::is_constructible<Function, F>::value;
     }
 
@@ -271,7 +270,7 @@ template <typename H, typename E = AnyCompletionExecutor>
 struct BindFallbackExecutorResult
 {
     struct None{};
-    using HT = typename std::decay<H>::type;
+    using HT = Decay<H>;
     using AE = typename boost::asio::associated_executor<HT, None>::type;
     using Missing = std::is_same<AE, None>;
     using FB = boost::asio::executor_binder<HT, E>;
@@ -396,11 +395,10 @@ namespace wamp
     associated with the handler. */
 //------------------------------------------------------------------------------
 template <typename H, typename... Ts>
-internal::HandlerBinder<typename std::decay<H>::type, ValueTypeOf<Ts>...>
+internal::HandlerBinder<Decay<H>, ValueTypeOf<Ts>...>
 bindHandler(H&& handler, Ts&&... args)
 {
-    using Binder = internal::HandlerBinder<typename std::decay<H>::type,
-                                           ValueTypeOf<Ts>...>;
+    using Binder = internal::HandlerBinder<Decay<H>, ValueTypeOf<Ts>...>;
     return Binder{std::forward<H>(handler), std::forward<Ts>(args)...};
 }
 

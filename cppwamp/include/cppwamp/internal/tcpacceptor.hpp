@@ -9,6 +9,7 @@
 
 #include <cassert>
 #include <memory>
+#include <type_traits>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/strand.hpp>

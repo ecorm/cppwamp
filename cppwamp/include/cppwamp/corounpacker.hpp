@@ -15,9 +15,10 @@
 
 #include <exception>
 #include <boost/version.hpp>
+#include "pubsubinfo.hpp"
+#include "rpcinfo.hpp"
 #include "spawn.hpp"
 #include "traits.hpp"
-#include "unpacker.hpp"
 #include "internal/clientcontext.hpp"
 
 namespace wamp
@@ -77,7 +78,7 @@ private:
             `void function(Event, TArgs..., wamp::YieldContext)`. */
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
-CoroEventUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedCoroEvent(TSlot&& slot);
+CoroEventUnpacker<Decay<TSlot>, TArgs...> unpackedCoroEvent(TSlot&& slot);
 
 
 //------------------------------------------------------------------------------
@@ -134,8 +135,7 @@ private:
             signature `void function(TArgs..., wamp::YieldContext)`.*/
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
-SimpleCoroEventUnpacker<DecayedSlot<TSlot>, TArgs...>
-simpleCoroEvent(TSlot&& slot);
+SimpleCoroEventUnpacker<Decay<TSlot>, TArgs...> simpleCoroEvent(TSlot&& slot);
 
 
 //------------------------------------------------------------------------------
@@ -190,8 +190,7 @@ private:
             `Outcome function(Invocation, TArgs..., wamp::YieldContext)`.*/
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
-CoroInvocationUnpacker<DecayedSlot<TSlot>, TArgs...>
-unpackedCoroRpc(TSlot&& slot);
+CoroInvocationUnpacker<Decay<TSlot>, TArgs...> unpackedCoroRpc(TSlot&& slot);
 
 
 //------------------------------------------------------------------------------
@@ -259,7 +258,7 @@ private:
             `TResult function(TArgs..., wamp::YieldContext)`.*/
 //------------------------------------------------------------------------------
 template <typename TResult, typename... TArgs, typename TSlot>
-SimpleCoroInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>
+SimpleCoroInvocationUnpacker<Decay<TSlot>, TResult, TArgs...>
 simpleCoroRpc(TSlot&& slot);
 
 
@@ -378,10 +377,9 @@ void CoroEventUnpacker<S,A...>::invoke(Event&& event,
 
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
-CoroEventUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedCoroEvent(TSlot&& slot)
+CoroEventUnpacker<Decay<TSlot>, TArgs...> unpackedCoroEvent(TSlot&& slot)
 {
-    return CoroEventUnpacker<DecayedSlot<TSlot>, TArgs...>(
-        std::forward<TSlot>(slot));
+    return CoroEventUnpacker<Decay<TSlot>, TArgs...>(std::forward<TSlot>(slot));
 }
 
 
@@ -448,19 +446,17 @@ void SimpleCoroEventUnpacker<S,A...>::invoke(Event&& event,
 
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
-SimpleCoroEventUnpacker<DecayedSlot<TSlot>, TArgs...>
-simpleCoroEvent(TSlot&& slot)
+SimpleCoroEventUnpacker<Decay<TSlot>, TArgs...> simpleCoroEvent(TSlot&& slot)
 {
-    return SimpleCoroEventUnpacker<DecayedSlot<TSlot>, TArgs...>(
+    return SimpleCoroEventUnpacker<Decay<TSlot>, TArgs...>(
         std::forward<TSlot>(slot));
 }
 
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
-SimpleCoroEventUnpacker<DecayedSlot<TSlot>, TArgs...>
-basicCoroEvent(TSlot&& slot)
+SimpleCoroEventUnpacker<Decay<TSlot>, TArgs...> basicCoroEvent(TSlot&& slot)
 {
-    return SimpleCoroEventUnpacker<DecayedSlot<TSlot>, TArgs...>(
+    return SimpleCoroEventUnpacker<Decay<TSlot>, TArgs...>(
         std::forward<TSlot>(slot));
 }
 
@@ -578,10 +574,9 @@ void CoroInvocationUnpacker<S,A...>::invoke(Invocation&& inv,
 
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
-CoroInvocationUnpacker<DecayedSlot<TSlot>, TArgs...>
-unpackedCoroRpc(TSlot&& slot)
+CoroInvocationUnpacker<Decay<TSlot>, TArgs...> unpackedCoroRpc(TSlot&& slot)
 {
-    return CoroInvocationUnpacker<DecayedSlot<TSlot>, TArgs...>(
+    return CoroInvocationUnpacker<Decay<TSlot>, TArgs...>(
         std::forward<TSlot>(slot) );
 }
 
@@ -698,19 +693,19 @@ void SimpleCoroInvocationUnpacker<S,R,A...>::invoke(
 
 //------------------------------------------------------------------------------
 template <typename TResult, typename... TArgs, typename TSlot>
-SimpleCoroInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>
+SimpleCoroInvocationUnpacker<Decay<TSlot>, TResult, TArgs...>
 simpleCoroRpc(TSlot&& slot)
 {
-    return SimpleCoroInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>(
+    return SimpleCoroInvocationUnpacker<Decay<TSlot>, TResult, TArgs...>(
         std::forward<TSlot>(slot) );
 }
 
 //------------------------------------------------------------------------------
 template <typename TResult, typename... TArgs, typename TSlot>
-SimpleCoroInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>
+SimpleCoroInvocationUnpacker<Decay<TSlot>, TResult, TArgs...>
 basicCoroRpc(TSlot&& slot)
 {
-    return SimpleCoroInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>(
+    return SimpleCoroInvocationUnpacker<Decay<TSlot>, TResult, TArgs...>(
         std::forward<TSlot>(slot) );
 }
 

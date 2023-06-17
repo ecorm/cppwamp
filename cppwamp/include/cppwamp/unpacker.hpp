@@ -15,20 +15,12 @@
 
 #include <functional>
 #include <tuple>
-#include "api.hpp"
 #include "pubsubinfo.hpp"
 #include "rpcinfo.hpp"
 #include "traits.hpp"
 
 namespace wamp
 {
-
-//------------------------------------------------------------------------------
-/** Metafunction that removes const/reference decorations off a slot type */
-//------------------------------------------------------------------------------
-template <typename TSlot>
-using DecayedSlot = typename std::decay<TSlot>::type;
-
 
 //------------------------------------------------------------------------------
 /** Wrapper around an event slot which automatically unpacks positional
@@ -42,7 +34,7 @@ using DecayedSlot = typename std::decay<TSlot>::type;
             Event parameter. */
 //------------------------------------------------------------------------------
 template <typename TSlot, typename... TArgs>
-class CPPWAMP_API EventUnpacker
+class EventUnpacker
 {
 public:
     /// The function type to be wrapped.
@@ -74,8 +66,7 @@ private:
     @tparam TSlot (deduced) Function type to be converted. */
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
-CPPWAMP_API EventUnpacker<DecayedSlot<TSlot>, TArgs...>
-unpackedEvent(TSlot&& slot);
+EventUnpacker<Decay<TSlot>, TArgs...> unpackedEvent(TSlot&& slot);
 
 
 //------------------------------------------------------------------------------
@@ -92,7 +83,7 @@ unpackedEvent(TSlot&& slot);
     @tparam TArgs List of static types the event slot expects as arguments. */
 //------------------------------------------------------------------------------
 template <typename TSlot, typename... TArgs>
-class CPPWAMP_API SimpleEventUnpacker
+class SimpleEventUnpacker
 {
 public:
     /// The function type to be wrapped.
@@ -125,8 +116,7 @@ private:
     @tparam TSlot (deduced) Function type to be converted. */
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
-CPPWAMP_API SimpleEventUnpacker<DecayedSlot<TSlot>, TArgs...>
-simpleEvent(TSlot&& slot);
+SimpleEventUnpacker<Decay<TSlot>, TArgs...> simpleEvent(TSlot&& slot);
 
 
 //------------------------------------------------------------------------------
@@ -141,7 +131,7 @@ simpleEvent(TSlot&& slot);
             Invocation parameter. */
 //------------------------------------------------------------------------------
 template <typename TSlot, typename... TArgs>
-class CPPWAMP_API InvocationUnpacker
+class InvocationUnpacker
 {
 public:
     /// The function type to be wrapped.
@@ -173,8 +163,7 @@ private:
     @tparam TSlot (deduced) Function type to be converted. */
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
-CPPWAMP_API InvocationUnpacker<DecayedSlot<TSlot>, TArgs...>
-unpackedRpc(TSlot&& slot);
+InvocationUnpacker<Decay<TSlot>, TArgs...> unpackedRpc(TSlot&& slot);
 
 
 //------------------------------------------------------------------------------
@@ -193,7 +182,7 @@ unpackedRpc(TSlot&& slot);
     @tparam TArgs List of static types the call slot expects as arguments. */
 //------------------------------------------------------------------------------
 template <typename TSlot, typename TResult, typename... TArgs>
-class CPPWAMP_API SimpleInvocationUnpacker
+class SimpleInvocationUnpacker
 {
 public:
     /// The function type to be wrapped.
@@ -234,7 +223,7 @@ private:
     @tparam TSlot (deduced) Function type to be converted. */
 //------------------------------------------------------------------------------
 template <typename TResult, typename... TArgs, typename TSlot>
-CPPWAMP_API SimpleInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>
+SimpleInvocationUnpacker<Decay<TSlot>, TResult, TArgs...>
 simpleRpc(TSlot&& slot);
 
 
@@ -303,10 +292,9 @@ void EventUnpacker<S,A...>::invoke(Event&& event, IndexSequence<Seq...>) const
 
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
-EventUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedEvent(TSlot&& slot)
+EventUnpacker<Decay<TSlot>, TArgs...> unpackedEvent(TSlot&& slot)
 {
-    return EventUnpacker<DecayedSlot<TSlot>, TArgs...>(
-        std::forward<TSlot>(slot));
+    return EventUnpacker<Decay<TSlot>, TArgs...>(std::forward<TSlot>(slot));
 }
 
 
@@ -357,17 +345,17 @@ void SimpleEventUnpacker<S,A...>::invoke(Event&& event,
 
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
-SimpleEventUnpacker<DecayedSlot<TSlot>, TArgs...> simpleEvent(TSlot&& slot)
+SimpleEventUnpacker<Decay<TSlot>, TArgs...> simpleEvent(TSlot&& slot)
 {
-    return SimpleEventUnpacker<DecayedSlot<TSlot>, TArgs...>(
+    return SimpleEventUnpacker<Decay<TSlot>, TArgs...>(
         std::forward<TSlot>(slot));
 }
 
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
-SimpleEventUnpacker<DecayedSlot<TSlot>, TArgs...> basicEvent(TSlot&& slot)
+SimpleEventUnpacker<Decay<TSlot>, TArgs...> basicEvent(TSlot&& slot)
 {
-    return SimpleEventUnpacker<DecayedSlot<TSlot>, TArgs...>(
+    return SimpleEventUnpacker<Decay<TSlot>, TArgs...>(
         std::forward<TSlot>(slot));
 }
 
@@ -420,9 +408,9 @@ InvocationUnpacker<S,A...>::invoke(Invocation&& inv,
 
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
-InvocationUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedRpc(TSlot&& slot)
+InvocationUnpacker<Decay<TSlot>, TArgs...> unpackedRpc(TSlot&& slot)
 {
-    return InvocationUnpacker<DecayedSlot<TSlot>, TArgs...>(
+    return InvocationUnpacker<Decay<TSlot>, TArgs...>(
         std::forward<TSlot>(slot) );
 }
 
@@ -497,19 +485,19 @@ Outcome SimpleInvocationUnpacker<S,R,A...>::invoke(
 
 //------------------------------------------------------------------------------
 template <typename TResult, typename... TArgs, typename TSlot>
-SimpleInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>
+SimpleInvocationUnpacker<Decay<TSlot>, TResult, TArgs...>
 simpleRpc(TSlot&& slot)
 {
-    return SimpleInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>(
+    return SimpleInvocationUnpacker<Decay<TSlot>, TResult, TArgs...>(
         std::forward<TSlot>(slot) );
 }
 
 //------------------------------------------------------------------------------
 template <typename TResult, typename... TArgs, typename TSlot>
-SimpleInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>
+SimpleInvocationUnpacker<Decay<TSlot>, TResult, TArgs...>
 basicRpc(TSlot&& slot)
 {
-    return SimpleInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>(
+    return SimpleInvocationUnpacker<Decay<TSlot>, TResult, TArgs...>(
         std::forward<TSlot>(slot) );
 }
 

@@ -33,6 +33,7 @@
 #include "registration.hpp"
 #include "rpcinfo.hpp"
 #include "subscription.hpp"
+#include "traits.hpp"
 #include "wampdefs.hpp"
 
 namespace wamp
@@ -130,8 +131,8 @@ public:
         `boost::asio::use_awaitable` | An awaitable yielding `ErrorOr<Value>`
         `boost::asio::use_future`    | `std::future<ErrorOr<Value>>` */
     template <typename T, typename C>
-    using Deduced = typename boost::asio::async_result<
-        typename std::decay<C>::type, void(T)>::return_type;
+    using Deduced =
+        typename boost::asio::async_result<Decay<C>, void(T)>::return_type;
 
     /// @name Construction
     /// @{
