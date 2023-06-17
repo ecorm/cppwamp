@@ -20,6 +20,7 @@
 #include "api.hpp"
 #include "errorcodes.hpp"
 #include "erroror.hpp"
+#include "sessioninfo.hpp"
 #include "variant.hpp"
 #include "wampdefs.hpp"
 
@@ -28,33 +29,18 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
+// TODO: Rename to AccessConnectionInfo
+// TODO: Pass via shared_ptr
 struct CPPWAMP_API AccessTransportInfo
 {
     AccessTransportInfo();
 
-    AccessTransportInfo(String endpoint, String serverName,
+    AccessTransportInfo(std::string endpoint, std::string serverName,
                         uint64_t serverSessionIndex);
 
     std::string endpoint;
     std::string serverName;
     uint64_t serverSessionIndex = 0;
-};
-
-//------------------------------------------------------------------------------
-// TODO: Merge with SessionInfo?
-struct CPPWAMP_API AccessSessionInfo
-{
-    AccessSessionInfo();
-
-    AccessSessionInfo(String agent, String realmUri,
-                      String authId, SessionId id);
-
-    void reset();
-
-    String agent;
-    String realmUri;
-    String authId;
-    SessionId wampSessionId = nullId();
 };
 
 //------------------------------------------------------------------------------
@@ -153,14 +139,14 @@ struct CPPWAMP_API AccessLogEntry
     static std::ostream& outputTime(std::ostream& out, TimePoint when);
 
     /** Constructor. */
-    AccessLogEntry(AccessTransportInfo transport, AccessSessionInfo session,
+    AccessLogEntry(AccessTransportInfo transport, SessionInfo session,
                    AccessActionInfo action);
 
     /** The transport information. */
     AccessTransportInfo transport;
 
     /** The session information. */
-    AccessSessionInfo session;
+    SessionInfo session;
 
     /** The action information. */
     AccessActionInfo action;

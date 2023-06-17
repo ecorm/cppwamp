@@ -47,6 +47,7 @@ public:
     const AuthInfo& auth() const;
 
     /** Obtains the `transport` dictionary. */
+    // TODO: TransportInfo struct
     const Object& transport() const;
 
     /** Obtains the client agent string. */

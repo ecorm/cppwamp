@@ -43,7 +43,7 @@ CPPWAMP_INLINE void outputAccessLogEntry(
     AccessLogEntry::outputTime(out, entry.when);
     PutField{out} << t.serverName;
     out << " | " << t.serverSessionIndex;
-    PutField{out} << t.endpoint << s.realmUri << s.authId << s.agent;
+    PutField{out} << t.endpoint << s.realmUri() << s.auth().id() << s.agent();
     if (a.requestId == nullId())
         out << " | -";
     else
@@ -75,34 +75,11 @@ CPPWAMP_INLINE void outputAccessLogEntry(
 CPPWAMP_INLINE AccessTransportInfo::AccessTransportInfo() {}
 
 CPPWAMP_INLINE AccessTransportInfo::AccessTransportInfo(
-    String endpoint, String serverName, uint64_t serverSessionIndex)
+    std::string endpoint, std::string serverName, uint64_t serverSessionIndex)
     : endpoint(std::move(endpoint)),
       serverName(std::move(serverName)),
       serverSessionIndex(std::move(serverSessionIndex))
 {}
-
-
-//******************************************************************************
-// AccessSessionInfo
-//******************************************************************************
-
-CPPWAMP_INLINE AccessSessionInfo::AccessSessionInfo() {}
-
-CPPWAMP_INLINE AccessSessionInfo::AccessSessionInfo(
-    String agent, String realmUri, String authId, SessionId id)
-    : agent(std::move(agent)),
-      realmUri(std::move(realmUri)),
-      authId(std::move(authId)),
-      wampSessionId(id)
-{}
-
-CPPWAMP_INLINE void AccessSessionInfo::reset()
-{
-    agent.clear();
-    realmUri.clear();
-    authId.clear();
-    wampSessionId = nullId();
-}
 
 
 //******************************************************************************
@@ -222,9 +199,8 @@ CPPWAMP_INLINE std::ostream& AccessLogEntry::outputTime(std::ostream& out,
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE AccessLogEntry::AccessLogEntry(AccessTransportInfo transport,
-                                              AccessSessionInfo session,
-                                              AccessActionInfo action)
+CPPWAMP_INLINE AccessLogEntry::AccessLogEntry(
+    AccessTransportInfo transport, SessionInfo session, AccessActionInfo action)
     : transport(std::move(transport)),
       session(std::move(session)),
       action(std::move(action)),

@@ -57,7 +57,6 @@ public:
     {
         assert(info_ != nullptr);
         wampId_ = std::move(id);
-        accessInfo_.wampSessionId = wampId();
         info_->setSessionId(wampId());
     }
 
@@ -65,7 +64,7 @@ public:
     {
         if (!logger_)
             return;
-        logger_->log(AccessLogEntry{transportInfo_, accessInfo_,
+        logger_->log(AccessLogEntry{transportInfo_, SessionInfo{{}, info_},
                                     std::move(action)});
     }
 
@@ -83,7 +82,7 @@ public:
         if (logger_)
         {
             auto info = command.info(std::forward<Ts>(accessInfoArgs)...);
-            logger_->log(AccessLogEntry{transportInfo_, accessInfo_,
+            logger_->log(AccessLogEntry{transportInfo_, SessionInfo{{}, info_},
                                         std::move(info)});
         }
 
@@ -156,22 +155,16 @@ protected:
 
     void open(const Petition& hello)
     {
-        accessInfo_.agent = hello.agent().value_or("");
-        accessInfo_.authId = hello.authId().value_or("");
+        // TODO: Remove
     }
 
     void join(SessionInfoImpl::Ptr info)
     {
-        // accessInfo_.wampSessionId was already set
-        // via RouterSession::setWampId
-        accessInfo_.realmUri = info->realmUri();
-        accessInfo_.authId = info->auth().id();
         info_ = std::move(info);
     }
 
     void close()
     {
-        accessInfo_.reset();
         wampId_.reset();
         info_.reset();
         nextOutboundRequestId_.store(0);
@@ -182,7 +175,6 @@ protected:
 
 private:
     AccessTransportInfo transportInfo_;
-    AccessSessionInfo accessInfo_;
     String logSuffix_;
     ReservedId wampId_;
     RouterLogger::Ptr logger_;
