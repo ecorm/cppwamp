@@ -14,6 +14,7 @@
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
+#include "routerfixture.hpp"
 
 using namespace wamp;
 using namespace Catch::Matchers;
@@ -442,12 +443,13 @@ GIVEN( "a caller and a callee" )
         ioctx.run();
     }
 
-// TODO: Enable when using CppWAMP router
-// Skip mode cancellation currently does not work properly with Crossbar.
-// https://github.com/crossbario/crossbar/issues/1377#issuecomment-1123050045
-#if 0
     WHEN( "cancelling an RPC in skip mode before it returns" )
     {
+        // Skip mode cancellation currently does not work properly with Crossbar.
+        // https://github.com/crossbario/crossbar/issues/1377#issuecomment-1123050045
+        if (!test::RouterFixture::enabled())
+            return;
+
         spawn(ioctx, [&](YieldContext yield)
         {
             CallCancellationSignal sig;
@@ -501,7 +503,6 @@ GIVEN( "a caller and a callee" )
         });
         ioctx.run();
     }
-#endif
 
     WHEN( "cancelling an RPC after it returns" )
     {
