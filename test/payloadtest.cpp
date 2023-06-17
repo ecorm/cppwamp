@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2014-2015, 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -9,8 +9,6 @@
 #include <catch2/catch.hpp>
 #include <cppwamp/payload.hpp>
 #include <cppwamp/internal/message.hpp>
-
-// TODO: Test Options
 
 using namespace wamp;
 
@@ -358,4 +356,70 @@ GIVEN( "a Payload object with positional and keyword arguments" )
         CHECK_THROWS_AS( p[-1], std::out_of_range );
     }
 }
+}
+
+//------------------------------------------------------------------------------
+SCENARIO( "Empty Options", "[Variant][Options]" )
+{
+    TestPayload p;
+    CHECK( p.options().empty() );
+}
+
+//------------------------------------------------------------------------------
+SCENARIO( "Non-empty Options", "[Variant][Options]" )
+{
+    auto o = TestPayload().withOptions(testMap);
+    const auto& c = o;
+
+    WHEN( "accessing the entire map" )
+    {
+        CHECK( o.options() == testMap );
+        CHECK( c.options() == testMap );
+    }
+
+    WHEN( "moving the entire map" )
+    {
+        auto m = std::move(o).options();
+        CHECK( m == testMap );
+        CHECK( c.options().empty() );
+    }
+
+    WHEN( "accessing existing options" )
+    {
+        CHECK( c.hasOption("d") );
+        CHECK( c.optionByKey("d") == String{"foo"} );
+        CHECK( c.optionOr<String>("d", "fallback") == String{"foo"} );
+        CHECK( c.optionAs<String>("d") == String{"foo"} );
+        CHECK( c.toUnsignedInteger("c") == 42u );
+
+        auto m = std::move(o).optionAs<String>("d");
+        CHECK( m == String{"foo"} );
+        CHECK( c.optionByKey("d").as<String>().empty() );
+    }
+
+    WHEN( "accessing non-existing options" )
+    {
+        CHECK_FALSE( c.hasOption("f") );
+        CHECK( c.optionByKey("f") == null );
+        CHECK( c.optionOr<String>("f", "fallback") == String{"fallback"} );
+        CHECK( c.optionAs<String>("f") ==
+              makeUnexpectedError(MiscErrc::absent) );
+        CHECK( c.toUnsignedInteger("f") ==
+               makeUnexpectedError(MiscErrc::absent) );
+
+        auto m = std::move(o).optionAs<String>("f");
+        CHECK( m == makeUnexpectedError(MiscErrc::absent) );
+    }
+
+    WHEN( "accessing options as bad type" )
+    {
+        CHECK( c.optionAs<String>("c") ==
+              makeUnexpectedError(MiscErrc::badType) );
+        CHECK( c.toUnsignedInteger("d") ==
+              makeUnexpectedError(MiscErrc::badType) );
+
+        auto m = std::move(o).optionAs<String>("c");
+        CHECK( m == makeUnexpectedError(MiscErrc::badType) );
+        CHECK( c.optionByKey("c") == 42u );
+    }
 }
