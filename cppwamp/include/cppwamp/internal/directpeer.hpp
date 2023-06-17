@@ -10,6 +10,7 @@
 #include <memory>
 #include "../asiodefs.hpp"
 #include "../errorcodes.hpp"
+#include "../erroror.hpp"
 #include "../router.hpp"
 #include "../version.hpp"
 #include "message.hpp"
@@ -102,6 +103,7 @@ private:
             realm_.leave(session_);
         session_->report({AccessAction::clientDisconnect});
         router_.reset();
+        realm_.reset();
         session_->disconnect();
     }
 
@@ -116,20 +118,17 @@ private:
         session_->report(std::move(helloActionInfo));
 
         auto realm = router_.realmAt(hello.uri());
-        bool found = false;
-        if (!realm.expired())
-        {
-            realm_ = std::move(realm);
-            found = realm_.join(session_);
-        }
-        if (!found)
+        if (realm.expired())
         {
             return fail("Realm '" + hello.uri() + "' not found",
                         WampErrc::noSuchRealm);
         }
+        realm_ = std::move(realm);
+        auto details = session_->open(std::move(hello));
+        if (!realm_.join(session_))
+            return fail("Realm expired", WampErrc::noSuchRealm);
 
         setState(State::established);
-        auto details = session_->open(std::move(hello));
         Welcome welcome{{}, session_->wampId(), std::move(details)};
 
         struct Posted
@@ -302,6 +301,7 @@ private:
 
         setState(State::failed);
         realm_.leave(session_);
+        realm_.reset();
         boost::asio::post(*strand_,
                           Posted{shared_from_this(), std::move(why), ec});
         return UnexpectedError(ec);
