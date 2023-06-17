@@ -14,6 +14,7 @@
 
 #include <memory>
 #include "../authinfo.hpp"
+#include "../connectioninfo.hpp"
 #include "../features.hpp"
 #include "../wampdefs.hpp"
 #include "../variant.hpp"
@@ -24,8 +25,6 @@ namespace wamp
 namespace internal
 {
 
-//------------------------------------------------------------------------------
-/** Contains meta-data associated with a WAMP client session. */
 //------------------------------------------------------------------------------
 class SessionInfoImpl
 {
@@ -44,7 +43,7 @@ public:
 
     const AuthInfo& auth() const {return auth_;}
 
-    const Object& transport() const {return transport_;}
+    ConnectionInfo connection() const {return connection_;}
 
     const String& agent() const {return agent_;}
 
@@ -52,9 +51,10 @@ public:
 
     void setSessionId(SessionId sid) {sessionId_ = sid;}
 
-    void setClientDetails(Object transport, String agent, ClientFeatures f)
+    void setConnection(ConnectionInfo c) {connection_ = std::move(c);}
+
+    void setAgent(String agent, ClientFeatures f)
     {
-        transport_ = std::move(transport);
         agent_ = std::move(agent);
         features_ = f;
     }
@@ -78,7 +78,7 @@ private:
     {}
 
     AuthInfo auth_;
-    Object transport_;
+    ConnectionInfo connection_;
     String realmUri_;
     String agent_;
     ClientFeatures features_;

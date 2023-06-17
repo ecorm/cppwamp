@@ -23,7 +23,7 @@ CPPWAMP_INLINE Object toObject(const SessionInfo& info)
         {"authprovider", info.auth().provider()},
         {"authrole",     info.auth().role()},
         {"session",      info.sessionId()},
-        {"transport",    info.transport()}
+        {"transport",    info.connection().transport()}
     };
 }
 

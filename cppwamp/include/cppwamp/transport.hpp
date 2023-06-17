@@ -11,6 +11,7 @@
 #include <memory>
 #include <system_error>
 #include <vector>
+#include "connectioninfo.hpp"
 #include "erroror.hpp"
 #include "messagebuffer.hpp"
 #include "variant.hpp"
@@ -74,11 +75,8 @@ public:
     /** Sends a transport-level ping message. */
     virtual void ping(MessageBuffer message, PingHandler handler) = 0;
 
-    /** Obtains human-readable remote endpoint information. */
-    virtual std::string remoteEndpointLabel() = 0;
-
-    /** Obtains a dictionary containing remote endpoint information. */
-    virtual Object remoteEndpointDetails() = 0;
+    /** Obtains connection information. */
+    virtual ConnectionInfo connectionInfo() const = 0;
 
 protected:
     Transporting() = default;

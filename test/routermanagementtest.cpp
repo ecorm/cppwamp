@@ -124,15 +124,22 @@ void checkSessionDetails(const SessionInfo& s, const Welcome& w,
     CHECK(s.features().supports(ClientFeatures::provided()));
     CHECK(s.agent() == Version::agentString());
 
-    auto t = s.transport();
+    auto c = s.connection();
+    auto t = c.transport();
     CHECK(t["protocol"] == String{"TCP"});
     CHECK(t["server"] == String{"tcp12345"});
     auto ipv = t["ip_version"];
     CHECK((ipv == 4 || ipv == 6));
     CHECK(wamp::isNumber(t["port"]));
-    auto addr = t["address"];
-    REQUIRE(addr.is<String>());
-    CHECK_FALSE(addr.as<String>().empty());
+    auto addrVariant = t["address"];
+    REQUIRE(addrVariant.is<String>());
+    auto addr = addrVariant.as<String>();
+    CHECK_FALSE(addr.empty());
+    auto epVariant = t["endpoint"];
+    REQUIRE(epVariant.is<String>());
+    auto ep = epVariant.as<String>();
+    CHECK(ep == c.endpoint());
+    CHECK(c.endpoint().find(addr) != std::string::npos);
     if (ipv == 4)
         CHECK(wamp::isNumber(t["numeric_address"]));
 }

@@ -342,13 +342,16 @@ inline void DirectRouterSession::connect(DirectRouterLink&& link)
 
     RouterContext router{link.router({})};
     Base::setRouterLogger(router.logger());
-    auto n = router.nextDirectSessionIndex();
     std::string endpointLabel;
     if (link.endpointLabel({}).empty())
         endpointLabel = "direct";
     else
         endpointLabel = std::move(link.endpointLabel({}));
-    Base::connect({std::move(endpointLabel), "direct", n});
+    Object transport{{"protocol", "direct"},
+                     {"endpoint", endpointLabel}};
+    ConnectionInfo info{std::move(transport), std::move(endpointLabel)};
+    info.setServer({}, "direct", router.nextDirectSessionIndex());
+    Base::connect(std::move(info));
 }
 
 inline Object DirectRouterSession::open(Petition&& hello)
@@ -360,10 +363,7 @@ inline Object DirectRouterSession::open(Petition&& hello)
 
     Base::open(hello);
     auto info = internal::SessionInfoImpl::create(authInfo_);
-    Object transport{{"protocol", "direct"},
-                     {"address", Base::endpointLabel()}};
-    info->setClientDetails(std::move(transport), Version::agentString(),
-                           ClientFeatures::provided());
+    info->setAgent(Version::agentString(), ClientFeatures::provided());
     auto welcomeDetails = info->join(hello.uri());
     Base::join(std::move(info));
     return welcomeDetails;

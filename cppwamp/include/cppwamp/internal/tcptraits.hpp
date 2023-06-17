@@ -7,7 +7,8 @@
 #ifndef CPPWAMP_INTERNAL_TCPTRAITS_HPP
 #define CPPWAMP_INTERNAL_TCPTRAITS_HPP
 
-#include "../variant.hpp"
+#include <sstream>
+#include "../connectioninfo.hpp"
 
 namespace wamp
 {
@@ -19,8 +20,10 @@ namespace internal
 struct TcpTraits
 {
     template <typename TEndpoint>
-    static Object remoteEndpointDetails(const TEndpoint& ep)
+    static ConnectionInfo connectionInfo(const TEndpoint& ep)
     {
+        std::ostringstream oss;
+        oss << ep;
         auto addr = ep.address();
         bool isIpv6 = addr.is_v6();
 
@@ -28,6 +31,7 @@ struct TcpTraits
         {
             {"address", addr.to_string()},
             {"ip_version", isIpv6 ? 6 : 4},
+            {"endpoint", oss.str()},
             {"port", ep.port()},
             {"protocol", "TCP"},
         };
@@ -37,7 +41,7 @@ struct TcpTraits
             details.emplace("numeric_address", addr.to_v4().to_uint());
         }
 
-        return details;
+        return {std::move(details), oss.str()};
     }
 };
 

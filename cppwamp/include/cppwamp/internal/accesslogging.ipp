@@ -37,13 +37,13 @@ CPPWAMP_INLINE void outputAccessLogEntry(
         }
     };
 
-    const auto& t = entry.connection;
+    const auto& c = entry.connection;
     const auto& s = entry.session;
     const auto& a = entry.action;
     AccessLogEntry::outputTime(out, entry.when);
-    PutField{out} << t.serverName;
-    out << " | " << t.serverSessionIndex;
-    PutField{out} << t.endpoint << s.realmUri() << s.auth().id() << s.agent();
+    PutField{out} << c.server();
+    out << " | " << c.serverSessionNumber();
+    PutField{out} << c.endpoint() << s.realmUri() << s.auth().id() << s.agent();
     if (a.requestId == nullId())
         out << " | -";
     else
@@ -66,20 +66,6 @@ CPPWAMP_INLINE void outputAccessLogEntry(
 }
 
 } // namespace internal
-
-
-//******************************************************************************
-// AccessConnectionInfo
-//******************************************************************************
-
-CPPWAMP_INLINE AccessConnectionInfo::AccessConnectionInfo() {}
-
-CPPWAMP_INLINE AccessConnectionInfo::AccessConnectionInfo(
-    std::string endpoint, std::string serverName, uint64_t serverSessionIndex)
-    : endpoint(std::move(endpoint)),
-      serverName(std::move(serverName)),
-      serverSessionIndex(std::move(serverSessionIndex))
-{}
 
 
 //******************************************************************************
@@ -199,7 +185,7 @@ CPPWAMP_INLINE std::ostream& AccessLogEntry::outputTime(std::ostream& out,
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE AccessLogEntry::AccessLogEntry(AccessConnectionInfo connection,
+CPPWAMP_INLINE AccessLogEntry::AccessLogEntry(ConnectionInfo connection,
                                               SessionInfo session,
                                               AccessActionInfo action)
     : connection(std::move(connection)),

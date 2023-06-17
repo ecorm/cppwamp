@@ -7,7 +7,8 @@
 #ifndef CPPWAMP_INTERNAL_UDSTRAITS_HPP
 #define CPPWAMP_INTERNAL_UDSTRAITS_HPP
 
-#include "../variant.hpp"
+#include <sstream>
+#include "../connectioninfo.hpp"
 
 namespace wamp
 {
@@ -19,13 +20,19 @@ namespace internal
 struct UdsTraits
 {
     template <typename TEndpoint>
-    static Object remoteEndpointDetails(const TEndpoint& ep)
+    static ConnectionInfo connectionInfo(const TEndpoint& ep)
     {
-        return Object
+        std::ostringstream oss;
+        oss << ep;
+
+        Object details
         {
+            {"endpoint", oss.str()},
             {"path", ep.path()},
             {"protocol", "UDS"},
         };
+
+        return {std::move(details), oss.str()};
     }
 };
 

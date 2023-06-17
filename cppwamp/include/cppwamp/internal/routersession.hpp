@@ -10,8 +10,8 @@
 #include <atomic>
 #include <cstring>
 #include <memory>
-#include "../accesslogging.hpp"
 #include "../clientinfo.hpp"
+#include "../connectioninfo.hpp"
 #include "../pubsubinfo.hpp"
 #include "../rpcinfo.hpp"
 #include "../sessioninfo.hpp"
@@ -146,10 +146,10 @@ protected:
         logger_->log(std::move(e));
     }
 
-    void connect(AccessConnectionInfo&& info)
+    void connect(ConnectionInfo info)
     {
-        logSuffix_ = " [Session " + info.serverName + '/' +
-                     std::to_string(info.serverSessionIndex) + ']';
+        logSuffix_ = " [Session " + info.server() + '/' +
+                     std::to_string(info.serverSessionNumber()) + ']';
         connectionInfo_ = std::move(info);
     }
 
@@ -160,6 +160,7 @@ protected:
 
     void join(SessionInfoImpl::Ptr info)
     {
+        info->setConnection(connectionInfo_);
         info_ = std::move(info);
     }
 
@@ -171,10 +172,10 @@ protected:
         lastInsertedCallRequestId_.store(0);
     }
 
-    const std::string endpointLabel() const {return connectionInfo_.endpoint;}
+    const ConnectionInfo& connectionInfo() const {return connectionInfo_;}
 
 private:
-    AccessConnectionInfo connectionInfo_;
+    ConnectionInfo connectionInfo_;
     String logSuffix_;
     ReservedId wampId_;
     RouterLogger::Ptr logger_;

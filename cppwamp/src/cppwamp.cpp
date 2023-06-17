@@ -21,6 +21,7 @@
 #include <cppwamp/internal/cancellation.ipp>
 #include <cppwamp/internal/cbor.ipp>
 #include <cppwamp/internal/clientinfo.ipp>
+#include <cppwamp/internal/connectioninfo.ipp>
 #include <cppwamp/internal/consolelogger.ipp>
 #include <cppwamp/internal/directsession.ipp>
 #include <cppwamp/internal/errorcodes.ipp>

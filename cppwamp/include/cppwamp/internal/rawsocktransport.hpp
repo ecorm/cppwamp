@@ -189,20 +189,11 @@ public:
         pingStart_ = std::chrono::high_resolution_clock::now();
     }
 
-    std::string remoteEndpointLabel() override
+    ConnectionInfo connectionInfo() const override
     {
         if (!socket_)
             return {};
-        std::ostringstream oss;
-        oss << socket_->remote_endpoint();
-        return oss.str();
-    }
-
-    Object remoteEndpointDetails() override
-    {
-        if (!socket_)
-            return {};
-        return TTraits::remoteEndpointDetails(socket_->remote_endpoint());
+        return TTraits::connectionInfo(socket_->remote_endpoint());
     }
 
 private:

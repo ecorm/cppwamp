@@ -31,10 +31,9 @@ CPPWAMP_INLINE const AuthInfo& SessionInfo::auth() const
     return impl_ ? impl_->auth() : empty;
 }
 
-CPPWAMP_INLINE const Object& SessionInfo::transport() const
+CPPWAMP_INLINE ConnectionInfo SessionInfo::connection() const
 {
-    static const Object empty;
-    return impl_ ? impl_->transport() : empty;
+    return impl_ ? impl_->connection() : ConnectionInfo{};
 }
 
 CPPWAMP_INLINE const String& SessionInfo::agent() const

@@ -29,20 +29,6 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-// TODO: Pass via shared_ptr
-struct CPPWAMP_API AccessConnectionInfo
-{
-    AccessConnectionInfo();
-
-    AccessConnectionInfo(std::string endpoint, std::string serverName,
-                         uint64_t serverSessionIndex);
-
-    std::string endpoint;
-    std::string serverName;
-    uint64_t serverSessionIndex = 0;
-};
-
-//------------------------------------------------------------------------------
 enum class AccessAction
 {
     clientConnect,
@@ -105,13 +91,6 @@ struct CPPWAMP_API AccessActionInfo
     AccessActionInfo(Action action, RequestId r, std::string target,
                      Object options, WampErrc errc);
 
-    template <typename T>
-    AccessActionInfo(std::string action, std::string target,
-                     Object options, const ErrorOr<T>& x)
-        : AccessActionInfo(std::move(action), std::move(target),
-                           std::move(options), toErrorUri(x))
-    {}
-
     std::string target;
     std::string errorUri;
     Object options;
@@ -138,11 +117,11 @@ struct CPPWAMP_API AccessLogEntry
     static std::ostream& outputTime(std::ostream& out, TimePoint when);
 
     /** Constructor. */
-    AccessLogEntry(AccessConnectionInfo connection, SessionInfo session,
+    AccessLogEntry(ConnectionInfo connection, SessionInfo session,
                    AccessActionInfo action);
 
     /** The connection information. */
-    AccessConnectionInfo connection;
+    ConnectionInfo connection;
 
     /** The session information. */
     SessionInfo session;

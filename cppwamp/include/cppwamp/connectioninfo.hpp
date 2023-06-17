@@ -4,75 +4,68 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_SESSIONINFO_HPP
-#define CPPWAMP_SESSIONINFO_HPP
+#ifndef CPPWAMP_CONNECTIONINFO_HPP
+#define CPPWAMP_CONNECTIONINFO_HPP
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains facilities for reporting session information. */
+    @brief Contains facilities for reporting session connection information. */
 //------------------------------------------------------------------------------
 
 #include <cstdint>
 #include <memory>
 #include "api.hpp"
-#include "authinfo.hpp"
-#include "connectioninfo.hpp"
-#include "features.hpp"
-#include "wampdefs.hpp"
 #include "variant.hpp"
 #include "internal/passkey.hpp"
 
 namespace wamp
 {
 
-namespace internal {class SessionInfoImpl;}
+namespace internal {class ConnectionInfoImpl;}
 
 //------------------------------------------------------------------------------
-/** Contains meta-data associated with a WAMP client session.
+/** Contains connection information associated with a WAMP client session.
 
     This is a reference-counted lightweight proxy to the actual object
     containing the information. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API SessionInfo
+class CPPWAMP_API ConnectionInfo
 {
 public:
+    using ServerSessionNumber = uint64_t;
+
     /** Default constructor. */
-    SessionInfo();
+    ConnectionInfo();
 
-    /** Obtains the session ID. */
-    SessionId sessionId() const;
+    ConnectionInfo(Object transport, std::string endpoint);
 
-    /** Obtains the realm URI. */
-    const Uri& realmUri() const;
+    const Object& transport() const;
 
-    /** Obtains the authentication information. */
-    const AuthInfo& auth() const;
+    const std::string& endpoint() const;
 
-    /** Obtains the connection information. */
-    ConnectionInfo connection() const;
+    const std::string& server() const;
 
-    /** Obtains the client agent string. */
-    const String& agent() const;
-
-    /** Obtains the client supported features flags. */
-    ClientFeatures features() const;
+    ServerSessionNumber serverSessionNumber() const;
 
     /** Returns true if this proxy object points to an actual
         information object. */
     explicit operator bool() const;
 
 private:
-    std::shared_ptr<const internal::SessionInfoImpl> impl_;
+    std::shared_ptr<internal::ConnectionInfoImpl> impl_;
 
 public: // Internal use only
-    SessionInfo(internal::PassKey,
-                std::shared_ptr<const internal::SessionInfoImpl> impl);
+    ConnectionInfo(internal::PassKey,
+                   std::shared_ptr<internal::ConnectionInfoImpl> impl);
+
+    void setServer(internal::PassKey, std::string server,
+                   ServerSessionNumber n);
 };
 
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/sessioninfo.ipp"
+#include "internal/connectioninfo.ipp"
 #endif
 
-#endif // CPPWAMP_SESSIONINFO_HPP
+#endif // CPPWAMP_CONNECTIONINFO_HPP

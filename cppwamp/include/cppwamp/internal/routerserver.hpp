@@ -148,7 +148,6 @@ private:
     ServerSession(const IoStrand& i, Transporting::Ptr&& t, AnyBufferCodec&& c,
                   ServerContext&& s, ServerConfig::Ptr sc, Index sessionIndex)
         : Base(s.logger()),
-          transportDetails_(t->remoteEndpointDetails()),
           strand_(std::move(i)),
           peer_(std::make_shared<NetworkPeer>(true)),
           transport_(t),
@@ -158,9 +157,9 @@ private:
           uriValidator_(server_.uriValidator())
     {
         assert(serverConfig_ != nullptr);
-        Base::connect({t->remoteEndpointLabel(), serverConfig_->name(),
-                                sessionIndex});
-        transportDetails_.emplace("server", serverConfig_->name());
+        auto info = t->connectionInfo();
+        info.setServer({}, serverConfig_->name(), sessionIndex);
+        Base::connect(std::move(info));
         peer_->listen(this);
     }
 
@@ -412,8 +411,7 @@ private:
         auto realmUri = std::move(hello.uri({}));
         auto welcomeDetails = info->join(realmUri,
                                          RouterFeatures::providedRoles());
-        info->setClientDetails(transportDetails_, hello.agentOrEmptyString({}),
-                               hello.features());
+        info->setAgent(hello.agentOrEmptyString({}), hello.features());
         authExchange_.reset();
         Base::join(std::move(info));
 
@@ -468,7 +466,6 @@ private:
         dispatch(F{shared_from_this(), std::forward<Ts>(args)...});
     }
 
-    Object transportDetails_;
     IoStrand strand_;
     std::shared_ptr<NetworkPeer> peer_;
     Transporting::Ptr transport_;

@@ -22,6 +22,7 @@ set(HEADERS
     include/cppwamp/codec.hpp
     include/cppwamp/config.hpp
     include/cppwamp/connector.hpp
+    include/cppwamp/connectioninfo.hpp
     include/cppwamp/conversionaccess.hpp
     include/cppwamp/corounpacker.hpp
     include/cppwamp/directsession.hpp
@@ -79,6 +80,7 @@ set(HEADERS
     include/cppwamp/internal/client.hpp
     include/cppwamp/internal/clientcontext.hpp
     include/cppwamp/internal/commandinfo.hpp
+    include/cppwamp/internal/connectioninfoimpl.hpp
     include/cppwamp/internal/dealer.hpp
     include/cppwamp/internal/directpeer.hpp
     include/cppwamp/internal/endian.hpp
@@ -151,6 +153,7 @@ set(INLINES
     include/cppwamp/internal/callerstreaming.ipp
     include/cppwamp/internal/cancellation.ipp
     include/cppwamp/internal/cbor.ipp
+    include/cppwamp/internal/connectioninfo.ipp
     include/cppwamp/internal/consolelogger.ipp
     include/cppwamp/internal/clientinfo.ipp
     include/cppwamp/internal/directsession.ipp
