@@ -116,7 +116,7 @@ public:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/errorinfo.ipp"
+#include "internal/errorinfo.inl.hpp"
 #endif
 
 #endif // CPPWAMP_ERRORINFO_HPP

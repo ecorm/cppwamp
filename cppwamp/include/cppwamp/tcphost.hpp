@@ -91,7 +91,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/tcphost.ipp"
+#include "internal/tcphost.inl.hpp"
 #endif
 
 #endif // CPPWAMP_TCPHOST_HPP

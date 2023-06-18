@@ -57,7 +57,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/directsession.ipp"
+#include "internal/directsession.inl.hpp"
 #endif
 
 #endif // CPPWAMP_DIRECTSESSION_HPP

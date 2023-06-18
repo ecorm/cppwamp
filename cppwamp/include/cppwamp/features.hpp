@@ -222,7 +222,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/features.ipp"
+#include "internal/features.inl.hpp"
 #endif
 
 #endif // CPPWAMP_FEATURES_HPP

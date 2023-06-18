@@ -68,7 +68,7 @@ CPPWAMP_API std::ostream& operator<<(std::ostream& out, const Blob& blob);
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/blob.ipp"
+#include "internal/blob.inl.hpp"
 #endif
 
 #endif // CPPWAMP_BLOB_HPP

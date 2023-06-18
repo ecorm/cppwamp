@@ -123,7 +123,7 @@ public: // Internal use only
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/router.ipp"
+#include "internal/router.inl.hpp"
 #endif
 
 #endif // CPPWAMP_ROUTER_HPP

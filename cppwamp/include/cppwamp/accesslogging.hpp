@@ -198,7 +198,7 @@ using AccessLogFilter = BasicAccessLogFilter<DefaultAccessLogFilterPolicy>;
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/accesslogging.ipp"
+#include "internal/accesslogging.inl.hpp"
 #endif
 
 #endif // CPPWAMP_ACCESSLOGGING_HPP

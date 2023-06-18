@@ -414,7 +414,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/clientinfo.ipp"
+#include "internal/clientinfo.inl.hpp"
 #endif
 
 #endif // CPPWAMP_CLIENTINFO_HPP

@@ -189,7 +189,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/realmobserver.ipp"
+#include "internal/realmobserver.inl.hpp"
 #endif
 
 #endif // CPPWAMP_REALMOBSERVER_HPP

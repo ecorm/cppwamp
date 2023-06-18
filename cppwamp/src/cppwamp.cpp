@@ -10,50 +10,50 @@
 
 #include <cppwamp/config.hpp>
 
-#include <cppwamp/internal/accesslogging.ipp>
-#include <cppwamp/internal/anonymousauthenticator.ipp>
-#include <cppwamp/internal/authinfo.ipp>
-#include <cppwamp/internal/authorizer.ipp>
-#include <cppwamp/internal/authenticator.ipp>
-#include <cppwamp/internal/blob.ipp>
-#include <cppwamp/internal/calleestreaming.ipp>
-#include <cppwamp/internal/callerstreaming.ipp>
-#include <cppwamp/internal/cancellation.ipp>
-#include <cppwamp/internal/cbor.ipp>
-#include <cppwamp/internal/clientinfo.ipp>
-#include <cppwamp/internal/connectioninfo.ipp>
-#include <cppwamp/internal/consolelogger.ipp>
-#include <cppwamp/internal/directsession.ipp>
-#include <cppwamp/internal/errorcodes.ipp>
-#include <cppwamp/internal/errorinfo.ipp>
-#include <cppwamp/internal/exceptions.ipp>
-#include <cppwamp/internal/features.ipp>
-#include <cppwamp/internal/json.ipp>
-#include <cppwamp/internal/logging.ipp>
-#include <cppwamp/internal/messagetraits.ipp>
-#include <cppwamp/internal/msgpack.ipp>
-#include <cppwamp/internal/pubsubinfo.ipp>
-#include <cppwamp/internal/realm.ipp>
-#include <cppwamp/internal/realmobserver.ipp>
-#include <cppwamp/internal/registration.ipp>
-#include <cppwamp/internal/router.ipp>
-#include <cppwamp/internal/routerconfig.ipp>
-#include <cppwamp/internal/rpcinfo.ipp>
-#include <cppwamp/internal/session.ipp>
-#include <cppwamp/internal/sessioninfo.ipp>
-#include <cppwamp/internal/streaming.ipp>
-#include <cppwamp/internal/streamlogger.ipp>
-#include <cppwamp/internal/subscription.ipp>
-#include <cppwamp/internal/tcp.ipp>
-#include <cppwamp/internal/tcpendpoint.ipp>
-#include <cppwamp/internal/tcphost.ipp>
-#include <cppwamp/internal/tcpprotocol.ipp>
-#include <cppwamp/internal/variant.ipp>
-#include <cppwamp/internal/version.ipp>
-#include <cppwamp/internal/wildcarduri.ipp>
+#include <cppwamp/internal/accesslogging.inl.hpp>
+#include <cppwamp/internal/anonymousauthenticator.inl.hpp>
+#include <cppwamp/internal/authinfo.inl.hpp>
+#include <cppwamp/internal/authorizer.inl.hpp>
+#include <cppwamp/internal/authenticator.inl.hpp>
+#include <cppwamp/internal/blob.inl.hpp>
+#include <cppwamp/internal/calleestreaming.inl.hpp>
+#include <cppwamp/internal/callerstreaming.inl.hpp>
+#include <cppwamp/internal/cancellation.inl.hpp>
+#include <cppwamp/internal/cbor.inl.hpp>
+#include <cppwamp/internal/clientinfo.inl.hpp>
+#include <cppwamp/internal/connectioninfo.inl.hpp>
+#include <cppwamp/internal/consolelogger.inl.hpp>
+#include <cppwamp/internal/directsession.inl.hpp>
+#include <cppwamp/internal/errorcodes.inl.hpp>
+#include <cppwamp/internal/errorinfo.inl.hpp>
+#include <cppwamp/internal/exceptions.inl.hpp>
+#include <cppwamp/internal/features.inl.hpp>
+#include <cppwamp/internal/json.inl.hpp>
+#include <cppwamp/internal/logging.inl.hpp>
+#include <cppwamp/internal/messagetraits.inl.hpp>
+#include <cppwamp/internal/msgpack.inl.hpp>
+#include <cppwamp/internal/pubsubinfo.inl.hpp>
+#include <cppwamp/internal/realm.inl.hpp>
+#include <cppwamp/internal/realmobserver.inl.hpp>
+#include <cppwamp/internal/registration.inl.hpp>
+#include <cppwamp/internal/router.inl.hpp>
+#include <cppwamp/internal/routerconfig.inl.hpp>
+#include <cppwamp/internal/rpcinfo.inl.hpp>
+#include <cppwamp/internal/session.inl.hpp>
+#include <cppwamp/internal/sessioninfo.inl.hpp>
+#include <cppwamp/internal/streaming.inl.hpp>
+#include <cppwamp/internal/streamlogger.inl.hpp>
+#include <cppwamp/internal/subscription.inl.hpp>
+#include <cppwamp/internal/tcp.inl.hpp>
+#include <cppwamp/internal/tcpendpoint.inl.hpp>
+#include <cppwamp/internal/tcphost.inl.hpp>
+#include <cppwamp/internal/tcpprotocol.inl.hpp>
+#include <cppwamp/internal/variant.inl.hpp>
+#include <cppwamp/internal/version.inl.hpp>
+#include <cppwamp/internal/wildcarduri.inl.hpp>
 
 #ifdef CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
-    #include <cppwamp/internal/uds.ipp>
-    #include <cppwamp/internal/udspath.ipp>
-    #include <cppwamp/internal/udsprotocol.ipp>
+    #include <cppwamp/internal/uds.inl.hpp>
+    #include <cppwamp/internal/udspath.inl.hpp>
+    #include <cppwamp/internal/udsprotocol.inl.hpp>
 #endif

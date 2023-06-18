@@ -173,7 +173,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/streaming.ipp"
+#include "internal/streaming.inl.hpp"
 #endif
 
 #endif // CPPWAMP_STREAMING_HPP

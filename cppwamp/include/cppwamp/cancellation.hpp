@@ -103,7 +103,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/cancellation.ipp"
+#include "internal/cancellation.inl.hpp"
 #endif
 
 #endif // CPPWAMP_CANCELLATION_HPP

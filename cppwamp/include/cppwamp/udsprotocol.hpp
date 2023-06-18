@@ -97,7 +97,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/udsprotocol.ipp"
+#include "internal/udsprotocol.inl.hpp"
 #endif
 
 #endif // CPPWAMP_UDSPROTOCOL_HPP

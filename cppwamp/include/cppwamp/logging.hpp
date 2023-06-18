@@ -123,7 +123,7 @@ std::ostream& outputLogEntryTime(std::ostream& out,
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/logging.ipp"
+#include "internal/logging.inl.hpp"
 #endif
 
 #endif // CPPWAMP_LOGGING_HPP_HPP

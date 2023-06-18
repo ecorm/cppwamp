@@ -1511,7 +1511,7 @@ inline const Variant& FromVariantConverter::variant() const {return var_;}
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-    #include "internal/variant.ipp"
+    #include "internal/variant.inl.hpp"
 #endif
 
 #endif // CPPWAMP_VARIANT_HPP

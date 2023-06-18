@@ -88,7 +88,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/uds.ipp"
+#include "internal/uds.inl.hpp"
 #endif
 
 #endif // CPPWAMP_UDS_HPP

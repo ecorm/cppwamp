@@ -134,7 +134,7 @@ using JsonStreamDecoder = JsonDecoder<StreamSource>;
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-    #include "internal/json.ipp"
+    #include "internal/json.inl.hpp"
 #endif
 
 #endif // CPPWAMP_JSON_HPP

@@ -127,7 +127,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/realm.ipp"
+#include "internal/realm.inl.hpp"
 #endif
 
 #endif // CPPWAMP_REALM_HPP

@@ -404,7 +404,7 @@ struct CPPWAMP_API is_error_condition_enum<wamp::MiscErrc>
 
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/errorcodes.ipp"
+#include "internal/errorcodes.inl.hpp"
 #endif
 
 #endif // CPPWAMP_ERRORCODES_HPP

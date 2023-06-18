@@ -111,7 +111,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/subscription.ipp"
+#include "internal/subscription.inl.hpp"
 #endif
 
 #endif // CPPWAMP_SUBSCRIPTION_HPP

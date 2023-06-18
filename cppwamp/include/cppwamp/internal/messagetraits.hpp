@@ -308,7 +308,7 @@ struct CPPWAMP_API MessageTraits
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "messagetraits.ipp"
+#include "messagetraits.inl.hpp"
 #endif
 
 #endif // CPPWAMP_MESSSAGE_TRAITS_HPP

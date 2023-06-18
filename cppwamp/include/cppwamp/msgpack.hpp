@@ -133,7 +133,7 @@ using MsgpackStreamDecoder = MsgpackDecoder<StreamSource>;
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/msgpack.ipp"
+#include "internal/msgpack.inl.hpp"
 #endif
 
 #endif // CPPWAMP_MSGPACK_HPP

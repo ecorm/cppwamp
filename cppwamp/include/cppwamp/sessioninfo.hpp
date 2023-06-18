@@ -72,7 +72,7 @@ public: // Internal use only
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/sessioninfo.ipp"
+#include "internal/sessioninfo.inl.hpp"
 #endif
 
 #endif // CPPWAMP_SESSIONINFO_HPP

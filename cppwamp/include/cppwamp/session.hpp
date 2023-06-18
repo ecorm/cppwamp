@@ -1087,7 +1087,7 @@ Session::initiate(C&& token, As&&... args)
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/session.ipp"
+#include "internal/session.inl.hpp"
 #endif
 
 #endif // CPPWAMP_SESSION_HPP

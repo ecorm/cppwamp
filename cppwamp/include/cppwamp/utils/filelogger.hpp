@@ -57,7 +57,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "../internal/filelogger.ipp"
+#include "../internal/filelogger.inl.hpp"
 #endif
 
 #endif // CPPWAMP_UTILS_FILELOGGER_HPP

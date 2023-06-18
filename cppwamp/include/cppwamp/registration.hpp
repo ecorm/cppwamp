@@ -110,7 +110,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/registration.ipp"
+#include "internal/registration.inl.hpp"
 #endif
 
 #endif // CPPWAMP_REGISTRATION_HPP

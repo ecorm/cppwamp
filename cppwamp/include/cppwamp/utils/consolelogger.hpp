@@ -90,7 +90,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "../internal/consolelogger.ipp"
+#include "../internal/consolelogger.inl.hpp"
 #endif
 
 #endif // CPPWAMP_UTILS_CONSOLELOGGER_HPP

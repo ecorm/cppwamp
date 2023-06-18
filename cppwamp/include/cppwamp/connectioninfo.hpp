@@ -65,7 +65,7 @@ public: // Internal use only
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/connectioninfo.ipp"
+#include "internal/connectioninfo.inl.hpp"
 #endif
 
 #endif // CPPWAMP_CONNECTIONINFO_HPP

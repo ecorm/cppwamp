@@ -58,7 +58,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "../internal/streamlogger.ipp"
+#include "../internal/streamlogger.inl.hpp"
 #endif
 
 #endif // CPPWAMP_UTILS_STREAMLOGGER_HPP

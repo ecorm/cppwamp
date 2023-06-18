@@ -89,7 +89,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/tcp.ipp"
+#include "internal/tcp.inl.hpp"
 #endif
 
 #endif // CPPWAMP_TCP_HPP

@@ -111,7 +111,7 @@ struct CPPWAMP_API Conversion : public BadType
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/exceptions.ipp"
+#include "internal/exceptions.inl.hpp"
 #endif
 
 #endif // CPPWAMP_EXCEPTIONS_HPP

@@ -133,7 +133,7 @@ using CborStreamDecoder = CborDecoder<StreamSource>;
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/cbor.ipp"
+#include "internal/cbor.inl.hpp"
 #endif
 
 #endif // CPPWAMP_CBOR_HPP

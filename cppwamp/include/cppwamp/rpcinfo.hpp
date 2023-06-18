@@ -747,7 +747,7 @@ TrustLevel RpcLike<D>::trustLevel(internal::PassKey) const
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/rpcinfo.ipp"
+#include "internal/rpcinfo.inl.hpp"
 #endif
 
 #endif // CPPWAMP_RPCINFO_HPP

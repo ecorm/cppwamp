@@ -458,7 +458,7 @@ bool WildcardMatcher<C>::canSearchThisLevel(const Token& token) const
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "../internal/wildcarduri.ipp"
+#include "../internal/wildcarduri.inl.hpp"
 #endif
 
 #endif // CPPWAMP_UTILS_WILDCARDURI_HPP

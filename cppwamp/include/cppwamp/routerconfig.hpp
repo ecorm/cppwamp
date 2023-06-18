@@ -179,7 +179,7 @@ public:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/routerconfig.ipp"
+#include "internal/routerconfig.inl.hpp"
 #endif
 
 #endif // CPPWAMP_ROUTERCONFIG_HPP

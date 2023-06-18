@@ -236,7 +236,7 @@ public:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/pubsubinfo.ipp"
+#include "internal/pubsubinfo.inl.hpp"
 #endif
 
 #endif // CPPWAMP_PUBSUBINFO_HPP

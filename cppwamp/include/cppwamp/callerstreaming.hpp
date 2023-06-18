@@ -136,7 +136,7 @@ using CallerChannelImpl = internal::BasicCallerChannelImpl<CallerChannel>;
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/callerstreaming.ipp"
+#include "internal/callerstreaming.inl.hpp"
 #endif
 
 #endif // CPPWAMP_CALLERSTREAMING_HPP

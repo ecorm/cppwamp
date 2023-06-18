@@ -97,7 +97,7 @@ public:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/authenticator.ipp"
+#include "internal/authenticator.inl.hpp"
 #endif
 
 #endif // CPPWAMP_AUTHENTICATOR_HPP

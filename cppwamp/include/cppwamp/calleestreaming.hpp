@@ -203,7 +203,7 @@ using CalleeChannelImpl = internal::BasicCalleeChannelImpl<CalleeChannel>;
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/calleestreaming.ipp"
+#include "internal/calleestreaming.inl.hpp"
 #endif
 
 #endif // CPPWAMP_CALLEESTREAMING_HPP

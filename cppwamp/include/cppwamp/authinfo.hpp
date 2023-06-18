@@ -73,7 +73,7 @@ public: // Internal use only
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/authinfo.ipp"
+#include "internal/authinfo.inl.hpp"
 #endif
 
 #endif // CPPWAMP_AUTHINFO_HPP
