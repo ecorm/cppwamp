@@ -7,8 +7,6 @@
 #include "../cbor.hpp"
 #include <jsoncons_ext/cbor/cbor_encoder.hpp>
 #include <jsoncons_ext/cbor/cbor_parser.hpp>
-#include "../api.hpp"
-#include "../traits.hpp"
 #include "variantdecoding.hpp"
 #include "variantencoding.hpp"
 

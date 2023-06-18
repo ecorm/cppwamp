@@ -12,7 +12,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "varianttraits.hpp"
 #include "../api.hpp"
 #include "jsonencoding.hpp"
 

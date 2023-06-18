@@ -14,7 +14,6 @@
 #include "../traits.hpp"
 #include "jsonencoding.hpp"
 #include "variantdecoding.hpp"
-#include "variantencoding.hpp"
 
 namespace wamp
 {

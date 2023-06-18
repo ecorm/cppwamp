@@ -7,8 +7,6 @@
 #include "../msgpack.hpp"
 #include <jsoncons_ext/msgpack/msgpack_encoder.hpp>
 #include <jsoncons_ext/msgpack/msgpack_parser.hpp>
-#include "../api.hpp"
-#include "../traits.hpp"
 #include "variantdecoding.hpp"
 #include "variantencoding.hpp"
 

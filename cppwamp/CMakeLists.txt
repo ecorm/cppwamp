@@ -85,7 +85,6 @@ set(HEADERS
     include/cppwamp/internal/directpeer.hpp
     include/cppwamp/internal/endian.hpp
     include/cppwamp/internal/jsonencoding.hpp
-    include/cppwamp/internal/matchuri.hpp
     include/cppwamp/internal/matchpolicyoption.hpp
     include/cppwamp/internal/message.hpp
     include/cppwamp/internal/messagetraits.hpp
@@ -94,12 +93,15 @@ set(HEADERS
     include/cppwamp/internal/passkey.hpp
     include/cppwamp/internal/peer.hpp
     include/cppwamp/internal/peerlistener.hpp
+    include/cppwamp/internal/procedureregistry.hpp
     include/cppwamp/internal/random.hpp
     include/cppwamp/internal/rawsockconnector.hpp
     include/cppwamp/internal/rawsockhandshake.hpp
     include/cppwamp/internal/rawsockheader.hpp
     include/cppwamp/internal/rawsocklistener.hpp
     include/cppwamp/internal/rawsocktransport.hpp
+    include/cppwamp/internal/readership.hpp
+    include/cppwamp/internal/requestor.hpp
     include/cppwamp/internal/routercontext.hpp
     include/cppwamp/internal/routerimpl.hpp
     include/cppwamp/internal/routerrealm.hpp
