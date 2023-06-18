@@ -469,109 +469,12 @@ private:
 
 
 //------------------------------------------------------------------------------
-class Readership
+class SubscriptionRecord
 {
 public:
+    using SlotId = ClientLike::SlotId;
     using EventSlotKey = ClientLike::SubscriptionKey;
     using EventSlot = AnyReusableHandler<void (Event)>;
-
-    Readership(AnyIoExecutor exec) : executor_(std::move(exec)) {}
-
-    Subscription subscribe(MatchUri topic, EventSlot& handler,
-                           ClientContext subscriber)
-    {
-        assert(topic.policy() != MatchPolicy::unknown);
-        auto kv = byTopic_.find(topic);
-        if (kv == byTopic_.end())
-            return {};
-
-        return addSlotToExisingSubscription(kv->second, std::move(handler),
-                                            std::move(subscriber));
-    }
-
-    Subscription onSubscribed(SubscriptionId subId, MatchUri topic,
-                              EventSlot&& handler, ClientContext subscriber)
-    {
-        // Check if the router treats the topic as belonging to an existing
-        // subcription.
-        auto kv = subscriptions_.find(subId);
-        if (kv != subscriptions_.end())
-        {
-            return addSlotToExisingSubscription(kv, std::move(handler),
-                                                std::move(subscriber));
-        }
-
-        auto slotId = nextSlotId();
-        auto link = Link::create(subscriber, {subId, slotId});
-        auto emplaced =
-            subscriptions_.emplace(
-                std::piecewise_construct,
-                std::forward_as_tuple(subId),
-                std::forward_as_tuple(topic, slotId, std::move(handler), link));
-        assert(emplaced.second);
-
-        auto emplaced2 = byTopic_.emplace(std::move(topic), emplaced.first);
-        assert(emplaced2.second);
-
-        return Subscription({}, std::move(link));
-    }
-
-    // Returns true if the last local slot was removed from a subscription
-    // and the client needs to send an UNSUBSCRIBE message.
-    bool unsubscribe(EventSlotKey key)
-    {
-        auto subId = key.first;
-        auto kv = subscriptions_.find(subId);
-        if (kv == subscriptions_.end())
-            return false;
-
-        auto slotId = key.second;
-        auto& record = kv->second;
-        record.slots.erase(slotId);
-        if (!record.slots.empty())
-            return false;
-
-        byTopic_.erase(record.topic);
-        subscriptions_.erase(kv);
-        return true;
-    }
-
-    // Returns true if there are any subscriptions matching the event
-    bool onEvent(const Event& event, ClientContext subscriber)
-    {
-        auto found = subscriptions_.find(event.subscriptionId());
-        if (found == subscriptions_.end())
-            return false;
-
-        const auto& record = found->second;
-        assert(!record.slots.empty());
-        for (const auto& kv: record.slots)
-        {
-            const auto& slot = kv.second;
-            postEvent(event, slot);
-        }
-        return true;
-    }
-
-    const Uri& lookupTopicUri(SubscriptionId subId)
-    {
-        static const Uri empty;
-        auto found = subscriptions_.find(subId);
-        if (found == subscriptions_.end())
-            return empty;
-        return found->second.topic.uri();
-    }
-
-    void clear()
-    {
-        byTopic_.clear();
-        subscriptions_.clear();
-        nextSlotId_ = nullId();
-    }
-
-private:
-    using SlotId = ClientLike::SlotId;
-
     using Link = SlotLink<SubscriptionTag, EventSlotKey>;
 
     struct LinkedSlot
@@ -580,38 +483,42 @@ private:
         Link::Ptr link;
     };
 
-    struct Record
+    SubscriptionRecord(MatchUri topic, SubscriptionId subId, SlotId slotId,
+                       EventSlot&& handler, ClientContext subscriber,
+                       Subscription& subscription)
+        : topic_(std::move(topic)),
+          subId_(subId)
     {
-        Record(MatchUri topic, SlotId slotId, EventSlot&& handler,
-               Link::Ptr link)
-            : topic(std::move(topic))
-        {
-            slots.emplace(slotId,
-                          LinkedSlot{std::move(handler), std::move(link)});
-        }
+        auto link = Link::create(std::move(subscriber), {subId, slotId});
+        slots_.emplace(slotId, LinkedSlot{std::move(handler), link});
+        subscription = Subscription({}, std::move(link));
+    }
 
-        std::map<SlotId, LinkedSlot> slots;
-        MatchUri topic;
-    };
-
-    using SubscriptionMap = std::map<SubscriptionId, Record>;
-    using ByTopic = std::map<MatchUri, SubscriptionMap::iterator>;
-
-    Subscription addSlotToExisingSubscription(SubscriptionMap::iterator iter,
-                                              EventSlot&& handler,
-                                              ClientContext&& subscriber)
+    Subscription addSlot(SlotId slotId, EventSlot&& handler,
+                         ClientContext subscriber)
     {
-        auto subId = iter->first;
-        auto& record = iter->second;
-        auto slotId = nextSlotId();
-        auto link = Link::create(subscriber, {subId, slotId});
+        auto link = Link::create(subscriber, {subId_, slotId});
         LinkedSlot linkedSlot{std::move(handler), link};
-        auto emplaced = record.slots.emplace(slotId, std::move(linkedSlot));
+        auto emplaced = slots_.emplace(slotId, std::move(linkedSlot));
         assert(emplaced.second);
         return Subscription{{}, std::move(link)};
     }
 
-    void postEvent(Event event, const LinkedSlot& slot)
+    void removeSlot(SlotId slotId) {slots_.erase(slotId);}
+
+    const MatchUri& topic() const {return topic_;}
+
+    bool empty() const {return slots_.empty();}
+
+    void postEvent(const Event& event, AnyIoExecutor& executor) const
+    {
+        for (const auto& kv: slots_)
+            postEventToSlot(event, kv.second, executor);
+    }
+
+private:
+    static void postEventToSlot(Event event, const LinkedSlot& slot,
+                                AnyIoExecutor& executor)
     {
         struct Posted
         {
@@ -654,9 +561,118 @@ private:
         event.setExecutor({}, slotExec);
         Posted posted{std::move(event), std::move(slot)};
         boost::asio::post(
-            executor_,
+            executor,
             boost::asio::bind_executor(slotExec, std::move(posted)));
     }
+
+    std::map<SlotId, LinkedSlot> slots_;
+    MatchUri topic_;
+    SubscriptionId subId_;
+};
+
+//------------------------------------------------------------------------------
+class Readership
+{
+public:
+    using EventSlotKey = ClientLike::SubscriptionKey;
+    using EventSlot = AnyReusableHandler<void (Event)>;
+
+    Readership(AnyIoExecutor exec) : executor_(std::move(exec)) {}
+
+    SubscriptionRecord* findSubscription(const MatchUri& topic)
+    {
+        assert(topic.policy() != MatchPolicy::unknown);
+        auto kv = byTopic_.find(topic);
+        return kv == byTopic_.end() ? nullptr : &(kv->second->second);
+    }
+
+    Subscription addSubscriber(SubscriptionRecord& record, EventSlot&& handler,
+                               ClientContext subscriber)
+    {
+        return record.addSlot(nextSlotId(), std::move(handler),
+                              std::move(subscriber));
+    }
+
+    Subscription createSubscription(SubscriptionId subId, MatchUri topic,
+                                    EventSlot&& handler,
+                                    ClientContext subscriber)
+    {
+        // Check if the router treats the topic as belonging to an existing
+        // subcription.
+        auto kv = subscriptions_.find(subId);
+        if (kv != subscriptions_.end())
+        {
+            return addSubscriber(kv->second, std::move(handler),
+                                 std::move(subscriber));
+        }
+
+        auto slotId = nextSlotId();
+        Subscription subscription;
+        SubscriptionRecord record{topic, subId, slotId, std::move(handler),
+                                  std::move(subscriber), subscription};
+        auto emplaced = subscriptions_.emplace(subId, std::move(record));
+        assert(emplaced.second);
+
+        auto emplaced2 = byTopic_.emplace(std::move(topic), emplaced.first);
+        assert(emplaced2.second);
+
+        return subscription;
+    }
+
+    // Returns true if the last local slot was removed from a subscription
+    // and the client needs to send an UNSUBSCRIBE message.
+    bool unsubscribe(EventSlotKey key)
+    {
+        auto subId = key.first;
+        auto kv = subscriptions_.find(subId);
+        if (kv == subscriptions_.end())
+            return false;
+
+        auto slotId = key.second;
+        auto& record = kv->second;
+        record.removeSlot(slotId);
+        if (!record.empty())
+            return false;
+
+        byTopic_.erase(record.topic());
+        subscriptions_.erase(kv);
+        return true;
+    }
+
+    // Returns true if there are any subscriptions matching the event
+    bool onEvent(const Event& event)
+    {
+        auto found = subscriptions_.find(event.subscriptionId());
+        if (found == subscriptions_.end())
+            return false;
+
+        const auto& record = found->second;
+        assert(!record.empty());
+        record.postEvent(event, executor_);
+        return true;
+    }
+
+    const Uri& lookupTopicUri(SubscriptionId subId)
+    {
+        static const Uri empty;
+        auto found = subscriptions_.find(subId);
+        if (found == subscriptions_.end())
+            return empty;
+        return found->second.topic().uri();
+    }
+
+    void clear()
+    {
+        byTopic_.clear();
+        subscriptions_.clear();
+        nextSlotId_ = nullId();
+    }
+
+private:
+    using SlotId = ClientLike::SlotId;
+    using LinkedSlot = SubscriptionRecord::LinkedSlot;
+    using SubscriptionMap = std::map<SubscriptionId, SubscriptionRecord>;
+    using ByTopic = std::map<MatchUri, SubscriptionMap::iterator>;
 
     SlotId nextSlotId() {return nextSlotId_++;}
 
@@ -1575,7 +1591,7 @@ private:
     void onEvent(Message& msg)
     {
         Event event{{}, std::move(msg)};
-        bool ok = readership_.onEvent(event, makeContext());
+        bool ok = readership_.onEvent(event);
         if (!ok && incidentSlot_)
         {
             std::ostringstream oss;
@@ -1911,7 +1927,7 @@ private:
                 if (!me.checkReply(reply, MessageKind::subscribed, handler))
                     return;
                 Subscribed ack{std::move(*reply)};
-                auto sub = me.readership_.onSubscribed(
+                auto sub = me.readership_.createSubscription(
                     ack.subscriptionId(), std::move(matchUri), std::move(slot),
                     me.makeContext());
                 me.completeNow(handler, std::move(sub));
@@ -1922,14 +1938,19 @@ private:
             return;
 
         MatchUri matchUri{topic};
-        auto subscription = readership_.subscribe(matchUri, slot,
-                                                  makeContext());
-        if (subscription)
-            return complete(handler, std::move(subscription));
-
-        Requested requested{shared_from_this(), std::move(matchUri),
-                            std::move(slot), std::move(handler)};
-        request(std::move(topic), std::move(requested));
+        auto record = readership_.findSubscription(matchUri);
+        if (record)
+        {
+            auto subscription = readership_.addSubscriber(
+                *record, std::move(slot), makeContext());
+            complete(handler, std::move(subscription));
+        }
+        else
+        {
+            Requested requested{shared_from_this(), std::move(matchUri),
+                                std::move(slot), std::move(handler)};
+            request(std::move(topic), std::move(requested));
+        }
     }
 
     void doUnsubscribe(SubscriptionKey key)

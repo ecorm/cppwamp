@@ -73,6 +73,7 @@ namespace internal
         friend class SessionInfoImpl;
         friend class ServerSession;
         friend class StreamRecord;
+        friend class SubscriptionRecord;
         friend class UriChecker;
     };
 }
