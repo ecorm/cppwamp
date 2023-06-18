@@ -52,7 +52,7 @@ private:
     using Key = internal::RegistrationLink::Key;
 
     Link::WeakPtr link_;
-    RegistrationId regId_;
+    RegistrationId regId_ = nullId();
 
 public:
     // Internal use only

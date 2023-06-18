@@ -189,9 +189,9 @@ public:
         // by JsonVariantEncodingVisitor is required for WAMP's special
         // handling of Base64-encoded blobs.
         TSink sink(output);
-        Proxy proxy(sink);
-        encoder_.reset(std::move(proxy));
-        internal::JsonVariantEncodingVisitor<Encoder> visitor(proxy, encoder_);
+        encoder_.reset(Proxy{sink});
+        internal::JsonVariantEncodingVisitor<Encoder> visitor(Proxy{sink},
+                                                              encoder_);
         wamp::apply(visitor, variant);
     }
 

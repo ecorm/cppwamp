@@ -52,7 +52,7 @@ private:
     using Key = Link::Key;
 
     Link::WeakPtr link_;
-    SubscriptionId subId_;
+    SubscriptionId subId_ = nullId();
 
 public:
     // Internal use only

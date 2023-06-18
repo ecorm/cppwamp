@@ -345,9 +345,9 @@ public:
         postToSlot(chunkSlot_, std::move(chunk));
     }
 
-    bool postInterrupt(Interruption&& intr)
+    void postInterrupt(Interruption&& intr)
     {
-        return postToSlot(interruptSlot_, std::move(intr));
+        postToSlot(interruptSlot_, std::move(intr));
     }
 
 private:
@@ -371,7 +371,7 @@ private:
     }
 
     template <typename S, typename T>
-    bool postToSlot(const S& slot, T&& request)
+    void postToSlot(const S& slot, T&& request)
     {
         struct Posted
         {
@@ -398,14 +398,13 @@ private:
         };
 
         if (!slot)
-            return false;
+            return;
 
         auto exec = boost::asio::get_associated_executor(slot);
         Posted posted{this->shared_from_this(), slot, std::move(request)};
         boost::asio::post(
             executor_,
             boost::asio::bind_executor(exec, std::move(posted)));
-        return true;
     }
 
     RegistrationId registrationId_;

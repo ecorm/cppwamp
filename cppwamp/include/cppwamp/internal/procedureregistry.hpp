@@ -235,22 +235,17 @@ public:
         rec.interrupted = true;
         intr.setRegistrationId({}, rec.registrationId);
 
-        bool interruptHandled = false;
-
+        auto kv = procedures_.find(rec.registrationId);
+        if (kv != procedures_.end())
         {
-            auto kv = procedures_.find(rec.registrationId);
-            if (kv != procedures_.end())
-                interruptHandled = onProcedureInterruption(intr, kv->second);
+            onProcedureInterruption(intr, kv->second, rec);
         }
-
+        else
         {
             auto kv = streams_.find(rec.registrationId);
             if (kv != streams_.end())
-                interruptHandled = postStreamInterruption(intr, rec);
+                postStreamInterruption(intr, rec);
         }
-
-        if (!interruptHandled)
-            automaticallyRespondToInterruption(intr, rec);
     }
 
     const Uri& lookupProcedureUri(RegistrationId regId) const
@@ -317,13 +312,14 @@ private:
         return WampErrc::success;
     }
 
-    bool onProcedureInterruption(Interruption& intr,
-                                 const ProcedureRegistration& reg)
+    void onProcedureInterruption(Interruption& intr,
+                                 const ProcedureRegistration& reg,
+                                 InvocationRecord& rec)
     {
         if (reg.interruptSlot == nullptr)
-            return false;
-        postRpcRequest(reg.interruptSlot, intr, reg.link);
-        return true;
+            automaticallyRespondToInterruption(intr, rec);
+        else
+            postRpcRequest(reg.interruptSlot, intr, reg.link);
     }
 
     template <typename TSlot, typename TInvocationOrInterruption>
@@ -455,10 +451,13 @@ private:
         }
     }
 
-    bool postStreamInterruption(Interruption& intr, InvocationRecord& rec)
+    void postStreamInterruption(Interruption& intr, InvocationRecord& rec)
     {
         auto channel = rec.channel.lock();
-        return bool(channel) && channel->postInterrupt(std::move(intr));
+        if (bool(channel) && channel->hasInterruptHandler())
+            channel->postInterrupt(std::move(intr));
+        else
+            automaticallyRespondToInterruption(intr, rec);
     }
 
     void automaticallyRespondToInterruption(Interruption& intr,
