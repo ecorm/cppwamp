@@ -28,8 +28,10 @@ namespace endian
 inline uint32_t flip(uint32_t n)
 {
     // This usually optimizes to a single byte swap instruction.
+    // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
     return ((n & 0xFF000000u) >> 24u) | ((n & 0x00FF0000u) >> 8u) |
            ((n & 0x0000FF00u) << 8u) | ((n & 0x0000000FF) << 24u);
+    // NOLINTEND(cppcoreguidelines-avoid-magic-numbers)
 }
 
 constexpr bool nativeIsLittle()

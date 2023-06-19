@@ -12,7 +12,7 @@
 namespace wamp
 {
 
-CPPWAMP_INLINE ConnectionInfo::ConnectionInfo() {}
+CPPWAMP_INLINE ConnectionInfo::ConnectionInfo() = default;
 
 CPPWAMP_INLINE ConnectionInfo::ConnectionInfo(Object transport,
                                               std::string endpoint)

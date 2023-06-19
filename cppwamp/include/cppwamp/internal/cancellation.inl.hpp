@@ -28,7 +28,7 @@ struct CallCancellationSlot::Impl
 // CallCancellationSlot::Handler
 //******************************************************************************
 
-CPPWAMP_INLINE CallCancellationSlot::Handler::Handler() {}
+CPPWAMP_INLINE CallCancellationSlot::Handler::Handler() = default;
 
 CPPWAMP_INLINE CallCancellationSlot::Handler::Handler(
     internal::ClientContext caller, RequestId requestId)
@@ -52,7 +52,7 @@ CallCancellationSlot::Handler::operator()(CallCancelMode cancelMode)
 // CallCancellationSlot
 //******************************************************************************
 
-CPPWAMP_INLINE CallCancellationSlot::CallCancellationSlot() {}
+CPPWAMP_INLINE CallCancellationSlot::CallCancellationSlot() = default;
 
 CPPWAMP_INLINE CallCancellationSlot::Handler&
 CallCancellationSlot::assign(Handler f)

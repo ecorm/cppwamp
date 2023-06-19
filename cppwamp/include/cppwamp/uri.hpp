@@ -138,7 +138,7 @@ using StrictUriValidator = BasicUriValidator<StrictUriCharValidator>;
 // UriValidator member function definitions
 //******************************************************************************
 
-inline UriValidator::~UriValidator() {}
+inline UriValidator::~UriValidator() = default;
 
 inline bool UriValidator::checkTopic(
     const Uri& uri, /**< The URI to validate */

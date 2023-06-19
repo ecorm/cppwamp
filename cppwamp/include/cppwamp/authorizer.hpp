@@ -129,7 +129,7 @@ public:
     using Ptr = std::shared_ptr<Authorizer>;
 
     /** Destructor. */
-    virtual ~Authorizer();
+    virtual ~Authorizer() = default;
 
     /** Authorizes a subscribe request. */
     virtual void authorize(Topic t, AuthorizationRequest a);

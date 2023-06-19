@@ -15,11 +15,38 @@ namespace utils
 {
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE FileLoggerOptions&
+FileLoggerOptions::withTruncate(bool truncate)
+{
+    truncate_ = truncate;
+    return *this;
+}
+
+CPPWAMP_INLINE FileLoggerOptions&
+FileLoggerOptions::withFlushOnWrite(bool flushOnWrite)
+{
+    flushOnWrite_ = flushOnWrite;
+    return *this;
+}
+
+CPPWAMP_INLINE bool FileLoggerOptions::truncate() const
+{
+    return truncate_;
+}
+
+CPPWAMP_INLINE bool FileLoggerOptions::flushOnWrite() const
+{
+    return flushOnWrite_;
+}
+
+//------------------------------------------------------------------------------
 struct FileLogger::Impl
 {
-    Impl(const std::string& filepath, std::string originLabel, bool truncate)
+    Impl(const std::string& filepath, std::string originLabel,
+         FileLoggerOptions options)
         : origin(std::move(originLabel)),
-          file(filepath.c_str(), modeFlags(truncate))
+          file(filepath.c_str(), modeFlags(options.truncate())),
+          options(std::move(options))
     {}
 
     static std::ios_base::openmode modeFlags(bool truncate)
@@ -29,36 +56,34 @@ struct FileLogger::Impl
 
     std::string origin;
     std::ofstream file;
-    bool flushOnWrite;
+    FileLoggerOptions options;
 };
 
-//------------------------------------------------------------------------------
 CPPWAMP_INLINE FileLogger::FileLogger(const std::string& filepath,
-                                      bool truncate)
-    : FileLogger(filepath, "cppwamp", truncate)
+                                      FileLoggerOptions options)
+    : FileLogger(filepath, "cppwamp", std::move(options))
 {}
 
-//------------------------------------------------------------------------------
 CPPWAMP_INLINE FileLogger::FileLogger(const std::string& filepath,
-                                      std::string originLabel, bool truncate)
-    : impl_(std::make_shared<Impl>(filepath, std::move(originLabel), false))
+                                      std::string originLabel,
+                                      FileLoggerOptions options)
+    : impl_(std::make_shared<Impl>(filepath, std::move(originLabel),
+                                   std::move(options)))
 {}
 
-//------------------------------------------------------------------------------
 CPPWAMP_INLINE void FileLogger::operator()(const LogEntry& entry) const
 {
     auto& impl = *impl_;
     toStream(impl.file, entry, impl.origin) << "\n";
-    if ((entry.severity() >= LogLevel::warning) || impl.flushOnWrite)
+    if ((entry.severity() >= LogLevel::warning) || impl.options.flushOnWrite())
         impl.file << std::flush;
 }
 
-//------------------------------------------------------------------------------
 CPPWAMP_INLINE void FileLogger::operator()(const AccessLogEntry& entry) const
 {
     auto& impl = *impl_;
     toStream(impl.file, entry, impl.origin) << "\n";
-    if (impl.flushOnWrite)
+    if (impl.options.flushOnWrite())
         impl.file << std::flush;
 }
 

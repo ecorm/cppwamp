@@ -7,6 +7,7 @@
 #ifndef CPPWAMP_INTERNAL_RAWSOCKHANDSHAKE_HPP
 #define CPPWAMP_INTERNAL_RAWSOCKHANDSHAKE_HPP
 
+#include <array>
 #include <cassert>
 #include <cstdint>
 #include <string>
@@ -61,15 +62,15 @@ public:
     TransportErrc errorCode() const
     {
         using TE = TransportErrc;
-        static const TransportErrc table[] =
+        static const std::array<TransportErrc, 16> table{
         {
             TE::success, TE::badSerializer, TE::badLengthLimit, TE::badFeature,
             TE::saturated, TE::failed, TE::failed, TE::failed,
             TE::failed, TE::failed, TE::failed, TE::failed,
             TE::failed, TE::failed, TE::failed, TE::failed
-        };
+        }};
         auto code = get<>(errorMask_, errorPos_);
-        return table[code];
+        return table.at(code);
     }
 
     bool hasMagicOctet() const {return get<>(magicMask_) == magicOctet_;}

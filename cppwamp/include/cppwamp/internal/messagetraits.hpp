@@ -7,6 +7,7 @@
 #ifndef CPPWAMP_MESSSAGE_TRAITS_HPP
 #define CPPWAMP_MESSSAGE_TRAITS_HPP
 
+#include <array>
 #include <cstdint>
 #include "../api.hpp"
 #include "../wampdefs.hpp"
@@ -56,232 +57,233 @@ struct MessageKindTraits
 template <>
 struct MessageKindTraits<MessageKind::hello>
 {
-    static constexpr bool isRequest()        {return true;}
-    static constexpr unsigned requestIdPos() {return 0;}
-    static constexpr unsigned optionsPos()   {return 2;}
-    static constexpr unsigned uriPos()       {return 1;}
+    static constexpr bool isRequest        = true;
+    static constexpr unsigned requestIdPos = 0;
+    static constexpr unsigned optionsPos   = 2;
+    static constexpr unsigned uriPos       = 1;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::welcome>
 {
-    static constexpr bool isRequest()        {return false;}
-    static constexpr unsigned requestIdPos() {return 0;}
-    static constexpr unsigned optionsPos()   {return 2;}
-    static constexpr unsigned uriPos()       {return 0;}
+    static constexpr bool isRequest        = false;
+    static constexpr unsigned requestIdPos = 0;
+    static constexpr unsigned optionsPos   = 2;
+    static constexpr unsigned uriPos       = 0;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::abort>
 {
-    static constexpr bool isRequest()        {return false;}
-    static constexpr unsigned requestIdPos() {return 0;}
-    static constexpr unsigned optionsPos()   {return 1;}
-    static constexpr unsigned uriPos()       {return 2;}
+    static constexpr bool isRequest        = false;
+    static constexpr unsigned requestIdPos = 0;
+    static constexpr unsigned optionsPos   = 1;
+    static constexpr unsigned uriPos       = 2;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::challenge>
 {
-    static constexpr bool isRequest()        {return false;}
-    static constexpr unsigned requestIdPos() {return 0;}
-    static constexpr unsigned optionsPos()   {return 2;}
-    static constexpr unsigned uriPos()       {return 1;}
+    static constexpr bool isRequest        = false;
+    static constexpr unsigned requestIdPos = 0;
+    static constexpr unsigned optionsPos   = 2;
+    static constexpr unsigned uriPos       = 1;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::authenticate>
 {
-    static constexpr bool isRequest()        {return false;}
-    static constexpr unsigned requestIdPos() {return 0;}
-    static constexpr unsigned optionsPos()   {return 2;}
-    static constexpr unsigned uriPos()       {return 0;}
+    static constexpr bool isRequest        = false;
+    static constexpr unsigned requestIdPos = 0;
+    static constexpr unsigned optionsPos   = 2;
+    static constexpr unsigned uriPos       = 0;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::goodbye>
 {
-    static constexpr bool isRequest()        {return false;}
-    static constexpr unsigned requestIdPos() {return 0;}
-    static constexpr unsigned optionsPos()   {return 1;}
-    static constexpr unsigned uriPos()       {return 2;}
+    static constexpr bool isRequest        = false;
+    static constexpr unsigned requestIdPos = 0;
+    static constexpr unsigned optionsPos   = 1;
+    static constexpr unsigned uriPos       = 2;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::error>
 {
-    static constexpr bool isRequest()        {return false;}
-    static constexpr unsigned requestIdPos() {return 2;}
-    static constexpr unsigned optionsPos()   {return 3;}
-    static constexpr unsigned uriPos()       {return 4;}
-    static constexpr unsigned argsPos()      {return 5;}
+    static constexpr bool isRequest        = false;
+    static constexpr unsigned requestIdPos = 2;
+    static constexpr unsigned optionsPos   = 3;
+    static constexpr unsigned uriPos       = 4;
+    static constexpr unsigned argsPos      = 5;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::publish>
 {
-    static constexpr bool isRequest()        {return true;}
-    static constexpr unsigned requestIdPos() {return 1;}
-    static constexpr unsigned optionsPos()   {return 2;}
-    static constexpr unsigned uriPos()       {return 3;}
-    static constexpr unsigned argsPos()      {return 4;}
+    static constexpr bool isRequest        = true;
+    static constexpr unsigned requestIdPos = 1;
+    static constexpr unsigned optionsPos   = 2;
+    static constexpr unsigned uriPos       = 3;
+    static constexpr unsigned argsPos      = 4;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::published>
 {
-    static constexpr bool isRequest()        {return false;}
-    static constexpr unsigned requestIdPos() {return 1;}
-    static constexpr unsigned optionsPos()   {return 0;}
-    static constexpr unsigned uriPos()       {return 0;}
+    static constexpr bool isRequest        = false;
+    static constexpr unsigned requestIdPos = 1;
+    static constexpr unsigned optionsPos   = 0;
+    static constexpr unsigned uriPos       = 0;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::subscribe>
 {
-    static constexpr bool isRequest()        {return true;}
-    static constexpr unsigned requestIdPos() {return 1;}
-    static constexpr unsigned optionsPos()   {return 2;}
-    static constexpr unsigned uriPos()       {return 3;}
+    static constexpr bool isRequest        = true;
+    static constexpr unsigned requestIdPos = 1;
+    static constexpr unsigned optionsPos   = 2;
+    static constexpr unsigned uriPos       = 3;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::subscribed>
 {
-    static constexpr bool isRequest()        {return false;}
-    static constexpr unsigned requestIdPos() {return 1;}
-    static constexpr unsigned optionsPos()   {return 0;}
-    static constexpr unsigned uriPos()       {return 0;}
+    static constexpr bool isRequest        = false;
+    static constexpr unsigned requestIdPos = 1;
+    static constexpr unsigned optionsPos   = 0;
+    static constexpr unsigned uriPos       = 0;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::unsubscribe>
 {
-    static constexpr bool isRequest()        {return true;}
-    static constexpr unsigned requestIdPos() {return 1;}
-    static constexpr unsigned optionsPos()   {return 0;}
-    static constexpr unsigned uriPos()       {return 0;}
+    static constexpr bool isRequest        = true;
+    static constexpr unsigned requestIdPos = 1;
+    static constexpr unsigned optionsPos   = 0;
+    static constexpr unsigned uriPos       = 0;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::unsubscribed>
 {
-    static constexpr bool isRequest()        {return false;}
-    static constexpr unsigned requestIdPos() {return 1;}
-    static constexpr unsigned optionsPos()   {return 0;}
-    static constexpr unsigned uriPos()       {return 0;}
+    static constexpr bool isRequest        = false;
+    static constexpr unsigned requestIdPos = 1;
+    static constexpr unsigned optionsPos   = 0;
+    static constexpr unsigned uriPos       = 0;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::event>
 {
-    static constexpr bool isRequest()        {return false;}
-    static constexpr unsigned requestIdPos() {return 0;}
-    static constexpr unsigned optionsPos()   {return 3;}
-    static constexpr unsigned uriPos()       {return 0;}
-    static constexpr unsigned argsPos()      {return 4;}
+    static constexpr bool isRequest        = false;
+    static constexpr unsigned requestIdPos = 0;
+    static constexpr unsigned optionsPos   = 3;
+    static constexpr unsigned uriPos       = 0;
+    static constexpr unsigned argsPos      = 4;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::call>
 {
-    static constexpr bool isRequest()        {return true;}
-    static constexpr unsigned requestIdPos() {return 1;}
-    static constexpr unsigned optionsPos()   {return 2;}
-    static constexpr unsigned uriPos()       {return 3;}
-    static constexpr unsigned argsPos()      {return 4;}
+    static constexpr bool isRequest        = true;
+    static constexpr unsigned requestIdPos = 1;
+    static constexpr unsigned optionsPos   = 2;
+    static constexpr unsigned uriPos       = 3;
+    static constexpr unsigned argsPos      = 4;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::cancel>
 {
-    static constexpr bool isRequest()        {return false;}
-    static constexpr unsigned requestIdPos() {return 1;}
-    static constexpr unsigned optionsPos()   {return 2;}
-    static constexpr unsigned uriPos()       {return 0;}
+    static constexpr bool isRequest        = false;
+    static constexpr unsigned requestIdPos = 1;
+    static constexpr unsigned optionsPos   = 2;
+    static constexpr unsigned uriPos       = 0;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::result>
 {
-    static constexpr bool isRequest()        {return false;}
-    static constexpr unsigned requestIdPos() {return 1;}
-    static constexpr unsigned optionsPos()   {return 2;}
-    static constexpr unsigned uriPos()       {return 0;}
-    static constexpr unsigned argsPos()      {return 3;}
+    static constexpr bool isRequest        = false;
+    static constexpr unsigned requestIdPos = 1;
+    static constexpr unsigned optionsPos   = 2;
+    static constexpr unsigned uriPos       = 0;
+    static constexpr unsigned argsPos      = 3;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::enroll>
 {
-    static constexpr bool isRequest()        {return true;}
-    static constexpr unsigned requestIdPos() {return 1;}
-    static constexpr unsigned optionsPos()   {return 2;}
-    static constexpr unsigned uriPos()       {return 3;}
+    static constexpr bool isRequest        = true;
+    static constexpr unsigned requestIdPos = 1;
+    static constexpr unsigned optionsPos   = 2;
+    static constexpr unsigned uriPos       = 3;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::registered>
 {
-    static constexpr bool isRequest()        {return false;}
-    static constexpr unsigned requestIdPos() {return 1;}
-    static constexpr unsigned optionsPos()   {return 0;}
-    static constexpr unsigned uriPos()       {return 0;}
+    static constexpr bool isRequest        = false;
+    static constexpr unsigned requestIdPos = 1;
+    static constexpr unsigned optionsPos   = 0;
+    static constexpr unsigned uriPos       = 0;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::unregister>
 {
-    static constexpr bool isRequest()        {return true;}
-    static constexpr unsigned requestIdPos() {return 1;}
-    static constexpr unsigned optionsPos()   {return 0;}
-    static constexpr unsigned uriPos()       {return 0;}
+    static constexpr bool isRequest        = true;
+    static constexpr unsigned requestIdPos = 1;
+    static constexpr unsigned optionsPos   = 0;
+    static constexpr unsigned uriPos       = 0;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::unregistered>
 {
-    static constexpr bool isRequest()        {return false;}
-    static constexpr unsigned requestIdPos() {return 1;}
-    static constexpr unsigned optionsPos()   {return 0;}
-    static constexpr unsigned uriPos()       {return 0;}
+    static constexpr bool isRequest        = false;
+    static constexpr unsigned requestIdPos = 1;
+    static constexpr unsigned optionsPos   = 0;
+    static constexpr unsigned uriPos       = 0;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::invocation>
 {
-    static constexpr bool isRequest()        {return false;}
-    static constexpr unsigned requestIdPos() {return 1;}
-    static constexpr unsigned optionsPos()   {return 3;}
-    static constexpr unsigned uriPos()       {return 0;}
-    static constexpr unsigned argsPos()      {return 4;}
+    static constexpr bool isRequest        = false;
+    static constexpr unsigned requestIdPos = 1;
+    static constexpr unsigned optionsPos   = 3;
+    static constexpr unsigned uriPos       = 0;
+    static constexpr unsigned argsPos      = 4;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::interrupt>
 {
-    static constexpr bool isRequest()        {return false;}
-    static constexpr unsigned requestIdPos() {return 1;}
-    static constexpr unsigned optionsPos()   {return 2;}
-    static constexpr unsigned uriPos()       {return 0;}
+    static constexpr bool isRequest        = false;
+    static constexpr unsigned requestIdPos = 1;
+    static constexpr unsigned optionsPos   = 2;
+    static constexpr unsigned uriPos       = 0;
 };
 
 template <>
 struct MessageKindTraits<MessageKind::yield>
 {
-    static constexpr bool isRequest()        {return false;}
-    static constexpr unsigned requestIdPos() {return 1;}
-    static constexpr unsigned optionsPos()   {return 2;}
-    static constexpr unsigned uriPos()       {return 0;}
-    static constexpr unsigned argsPos()      {return 3;}
+    static constexpr bool isRequest        = false;
+    static constexpr unsigned requestIdPos = 1;
+    static constexpr unsigned optionsPos   = 2;
+    static constexpr unsigned uriPos       = 0;
+    static constexpr unsigned argsPos      = 3;
 };
 
 //------------------------------------------------------------------------------
 struct CPPWAMP_API MessageTraits
 {
     // CPPWAMP_API visibility required by codec component libraries
-
     static const MessageTraits& lookup(MessageKind kind);
+
+    static constexpr unsigned maxFieldCount = 7;
 
     bool isValidKind() const;
 
@@ -300,7 +302,7 @@ struct CPPWAMP_API MessageTraits
     bool forAuthenticating   : 1;
     bool forEstablished      : 1;
     bool isRequest           : 1;
-    TypeId fieldTypes[7];
+    std::array<TypeId, maxFieldCount> fieldTypes;
 };
 
 } // namespace internal

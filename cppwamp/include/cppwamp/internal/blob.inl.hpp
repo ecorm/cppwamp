@@ -12,7 +12,7 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Blob::Blob() {}
+CPPWAMP_INLINE Blob::Blob() = default;
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Blob::Blob(Data data) : data_(std::move(data)) {}
@@ -44,8 +44,16 @@ CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Blob& blob)
     struct Sink
     {
         using value_type = char;
-        std::ostream& os;
-        void append(const value_type* data, std::size_t n) {os.write(data, n);}
+
+        Sink(std::ostream& out) : out_(&out) {}
+
+        void append(const value_type* data, std::size_t n)
+        {
+            out_->write(data, std::streamsize(n));
+        }
+
+    private:
+        std::ostream* out_ = nullptr;
     };
 
     Sink sink{out};

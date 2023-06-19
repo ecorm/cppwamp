@@ -5,6 +5,7 @@
 ------------------------------------------------------------------------------*/
 
 #include "../clientinfo.hpp"
+#include <array>
 #include <type_traits>
 #include <utility>
 #include "../api.hpp"
@@ -69,7 +70,7 @@ CPPWAMP_INLINE WampErrc Reason::errorCode() const
 
 CPPWAMP_INLINE AccessActionInfo Reason::info(bool isServer) const
 {
-    AccessAction action;
+    AccessAction action = {};
     if (message().kind() == internal::MessageKind::abort)
     {
         action = isServer ? AccessAction::serverAbort
@@ -452,7 +453,7 @@ CPPWAMP_INLINE void Challenge::setChallengee(internal::PassKey,
 
 CPPWAMP_INLINE const std::string& incidentKindLabel(IncidentKind k)
 {
-    static const std::string labels[] =
+    static const std::array<std::string, 8> labels{
     {
         "Transport connection dropped",
         "Session killed by remote peer",
@@ -462,13 +463,12 @@ CPPWAMP_INLINE const std::string& incidentKindLabel(IncidentKind k)
         "Error reported by EVENT handler",
         "A non-fatal problem occurred",
         "Message trace"
-    };
+        }};
 
     using T = std::underlying_type<IncidentKind>::type;
-    static constexpr T extent = std::extent<decltype(labels)>::value;
     auto n = static_cast<T>(k);
-    assert(n >=0 && n < extent);
-    return labels[n];
+    assert(n >=0);
+    return labels.at(n);
 }
 
 
@@ -520,7 +520,7 @@ CPPWAMP_INLINE LogEntry Incident::toLogEntry() const
     if (!message_.empty())
         message += ": " + message_;
 
-    LogLevel level;
+    LogLevel level = {};
     switch (kind_)
     {
     case IncidentKind::eventError:

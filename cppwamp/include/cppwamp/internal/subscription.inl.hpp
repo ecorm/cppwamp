@@ -16,7 +16,7 @@ namespace wamp
 *******************************************************************************/
 
 /** @post `bool(*this) == false` */
-CPPWAMP_INLINE Subscription::Subscription() {}
+CPPWAMP_INLINE Subscription::Subscription() = default;
 
 CPPWAMP_INLINE Subscription::operator bool() const {return !link_.expired();}
 
@@ -63,7 +63,7 @@ CPPWAMP_INLINE bool Subscription::canUnsubscribe(
  * ScopedSubscription
 *******************************************************************************/
 
-CPPWAMP_INLINE ScopedSubscription::ScopedSubscription() {}
+CPPWAMP_INLINE ScopedSubscription::ScopedSubscription() = default;
 
 CPPWAMP_INLINE
 ScopedSubscription::ScopedSubscription(ScopedSubscription&& other) noexcept

@@ -27,7 +27,7 @@ namespace internal
 {
     class PassKey
     {
-        constexpr PassKey() {}
+        constexpr PassKey() = default;
 
         // TODO: Verify these are all needed before next release
         friend class wamp::AuthExchange;

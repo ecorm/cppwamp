@@ -16,7 +16,7 @@ namespace wamp
 *******************************************************************************/
 
 /** @post `bool(*this) == false` */
-CPPWAMP_INLINE Registration::Registration() {}
+CPPWAMP_INLINE Registration::Registration() = default;
 
 CPPWAMP_INLINE Registration::operator bool() const {return !link_.expired();}
 
@@ -64,7 +64,7 @@ CPPWAMP_INLINE bool Registration::canUnregister(
 *******************************************************************************/
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE ScopedRegistration::ScopedRegistration() {}
+CPPWAMP_INLINE ScopedRegistration::ScopedRegistration() = default;
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE

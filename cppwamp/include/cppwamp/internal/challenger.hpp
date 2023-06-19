@@ -25,6 +25,8 @@ class Challenger
 public:
     using WeakPtr = std::weak_ptr<Challenger>;
 
+    virtual ~Challenger() = default;
+
     virtual void safeChallenge() = 0;
     
     virtual void safeWelcome(std::shared_ptr<SessionInfoImpl>) = 0;

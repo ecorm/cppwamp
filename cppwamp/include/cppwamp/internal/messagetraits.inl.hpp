@@ -5,6 +5,7 @@
 ------------------------------------------------------------------------------*/
 
 #include "messagetraits.hpp"
+#include <array>
 #include <type_traits>
 #include "../api.hpp"
 
@@ -24,7 +25,7 @@ CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(MessageKind kind)
     constexpr TypeId a = TypeId::array;
     constexpr TypeId o = TypeId::object;
 
-    static const MessageTraits traits[] =
+    static const std::array<MessageTraits, 71> traits{
     {
 //                           isRequest -------------------+
 //                      forEstablished -----------------+ |
@@ -120,12 +121,13 @@ CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(MessageKind kind)
 /* 68 */ {"INVOCATION",   K::none,        1,4,6,1,0,0,0,1,1, {i,i,i,o,a,o,n}},
 /* 69 */ {"INTERRUPT",    K::none,        1,3,3,1,0,0,0,1,0, {i,i,o,n,n,n,n}},
 /* 70 */ {"YIELD",        K::invocation,  1,3,5,0,1,0,0,1,0, {i,i,o,a,o,n,n}}
-    };
+    }};
 
-    auto index = static_cast<size_t>(kind);
-    if (index >= std::extent<decltype(traits)>::value)
+    using T = std::underlying_type<MessageKind>::type;
+    auto index = static_cast<T>(kind);
+    if (index < 0 && index >= T(traits.size()))
         index = 0;
-    return traits[index];
+    return traits.at(index);
 }
 
 //------------------------------------------------------------------------------

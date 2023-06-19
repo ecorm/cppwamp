@@ -48,7 +48,7 @@ public:
     using Handler = std::function<void (ErrorOr<Transporting::Ptr>)>;
 
     /** Destructor. */
-    virtual ~Listening() {}
+    virtual ~Listening() = default;
 
     /** Starts establishing the transport connection, emitting a
         Transportable::Ptr via the given handler if successful. */

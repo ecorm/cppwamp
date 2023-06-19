@@ -336,7 +336,7 @@ public:
     using Source = TSource; ///< Input source type from which to decode.
 
     /** Destructor. */
-    virtual ~PolymorphicCodecInterface() {}
+    virtual ~PolymorphicCodecInterface() = default;
 
     /** Encodes the given variant to the given output sink. */
     virtual void encode(const Variant& variant, Sink sink) = 0;

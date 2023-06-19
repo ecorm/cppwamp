@@ -50,7 +50,7 @@ public:
     explicit Error(const error::BadType& e);
 
     /** Destructor. */
-    virtual ~Error();
+    virtual ~Error() = default;
 
     /** Conversion to bool operator, returning false if the error is empty. */
     explicit operator bool() const;

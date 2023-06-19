@@ -15,7 +15,7 @@ CPPWAMP_INLINE Reason Realm::defaultKillReason()
     return Reason{WampErrc::sessionKilled};
 }
 
-CPPWAMP_INLINE Realm::Realm() {}
+CPPWAMP_INLINE Realm::Realm() = default;
 
 CPPWAMP_INLINE Realm::operator bool() const {return isAttached();}
 

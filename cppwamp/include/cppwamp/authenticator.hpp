@@ -89,7 +89,7 @@ class CPPWAMP_API Authenticator
 public:
     using Ptr = std::shared_ptr<Authenticator>;
 
-    virtual ~Authenticator() {}
+    virtual ~Authenticator() = default;
 
     virtual void authenticate(AuthExchange::Ptr) = 0;
 };

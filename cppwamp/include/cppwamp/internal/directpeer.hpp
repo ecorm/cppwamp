@@ -53,7 +53,7 @@ private:
     void onRouterMessage(Message&& msg) override;
     
     AuthInfo authInfo_;
-    DirectPeer& peer_;
+    DirectPeer* peer_ = nullptr;
 };
 
 //------------------------------------------------------------------------------
@@ -69,15 +69,21 @@ public:
           session_(std::make_shared<DirectRouterSession>(*this))
     {}
 
-    ~DirectPeer() {realm_.leave(session_);}
+    ~DirectPeer() override {realm_.leave(session_);}
+
+    DirectPeer(const DirectPeer&) = delete;
+    DirectPeer(DirectPeer&&) = delete;
+    DirectPeer& operator=(const DirectPeer&) = delete;
+    DirectPeer& operator=(DirectPeer&&) = delete;
 
 private:
     using Base = Peer;
+    using IoStrandPtr = std::unique_ptr<IoStrand>;
 
     void onDirectConnect(IoStrand strand, any routerLink) override
     {
         if (!strand_)
-            strand_.reset(new IoStrand(std::move(strand)));
+            strand_ = IoStrandPtr(new IoStrand(std::move(strand)));
         auto link = any_cast<DirectRouterLink>(std::move(routerLink));
         router_ = RouterContext{link.router({})};
         session_->connect(std::move(link));
@@ -138,7 +144,7 @@ private:
 
             void operator()()
             {
-                auto& me = static_cast<DirectPeer&>(*self);
+                auto& me = dynamic_cast<DirectPeer&>(*self);
                 me.traceRx(welcome.message({}));
                 me.session_->report(welcome.info());
                 me.listener().onPeerMessage(std::move(welcome.message({})));
@@ -168,7 +174,7 @@ private:
 
             void operator()()
             {
-                auto& me = static_cast<DirectPeer&>(*self);
+                auto& me = dynamic_cast<DirectPeer&>(*self);
                 me.listener().onPeerGoodbye(std::move(reason), true);
             }
         };
@@ -254,7 +260,7 @@ private:
 
             void operator()()
             {
-                auto& me = static_cast<DirectPeer&>(*self);
+                auto& me = dynamic_cast<DirectPeer&>(*self);
                 me.traceRx(reason.message({}));
                 me.listener().onPeerAbort(std::move(reason), false);
             }
@@ -274,7 +280,7 @@ private:
 
             void operator()()
             {
-                auto& me = static_cast<DirectPeer&>(*self);
+                auto& me = dynamic_cast<DirectPeer&>(*self);
                 me.traceRx(m);
                 me.listener().onPeerMessage(std::move(m));
             }
@@ -294,7 +300,7 @@ private:
 
             void operator()()
             {
-                auto& me = static_cast<DirectPeer&>(*self);
+                auto& me = dynamic_cast<DirectPeer&>(*self);
                 me.listener().onPeerFailure(ec, false, std::move(why));
             }
         };
@@ -321,7 +327,7 @@ private:
                s == State::established;
     }
 
-    std::unique_ptr<IoStrand> strand_;
+    IoStrandPtr strand_;
     DirectRouterSession::Ptr session_;
     RouterContext router_;
     RealmContext realm_;
@@ -334,7 +340,7 @@ private:
 /** DirectRouterSession member function definitions. */
 //******************************************************************************
 
-inline DirectRouterSession::DirectRouterSession(DirectPeer& p) : peer_(p) {}
+inline DirectRouterSession::DirectRouterSession(DirectPeer& p) : peer_(&p) {}
 
 inline void DirectRouterSession::connect(DirectRouterLink&& link)
 {
@@ -375,12 +381,12 @@ inline void DirectRouterSession::disconnect() {Base::setRouterLogger(nullptr);}
 
 inline void DirectRouterSession::onRouterAbort(Reason&& r)
 {
-    peer_.onAbort(std::move(r));
+    peer_->onAbort(std::move(r));
 }
 
 void DirectRouterSession::onRouterMessage(Message&& msg)
 {
-    peer_.onMessage(std::move(msg));
+    peer_->onMessage(std::move(msg));
 }
 
 } // namespace internal

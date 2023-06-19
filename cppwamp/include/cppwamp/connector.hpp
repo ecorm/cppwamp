@@ -49,7 +49,7 @@ public:
     using Handler = std::function<void (ErrorOr<Transporting::Ptr>)>;
 
     /** Destructor. */
-    virtual ~Connecting() {}
+    virtual ~Connecting() = default;
 
     /** Starts establishing a transport connection. */
     virtual void establish(Handler&& handler) = 0;

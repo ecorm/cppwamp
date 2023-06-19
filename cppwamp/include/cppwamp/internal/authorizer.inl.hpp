@@ -115,8 +115,6 @@ CPPWAMP_INLINE AuthorizationRequest::AuthorizationRequest(
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Authorizer::~Authorizer() {}
-
 CPPWAMP_INLINE void Authorizer::authorize(Topic t, AuthorizationRequest a)
 {
     a.authorize(std::move(t), true);

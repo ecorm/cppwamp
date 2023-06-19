@@ -79,7 +79,7 @@ public:
 private:
     RegistrationInfo info_;
     RouterSession::WeakPtr callee_;
-    SessionId calleeId_;
+    SessionId calleeId_ = nullId();
 };
 
 //------------------------------------------------------------------------------

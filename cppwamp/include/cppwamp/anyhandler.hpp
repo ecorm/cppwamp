@@ -93,12 +93,6 @@ public:
     /** Default constructor. */
     AnyReusableHandler() = default;
 
-    /** Copy constructor. */
-    AnyReusableHandler(const AnyReusableHandler&) = default;
-
-    /** Move constructor. */
-    AnyReusableHandler(AnyReusableHandler&&) noexcept = default;
-
     /** Constructor copying another AnyReusableHandler with a different
         signature.
         Participates in overload resolution when
@@ -144,12 +138,6 @@ public:
         handler_ = nullptr;
         return *this;
     }
-
-    /** Copy assignment. */
-    AnyReusableHandler& operator=(const AnyReusableHandler&) = default;
-
-    /** Move assignment. */
-    AnyReusableHandler& operator=(AnyReusableHandler&&) noexcept = default;
 
     /** Swaps contents with another AnyReusableHandler. */
     void swap(AnyReusableHandler& rhs) noexcept

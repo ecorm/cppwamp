@@ -268,7 +268,7 @@ private:
 // RouterContext
 //******************************************************************************
 
-inline RouterContext::RouterContext() {}
+inline RouterContext::RouterContext() = default;
 
 inline RouterContext::RouterContext(std::shared_ptr<RouterImpl> r)
     : router_(r),

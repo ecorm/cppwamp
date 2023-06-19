@@ -105,7 +105,7 @@ private:
     using Reqs = internal::AnyReqs;
 
 public:
-    SurrogateAny() noexcept {}
+    SurrogateAny() noexcept = default;
 
     SurrogateAny(const SurrogateAny& other)
         : box_(other.copy(buffer_))
@@ -213,7 +213,7 @@ public:
 private:
     struct Boxing
     {
-        virtual ~Boxing() {}
+        virtual ~Boxing() = default;
         virtual const std::type_info& type() const noexcept = 0;
         virtual Boxing* copyLocal(char* buffer) const = 0;
         virtual Boxing* copyHeaped() const = 0;
@@ -314,6 +314,7 @@ private:
     bool isLocal() const
     {
         // https://stackoverflow.com/a/9657868
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         return reinterpret_cast<const char*>(box_) == buffer_.data();
     }
 

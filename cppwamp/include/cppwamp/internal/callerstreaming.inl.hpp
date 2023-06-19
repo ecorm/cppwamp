@@ -38,7 +38,7 @@ CPPWAMP_INLINE StreamMode StreamRequest::mode() const {return mode_;}
 //******************************************************************************
 
 /** @post this->state() == State::detached */
-CPPWAMP_INLINE CallerChannel::CallerChannel() {}
+CPPWAMP_INLINE CallerChannel::CallerChannel() = default;
 
 CPPWAMP_INLINE StreamMode CallerChannel::mode() const
 {

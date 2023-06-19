@@ -35,7 +35,7 @@ public:
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
 
-    virtual ~RouterSession() {}
+    virtual ~RouterSession() = default;
 
     bool isJoined() const {return info_ != nullptr;}
 

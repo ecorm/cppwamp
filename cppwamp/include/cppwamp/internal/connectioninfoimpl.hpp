@@ -37,6 +37,10 @@ public:
                                           std::move(endpoint)));
     }
 
+    ~ConnectionInfoImpl() = default;
+    ConnectionInfoImpl(ConnectionInfoImpl&&) = default;
+    ConnectionInfoImpl& operator=(ConnectionInfoImpl&&) = default;
+
     const Object& transport() const {return transport_;}
 
     const std::string& endpoint() const {return endpoint_;}

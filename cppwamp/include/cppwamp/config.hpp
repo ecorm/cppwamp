@@ -8,7 +8,7 @@
 #define CPPWAMP_CONFIG_HPP
 
 #ifndef _WIN32
-#define CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS 1
+#define CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
 #endif
 
 #if defined(__cpp_inline_variables) || defined(CPPWAMP_FOR_DOXYGEN)
@@ -33,7 +33,7 @@
 
 #if (defined(__cpp_constexpr) && (__cpp_constexpr >= 201304)) \
     || defined(CPPWAMP_FOR_DOXYGEN)
-#define CPPWAMP_HAS_RELAXED_CONSTEXPR 1
+#define CPPWAMP_HAS_RELAXED_CONSTEXPR
 #define CPPWAMP_CONSTEXPR14 constexpr
 #else
 #define CPPWAMP_CONSTEXPR14

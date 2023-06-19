@@ -28,7 +28,7 @@ CPPWAMP_INLINE Object toObject(const SessionInfo& info)
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE SessionJoinInfo::SessionJoinInfo() {}
+CPPWAMP_INLINE SessionJoinInfo::SessionJoinInfo() = default;
 
 CPPWAMP_INLINE void convert(FromVariantConverter& conv, SessionJoinInfo& s)
 {
@@ -41,7 +41,7 @@ CPPWAMP_INLINE void convert(FromVariantConverter& conv, SessionJoinInfo& s)
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE SessionLeftInfo::SessionLeftInfo() {}
+CPPWAMP_INLINE SessionLeftInfo::SessionLeftInfo() = default;
 
 CPPWAMP_INLINE SessionLeftInfo parseSessionLeftInfo(const Event& event)
 {
@@ -52,7 +52,7 @@ CPPWAMP_INLINE SessionLeftInfo parseSessionLeftInfo(const Event& event)
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE RegistrationInfo::RegistrationInfo() {}
+CPPWAMP_INLINE RegistrationInfo::RegistrationInfo() = default;
 
 CPPWAMP_INLINE RegistrationInfo::RegistrationInfo(
     Uri uri, MatchPolicy mp, InvocationPolicy ip, RegistrationId id,
@@ -118,7 +118,7 @@ CPPWAMP_INLINE void convertTo(ToVariantConverter& conv,
 
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE SubscriptionInfo::SubscriptionInfo() {}
+CPPWAMP_INLINE SubscriptionInfo::SubscriptionInfo() = default;
 
 CPPWAMP_INLINE SubscriptionInfo::SubscriptionInfo(
     Uri uri, MatchPolicy p, SubscriptionId id, TimePoint created)

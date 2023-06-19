@@ -67,7 +67,7 @@ inline void setMatchPolicyOption(Object& options, MatchPolicy policy)
     if (policy == MatchPolicy::exact)
         options.erase("match");
     else
-        options[std::move("match")] = toString(policy);
+        options["match"] = toString(policy);
 }
 
 } // namespace internal

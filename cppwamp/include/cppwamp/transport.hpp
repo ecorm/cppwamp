@@ -50,7 +50,7 @@ public:
     Transporting& operator=(const Transporting&) = delete;
 
     /** Destructor. */
-    virtual ~Transporting() {}
+    virtual ~Transporting() = default;
 
     /** Obtains information pertaining to this transport. */
     virtual TransportInfo info() const = 0;

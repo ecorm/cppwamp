@@ -5,6 +5,7 @@
 ------------------------------------------------------------------------------*/
 
 #include "../json.hpp"
+#include <array>
 #include <cassert>
 #include <cstring>
 #include <utility>
@@ -31,6 +32,7 @@ public:
     std::error_code decode(const TInput& input, Variant& variant)
     {
         parser_.reinitialize();
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         parser_.update(reinterpret_cast<const char*>(input.data()),
                        input.size());
         visitor_.reset();
@@ -67,10 +69,10 @@ public:
     std::error_code decode(std::istream& in, Variant& variant)
     {
         bytes_.clear();
-        char buffer[4096];
-        while (in.read(buffer, sizeof(buffer)))
-            bytes_.append(buffer, sizeof(buffer));
-        bytes_.append(buffer, in.gcount());
+        std::array<char, bufferSize_> buffer = {};
+        while (in.read(buffer.data(), bufferSize_))
+            bytes_.append(buffer.data(), bufferSize_);
+        bytes_.append(buffer.data(), in.gcount());
         auto ec = Base::decode(bytes_, variant);
         bytes_.clear();
         return ec;
@@ -79,6 +81,7 @@ public:
 private:
     using Base = JsonDecoderImpl<std::string>;
 
+    static constexpr unsigned bufferSize_ = 4096;
     std::string bytes_;
 };
 
@@ -90,19 +93,19 @@ private:
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-template <typename TSink>
-class SinkEncoder<Json, TSink>::Impl
+template <typename S>
+class SinkEncoder<Json, S>::Impl
 {
 public:
-    template <typename TSinkable>
-    void encode(const Variant& variant, TSinkable& output)
+    template <typename Sable>
+    void encode(const Variant& variant, Sable& output)
     {
         encoderImpl_.encode(variant, output);
     }
 
 private:
-    using Output = typename TSink::Output;
-    using ImplSink = Conditional<isSameType<TSink, StreamSink>(),
+    using Output = typename S::Output;
+    using ImplSink = Conditional<isSameType<S, StreamSink>(),
                                  jsoncons::stream_sink<char>,
                                  jsoncons::string_sink<Output>>;
 
@@ -110,18 +113,26 @@ private:
 };
 
 //------------------------------------------------------------------------------
-template <typename TSink>
-SinkEncoder<Json, TSink>::SinkEncoder() : impl_(new Impl) {}
+template <typename S>
+SinkEncoder<Json, S>::SinkEncoder() : impl_(new Impl) {}
 
 //------------------------------------------------------------------------------
-// Avoids incomplete type errors.
-//------------------------------------------------------------------------------
-template <typename TSink>
-SinkEncoder<Json, TSink>::~SinkEncoder() {}
+template <typename S>
+SinkEncoder<Json, S>::SinkEncoder(SinkEncoder&&) = default;
 
 //------------------------------------------------------------------------------
-template <typename TSink>
-void SinkEncoder<Json, TSink>::encode(const Variant& variant, Sink sink)
+// Avoids incomplete type errors due to unique_ptr.
+//------------------------------------------------------------------------------
+template <typename S>
+SinkEncoder<Json, S>::~SinkEncoder() = default;
+
+//------------------------------------------------------------------------------
+template <typename S>
+SinkEncoder<Json, S>& SinkEncoder<Json, S>::operator=(SinkEncoder&&) = default;
+
+//------------------------------------------------------------------------------
+template <typename S>
+void SinkEncoder<Json, S>::encode(const Variant& variant, Sink sink)
 {
     impl_->encode(variant, sink.output());
 }
@@ -141,8 +152,8 @@ template class SinkEncoder<Json, StreamSink>;
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-template <typename TSource>
-class SourceDecoder<Json, TSource>::Impl
+template <typename S>
+class SourceDecoder<Json, S>::Impl
 {
 public:
     std::error_code decode(Source source, Variant& variant)
@@ -151,23 +162,31 @@ public:
     }
 
 private:
-    internal::JsonDecoderImpl<typename TSource::Input> decoderImpl_;
+    internal::JsonDecoderImpl<typename S::Input> decoderImpl_;
 };
 
 //------------------------------------------------------------------------------
-template <typename TSource>
-SourceDecoder<Json, TSource>::SourceDecoder() : impl_(new Impl) {}
+template <typename S>
+SourceDecoder<Json, S>::SourceDecoder() : impl_(new Impl) {}
 
 //------------------------------------------------------------------------------
-// Avoids incomplete type errors.
-//------------------------------------------------------------------------------
-template <typename TSource>
-SourceDecoder<Json, TSource>::~SourceDecoder() {}
+template <typename S>
+SourceDecoder<Json, S>::SourceDecoder(SourceDecoder&&) = default;
 
 //------------------------------------------------------------------------------
-template <typename TSource>
-std::error_code SourceDecoder<Json, TSource>::decode(Source source,
-                                                     Variant& variant)
+// Avoids incomplete type errors due to unique_ptr.
+//------------------------------------------------------------------------------
+template <typename S>
+SourceDecoder<Json, S>::~SourceDecoder() = default;
+
+//------------------------------------------------------------------------------
+template <typename S>
+SourceDecoder<Json, S>&
+SourceDecoder<Json, S>::operator=(SourceDecoder&&) = default;
+
+//------------------------------------------------------------------------------
+template <typename S>
+std::error_code SourceDecoder<Json, S>::decode(Source source, Variant& variant)
 {
     return impl_->decode(source.input(), variant);
 }

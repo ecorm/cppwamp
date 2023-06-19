@@ -40,6 +40,8 @@ public:
     using SubscriptionKey = std::pair<SubscriptionId, SlotId>;
     using RegistrationKey = SlotId;
 
+    virtual ~ClientLike() = default;
+
     virtual void removeSlot(SubscriptionTag, SubscriptionKey key) = 0;
 
     virtual void removeSlot(RegistrationTag, RegistrationKey key) = 0;
@@ -74,7 +76,7 @@ public:
     using SubscriptionKey = std::pair<SubscriptionId, SlotId>;
     using RegistrationKey = SlotId;
 
-    ClientContext() {}
+    ClientContext() = default;
 
     ClientContext(const std::shared_ptr<ClientLike>& client)
         : client_(std::move(client))

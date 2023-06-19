@@ -93,7 +93,7 @@ CPPWAMP_INLINE const Object& ClientFeatures::providedRoles()
     return roles;
 }
 
-CPPWAMP_INLINE ClientFeatures::ClientFeatures() {}
+CPPWAMP_INLINE ClientFeatures::ClientFeatures() = default;
 
 CPPWAMP_INLINE ClientFeatures::ClientFeatures(
     Flags<CalleeFeatures> callee, Flags<CallerFeatures> caller,
@@ -289,7 +289,7 @@ CPPWAMP_INLINE const Object& RouterFeatures::providedRoles()
     return roles;
 }
 
-CPPWAMP_INLINE RouterFeatures::RouterFeatures() {}
+CPPWAMP_INLINE RouterFeatures::RouterFeatures() = default;
 
 CPPWAMP_INLINE RouterFeatures::RouterFeatures(Flags<BrokerFeatures> broker,
                                               Flags<DealerFeatures> dealer)

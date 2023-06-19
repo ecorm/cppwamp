@@ -28,9 +28,12 @@ public:
     template <typename TSink>
     static void encode(const void* data, std::size_t size, TSink& sink)
     {
+        // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
+
         Quad quad;
         unsigned quadSize = 4;
-        Byte sextet;
+        Byte sextet = 0;
         auto byte = static_cast<const Byte*>(data);
         auto end = byte + size;
         while (byte != end)
@@ -73,15 +76,21 @@ public:
             }
 
             using SinkByte = typename TSink::value_type;
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
             auto ptr = reinterpret_cast<const SinkByte*>(quad.data());
             sink.append(ptr, quadSize);
         }
+
+        // NOLINTEND(cppcoreguidelines-avoid-magic-numbers)
+        // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     }
 
     template <typename TOutputByteContainer>
     CPPWAMP_NODISCARD static std::error_code
     decode(const void* data, size_t length, TOutputByteContainer& output)
     {
+        // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
         if (length == 0)
             return {};
         if (paddingExpected && (length % 4) != 0)
@@ -116,6 +125,8 @@ public:
             return make_error_code(errc);
 
         return {};
+
+        // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     }
 
 private:
@@ -130,7 +141,7 @@ private:
         static constexpr char c62 = urlSafe ? '-' : '+';
         static constexpr char c63 = urlSafe ? '_' : '/';
 
-        static const char alphabet[] =
+        static const std::array<char, 64> alphabet{
         {
             'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', // 0-7
             'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', // 8-15
@@ -140,9 +151,8 @@ private:
             'o', 'p', 'q', 'r', 's', 't', 'u', 'v', // 40-47
             'w', 'x', 'y', 'z', '0', '1', '2', '3', // 48-55
             '4', '5', '6', '7', '8', '9', c62, c63  // 56-63
-        };
-        assert(sextet < sizeof(alphabet));
-        return alphabet[sextet];
+        }};
+        return alphabet.at(sextet);
     }
 
     template <typename TOutputByteContainer>
@@ -184,19 +194,22 @@ private:
     static DecodingErrc tripletFromQuad(const char* quad, bool last,
                                         Triplet& triplet)
     {
-        std::array<Byte, 4> sextets;
+        std::array<Byte, 4> sextets = {};
         for (unsigned i=0; i<4; ++i)
         {
-            Byte s;
+            Byte s = 0;
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             auto errc = sextetFromChar(quad[i], last, s);
             if (errc != DecodingErrc::success)
                 return errc;
-            sextets[i] = s;
+            sextets.at(i) = s;
         }
 
+        // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
         triplet[0] = ((sextets[0] << 2) & 0xfc) | ((sextets[1] >> 4) & 0x03);
         triplet[1] = ((sextets[1] << 4) & 0xf0) | ((sextets[2] >> 2) & 0x0f);
         triplet[2] = ((sextets[2] << 6) & 0xc0) | ((sextets[3]     ) & 0x3f);
+        // NOLINTEND(cppcoreguidelines-avoid-magic-numbers)
 
         return DecodingErrc::success;
     }
@@ -204,30 +217,31 @@ private:
     static DecodingErrc sextetFromChar(char c, bool padAllowedHere,
                                        Byte& sextet)
     {
-        static constexpr Byte s43 = urlSafe ? 0xff : 0x3e;
-        static constexpr Byte s45 = urlSafe ? 0x3e : 0xff;
-        static constexpr Byte s47 = urlSafe ? 0xff : 0x3f;
-        static constexpr Byte s95 = urlSafe ? 0x3f : 0xff;
+        static constexpr Byte bad = 0xff;
+        static constexpr Byte s43 = urlSafe ? bad  : 0x3e;
+        static constexpr Byte s45 = urlSafe ? 0x3e : bad;
+        static constexpr Byte s47 = urlSafe ? bad  : 0x3f;
+        static constexpr Byte s95 = urlSafe ? 0x3f : bad;
 
-        static const Byte table[] =
+        static const std::array<Byte, 256> table{
         {
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 0-7
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 8-15
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 16-23
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 24-31
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 32-39
+            bad,  bad,  bad,  bad,  bad,  bad,  bad,  bad,  // 0-7
+            bad,  bad,  bad,  bad,  bad,  bad,  bad,  bad,  // 8-15
+            bad,  bad,  bad,  bad,  bad,  bad,  bad,  bad,  // 16-23
+            bad,  bad,  bad,  bad,  bad,  bad,  bad,  bad,  // 24-31
+            bad,  bad,  bad,  bad,  bad,  bad,  bad,  bad,  // 32-39
 
-        //                     '+'         '-'         '/'
-            0xff, 0xff, 0xff,  s43, 0xff,  s45, 0xff,  s47, // 40-47
+        //                    '+'         '-'         '/'
+            bad,  bad,  bad,  s43,  bad,  s45,  bad,  s47,  // 40-47
 
         //  '0'   '1'   '2'   '3'   '4'   '5'   '6'   '7'
             0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, // 48-55
 
         //  '8'   '9'                     '='
-            0x3c, 0x3d, 0xff, 0xff, 0xff, 0x00, 0xff, 0xff, // 56-63
+            0x3c, 0x3d, bad,  bad,  bad,  0x00, bad,  bad,  // 56-63
 
         //        'A'   'B'   'C'   'D'   'E'   'F'   'G'
-            0xff, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, // 64-71
+            bad,  0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, // 64-71
 
         //  'H'   'I'   'J'   'K'   'L'   'M'   'N'   'O'
             0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, // 72-79
@@ -235,11 +249,11 @@ private:
         //  'P'   'Q'   'R'   'S'   'T'   'U'   'V'   'W'
             0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, // 80-87
 
-        //  'X'   'Y'   'Z'                            '_'
-            0x17, 0x18, 0x19, 0xff, 0xff, 0xff, 0xff,  s95, // 88-95
+        //  'X'   'Y'   'Z'                           '_'
+            0x17, 0x18, 0x19, bad,  bad,  bad,  bad,  s95,  // 88-95
 
         //        'a'   'b'   'c'   'd'   'e'   'f'   'g'
-            0xff, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, // 96-103
+            bad,  0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, // 96-103
 
         //  'h'   'i'   'j'   'k'   'l'   'm'   'n'   'o'
             0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, // 104-111
@@ -248,31 +262,31 @@ private:
             0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x30, // 112-119
 
         //  'x'   'y'   'z'
-            0x31, 0x32, 0x33, 0xff, 0xff, 0xff, 0xff, 0xff, // 120-127
+            0x31, 0x32, 0x33, bad,  bad,  bad,  bad,  bad,  // 120-127
 
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 128-135
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 136-143
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 144-151
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 152-159
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 160-167
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 168-175
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 176-183
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 184-191
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 192-199
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 200-207
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 208-215
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 216-223
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 224-231
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 232-239
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 240-247
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff  // 248-255
-        };
+            bad,  bad,  bad,  bad,  bad,  bad,  bad,  bad,  // 128-135
+            bad,  bad,  bad,  bad,  bad,  bad,  bad,  bad,  // 136-143
+            bad,  bad,  bad,  bad,  bad,  bad,  bad,  bad,  // 144-151
+            bad,  bad,  bad,  bad,  bad,  bad,  bad,  bad,  // 152-159
+            bad,  bad,  bad,  bad,  bad,  bad,  bad,  bad,  // 160-167
+            bad,  bad,  bad,  bad,  bad,  bad,  bad,  bad,  // 168-175
+            bad,  bad,  bad,  bad,  bad,  bad,  bad,  bad,  // 176-183
+            bad,  bad,  bad,  bad,  bad,  bad,  bad,  bad,  // 184-191
+            bad,  bad,  bad,  bad,  bad,  bad,  bad,  bad,  // 192-199
+            bad,  bad,  bad,  bad,  bad,  bad,  bad,  bad,  // 200-207
+            bad,  bad,  bad,  bad,  bad,  bad,  bad,  bad,  // 208-215
+            bad,  bad,  bad,  bad,  bad,  bad,  bad,  bad,  // 216-223
+            bad,  bad,  bad,  bad,  bad,  bad,  bad,  bad,  // 224-231
+            bad,  bad,  bad,  bad,  bad,  bad,  bad,  bad,  // 232-239
+            bad,  bad,  bad,  bad,  bad,  bad,  bad,  bad,  // 240-247
+            bad,  bad,  bad,  bad,  bad,  bad,  bad,  bad   // 248-255
+        }};
 
         if (!padAllowedHere && c == pad)
             return DecodingErrc::badBase64Padding;
         uint8_t index = c;
-        sextet = table[index];
-        if (sextet == 0xff)
+        sextet = table.at(index);
+        if (sextet == bad)
             return DecodingErrc::badBase64Char;
         assert(sextet < 64);
         return DecodingErrc::success;
@@ -283,6 +297,7 @@ private:
                        TOutputByteContainer& output)
     {
         using OutputByte = typename TOutputByteContainer::value_type;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         auto data = reinterpret_cast<const OutputByte*>(triplet.data());
         output.insert(output.end(), data, data + length);
     }

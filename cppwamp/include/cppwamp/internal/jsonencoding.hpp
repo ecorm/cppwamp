@@ -30,52 +30,54 @@ public:
 
     explicit JsonVariantEncodingVisitor(Sink sink, TEncoder& encoder)
         : sink_(sink),
-          encoder_(encoder)
+          encoder_(&encoder)
     {
         enter();
     }
 
     void operator()(Null)
     {
-        encoder_.null_value();
+        encoder_->null_value();
         next();
     }
 
     void operator()(Bool b)
     {
-        encoder_.bool_value(b);
+        encoder_->bool_value(b);
         next();
     }
 
     void operator()(Int n)
     {
-        encoder_.int64_value(n);
+        encoder_->int64_value(n);
         next();
     }
 
     void operator()(UInt n)
     {
-        encoder_.uint64_value(n);
+        encoder_->uint64_value(n);
         next();
     }
 
     void operator()(Real x)
     {
-        encoder_.double_value(x);
+        encoder_->double_value(x);
         next();
     }
 
     void operator()(const String& s)
     {
-        encoder_.string_value({s.data(), s.size()});
+        encoder_->string_value({s.data(), s.size()});
         next();
     }
 
     void operator()(const Blob& b)
     {
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
         static constexpr char prefix[] = "\"\\u0000";
         if (context_.back().needsArraySeparator())
             sink_.push_back(',');
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         auto data = reinterpret_cast<const typename Sink::value_type*>(prefix);
         sink_.append(data, sizeof(prefix) - 1);
         Base64::encode(b.data().data(), b.data().size(), sink_);
@@ -87,10 +89,10 @@ public:
     void operator()(const std::vector<TVariant>& array)
     {
         enter(true);
-        encoder_.begin_array(array.size());
+        encoder_->begin_array(array.size());
         for (const auto& v: array)
             wamp::apply(*this, v);
-        encoder_.end_array();
+        encoder_->end_array();
         leave();
         next();
     }
@@ -99,14 +101,14 @@ public:
     void operator()(const std::map<String, TVariant>& object)
     {
         enter();
-        encoder_.begin_object(object.size());
+        encoder_->begin_object(object.size());
         for (const auto& kv: object)
         {
             const auto& key = kv.first;
-            encoder_.key({key.data(), key.size()});
+            encoder_->key({key.data(), key.size()});
             wamp::apply(*this, kv.second);
         }
-        encoder_.end_object();
+        encoder_->end_object();
         leave();
         next();
     }
@@ -135,7 +137,7 @@ private:
     }
 
     Sink sink_;
-    TEncoder& encoder_;
+    TEncoder* encoder_ = nullptr;
     std::vector<Context> context_;
 };
 
@@ -152,6 +154,7 @@ public:
 
     void append(const value_type* data, size_t size)
     {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         auto ptr = reinterpret_cast<const SinkByte*>(data);
         sink_->append(ptr, size);
     }

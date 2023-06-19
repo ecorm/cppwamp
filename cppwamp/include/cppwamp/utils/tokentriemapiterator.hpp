@@ -73,7 +73,7 @@ public:
     using cursor_type = TokenTrieMapCursor<N, IsMutable>;
 
     /** Default constructor. */
-    TokenTrieMapIterator() {}
+    TokenTrieMapIterator() = default;
 
     /** Conversion from mutable iterator to const iterator. */
     template <bool M, CPPWAMP_NEEDS(!IsMutable && M) = 0>

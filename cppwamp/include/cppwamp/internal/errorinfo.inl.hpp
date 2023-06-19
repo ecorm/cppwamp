@@ -25,8 +25,6 @@ CPPWAMP_INLINE Error::Error(const error::BadType& e)
     withArgs(String{e.what()});
 }
 
-CPPWAMP_INLINE Error::~Error() {}
-
 CPPWAMP_INLINE Error::operator bool() const {return !uri().empty();}
 
 CPPWAMP_INLINE const Uri& Error::uri() const &
@@ -44,7 +42,7 @@ CPPWAMP_INLINE WampErrc Error::errorCode() const {return errorUriToCode(uri());}
 
 CPPWAMP_INLINE AccessActionInfo Error::info(bool isServer) const
 {
-    AccessAction action;
+    AccessAction action = {};
     if (message().kind() == internal::MessageKind::error)
     {
         action = isServer ? AccessAction::serverError

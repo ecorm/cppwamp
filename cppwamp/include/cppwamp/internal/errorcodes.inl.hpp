@@ -6,6 +6,7 @@
 
 #include "../errorcodes.hpp"
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <type_traits>
 #include <boost/asio/error.hpp>
@@ -25,11 +26,11 @@ namespace internal
 //------------------------------------------------------------------------------
 template <typename TEnum, std::size_t N>
 std::string lookupErrorMessage(const char* categoryName, int errorCodeValue,
-                               const std::string (&table)[N])
+                               const std::array<std::string, N>& table)
 {
     static_assert(N == unsigned(TEnum::count), "");
     if (errorCodeValue >= 0 && errorCodeValue < int(N))
-        return table[errorCodeValue];
+        return table.at(errorCodeValue);
     else
         return std::string(categoryName) + ':' + std::to_string(errorCodeValue);
 }
@@ -48,7 +49,7 @@ CPPWAMP_INLINE const char* MiscCategory::name() const noexcept
 
 CPPWAMP_INLINE std::string MiscCategory::message(int ev) const
 {
-    static const std::string msg[] =
+    static const std::array<std::string, unsigned(MiscErrc::count)> msg{
     {
         /* success          */ "Operation successful",
         /* abandoned        */ "Operation abandoned by this peer",
@@ -57,7 +58,7 @@ CPPWAMP_INLINE std::string MiscCategory::message(int ev) const
         /* alreadyExists    */ "Item already exists",
         /* badType,         */ "Invalid or unexpected type",
         /* noSuchTopic      */ "No subscription under the given topic URI"
-    };
+    }};
 
     return internal::lookupErrorMessage<MiscErrc>("wamp::MiscCategory",
                                                   ev, msg);
@@ -104,7 +105,7 @@ CPPWAMP_INLINE const char* WampCategory::name() const noexcept
 
 CPPWAMP_INLINE std::string WampCategory::message(int ev) const
 {
-    static const std::string msg[] =
+    static const std::array<std::string, unsigned(WampErrc::count)> msg =
     {
 /* success                */ "Operation successful",
 /* unknown                */ "Unknown error URI",
@@ -216,8 +217,11 @@ CPPWAMP_INLINE WampErrc errorUriToCode(const std::string& uri)
         bool operator<(const std::string& key) const {return uri < key;}
     };
 
+    static constexpr unsigned legacyCount = 5u;
+    static constexpr unsigned count = unsigned(WampErrc::count) + legacyCount;
+
     using WE = WampErrc;
-    static const Record sortedByUri[] =
+    static const std::array<Record, count> sortedByUri{
     {
         {"cppwamp.error.success",                    WE::success},
         {"cppwamp.error.unknown",                    WE::unknown},
@@ -258,14 +262,10 @@ CPPWAMP_INLINE WampErrc errorUriToCode(const std::string& uri)
         {"wamp.error.system_shutdown",    /*Legacy*/ WE::systemShutdown},
         {"wamp.error.timeout",                       WE::timeout},
         {"wamp.error.unavailable",                   WE::unavailable}
-    };
+    }};
 
-    static constexpr auto extent = std::extent<decltype(sortedByUri)>::value;
-    static constexpr unsigned legacyUriCount = 5;
-    static_assert(extent == unsigned(WampErrc::count) + legacyUriCount, "");
-
-    auto end = std::end(sortedByUri);
-    auto iter = std::lower_bound(std::begin(sortedByUri), end, uri);
+    auto end = sortedByUri.end();
+    auto iter = std::lower_bound(sortedByUri.begin(), end, uri);
     bool found = (iter != end) && (iter->uri == uri);
     return found ? iter->errc : WampErrc::unknown;
 }
@@ -276,7 +276,8 @@ CPPWAMP_INLINE WampErrc errorUriToCode(const std::string& uri)
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE const std::string& errorCodeToUri(WampErrc errc)
 {
-    static const std::string sortedByErrc[] =
+    static constexpr auto count = unsigned(WampErrc::count);
+    static const std::array<std::string, count> sortedByErrc{
     {
         "cppwamp.error.success",
         "cppwamp.error.unknown",
@@ -315,15 +316,13 @@ CPPWAMP_INLINE const std::string& errorCodeToUri(WampErrc errc)
         "wamp.error.no_such_session",
         "wamp.error.timeout",
         "wamp.error.unavailable"
-    };
+    }};
 
     using T = std::underlying_type<WampErrc>::type;
-    static constexpr T extent = std::extent<decltype(sortedByErrc)>::value;
-    static_assert(extent == T(WampErrc::count), "");
     auto n = static_cast<T>(errc);
-    CPPWAMP_LOGIC_CHECK((n >= 0) && (n < extent),
+    CPPWAMP_LOGIC_CHECK((n >= 0) && (n < T(count)),
                         "wamp::errorCodeToUri code is not a valid enumerator");
-    return sortedByErrc[n];
+    return sortedByErrc.at(n);
 }
 
 //------------------------------------------------------------------------------
@@ -367,7 +366,7 @@ CPPWAMP_INLINE const char* DecodingCategory::name() const noexcept
 
 CPPWAMP_INLINE std::string DecodingCategory::message(int ev) const
 {
-    static const std::string msg[] =
+    static const std::array<std::string, unsigned(DecodingErrc::count)> msg{
     {
         /* success           */ "Decoding succesful",
         /* failed            */ "Decoding failed",
@@ -376,7 +375,7 @@ CPPWAMP_INLINE std::string DecodingCategory::message(int ev) const
         /* badBase64Length   */ "Invalid Base64 string length",
         /* badBase64Padding  */ "Invalid Base64 padding",
         /* badBase64Char     */ "Invalid Base64 character"
-    };
+    }};
 
     return internal::lookupErrorMessage<DecodingErrc>(
         "wamp::DecodingCategory", ev, msg);
@@ -435,7 +434,7 @@ CPPWAMP_INLINE const char* TransportCategory::name() const noexcept
 
 CPPWAMP_INLINE std::string TransportCategory::message(int ev) const
 {
-    static const std::string msg[] =
+    static const std::array<std::string, unsigned(TransportErrc::count)> msg{
     {
         /* success        */ "Transport operation successful",
         /* aborted        */ "Transport operation aborted",
@@ -449,7 +448,7 @@ CPPWAMP_INLINE std::string TransportCategory::message(int ev) const
         /* badLengthLimit */ "Unacceptable maximum message length",
         /* badFeature     */ "Unsupported transport feature",
         /* saturated      */ "Connection limit reached"
-    };
+    }};
 
     return internal::lookupErrorMessage<TransportErrc>(
         "wamp::TransportCategory", ev, msg);

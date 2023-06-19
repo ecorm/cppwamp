@@ -86,7 +86,7 @@ private:
     using Base = internal::Command<K>;
 
     static constexpr unsigned optionsPos_ =
-        internal::MessageKindTraits<K>::optionsPos();
+        internal::MessageKindTraits<K>::optionsPos;
 };
 
 

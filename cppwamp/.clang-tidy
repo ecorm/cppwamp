@@ -1,0 +1,12 @@
+---
+Checks:          'clang-analyzer-*,cppcoreguidelines-*'
+WarningsAsErrors: ''
+HeaderFilterRegex: ''
+AnalyzeTemporaryDtors: false
+FormatStyle:     none
+CheckOptions:
+  cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: true
+  cppcoreguidelines-macro-usage.AllowedRegexp: "\
+    CPPWAMP_[A-Z]+_VERSION|\
+    CPPWAMP_GENERATE_HAS_MEMBER"
+...

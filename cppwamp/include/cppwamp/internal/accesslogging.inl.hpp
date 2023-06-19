@@ -5,6 +5,7 @@
 ------------------------------------------------------------------------------*/
 
 #include "../accesslogging.hpp"
+#include <array>
 #include <sstream>
 #include <utility>
 #include "../api.hpp"
@@ -25,16 +26,19 @@ CPPWAMP_INLINE void outputAccessLogEntry(
 
     struct PutField
     {
-        std::ostream& out;
+        PutField(std::ostream& out) : out_(&out) {}
 
         PutField& operator<<(const std::string& field)
         {
             if (field.empty())
-                out << " | -";
+                *out_ << " | -";
             else
-                out << " | " << field;
+                *out_ << " | " << field;
             return *this;
         }
+
+    private:
+        std::ostream* out_;
     };
 
     const auto& c = entry.connection;
@@ -74,7 +78,7 @@ CPPWAMP_INLINE void outputAccessLogEntry(
 
 CPPWAMP_INLINE const std::string& accessActionLabel(AccessAction action)
 {
-    static const std::string labels[] =
+    static const std::array<std::string, 30> labels{
     {
          "client-connect",
          "client-disconnect",
@@ -106,12 +110,12 @@ CPPWAMP_INLINE const std::string& accessActionLabel(AccessAction action)
          "server-unregistered",
          "server-invocation",
          "server-interrupt"
-    };
+    }};
 
     using T = std::underlying_type<AccessAction>::type;
     auto n = static_cast<T>(action);
-    assert(n >= 0 && n <= T(std::extent<decltype(labels)>::value));
-    return labels[n];
+    assert(n >= 0);
+    return labels.at(n);
 }
 
 

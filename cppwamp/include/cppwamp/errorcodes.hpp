@@ -103,14 +103,14 @@ class CPPWAMP_API WampCategory : public std::error_category
 {
 public:
     /** Obtains the name of the category. */
-    virtual const char* name() const noexcept override;
+    const char* name() const noexcept override;
 
     /** Obtains the explanatory string. */
-    virtual std::string message(int ev) const override;
+    std::string message(int ev) const override;
 
     /** Compares `error_code` and and error condition for equivalence. */
-    virtual bool equivalent(const std::error_code& code,
-                            int condition) const noexcept override;
+    bool equivalent(const std::error_code& code,
+                    int condition) const noexcept override;
 
 private:
     CPPWAMP_HIDDEN WampCategory();
@@ -189,14 +189,14 @@ class CPPWAMP_API DecodingCategory : public std::error_category
 {
 public:
     /** Obtains the name of the category. */
-    virtual const char* name() const noexcept override;
+    const char* name() const noexcept override;
 
     /** Obtains the explanatory string. */
-    virtual std::string message(int ev) const override;
+    std::string message(int ev) const override;
 
     /** Compares `error_code` and and error condition for equivalence. */
-    virtual bool equivalent(const std::error_code& code,
-                            int condition) const noexcept override;
+    bool equivalent(const std::error_code& code,
+                    int condition) const noexcept override;
 
 private:
     CPPWAMP_HIDDEN DecodingCategory();
@@ -275,14 +275,14 @@ class CPPWAMP_API TransportCategory : public std::error_category
 {
 public:
     /** Obtains the name of the category. */
-    virtual const char* name() const noexcept override;
+    const char* name() const noexcept override;
 
     /** Obtains the explanatory string. */
-    virtual std::string message(int ev) const override;
+    std::string message(int ev) const override;
 
     /** Compares `error_code` and and error condition for equivalence. */
-    virtual bool equivalent(const std::error_code& code,
-                            int condition) const noexcept override;
+    bool equivalent(const std::error_code& code,
+                    int condition) const noexcept override;
 
 private:
     CPPWAMP_HIDDEN TransportCategory();
@@ -338,14 +338,14 @@ class CPPWAMP_API MiscCategory : public std::error_category
 {
 public:
     /** Obtains the name of the category. */
-    virtual const char* name() const noexcept override;
+    const char* name() const noexcept override;
 
     /** Obtains the explanatory string. */
-    virtual std::string message(int ev) const override;
+    std::string message(int ev) const override;
 
     /** Compares `error_code` and and error condition for equivalence. */
-    virtual bool equivalent(const std::error_code& code,
-                            int condition) const noexcept override;
+    bool equivalent(const std::error_code& code,
+                    int condition) const noexcept override;
 
 private:
     CPPWAMP_HIDDEN MiscCategory();

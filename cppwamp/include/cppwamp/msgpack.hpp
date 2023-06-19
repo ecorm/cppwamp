@@ -60,12 +60,24 @@ public:
     /** Default constructor. */
     SinkEncoder();
 
+    /** Move constructor. */
+    SinkEncoder(SinkEncoder&&);
+
     /** Destructor. */
     ~SinkEncoder();
+
+    /** Move assignment. */
+    SinkEncoder& operator=(SinkEncoder&&);
 
     /** Serializes from the given variant to the given output sink
         (it does not first clear the output, by design). */
     void encode(const Variant& variant, Sink sink);
+
+    /** @name Noncopyable */
+    /// @{
+    SinkEncoder(const SinkEncoder&) = delete;
+    SinkEncoder& operator=(const SinkEncoder&) = delete;
+    /// @}
 
 private:
     class Impl;
@@ -106,8 +118,14 @@ public:
     /** Default constructor. */
     SourceDecoder();
 
+    /** Move constructor. */
+    SourceDecoder(SourceDecoder&&);
+
     /** Destructor. */
     ~SourceDecoder();
+
+    /** Move assignment. */
+    SourceDecoder& operator=(SourceDecoder&&);
 
     /** Deserializes from the given input source to the given variant. */
     CPPWAMP_NODISCARD std::error_code decode(Source source, Variant& variant);

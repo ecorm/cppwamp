@@ -259,3 +259,9 @@ else()
 
     add_library(CppWAMP::core ALIAS cppwamp-core)
 endif()
+
+
+# Non-source configuration files
+add_custom_target(cppwamp-config
+    COMMAND ""
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy)

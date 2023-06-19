@@ -122,7 +122,7 @@ private:
         const auto& variant = pub.optionByKey(key);
         if (variant.template is<Array>())
         {
-            SessionId id;
+            SessionId id = 0;
             for (const auto& element: variant.template as<Array>())
                 if (optionToUnsignedInteger(element, id))
                     set.emplace(id);
@@ -281,8 +281,8 @@ public:
         : uri_(std::move(t).uri({})),
           subscriber_({s}),
           sessionId_(s->wampId()),
-          subscriptions_(subs),
-          subIdGen_(gen),
+          subscriptions_(&subs),
+          subIdGen_(&gen),
           policy_(t.matchPolicy())
     {}
 
@@ -292,10 +292,10 @@ public:
 
     BrokerSubscription* addNewSubscriptionRecord() &&
     {
-        auto subId = subIdGen_();
+        auto subId = subIdGen_->operator()();
         BrokerSubscription record{std::move(uri_), policy_, subId};
         record.addSubscriber(sessionId_, std::move(subscriber_));
-        auto emplaced = subscriptions_.emplace(subId, std::move(record));
+        auto emplaced = subscriptions_->emplace(subId, std::move(record));
         assert(emplaced.second);
         return &(emplaced.first->second);
     }
@@ -309,8 +309,8 @@ private:
     Uri uri_;
     BrokerSubscriberInfo subscriber_;
     SessionId sessionId_;
-    BrokerSubscriptionMap& subscriptions_;
-    BrokerSubscriptionIdGenerator& subIdGen_;
+    BrokerSubscriptionMap* subscriptions_ = nullptr;
+    BrokerSubscriptionIdGenerator* subIdGen_ = nullptr;
     MatchPolicy policy_;
 };
 
@@ -407,6 +407,11 @@ protected:
         return TDerived::iteratorValue(iter);
     }
 
+    TTrie& trie() {return trie_;}
+
+    const TTrie& trie() const {return trie_;}
+
+private:
     TTrie trie_;
 };
 
@@ -422,8 +427,8 @@ public:
     std::size_t publish(BrokerPublication& info,
                         SessionId inhibitedSessionId = 0)
     {
-        auto found = trie_.find(info.topicUri());
-        if (found == trie_.end())
+        auto found = trie().find(info.topicUri());
+        if (found == trie().end())
             return 0;
 
         const BrokerSubscription* record = found.value();
@@ -433,8 +438,8 @@ public:
     template <typename F>
     std::size_t forEachMatch(const Uri& uri, F&& functor) const
     {
-        auto found = trie_.find(uri);
-        if (found == trie_.end())
+        auto found = trie().find(uri);
+        if (found == trie().end())
             return 0;
         BrokerSubscription* record = iteratorValue(found);
         std::forward<F>(functor)(record->info());
@@ -459,13 +464,13 @@ public:
     std::size_t publish(BrokerPublication& info,
                         SessionId inhibitedSessionId = 0)
     {
-        if (trie_.empty())
+        if (trie().empty())
             return 0;
 
         using Iter = utils::TrieMap<BrokerSubscription*>::const_iterator;
         std::size_t count = 0;
         info.enableTopicDetail();
-        trie_.for_each_prefix_of(
+        trie().for_each_prefix_of(
             info.topicUri(),
             [&count, &info, &inhibitedSessionId] (Iter iter)
             {
@@ -478,21 +483,21 @@ public:
     template <typename F>
     std::size_t forEachMatch(const Uri& uri, F&& functor) const
     {
-        if (trie_.empty())
+        if (trie().empty())
             return 0;
 
         PrefixTraverser<F> traverser(std::forward<F>(functor));
-        trie_.for_each_prefix_of(uri, traverser);
+        trie().for_each_prefix_of(uri, traverser);
         return traverser.count;
     }
-
 private:
-    template <typename F>
+    template <typename TFunctor>
     struct PrefixTraverser
     {
         using Iter = utils::TrieMap<BrokerSubscription*>::const_iterator;
 
-        PrefixTraverser(F&& functor) : functor(std::forward<F>(functor)) {}
+        template <typename F>
+        PrefixTraverser(F&& f) : functor(std::forward<F>(f)) {}
 
         void operator()(Iter iter)
         {
@@ -500,12 +505,12 @@ private:
                 return;
 
             const BrokerSubscription* record = iter.value();
-            more = std::forward<F>(functor)(record->info());
+            more = functor(record->info());
             if (more)
                 ++count;
         }
 
-        F&& functor;
+        TFunctor functor;
         std::size_t count = 0;
         bool more = true;
     };
@@ -531,10 +536,10 @@ public:
     std::size_t publish(BrokerPublication& info,
                         SessionId inhibitedSessionId = 0)
     {
-        if (trie_.empty())
+        if (trie().empty())
             return 0;
 
-        auto matches = wildcardMatches(trie_, info.topicUri());
+        auto matches = wildcardMatches(trie(), info.topicUri());
         if (matches.done())
             return 0;
 
@@ -552,10 +557,10 @@ public:
     void collectMatches(const Uri& uri,
                         std::vector<SubscriptionId>& subIds) const
     {
-        if (trie_.empty())
+        if (trie().empty())
             return;
 
-        auto matches = wildcardMatches(trie_, uri);
+        auto matches = wildcardMatches(trie(), uri);
         if (matches.done())
             return;
 
@@ -570,10 +575,10 @@ public:
     template <typename F>
     std::size_t forEachMatch(const Uri& uri, F&& functor) const
     {
-        if (trie_.empty())
+        if (trie().empty())
             return 0;
 
-        auto matches = wildcardMatches(trie_, uri);
+        auto matches = wildcardMatches(trie(), uri);
         if (matches.done())
             return 0;
 

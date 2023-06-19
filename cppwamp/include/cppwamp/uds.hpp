@@ -39,8 +39,14 @@ public:
     /** Constructor. */
     Connector(IoStrand i, Settings s, int codecId);
 
+    /** Move constructor. */
+    Connector(Connector&&);
+
     /** Destructor. */
-    ~Connector();
+    ~Connector() override;
+
+    /** Move assignment. */
+    Connector& operator=(Connector&&);
 
     /** Starts establishing the transport connection, emitting a
         Transportable::Ptr via the given handler if successful. */
@@ -73,8 +79,14 @@ public:
     /** Constructor. */
     Listener(IoStrand i, Settings s, CodecIds codecIds);
 
+    /** Move constructor. */
+    Listener(Listener&&);
+
     /** Destructor. */
-    ~Listener();
+    ~Listener() override;
+
+    /** Move assignment. */
+    Listener& operator=(Listener&&);
 
     void establish(Handler&& handler) override;
 

@@ -28,7 +28,7 @@ public:
     using Protocol = TProtocol;
     using Ptr = std::shared_ptr<SocketOptionBase>;
 
-    virtual ~SocketOptionBase() {}
+    virtual ~SocketOptionBase() = default;
 
     virtual int level(const Protocol& p) const = 0;
 

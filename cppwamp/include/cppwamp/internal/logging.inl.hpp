@@ -5,6 +5,7 @@
 ------------------------------------------------------------------------------*/
 
 #include "../logging.hpp"
+#include <array>
 #include <cassert>
 #include <sstream>
 #include <type_traits>
@@ -24,7 +25,7 @@ namespace wamp
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE const std::string& logLevelLabel(LogLevel lv)
 {
-    static const std::string labels[] =
+    static const std::array<std::string, 7> labels{
     {
         "trace",
         "debug",
@@ -33,12 +34,12 @@ CPPWAMP_INLINE const std::string& logLevelLabel(LogLevel lv)
         "error",
         "critical",
         "off"
-    };
+    }};
 
     using T = std::underlying_type<LogLevel>::type;
     auto n = static_cast<T>(lv);
-    assert(n >= 0 && n <= T(std::extent<decltype(labels)>::value));
-    return labels[n];
+    assert(n >= 0);
+    return labels.at(n);
 }
 
 

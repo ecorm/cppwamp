@@ -134,12 +134,6 @@ public:
     /** Default constructor. */
     ErrorOr() = default;
 
-    /** Copy contructor. */
-    ErrorOr(const ErrorOr&) = default;
-
-    /** Move contructor. */
-    ErrorOr(ErrorOr&&) = default;
-
     /** Converting constructor taking a value. */
     ErrorOr(value_type value)
         : value_(std::move(value)),
@@ -164,12 +158,6 @@ public:
         hasError_ = false;
         return value_;
     }
-
-    /** Copy assignment. */
-    ErrorOr& operator=(const ErrorOr&) = default;
-
-    /** Move assignment. */
-    ErrorOr& operator=(ErrorOr&&) = default;
 
     /** Value assignment. */
     ErrorOr& operator=(value_type value)

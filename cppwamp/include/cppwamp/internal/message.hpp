@@ -42,11 +42,10 @@ struct Message
         if ( fields.size() < traits.minSize || fields.size() > traits.maxSize )
             return unex;
 
-        assert(fields.size() <=
-               std::extent<decltype(traits.fieldTypes)>::value);
+        assert(fields.size() <= MessageTraits::maxFieldCount);
         for (size_t i=0; i<fields.size(); ++i)
         {
-            if (fields[i].typeId() != traits.fieldTypes[i])
+            if (fields.at(i).typeId() != traits.fieldTypes.at(i))
                 return unex;
         }
 
@@ -177,7 +176,7 @@ struct Message
         return found->second.valueOr<bool>(false);
     }
 
-protected:
+private:
     MessageKind kind_;
     mutable Array fields_; // Mutable for lazy-loaded empty payloads
 };
@@ -187,7 +186,7 @@ template <MessageKind K>
 class RequestCommand
 {
 protected:
-    RequestCommand() {}
+    RequestCommand() = default;
 
     template <typename... Ts>
     RequestCommand(MessageKind kind, Ts&&... fields)
@@ -205,6 +204,10 @@ protected:
           requestId_(message_.template to<RequestId>(requestIdPos_))
     {}
 
+    const Message& message() const {return message_;}
+
+    Message& message() {return message_;}
+
     RequestId requestId() const
     {
         return requestId_;
@@ -216,14 +219,13 @@ protected:
         message_.at(requestIdPos_) = rid;
     }
 
-    Message message_;
-
 private:
     static constexpr unsigned requestIdPos_ =
-        MessageKindTraits<K>::requestIdPos();
+        MessageKindTraits<K>::requestIdPos;
 
     static constexpr unsigned requestKindPos_ = 1;
 
+    Message message_;
     RequestId requestId_ = nullId();
 
 public: // Internal use only
@@ -246,7 +248,7 @@ public: // Internal use only
 class NonRequestCommand
 {
 protected:
-    NonRequestCommand() {}
+    NonRequestCommand() = default;
 
     template <typename... Ts>
     NonRequestCommand(MessageKind kind, Ts&&... fields)
@@ -257,6 +259,11 @@ protected:
 
     NonRequestCommand(Array&& array) : message_(std::move(array)) {}
 
+    const Message& message() const {return message_;}
+
+    Message& message() {return message_;}
+
+private:
     Message message_;
 
 public: // Internal use only
@@ -267,7 +274,7 @@ public: // Internal use only
 };
 
 template <MessageKind K>
-using CommandBase = Conditional<MessageKindTraits<K>::requestIdPos() != 0,
+using CommandBase = Conditional<MessageKindTraits<K>::requestIdPos != 0,
                                 RequestCommand<K>,
                                 NonRequestCommand>;
 
@@ -276,7 +283,7 @@ template <MessageKind K>
 class Command : public CommandBase<K>
 {
 protected:
-    Command() {}
+    Command() = default;
 
     template <typename... Ts>
     Command(in_place_t, Ts&&... fields)
@@ -287,12 +294,10 @@ protected:
 
     template <MessageKind M>
     explicit Command(Command<M>&& command)
-        : Base(std::move(command.message_.fields()))
+        : Base(std::move(command.message().fields()))
     {}
 
-    const internal::Message& message() const {return this->message_;}
-
-    internal::Message& message() {return this->message_;}
+    using CommandBase<K>::message;
 
 private:
     using Base = CommandBase<K>;
@@ -309,17 +314,17 @@ public: // Internal use only
 
     static constexpr bool hasRequestId(PassKey)
     {
-        return MessageKindTraits<K>::requestIdPos() != 0;
+        return MessageKindTraits<K>::requestIdPos != 0;
     }
 
     static constexpr bool hasUri(PassKey)
     {
-        return MessageKindTraits<K>::uriPos() != 0;
+        return MessageKindTraits<K>::uriPos != 0;
     }
 
-    internal::Message& message(PassKey) {return this->message_;}
+    internal::Message& message(PassKey) {return this->message();}
 
-    const internal::Message& message(PassKey) const {return this->message_;}
+    const internal::Message& message(PassKey) const {return this->message();}
 };
 
 } // namespace internal

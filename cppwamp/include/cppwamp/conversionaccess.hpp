@@ -91,12 +91,17 @@ public:
     static TObject defaultConstruct() {return TObject();}
 
     template <typename TObject>
-    static TObject* defaultHeapConstruct() {return new TObject;}
+    static TObject* defaultHeapConstruct()
+    {
+        return new TObject; // NOLINT(cppcoreguidelines-owning-memory)
+    }
 
 private:
+    // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
     CPPWAMP_GENERATE_HAS_MEMBER(convert)
     CPPWAMP_GENERATE_HAS_MEMBER(convertFrom)
     CPPWAMP_GENERATE_HAS_MEMBER(convertTo)
+    // NOLINTEND(cppcoreguidelines-avoid-c-arrays)
 };
 
 } // namespace wamp

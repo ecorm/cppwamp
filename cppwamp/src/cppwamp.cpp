@@ -28,6 +28,7 @@
 #include <cppwamp/internal/errorinfo.inl.hpp>
 #include <cppwamp/internal/exceptions.inl.hpp>
 #include <cppwamp/internal/features.inl.hpp>
+#include <cppwamp/internal/filelogger.inl.hpp>
 #include <cppwamp/internal/json.inl.hpp>
 #include <cppwamp/internal/logging.inl.hpp>
 #include <cppwamp/internal/messagetraits.inl.hpp>

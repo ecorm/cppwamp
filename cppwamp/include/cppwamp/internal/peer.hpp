@@ -7,6 +7,7 @@
 #ifndef CPPWAMP_INTERNAL_PEER_HPP
 #define CPPWAMP_INTERNAL_PEER_HPP
 
+#include <array>
 #include <atomic>
 #include <cassert>
 #include <memory>
@@ -40,7 +41,7 @@ public:
     using Ptr = std::shared_ptr<Peer>;
     using State = SessionState;
 
-    virtual ~Peer() {}
+    virtual ~Peer() = default;
 
     State state() const {return state_.load();}
 
@@ -150,14 +151,14 @@ public:
 protected:
     static const std::string& stateLabel(State state)
     {
-        static const std::string labels[] = {
+        static const std::array<std::string, 8> labels{{
             "DISCONNECTED", "CONNECTING", "CLOSED", "ESTABLISHING",
-            "AUTHENTICATING", "ESTABLISHED", "SHUTTING_DOWN", "FAILED"};
+            "AUTHENTICATING", "ESTABLISHED", "SHUTTING_DOWN", "FAILED"}};
 
         using Index = std::underlying_type<State>::type;
         auto n = static_cast<Index>(state);
-        assert(n < Index(std::extent<decltype(labels)>::value));
-        return labels[n];
+        assert(n >= 0);
+        return labels.at(n);
     }
 
     explicit Peer(bool isRouter)

@@ -12,7 +12,7 @@
 namespace wamp
 {
 
-CPPWAMP_INLINE SessionInfo::SessionInfo() {}
+CPPWAMP_INLINE SessionInfo::SessionInfo() = default;
 
 CPPWAMP_INLINE SessionId SessionInfo::sessionId() const
 {

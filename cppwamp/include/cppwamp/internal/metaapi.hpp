@@ -486,7 +486,7 @@ private:
 class MetaPublisher
 {
 public:
-    virtual ~MetaPublisher() {}
+    virtual ~MetaPublisher() = default;
     virtual void publishMetaEvent(Pub&&, SessionId) = 0;
 };
 

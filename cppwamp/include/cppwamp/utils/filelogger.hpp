@@ -24,6 +24,22 @@ namespace utils
 {
 
 //------------------------------------------------------------------------------
+/** Contains FileLogger options. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API FileLoggerOptions
+{
+public:
+    FileLoggerOptions& withTruncate(bool truncate = true);
+    FileLoggerOptions& withFlushOnWrite(bool flushOnWrite = true);
+    bool truncate() const;
+    bool flushOnWrite() const;
+
+private:
+    bool truncate_;
+    bool flushOnWrite_;
+};
+
+//------------------------------------------------------------------------------
 /** Outputs log entries to a file.
     The format is per wamp::toString(const LogEntry&).
     Concurrent output operations are not serialized. */
@@ -32,11 +48,12 @@ class CPPWAMP_API FileLogger
 {
 public:
     /** Constructor taking a filepath. */
-    explicit FileLogger(const std::string& filepath, bool truncate = false);
+    explicit FileLogger(const std::string& filepath,
+                        FileLoggerOptions options = {});
 
     /** Constructor taking a path and a custom origin label. */
     FileLogger(const std::string& filepath, std::string originLabel,
-               bool truncate = false);
+               FileLoggerOptions options = {});
 
     /** Appends the given log entry to the stream. */
     void operator()(const LogEntry& entry) const;

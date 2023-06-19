@@ -14,11 +14,11 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-template <typename TSink>
-class SinkEncoder<Msgpack, TSink>::Impl
+template <typename S>
+class SinkEncoder<Msgpack, S>::Impl
 {
 public:
-    void encode(const Variant& variant, TSink sink)
+    void encode(const Variant& variant, S sink)
     {
         encoder_.encode(variant, sink);
     }
@@ -26,7 +26,7 @@ public:
 private:
     struct Config
     {
-        using Sink = TSink;
+        using Sink = S;
 
         template <typename TUnderlyingEncoderSink>
         using EncoderType =
@@ -37,18 +37,27 @@ private:
 };
 
 //------------------------------------------------------------------------------
-template <typename TSink>
-SinkEncoder<Msgpack, TSink>::SinkEncoder() : impl_(new Impl) {}
+template <typename S>
+SinkEncoder<Msgpack, S>::SinkEncoder() : impl_(new Impl) {}
 
 //------------------------------------------------------------------------------
-// Avoids incomplete type errors.
-//------------------------------------------------------------------------------
-template <typename TSink>
-SinkEncoder<Msgpack, TSink>::~SinkEncoder() {}
+template <typename S>
+SinkEncoder<Msgpack, S>::SinkEncoder(SinkEncoder&&) = default;
 
 //------------------------------------------------------------------------------
-template <typename TSink>
-void SinkEncoder<Msgpack, TSink>::encode(const Variant& variant, Sink sink)
+// Avoids incomplete type errors due to unique_ptr.
+//------------------------------------------------------------------------------
+template <typename S>
+SinkEncoder<Msgpack, S>::~SinkEncoder() = default;
+
+//------------------------------------------------------------------------------
+template <typename S>
+SinkEncoder<Msgpack, S>&
+SinkEncoder<Msgpack, S>::operator=(SinkEncoder&&) = default;
+
+//------------------------------------------------------------------------------
+template <typename S>
+void SinkEncoder<Msgpack, S>::encode(const Variant& variant, Sink sink)
 {
     impl_->encode(variant, sink);
 }
@@ -64,8 +73,8 @@ template class SinkEncoder<Msgpack, StreamSink>;
 #endif
 
 //------------------------------------------------------------------------------
-template <typename TSource>
-class SourceDecoder<Msgpack, TSource>::Impl
+template <typename S>
+class SourceDecoder<Msgpack, S>::Impl
 {
 public:
     Impl() : decoder_("Msgpack") {}
@@ -78,7 +87,7 @@ public:
 private:
     struct Config
     {
-        using Source = TSource;
+        using Source = S;
 
         template <typename TImplSource>
         using Parser = jsoncons::msgpack::basic_msgpack_parser<TImplSource>;
@@ -88,19 +97,28 @@ private:
 };
 
 //------------------------------------------------------------------------------
-template <typename TSource>
-SourceDecoder<Msgpack, TSource>::SourceDecoder() : impl_(new Impl) {}
+template <typename S>
+SourceDecoder<Msgpack, S>::SourceDecoder() : impl_(new Impl) {}
 
 //------------------------------------------------------------------------------
-// Avoids incomplete type errors.
-//------------------------------------------------------------------------------
-template <typename TSource>
-SourceDecoder<Msgpack, TSource>::~SourceDecoder() {}
+template <typename S>
+SourceDecoder<Msgpack, S>::SourceDecoder(SourceDecoder&&) = default;
 
 //------------------------------------------------------------------------------
-template <typename TSource>
-std::error_code SourceDecoder<Msgpack, TSource>::decode(Source source,
-                                                        Variant& variant)
+// Avoids incomplete type errors due to unique_ptr.
+//------------------------------------------------------------------------------
+template <typename S>
+SourceDecoder<Msgpack, S>::~SourceDecoder() = default;
+
+//------------------------------------------------------------------------------
+template <typename S>
+SourceDecoder<Msgpack, S>&
+SourceDecoder<Msgpack, S>::operator=(SourceDecoder&&) = default;
+
+//------------------------------------------------------------------------------
+template <typename S>
+std::error_code SourceDecoder<Msgpack, S>::decode(Source source,
+                                                  Variant& variant)
 {
     return impl_->decode(source, variant);
 }

@@ -33,7 +33,7 @@ CPPWAMP_INLINE bool Stream::invitationExpected() const
 //******************************************************************************
 
 /** @post this->state() == State::detached */
-CPPWAMP_INLINE CalleeChannel::CalleeChannel() {}
+CPPWAMP_INLINE CalleeChannel::CalleeChannel() = default;
 
 CPPWAMP_INLINE StreamMode CalleeChannel::mode() const
 {

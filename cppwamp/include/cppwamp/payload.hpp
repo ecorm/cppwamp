@@ -126,8 +126,8 @@ private:
     using Base = Options<TDerived, K>;
     using KindTraits = internal::MessageKindTraits<K>;
 
-    static constexpr unsigned argsPos_ = KindTraits::argsPos();
-    static constexpr unsigned kwargsPos_ = KindTraits::argsPos() + 1;
+    static constexpr unsigned argsPos_ = KindTraits::argsPos;
+    static constexpr unsigned kwargsPos_ = KindTraits::argsPos + 1;
 
     CPPWAMP_HIDDEN static void bundle(Array&);
 
