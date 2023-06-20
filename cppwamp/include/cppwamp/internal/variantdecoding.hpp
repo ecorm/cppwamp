@@ -310,6 +310,7 @@ private:
         if ( (sv.size() > 0) && (sv[0] == '\0') )
         {
             Blob::Data bytes;
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             ec = Base64::decode(sv.data() + 1, sv.size() - 1, bytes);
             if (!ec)
                 put(Blob(std::move(bytes)), where);

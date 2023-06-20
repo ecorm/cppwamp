@@ -264,6 +264,7 @@ private:
     using SessionMap = std::map<SessionId, RouterSession::Ptr>;
     using RealmProcedures = MetaProcedures<RouterRealm>;
     using MutexGuard = std::lock_guard<std::mutex>;
+    using RealmProceduresPtr = std::unique_ptr<RealmProcedures>;
 
     RouterRealm(Executor&& e, RealmConfig&& c, const RouterConfig& rcfg,
                 RouterContext&& rctx)
@@ -281,7 +282,7 @@ private:
           isOpen_(true)
     {
         if (config_.metaApiEnabled())
-            metaProcedures_.reset(new RealmProcedures(this));
+            metaProcedures_ = RealmProceduresPtr(new RealmProcedures(this));
     }
 
     RouterLogger::Ptr logger() const {return logger_;}
@@ -803,7 +804,7 @@ private:
     std::string logSuffix_;
     RouterLogger::Ptr logger_;
     UriValidator::Ptr uriValidator_;
-    std::unique_ptr<RealmProcedures> metaProcedures_;
+    RealmProceduresPtr metaProcedures_;
     std::atomic<bool> isOpen_;
 
     friend class DirectPeer;

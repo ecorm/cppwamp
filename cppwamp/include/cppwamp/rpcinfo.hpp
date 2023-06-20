@@ -358,6 +358,10 @@ private:
     {
         Value() {}
         ~Value() {}
+        Value(const Value&) = delete;
+        Value(Value&&) = delete;
+        Value& operator=(const Value&) = delete;
+        Value& operator=(Value&&) = delete;
 
         Result result;
         Error error;

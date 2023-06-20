@@ -80,10 +80,9 @@ protected:
     }
 
     explicit Chunk(internal::Message&& msg)
-        : Base(std::move(msg))
-    {
-        isFinal_ = !this->template optionOr<bool>("progress", false);
-    }
+        : Base(std::move(msg)),
+          isFinal_(!this->template optionOr<bool>("progress", false))
+    {}
 
     // Disallow the user setting options.
     using Base::withOption;

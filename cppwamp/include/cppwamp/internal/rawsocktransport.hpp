@@ -49,8 +49,8 @@ public:
     RawsockFrame() = default;
 
     RawsockFrame(RawsockMsgType type, MessageBuffer&& payload)
-        : header_(computeHeader(type, payload)),
-          payload_(std::move(payload))
+        : payload_(std::move(payload)),
+          header_(computeHeader(type, payload_))
     {}
 
     void clear()
@@ -103,8 +103,8 @@ private:
                               .toBigEndian();
     }
 
-    Header header_;
     MessageBuffer payload_;
+    Header header_ = 0;
     bool isPoisoned_ = false;
 };
 

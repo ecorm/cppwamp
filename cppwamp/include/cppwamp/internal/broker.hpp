@@ -16,6 +16,7 @@
 #include "../errorcodes.hpp"
 #include "../erroror.hpp"
 #include "../routerconfig.hpp"
+#include "../traits.hpp"
 #include "../utils/triemap.hpp"
 #include "../utils/wildcarduri.hpp"
 #include "metaapi.hpp"
@@ -375,7 +376,7 @@ public:
         for (auto iter = trie_.begin(); iter != end; ++iter)
         {
             BrokerSubscription* record = iteratorValue(iter);
-            if (!std::forward<F>(functor)(record->info()))
+            if (!functor(record->info()))
                 break;
             ++count;
         }
@@ -442,7 +443,7 @@ public:
         if (found == trie().end())
             return 0;
         BrokerSubscription* record = iteratorValue(found);
-        std::forward<F>(functor)(record->info());
+        functor(record->info());
         return 1;
     }
 };
@@ -486,18 +487,18 @@ public:
         if (trie().empty())
             return 0;
 
-        PrefixTraverser<F> traverser(std::forward<F>(functor));
-        trie().for_each_prefix_of(uri, traverser);
-        return traverser.count;
+        PrefixVisitor<Decay<F>> visitor(std::forward<F>(functor));
+        trie().for_each_prefix_of(uri, visitor);
+        return visitor.count;
     }
 private:
     template <typename TFunctor>
-    struct PrefixTraverser
+    struct PrefixVisitor
     {
         using Iter = utils::TrieMap<BrokerSubscription*>::const_iterator;
 
         template <typename F>
-        PrefixTraverser(F&& f) : functor(std::forward<F>(f)) {}
+        PrefixVisitor(F&& f) : functor(std::forward<F>(f)) {}
 
         void operator()(Iter iter)
         {
@@ -586,7 +587,7 @@ public:
         while (!matches.done())
         {
             const BrokerSubscription* record = matches.value();
-            if (!(std::forward<F>(functor)(record->info())))
+            if (!functor(record->info()))
                 break;
             ++count;
             matches.next();
@@ -773,7 +774,7 @@ public:
     {
         MutexGuard guard{queryMutex_};
         auto count = byExact_.forEachMatch(uri, std::forward<F>(functor));
-        count += byPrefix_.forEachMatch(uri, std::forward<F>(functor));
+        count += byPrefix_.forEachMatch(uri, functor);
         count += byWildcard_.forEachMatch(uri, std::forward<F>(functor));
         return count;
     }

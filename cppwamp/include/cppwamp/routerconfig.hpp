@@ -118,11 +118,10 @@ template <typename S, typename F, typename... Fs>
 ServerConfig::ServerConfig(String name, S&& transportSettings, F format,
                            Fs... extraFormats)
     : name_(std::move(name)),
-      listenerBuilder_(std::forward<S>(transportSettings))
-{
-    codecBuilders_ = {BufferCodecBuilder{format},
-                      BufferCodecBuilder{extraFormats}...};
-}
+      listenerBuilder_(std::forward<S>(transportSettings)),
+      codecBuilders_({BufferCodecBuilder{format},
+                     BufferCodecBuilder{extraFormats}...})
+{}
 
 //------------------------------------------------------------------------------
 using RandomNumberGenerator64 = std::function<uint64_t ()>;

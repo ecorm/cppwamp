@@ -235,16 +235,19 @@ private:
 
         Boxing* copyLocal(char* buffer) const override
         {
+            // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
             return new (buffer) Boxed<T>(value);
         }
 
         Boxing* copyHeaped() const override
         {
+            // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
             return new Boxed<T>(value);
         }
 
         Boxing* moveLocal(char* buffer) noexcept override
         {
+            // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
             return new (buffer) Boxed<T>(std::move(value));
         }
     };
@@ -267,19 +270,23 @@ private:
     template <typename T, typename... As>
     Boxed<T>* construct(As&&... args)
     {
+        // NOLINTBEGIN(cppcoreguidelines-owning-memory)
         if (fits<T>())
             return new (buffer_.data()) Boxed<T>(std::forward<As>(args)...);
         else
             return new Boxed<T>(std::forward<As>(args)...);
+        // NOLINTEND(cppcoreguidelines-owning-memory)
     }
 
     template<typename T, class U, class... As>
     Boxed<T>* construct(std::initializer_list<U> il, As&&... args)
     {
+        // NOLINTBEGIN(cppcoreguidelines-owning-memory)
         if (fits<T>())
             return new (buffer_.data()) Boxed<T>(il, std::forward<As>(args)...);
         else
             return new Boxed<T>(il, std::forward<As>(args)...);
+        // NOLINTEND(cppcoreguidelines-owning-memory)
     }
 
     Boxing* copy(Buffer& localBuffer) const

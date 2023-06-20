@@ -51,17 +51,13 @@ public:
 
     SocketOptionWrapper(TOption&& option) : option_(std::move(option)) {}
 
-    virtual int level(const Protocol& p) const override
-        {return option_.level(p);}
+    int level(const Protocol& p) const override {return option_.level(p);}
 
-    virtual int name(const Protocol& p) const override
-        {return option_.name(p);}
+    int name(const Protocol& p) const override {return option_.name(p);}
 
-    virtual const void* data(const Protocol& p) const override
-        {return option_.data(p);}
+    const void* data(const Protocol& p) const override {return option_.data(p);}
 
-    virtual size_t size(const Protocol& p) const override
-        {return option_.size(p);}
+    size_t size(const Protocol& p) const override {return option_.size(p);}
 
 private:
     TOption option_;

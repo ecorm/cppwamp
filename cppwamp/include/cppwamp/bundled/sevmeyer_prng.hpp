@@ -45,6 +45,7 @@
 #include <random>      // For random_device
 #include <type_traits> // For enable_if, is_floating_point, is_integral
 
+// NOLINTBEGIN
 
 namespace wamp {
 namespace bundled {
@@ -203,5 +204,7 @@ class Generator
 } // namespace prng
 } // namespace bundled
 } // namespace wamp
+
+// NOLINTEND
 
 #endif // CPPWAMP_BUNDLED_PRNG_PRNG_HPP

@@ -60,6 +60,9 @@ public:
         : Router(context.get_executor(), std::move(config))
     {}
 
+    /** Destructor. */
+    ~Router() = default;
+
     /// @name Move-only
     /// @{
     Router(const Router&) = delete;

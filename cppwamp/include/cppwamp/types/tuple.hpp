@@ -147,6 +147,7 @@ void convertToTuple(const Array& array, std::tuple<Ts...>& tuple,
     if (array.size() != sizeof...(Ts))
         throw error::Conversion("Cannot convert variant array to tuple; "
                                 "sizes do not match");
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
     using swallow = int[]; // Guarantees left-to-right evaluation
     (void)swallow{0, toTupleElement<Seq>(array, tuple)...};
 }
@@ -156,6 +157,7 @@ void convertFromTuple(Array& array, const std::tuple<Ts...>& tuple,
                       IndexSequence<Seq...>)
 {
     array.reserve(sizeof...(Ts));
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
     using swallow = int[]; // Guarantees left-to-right evaluation
     (void)swallow{0, fromTupleElement<Seq>(array, tuple)...};
 }

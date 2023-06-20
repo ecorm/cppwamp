@@ -22,6 +22,9 @@ struct TcpTraits
     template <typename TEndpoint>
     static ConnectionInfo connectionInfo(const TEndpoint& ep)
     {
+        static constexpr unsigned ipv4VersionNo = 4;
+        static constexpr unsigned ipv6VersionNo = 6;
+
         std::ostringstream oss;
         oss << ep;
         auto addr = ep.address();
@@ -30,7 +33,7 @@ struct TcpTraits
         Object details
         {
             {"address", addr.to_string()},
-            {"ip_version", isIpv6 ? 6 : 4},
+            {"ip_version", isIpv6 ? ipv6VersionNo : ipv4VersionNo},
             {"endpoint", oss.str()},
             {"port", ep.port()},
             {"protocol", "TCP"},

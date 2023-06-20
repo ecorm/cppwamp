@@ -195,6 +195,9 @@ public:
     TokenTrieMap(std::initializer_list<value_type> list, const allocator_type& a)
         : TokenTrieMap(a) {insert(list.begin(), list.end());}
 
+    /** Destructor. */
+    ~TokenTrieMap() = default;
+
     /** Copy assignment. */
     TokenTrieMap& operator=(const TokenTrieMap& rhs) = default;
 

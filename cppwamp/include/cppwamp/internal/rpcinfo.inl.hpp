@@ -158,11 +158,16 @@ CPPWAMP_INLINE Outcome::Outcome(Deferment) : type_(Type::deferred)
 {}
 
 /** @post `this->type() == other.type()` */
-CPPWAMP_INLINE Outcome::Outcome(const Outcome& other) {copyFrom(other);}
+CPPWAMP_INLINE Outcome::Outcome(const Outcome& other)
+    : type_(other.type_)
+{
+    copyFrom(other);
+}
 
 /** @post `this->type() == other.type()`
     @post `other.type() == Type::deferred` */
 CPPWAMP_INLINE Outcome::Outcome(wamp::Outcome&& other)
+    : type_(other.type_)
 {
     moveFrom(std::move(other));
 }

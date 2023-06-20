@@ -62,7 +62,8 @@ inline void convert(::wamp::FromVariantConverter& c, Type& obj) \
                                                                 \
 inline void convert(::wamp::ToVariantConverter& c, Type& obj)   \
 {                                                               \
-    convertTo(c, const_cast<const Type&>(obj));                 \
+    const auto& constObj = obj;                                 \
+    convertTo(c, constObj);                                     \
 }
 
 //------------------------------------------------------------------------------
@@ -420,6 +421,11 @@ private:
     {
         Field();
         ~Field();
+        Field(const Field&) = delete;
+        Field(Field&&) = delete;
+        Field& operator=(const Field&) = delete;
+        Field& operator=(Field&&) = delete;
+
         Null    nullValue;
         Bool    boolean;
         Int     integer;
@@ -659,7 +665,7 @@ public:
     Variant& variant();
 
 private:
-    Variant& var_;
+    Variant* var_ = nullptr;
 };
 
 //------------------------------------------------------------------------------
@@ -709,7 +715,7 @@ public:
     const Variant& variant() const;
 
 private:
-    const Variant& var_;
+    const Variant* var_ = nullptr;
     SizeType index_ = 0;
 };
 
@@ -789,6 +795,7 @@ template <typename D> struct Variant::FieldAccess<String, D>
         {return *static_cast<const String*>(field);}
 };
 
+// NOLINTBEGIN(cppcoreguidelines-owning-memory)
 template <typename D> struct Variant::FieldAccess<Blob, D>
 {
     template <typename U> static void construct(U&& value, void* field)
@@ -859,6 +866,7 @@ template <typename D> struct Variant::FieldAccess<Object, D>
 
     static Object*& ptr(void* field) {return Access<Object*>::get(field);}
 };
+// NOLINTEND(cppcoreguidelines-owning-memory)
 
 
 //------------------------------------------------------------------------------
@@ -878,9 +886,9 @@ Variant Variant::from(TValue&& value)
 //------------------------------------------------------------------------------
 template <typename T, CPPWAMP_NEEDS(Variant::isValidArg<T>())>
 Variant::Variant(T&& value)
+    : typeId_(FieldTraits<typename ArgTraits<ValueTypeOf<T>>::FieldType>::typeId)
 {
     using FieldType = typename ArgTraits<ValueTypeOf<T>>::FieldType;
-    typeId_ = FieldTraits<FieldType>::typeId;
     constructAs<FieldType>(std::forward<T>(value));
 }
 
@@ -1125,6 +1133,7 @@ Variant Variant::convertFrom(const T& value)
 {
     Variant v;
     ToVariantConverter conv(v);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
     convert(conv, const_cast<T&>(value));
     return v;
 }
@@ -1258,7 +1267,7 @@ bool operator!=(const T& value, const Variant& variant)
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-inline ToVariantConverter::ToVariantConverter(Variant& var) : var_(var) {}
+inline ToVariantConverter::ToVariantConverter(Variant& var) : var_(&var) {}
 
 //------------------------------------------------------------------------------
 /** @details
@@ -1270,7 +1279,7 @@ inline ToVariantConverter& ToVariantConverter::size(SizeType n)
 {
     Array array;
     array.reserve(n);
-    var_ = std::move(array);
+    *var_ = std::move(array);
     return *this;
 }
 
@@ -1282,7 +1291,7 @@ inline ToVariantConverter& ToVariantConverter::size(SizeType n)
 template <typename T>
 ToVariantConverter& ToVariantConverter::operator()(T&& value)
 {
-    var_ = Variant::from(std::forward<T>(value));
+    *var_ = Variant::from(std::forward<T>(value));
     return *this;
 }
 
@@ -1295,9 +1304,9 @@ ToVariantConverter& ToVariantConverter::operator()(T&& value)
 template <typename T>
 ToVariantConverter& ToVariantConverter::operator[](T&& value)
 {
-    if (!var_.is<Array>())
-        var_ = Array();
-    auto& array = var_.as<Array>();
+    if (!var_->is<Array>())
+        *var_ = Array();
+    auto& array = var_->as<Array>();
     array.emplace_back(Variant::from(std::forward<T>(value)));
     return *this;
 }
@@ -1311,9 +1320,9 @@ ToVariantConverter& ToVariantConverter::operator[](T&& value)
 template <typename T>
 ToVariantConverter& ToVariantConverter::operator()(String key, T&& value)
 {
-    if (!var_.is<Object>())
-        var_ = Object();
-    auto& object = var_.as<Object>();
+    if (!var_->is<Object>())
+        *var_ = Object();
+    auto& object = var_->as<Object>();
     object.emplace( std::move(key),
                    Variant::from(std::forward<T>(value)) );
     return *this;
@@ -1331,7 +1340,7 @@ ToVariantConverter& ToVariantConverter::operator()(String key, T&& value, U&&)
     return operator()(std::move(key), std::forward<T>(value));
 }
 
-inline Variant& ToVariantConverter::variant() {return var_;}
+inline Variant& ToVariantConverter::variant() {return *var_;}
 
 
 //******************************************************************************
@@ -1340,7 +1349,7 @@ inline Variant& ToVariantConverter::variant() {return var_;}
 
 //------------------------------------------------------------------------------
 inline FromVariantConverter::FromVariantConverter(const Variant& var)
-    : var_(var)
+    : var_(&var)
 {}
 
 //------------------------------------------------------------------------------
@@ -1350,7 +1359,7 @@ inline FromVariantConverter::FromVariantConverter(const Variant& var)
 //------------------------------------------------------------------------------
 inline FromVariantConverter::SizeType FromVariantConverter::size() const
 {
-    return var_.size();
+    return var_->size();
 }
 
 //------------------------------------------------------------------------------
@@ -1360,7 +1369,7 @@ inline FromVariantConverter::SizeType FromVariantConverter::size() const
 //------------------------------------------------------------------------------
 inline FromVariantConverter& FromVariantConverter::size(SizeType& n)
 {
-    n = var_.size();
+    n = var_->size();
     return *this;
 }
 
@@ -1375,7 +1384,7 @@ inline FromVariantConverter& FromVariantConverter::size(SizeType& n)
 template <typename T>
 FromVariantConverter& FromVariantConverter::operator()(T& value)
 {
-    var_.to(value);
+    var_->to(value);
     return *this;
 }
 
@@ -1396,7 +1405,7 @@ FromVariantConverter& FromVariantConverter::operator[](T& value)
 {
     try
     {
-        var_.at(index_).to(value);
+        var_->at(index_).to(value);
         ++index_;
     }
     catch (const error::Conversion& e)
@@ -1408,7 +1417,7 @@ FromVariantConverter& FromVariantConverter::operator[](T& value)
     catch (const error::Access&)
     {
         std::ostringstream oss;
-        oss << "Attemping to access field type " << typeNameOf(var_)
+        oss << "Attemping to access field type " << typeNameOf(*var_)
             << " as array";
         throw error::Conversion(oss.str());
     }
@@ -1441,7 +1450,7 @@ FromVariantConverter& FromVariantConverter::operator()(const String& key,
 {
     try
     {
-        var_.at(key).to(value);
+        var_->at(key).to(value);
     }
     catch (const error::Conversion& e)
     {
@@ -1452,7 +1461,7 @@ FromVariantConverter& FromVariantConverter::operator()(const String& key,
     catch (const error::Access&)
     {
         std::ostringstream oss;
-        oss << "Attemping to access field type " << typeNameOf(var_)
+        oss << "Attemping to access field type " << typeNameOf(*var_)
             << " as object using key '" << key << "'";
         throw error::Conversion(oss.str());
     }
@@ -1481,7 +1490,7 @@ FromVariantConverter& FromVariantConverter::operator()(const String& key,
 {
     try
     {
-        auto& obj = var_.as<Object>();
+        auto& obj = var_->as<Object>();
         auto kv = obj.find(key);
         if (kv != obj.end())
             kv->second.to(value);
@@ -1497,7 +1506,7 @@ FromVariantConverter& FromVariantConverter::operator()(const String& key,
     catch (const error::Access&)
     {
         std::ostringstream oss;
-        oss << "Attemping to access field type " << typeNameOf(var_)
+        oss << "Attemping to access field type " << typeNameOf(*var_)
             << " as object using key '" << key << "'";
         throw error::Conversion(oss.str());
     }
@@ -1506,7 +1515,7 @@ FromVariantConverter& FromVariantConverter::operator()(const String& key,
 }
 
 //------------------------------------------------------------------------------
-inline const Variant& FromVariantConverter::variant() const {return var_;}
+inline const Variant& FromVariantConverter::variant() const {return *var_;}
 
 } // namespace wamp
 

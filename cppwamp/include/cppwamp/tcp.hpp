@@ -57,7 +57,7 @@ public:
         via the handler passed to the establish method. */
     void cancel() override;
 
-    /** @name Noncopyable */
+    /** @name Non-copyable */
     /// @{
     Connector(const Connector&) = delete;
     Connector& operator=(const Connector&) = delete;
@@ -99,7 +99,7 @@ public:
 
     void cancel() override;
 
-    /** @name Noncopyable */
+    /** @name Non-copyable */
     /// @{
     Listener(const Listener&) = delete;
     Listener& operator=(const Listener&) = delete;

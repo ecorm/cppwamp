@@ -216,7 +216,7 @@ ErrorOr<UInt> Options<D,K>::toUnsignedInteger(const String& key) const
     if (found == options().end())
         return makeUnexpectedError(MiscErrc::absent);
     const auto& v = found->second;
-    UInt n;
+    UInt n = 0;
     if (!optionToUnsignedInteger(v, n))
         return makeUnexpectedError(MiscErrc::badType);
     return n;

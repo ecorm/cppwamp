@@ -64,7 +64,7 @@ public:
 
 private:
     Uri uri_;
-    Policy policy_;
+    Policy policy_ = MatchPolicy::unknown;
 };
 
 //------------------------------------------------------------------------------

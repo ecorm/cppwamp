@@ -43,10 +43,9 @@ CPPWAMP_INLINE Topic& Topic::withMatchPolicy(MatchPolicy policy)
 CPPWAMP_INLINE MatchPolicy Topic::matchPolicy() const {return matchPolicy_;}
 
 CPPWAMP_INLINE Topic::Topic(internal::PassKey, internal::Message&& msg)
-    : Base(std::move(msg))
-{
-    matchPolicy_ = internal::getMatchPolicyOption(options());
-}
+    : Base(std::move(msg)),
+      matchPolicy_(internal::getMatchPolicyOption(options()))
+{}
 
 CPPWAMP_INLINE Uri&& Topic::uri(internal::PassKey) &&
 {

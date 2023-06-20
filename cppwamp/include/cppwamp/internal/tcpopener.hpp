@@ -70,6 +70,8 @@ public:
             socket_->close();
     }
 
+    const Settings& settings() const {return settings_;}
+
 private:
     using tcp = boost::asio::ip::tcp;
 
@@ -103,7 +105,7 @@ private:
         };
 
         assert(!socket_);
-        socket_.reset(new Socket(strand_));
+        socket_ = SocketPtr{new Socket(strand_)};
         socket_->open(boost::asio::ip::tcp::v4());
         settings_.options().applyTo(*socket_);
 

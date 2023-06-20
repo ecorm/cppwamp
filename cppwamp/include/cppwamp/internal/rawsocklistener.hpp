@@ -97,8 +97,8 @@ private:
 
     RawsockListener(IoStrand i, Settings s, CodecIds codecIds)
         : codecIds_(std::move(codecIds)),
-          maxRxLength_(s.maxRxLength()),
-          acceptor_(std::move(i), std::move(s))
+          acceptor_(std::move(i), std::move(s)),
+          maxRxLength_(acceptor_.settings().maxRxLength())
     {}
 
     void receiveHandshake()
@@ -190,13 +190,13 @@ private:
         handler(std::forward<TArg>(arg));
     }
 
-    SocketPtr socket_;
-    Handler handler_;
     CodecIds codecIds_;
-    RawsockMaxLength maxTxLength_;
-    RawsockMaxLength maxRxLength_;
-    uint32_t handshake_;
     Acceptor acceptor_;
+    Handler handler_;
+    SocketPtr socket_;
+    uint32_t handshake_ = 0;
+    RawsockMaxLength maxTxLength_ = {};
+    RawsockMaxLength maxRxLength_ = {};
 };
 
 } // namespace internal

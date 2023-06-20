@@ -146,6 +146,11 @@ public:
 
     virtual void onUnsubscribe(SessionInfo, SubscriptionInfo);
 
+    RealmObserver(const RealmObserver&) = delete;
+    RealmObserver(RealmObserver&&) = delete;
+    RealmObserver& operator=(const RealmObserver&) = delete;
+    RealmObserver& operator=(RealmObserver&&) = delete;
+
 protected:
     RealmObserver();
 

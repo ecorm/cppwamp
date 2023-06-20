@@ -366,8 +366,8 @@ private:
           strand_(boost::asio::make_strand(executor_)),
           peer_(std::move(peer)),
           readership_(executor_),
-          registry_(*peer_, executor_),
-          requestor_(*peer_, strand_, executor_, userExecutor_)
+          registry_(peer_.get(), executor_),
+          requestor_(peer_.get(), strand_, executor_, userExecutor_)
     {
         peer_->listen(this);
     }

@@ -57,7 +57,7 @@ public:
             {"wamp.subscription.lookup",            &Self::lookupSubscription},
             {"wamp.subscription.match",             &Self::matchSubscriptions}
         }}),
-        context_(*realm)
+        context_(realm)
     {}
 
     bool call(RouterSession& caller, Rpc&& rpc)
@@ -177,12 +177,12 @@ private:
         std::size_t count = 0;
         if (rpc.args().empty())
         {
-            count = context_.sessionCount();
+            count = context_->sessionCount();
         }
         else
         {
             auto authRoles = parseAuthRoles(rpc);
-            context_.forEachSession(
+            context_->forEachSession(
                 [&authRoles, &count](const SessionInfo& info) -> bool
                 {
                     const auto& role = info.auth().role();
@@ -199,7 +199,7 @@ private:
 
         if (rpc.args().empty())
         {
-            context_.forEachSession(
+            context_->forEachSession(
                 [&list](const SessionInfo& info) -> bool
                 {
                     list.push_back(info.sessionId());
@@ -209,7 +209,7 @@ private:
         else
         {
             auto authRoles = parseAuthRoles(rpc);
-            context_.forEachSession(
+            context_->forEachSession(
                 [&authRoles, &list](const SessionInfo& info) -> bool
                 {
                     const auto& role = info.auth().role();
@@ -226,7 +226,7 @@ private:
     {
         SessionId sid = 0;
         rpc.convertTo(sid);
-        auto details = context_.getSession(sid);
+        auto details = context_->getSession(sid);
         if (!details)
             return Error{WampErrc::noSuchSession};
         return Result{toObject(details)};
@@ -240,7 +240,7 @@ private:
             return Error{WampErrc::noSuchSession};
 
         auto reason = parseReason(rpc);
-        auto killed = context_.doKillSession(sid, std::move(reason));
+        auto killed = context_->doKillSession(sid, std::move(reason));
         if (!killed)
             return Error{WampErrc::noSuchSession};
         return Result{};
@@ -250,7 +250,7 @@ private:
     std::vector<SessionId> killSessions(Rpc& rpc, TFilter&& filter)
     {
         auto reason = parseReason(rpc);
-        return context_.doKillSessionIf(filter, reason);
+        return context_->doKillSessionIf(filter, reason);
     }
 
     Outcome killSessionsByAuthId(RouterSession& caller, Rpc& rpc)
@@ -301,7 +301,7 @@ private:
         std::vector<RegistrationId> prefix;
         std::vector<RegistrationId> wildcard;
 
-        context_.forEachRegistration(
+        context_->forEachRegistration(
             MatchPolicy::exact,
             [&exact](const RegistrationInfo& s) -> bool
             {
@@ -309,7 +309,7 @@ private:
                 return true;
             });
 
-        context_.forEachRegistration(
+        context_->forEachRegistration(
             MatchPolicy::prefix,
             [&prefix](const RegistrationInfo& s) -> bool
             {
@@ -317,7 +317,7 @@ private:
                 return true;
             });
 
-        context_.forEachRegistration(
+        context_->forEachRegistration(
             MatchPolicy::wildcard,
             [&wildcard](const RegistrationInfo& s) -> bool
             {
@@ -340,7 +340,7 @@ private:
         if (policy == MatchPolicy::unknown)
             return Result{null};
 
-        auto info = context_.lookupRegistration(uri, policy);
+        auto info = context_->lookupRegistration(uri, policy);
         return info ? Result{info->id} : Result{null};
     }
 
@@ -348,23 +348,23 @@ private:
     {
         Uri uri;
         rpc.convertTo(uri);
-        auto info = context_.bestRegistrationMatch(uri);
+        auto info = context_->bestRegistrationMatch(uri);
         return info ? Result{info->id} : Result{null};
     }
 
     Outcome registrationDetails(RouterSession&, Rpc& rpc)
     {
-        RegistrationId rid;
+        RegistrationId rid = 0;
         rpc.convertTo(rid);
-        auto info = context_.getRegistration(rid);
+        auto info = context_->getRegistration(rid);
         return info ? Result{Variant::from(*info)} : Result{null};
     }
 
     Outcome listRegistrationCallees(RouterSession&, Rpc& rpc)
     {
-        RegistrationId rid;
+        RegistrationId rid = 0;
         rpc.convertTo(rid);
-        auto info = context_.getRegistration(rid, true);
+        auto info = context_->getRegistration(rid, true);
         if (!info)
             return Error{WampErrc::noSuchRegistration};
         Array list;
@@ -375,9 +375,9 @@ private:
 
     Outcome countRegistrationCallees(RouterSession&, Rpc& rpc)
     {
-        RegistrationId rid;
+        RegistrationId rid = 0;
         rpc.convertTo(rid);
-        auto info = context_.getRegistration(rid);
+        auto info = context_->getRegistration(rid);
         if (!info)
             return Error{WampErrc::noSuchRegistration};
         return Result{info->calleeCount};
@@ -389,7 +389,7 @@ private:
         std::vector<SubscriptionId> prefix;
         std::vector<SubscriptionId> wildcard;
 
-        context_.forEachSubscription(
+        context_->forEachSubscription(
             MatchPolicy::exact,
             [&exact](const SubscriptionInfo& s) -> bool
             {
@@ -397,7 +397,7 @@ private:
                 return true;
             });
 
-        context_.forEachSubscription(
+        context_->forEachSubscription(
             MatchPolicy::prefix,
             [&prefix](const SubscriptionInfo& s) -> bool
             {
@@ -405,7 +405,7 @@ private:
                 return true;
             });
 
-        context_.forEachSubscription(
+        context_->forEachSubscription(
             MatchPolicy::wildcard,
             [&wildcard](const SubscriptionInfo& s) -> bool
             {
@@ -428,7 +428,7 @@ private:
         if (policy == MatchPolicy::unknown)
             return Result{null};
 
-        auto info = context_.lookupSubscription(uri, policy);
+        auto info = context_->lookupSubscription(uri, policy);
         return info ? Result{info->id} : Result{null};
     }
 
@@ -437,7 +437,7 @@ private:
         Uri uri;
         rpc.convertTo(uri);
         std::vector<SubscriptionId> list;
-        context_.forEachMatchingSubscription(
+        context_->forEachMatchingSubscription(
             uri,
             [&list](const SubscriptionInfo& s) -> bool
             {
@@ -449,17 +449,17 @@ private:
 
     Outcome subscriptionDetails(RouterSession&, Rpc& rpc)
     {
-        SubscriptionId sid;
+        SubscriptionId sid = 0;
         rpc.convertTo(sid);
-        auto info = context_.getSubscription(sid);
+        auto info = context_->getSubscription(sid);
         return info ? Result{Variant::from(*info)} : Result{null};
     }
 
     Outcome listSubscribers(RouterSession&, Rpc& rpc)
     {
-        SubscriptionId sid;
+        SubscriptionId sid = 0;
         rpc.convertTo(sid);
-        auto info = context_.getSubscription(sid, true);
+        auto info = context_->getSubscription(sid, true);
         if (!info)
             return Error{WampErrc::noSuchSubscription};
         Array list;
@@ -470,16 +470,17 @@ private:
 
     Outcome countSubscribers(RouterSession&, Rpc& rpc)
     {
-        SubscriptionId sid;
+        SubscriptionId sid = 0;
         rpc.convertTo(sid);
-        auto info = context_.getSubscription(sid);
+        auto info = context_->getSubscription(sid);
         if (!info)
             return Error{WampErrc::noSuchSubscription};
         return Result{info->subscriberCount};
     }
 
-    std::array<Entry, 19> handlers_;
-    Context& context_;
+    static constexpr unsigned handlerCount_ = 19;
+    std::array<Entry, handlerCount_> handlers_;
+    Context* context_ = nullptr;
 };
 
 //------------------------------------------------------------------------------
@@ -504,7 +505,7 @@ public:
                bool metaApiEnabled)
         : executor_(executor),
           strand_(std::move(strand)),
-          context_(*realm),
+          context_(realm),
           metaApiEnabled_(metaApiEnabled)
     {}
 
@@ -727,7 +728,7 @@ private:
 
     void publish(Pub& pub)
     {
-        context_.publishMetaEvent(std::move(pub), inhibitedSessionId_);
+        context_->publishMetaEvent(std::move(pub), inhibitedSessionId_);
     }
 
     template <typename TNotifier, typename... Ts>
@@ -748,7 +749,7 @@ private:
     Executor executor_;
     IoStrand strand_;
     std::map<ObserverId, RealmObserver::WeakPtr> observers_;
-    MetaPublisher& context_;
+    MetaPublisher* context_ = nullptr;
     ObserverId nextObserverId_ = 0;
     SessionId inhibitedSessionId_ = nullId();
     bool metaApiEnabled_ = false;

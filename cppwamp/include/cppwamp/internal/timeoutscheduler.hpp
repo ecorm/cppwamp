@@ -155,6 +155,11 @@ public:
         timer_.cancel();
     }
 
+    TimeoutScheduler(const TimeoutScheduler&) = delete;
+    TimeoutScheduler(TimeoutScheduler&&) = delete;
+    TimeoutScheduler& operator=(const TimeoutScheduler&) = delete;
+    TimeoutScheduler& operator=(TimeoutScheduler&&) = delete;
+
 private:
     using WeakPtr = std::weak_ptr<TimeoutScheduler>;
     using Record = TimeoutRecord<Key>;

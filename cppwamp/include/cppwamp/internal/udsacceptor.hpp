@@ -34,8 +34,8 @@ public:
 
     template <typename TExecutorOrStrand>
     UdsAcceptor(TExecutorOrStrand&& exec, Settings s)
-        : strand_(std::forward<TExecutorOrStrand>(exec)),
-          settings_(std::move(s))
+        : settings_(std::move(s)),
+          strand_(std::forward<TExecutorOrStrand>(exec))
     {}
 
     template <typename F>
@@ -63,9 +63,10 @@ public:
         {
             if (settings_.deletePathEnabled())
                 std::remove(settings_.pathName().c_str());
-            acceptor_.reset(new Acceptor(strand_, settings_.pathName()));
+            acceptor_ = AcceptorPtr{new Acceptor(strand_,
+                                                 settings_.pathName())};
         }
-        socket_.reset(new Socket(strand_));
+        socket_ = SocketPtr{new Socket(strand_)};
 
         // RawsockListener will keep this object alive until completion.
         acceptor_->async_accept(*socket_,
@@ -78,8 +79,11 @@ public:
             acceptor_->cancel();
     }
 
+    const Settings& settings() const {return settings_;}
+
 private:
     using Acceptor = boost::asio::local::stream_protocol::acceptor;
+    using AcceptorPtr = std::unique_ptr<Acceptor>;
 
     template <typename F>
     bool checkError(boost::system::error_code asioEc, F& callback)
@@ -92,9 +96,9 @@ private:
         return !asioEc;
     }
 
-    IoStrand strand_;
     Settings settings_;
-    std::unique_ptr<Acceptor> acceptor_;
+    IoStrand strand_;
+    AcceptorPtr acceptor_;
     SocketPtr socket_;
 };
 

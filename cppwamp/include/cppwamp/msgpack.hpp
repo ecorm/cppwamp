@@ -130,6 +130,12 @@ public:
     /** Deserializes from the given input source to the given variant. */
     CPPWAMP_NODISCARD std::error_code decode(Source source, Variant& variant);
 
+    /** @name Noncopyable */
+    /// @{
+    SourceDecoder(const SourceDecoder&) = delete;
+    SourceDecoder& operator=(const SourceDecoder&) = delete;
+    /// @}
+
 private:
     class Impl;
     std::unique_ptr<Impl> impl_;

@@ -57,7 +57,7 @@ public:
 
         assert(!socket_ && "Connect already in progress");
 
-        socket_.reset(new Socket(strand_));
+        socket_ = SocketPtr{new Socket(strand_)};
         socket_->open();
         settings_.options().applyTo(*socket_);
 
@@ -71,6 +71,8 @@ public:
         if (socket_)
             socket_->close();
     }
+
+    const Settings& settings() const {return settings_;}
 
 private:
     template <typename F>

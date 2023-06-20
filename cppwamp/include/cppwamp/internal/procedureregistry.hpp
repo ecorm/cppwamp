@@ -96,7 +96,7 @@ public:
     using InterruptSlot = AnyReusableHandler<Outcome (Interruption)>;
     using StreamSlot    = AnyReusableHandler<void (CalleeChannel)>;
 
-    ProcedureRegistry(Peer& peer, AnyIoExecutor exec)
+    ProcedureRegistry(Peer* peer, AnyIoExecutor exec)
         : executor_(std::move(exec)),
           peer_(peer)
     {}
@@ -144,13 +144,13 @@ public:
             return false;
 
         result.setKindToYield({});
-        auto done = peer_.send(std::move(result));
+        auto done = peer_->send(std::move(result));
         if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
         {
             if (!erased)
                 invocations_.erase(found);
-            peer_.send(Error{{}, MessageKind::invocation, reqId,
-                             WampErrc::payloadSizeExceeded});
+            peer_->send(Error{{}, MessageKind::invocation, reqId,
+                              WampErrc::payloadSizeExceeded});
         }
         return done;
     }
@@ -171,13 +171,13 @@ public:
         if (moot)
             return false;
 
-        auto done = peer_.send(std::move(chunk));
+        auto done = peer_->send(std::move(chunk));
         if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
         {
             if (!erased)
                 invocations_.erase(found);
-            peer_.send(Error{{}, MessageKind::invocation, reqId,
-                             WampErrc::payloadSizeExceeded});
+            peer_->send(Error{{}, MessageKind::invocation, reqId,
+                              WampErrc::payloadSizeExceeded});
         }
         return done;
     }
@@ -197,7 +197,7 @@ public:
             return false;
 
         error.setRequestKind({}, MessageKind::invocation);
-        return peer_.send(std::move(error));
+        return peer_->send(std::move(error));
     }
 
     WampErrc onInvocation(Invocation&& inv)
@@ -474,7 +474,7 @@ private:
                 errorCodeToUri(WampErrc::cancelled))};
             error.setRequestId({}, intr.requestId());
             error.setRequestKind({}, MessageKind::invocation);
-            peer_.send(std::move(error));
+            peer_->send(std::move(error));
         }
     }
 
@@ -482,7 +482,7 @@ private:
     StreamMap streams_;
     InvocationMap invocations_;
     AnyIoExecutor executor_;
-    Peer& peer_;
+    Peer* peer_ = nullptr;
 };
 
 } // namespace internal

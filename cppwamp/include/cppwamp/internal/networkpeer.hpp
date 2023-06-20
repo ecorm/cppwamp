@@ -109,6 +109,10 @@ public:
         return true;
     }
 
+    NetworkPeer(const NetworkPeer&) = delete;
+    NetworkPeer(NetworkPeer&&) = delete;
+    NetworkPeer& operator=(const NetworkPeer&) = delete;
+    NetworkPeer& operator=(NetworkPeer&&) = delete;
 
 private:
     using Base = Peer;

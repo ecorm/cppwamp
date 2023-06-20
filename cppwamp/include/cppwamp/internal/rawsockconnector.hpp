@@ -94,9 +94,9 @@ private:
     using Handshake = internal::RawsockHandshake;
 
     RawsockConnector(IoStrand i, Settings s, int codecId)
-        : codecId_(codecId),
-          maxRxLength_(s.maxRxLength()),
-          opener_(std::move(i), std::move(s))
+        : opener_(std::move(i), std::move(s)),
+          codecId_(codecId),
+          maxRxLength_(opener_.settings().maxRxLength())
     {}
 
     void sendHandshake()
@@ -179,12 +179,12 @@ private:
         handler(std::forward<TArg>(arg));
     }
 
+    Opener opener_;
     SocketPtr socket_;
     Handler handler_;
-    int codecId_;
-    RawsockMaxLength maxRxLength_;
-    uint32_t handshake_;
-    Opener opener_;
+    int codecId_ = 0;
+    uint32_t handshake_ = 0;
+    RawsockMaxLength maxRxLength_ = {};
 };
 
 } // namespace internal

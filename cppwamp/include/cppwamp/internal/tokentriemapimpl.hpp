@@ -55,6 +55,7 @@ public:
     protected:
         ValueComp(KeyComp c) : comp(std::move(c)) {}
 
+        // NOLINTNEXTLINE(cppcoreguidelines-non-private-member-variables-in-classes)
         KeyComp comp;
 
         friend class TokenTrieMapImpl;

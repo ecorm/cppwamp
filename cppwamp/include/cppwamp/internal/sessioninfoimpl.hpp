@@ -37,6 +37,8 @@ public:
         return Ptr(new SessionInfoImpl(std::move(auth)));
     }
 
+    ~SessionInfoImpl() = default;
+
     SessionId sessionId() const {return sessionId_;}
 
     const Uri& realmUri() const {return realmUri_;}
@@ -70,7 +72,9 @@ public:
     }
 
     SessionInfoImpl(const SessionInfoImpl&) = delete;
+    SessionInfoImpl(SessionInfoImpl&&) = delete;
     SessionInfoImpl& operator=(const SessionInfoImpl&) = delete;
+    SessionInfoImpl& operator=(SessionInfoImpl&&) = delete;
 
 private:
     explicit SessionInfoImpl(AuthInfo&& auth)

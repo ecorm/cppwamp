@@ -26,22 +26,22 @@ class RawsockHandshake
 {
 public:
     static size_t byteLengthOf(RawsockMaxLength len)
-        {return 1u << ((int)len + 9);}
+        {return 1u << ((int)len + byteLengthPos_);}
 
     static RawsockHandshake fromBigEndian(uint32_t big)
         {return RawsockHandshake(endian::bigToNative32(big));}
 
     static RawsockHandshake eUnsupportedFormat()
-        {return RawsockHandshake(0x7f100000);}
+        {return RawsockHandshake(magicOctet_ | eUnsupportedFormatBits_);}
 
     static RawsockHandshake eUnacceptableLength()
-        {return RawsockHandshake(0x7f200000);}
+        {return RawsockHandshake(magicOctet_ | eUnacceptableLengthBits_);}
 
     static RawsockHandshake eReservedBitsUsed()
-        {return RawsockHandshake(0x7f300000);}
+        {return RawsockHandshake(magicOctet_ | eReservedBitsUsedBits_);}
 
     static RawsockHandshake eMaxConnections()
-        {return RawsockHandshake(0x7f400000);}
+        {return RawsockHandshake(magicOctet_ | eMaxConnectionsBits_);}
 
     RawsockHandshake() : hs_(magicOctet_) {}
 
@@ -86,16 +86,20 @@ public:
         {return put(length, lengthPos_);}
 
 private:
-    static constexpr uint32_t reservedMask_ = 0x0000ffff;
-    static constexpr uint32_t codecMask_    = 0x000f0000;
-    static constexpr uint32_t lengthMask_   = 0x00f00000;
-    static constexpr uint32_t errorMask_    = 0x00f00000;
-    static constexpr uint32_t magicMask_    = 0xff000000;
-    static constexpr uint32_t magicOctet_   = 0x7f000000;
-    static constexpr int byteLengthPos_     = 9;
-    static constexpr int codecPos_          = 16;
-    static constexpr int lengthPos_         = 20;
-    static constexpr int errorPos_          = 20;
+    static constexpr uint32_t reservedMask_            = 0x0000ffff;
+    static constexpr uint32_t codecMask_               = 0x000f0000;
+    static constexpr uint32_t lengthMask_              = 0x00f00000;
+    static constexpr uint32_t errorMask_               = 0x00f00000;
+    static constexpr uint32_t magicMask_               = 0xff000000;
+    static constexpr uint32_t magicOctet_              = 0x7f000000;
+    static constexpr uint32_t eUnsupportedFormatBits_  = 0x00100000;
+    static constexpr uint32_t eUnacceptableLengthBits_ = 0x00200000;
+    static constexpr uint32_t eReservedBitsUsedBits_   = 0x00300000;
+    static constexpr uint32_t eMaxConnectionsBits_     = 0x00400000;
+    static constexpr int byteLengthPos_ = 9;
+    static constexpr int codecPos_      = 16;
+    static constexpr int lengthPos_     = 20;
+    static constexpr int errorPos_      = 20;
 
     template <typename T = uint32_t>
     T get(uint32_t mask, int pos = 0) const

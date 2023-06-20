@@ -34,9 +34,10 @@ public:
     using Traits    = TcpTraits;
 
     template <typename TExecutorOrStrand>
-    TcpAcceptor(TExecutorOrStrand&& exec, const Settings& s)
-        : strand_(std::forward<TExecutorOrStrand>(exec)),
-          acceptor_(strand_, makeEndpoint(s))
+    TcpAcceptor(TExecutorOrStrand&& exec, Settings s)
+        : settings_(std::move(s)),
+          strand_(std::forward<TExecutorOrStrand>(exec)),
+          acceptor_(strand_, makeEndpoint(settings_))
     {}
 
     template <typename F>
@@ -58,7 +59,7 @@ public:
 
         assert(!socket_ && "Accept already in progress");
 
-        socket_.reset(new Socket(strand_));
+        socket_ = SocketPtr{new Socket(strand_)};
 
         // RawsockListener will keep this object alive until completion.
         acceptor_.async_accept(*socket_,
@@ -69,6 +70,8 @@ public:
     {
         acceptor_.cancel();
     }
+
+    const Settings& settings() const {return settings_;}
 
 private:
     static boost::asio::ip::tcp::endpoint makeEndpoint(const Settings& s)
@@ -90,6 +93,7 @@ private:
         return !asioEc;
     }
 
+    Settings settings_;
     IoStrand strand_;
     boost::asio::ip::tcp::acceptor acceptor_;
     SocketPtr socket_;

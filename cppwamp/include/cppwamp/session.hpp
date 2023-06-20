@@ -393,6 +393,171 @@ private:
 // Session template function implementations
 //******************************************************************************
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-member-init)
+//------------------------------------------------------------------------------
+struct Session::JoinOp
+{
+    using ResultValue = Welcome;
+    Session* self;
+    Petition p;
+    ChallengeSlot s;
+
+    template <typename F> void operator()(F&& f)
+    {
+        self->doJoin(std::move(p), std::move(s),
+                     self->bindFallbackExecutor(std::forward<F>(f)));
+    }
+};
+
+//------------------------------------------------------------------------------
+struct Session::LeaveOp
+{
+    using ResultValue = Reason;
+    Session* self;
+    Reason r;
+
+    template <typename F> void operator()(F&& f)
+    {
+        self->doLeave(std::move(r),
+                      self->bindFallbackExecutor(std::forward<F>(f)));
+    }
+};
+
+//------------------------------------------------------------------------------
+struct Session::SubscribeOp
+{
+    using ResultValue = Subscription;
+    Session* self;
+    Topic t;
+    EventSlot s;
+
+    template <typename F> void operator()(F&& f)
+    {
+        self->doSubscribe(std::move(t), std::move(s),
+                          self->bindFallbackExecutor(std::forward<F>(f)));
+    }
+};
+
+//------------------------------------------------------------------------------
+struct Session::UnsubscribeOp
+{
+    using ResultValue = bool;
+    Session* self;
+    Subscription s;
+
+    template <typename F> void operator()(F&& f)
+    {
+        self->doUnsubscribe(std::move(s),
+                            self->bindFallbackExecutor(std::forward<F>(f)));
+    }
+};
+
+//------------------------------------------------------------------------------
+struct Session::PublishOp
+{
+    using ResultValue = PublicationId;
+    Session* self;
+    Pub p;
+
+    template <typename F> void operator()(F&& f)
+    {
+        self->doPublish(std::move(p),
+                        self->bindFallbackExecutor(std::forward<F>(f)));
+    }
+};
+
+//------------------------------------------------------------------------------
+struct Session::EnrollOp
+{
+    using ResultValue = Registration;
+    Session* self;
+    Procedure p;
+    CallSlot s;
+    InterruptSlot i;
+
+    template <typename F> void operator()(F&& f)
+    {
+        self->doEnroll(std::move(p), std::move(s), std::move(i),
+                       self->bindFallbackExecutor(std::forward<F>(f)));
+    }
+};
+
+//------------------------------------------------------------------------------
+struct Session::UnregisterOp
+{
+    using ResultValue = bool;
+    Session* self;
+    Registration r;
+
+    template <typename F> void operator()(F&& f)
+    {
+        self->doUnregister(std::move(r),
+                           self->bindFallbackExecutor(std::forward<F>(f)));
+    }
+};
+
+//------------------------------------------------------------------------------
+struct Session::CallOp
+{
+    using ResultValue = Result;
+    Session* self;
+    Rpc r;
+
+    template <typename F> void operator()(F&& f)
+    {
+        self->doCall(std::move(r),
+                     self->bindFallbackExecutor(std::forward<F>(f)));
+    }
+};
+
+//------------------------------------------------------------------------------
+struct Session::EnrollStreamOp
+{
+    using ResultValue = Registration;
+    Session* self;
+    Stream s;
+    StreamSlot ss;
+
+    template <typename F> void operator()(F&& f)
+    {
+        self->doEnroll(std::move(s), std::move(ss),
+                       self->bindFallbackExecutor(std::forward<F>(f)));
+    }
+};
+
+//------------------------------------------------------------------------------
+struct Session::RequestStreamOp
+{
+    using ResultValue = CallerChannel;
+    Session* self;
+    StreamRequest r;
+    CallerChunkSlot c;
+
+    template <typename F> void operator()(F&& f)
+    {
+        self->doRequestStream(std::move(r), std::move(c),
+                              self->bindFallbackExecutor(std::forward<F>(f)));
+    }
+};
+
+//------------------------------------------------------------------------------
+struct Session::OpenStreamOp
+{
+    using ResultValue = CallerChannel;
+    Session* self;
+    StreamRequest r;
+    CallerChunkSlot c;
+
+    template <typename F> void operator()(F&& f)
+    {
+        self->doOpenStream(std::move(r), std::move(c),
+                           self->bindFallbackExecutor(std::forward<F>(f)));
+    }
+};
+
+// NOLINTEND(cppcoreguidelines-pro-type-member-init)
+
+
 //------------------------------------------------------------------------------
 /** @tparam S Callable handler with signature `void (Incident)`
     @details
@@ -485,21 +650,6 @@ Session::connect(
 }
 
 //------------------------------------------------------------------------------
-struct Session::JoinOp
-{
-    using ResultValue = Welcome;
-    Session* self;
-    Petition p;
-    ChallengeSlot s;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doJoin(std::move(p), std::move(s),
-                     self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
-
-//------------------------------------------------------------------------------
 /** @tparam C Callable handler with signature `void (ErrorOr<Welcome>)`, or a
               compatible Boost.Asio completion token
     @return A Welcome object with details on the newly established session.
@@ -551,20 +701,6 @@ Session::join(
 }
 
 //------------------------------------------------------------------------------
-struct Session::LeaveOp
-{
-    using ResultValue = Reason;
-    Session* self;
-    Reason r;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doLeave(std::move(r),
-                      self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
-
-//------------------------------------------------------------------------------
 /** @tparam C Callable handler with signature `void (ErrorOr<Reason>)`, or a
               compatible Boost.Asio completion token.
     @details The "wamp.close.close_realm" reason is sent as part of the
@@ -609,21 +745,6 @@ Session::leave(
 }
 
 //------------------------------------------------------------------------------
-struct Session::SubscribeOp
-{
-    using ResultValue = Subscription;
-    Session* self;
-    Topic t;
-    EventSlot s;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doSubscribe(std::move(t), std::move(s),
-                          self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
-
-//------------------------------------------------------------------------------
 /** @tparam S Callable handler with signature `void (Event)`
     @tparam C Callable handler with signature `void (ErrorOr<Subscription>)`,
               or a compatible Boost.Asio completion token
@@ -651,20 +772,6 @@ Session::subscribe(
         std::forward<C>(completion), std::move(topic),
         bindFallbackExecutor(std::forward<S>(eventSlot)));
 }
-
-//------------------------------------------------------------------------------
-struct Session::UnsubscribeOp
-{
-    using ResultValue = bool;
-    Session* self;
-    Subscription s;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doUnsubscribe(std::move(s),
-                            self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
 
 //------------------------------------------------------------------------------
 /** @tparam C Callable handler with signature `void (ErrorOr<bool>)`,
@@ -703,20 +810,6 @@ Session::unsubscribe(
 }
 
 //------------------------------------------------------------------------------
-struct Session::PublishOp
-{
-    using ResultValue = PublicationId;
-    Session* self;
-    Pub p;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doPublish(std::move(p),
-                        self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
-
-//------------------------------------------------------------------------------
 /** @tparam Callable handler with signature `void (ErrorOr<PublicationId>)`,
             or a compatible Boost.Asio completion token.
     @return The publication ID for this event. */
@@ -734,22 +827,6 @@ Session::publish(
 {
     return initiate<PublishOp>(std::forward<C>(completion), std::move(pub));
 }
-
-//------------------------------------------------------------------------------
-struct Session::EnrollOp
-{
-    using ResultValue = Registration;
-    Session* self;
-    Procedure p;
-    CallSlot s;
-    InterruptSlot i;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doEnroll(std::move(p), std::move(s), std::move(i),
-                       self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
 
 //------------------------------------------------------------------------------
 /** @tparam S Call slot with signature `Outcome (Invocation)`
@@ -805,20 +882,6 @@ Session::enroll(
 }
 
 //------------------------------------------------------------------------------
-struct Session::UnregisterOp
-{
-    using ResultValue = bool;
-    Session* self;
-    Registration r;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doUnregister(std::move(r),
-                           self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
-
-//------------------------------------------------------------------------------
 /** @tparam C Callable handler with signature `void (ErrorOr<bool>)`,
               or a compatible Boost.Asio completion token.
     @details
@@ -853,20 +916,6 @@ Session::unregister(
 }
 
 //------------------------------------------------------------------------------
-struct Session::CallOp
-{
-    using ResultValue = Result;
-    Session* self;
-    Rpc r;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doCall(std::move(r),
-                     self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
-
-//------------------------------------------------------------------------------
 /** @tparam C Callable handler with signature `void (ErrorOr<Result>)`,
               or a compatible Boost.Asio completion token.
     @return The remote procedure result.
@@ -895,21 +944,6 @@ Session::call(
 {
     return initiate<CallOp>(std::forward<C>(completion), std::move(rpc));
 }
-
-//------------------------------------------------------------------------------
-struct Session::EnrollStreamOp
-{
-    using ResultValue = Registration;
-    Session* self;
-    Stream s;
-    StreamSlot ss;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doEnroll(std::move(s), std::move(ss),
-                       self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
 
 //------------------------------------------------------------------------------
 /** @tparam S Callable handler with signature 'void (CalleeChannel)'.
@@ -947,21 +981,6 @@ Session::enroll(
         std::forward<C>(completion), std::move(stream),
         bindFallbackExecutor(std::forward<S>(streamSlot)));
 }
-
-//------------------------------------------------------------------------------
-struct Session::RequestStreamOp
-{
-    using ResultValue = CallerChannel;
-    Session* self;
-    StreamRequest r;
-    CallerChunkSlot c;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doRequestStream(std::move(r), std::move(c),
-                              self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
 
 //------------------------------------------------------------------------------
 /** @tparam S Callable handler with signature
@@ -1015,21 +1034,6 @@ Session::requestStream(
     return initiate<RequestStreamOp>(std::forward<C>(completion),
                                      std::move(req), nullptr);
 }
-
-//------------------------------------------------------------------------------
-struct Session::OpenStreamOp
-{
-    using ResultValue = CallerChannel;
-    Session* self;
-    StreamRequest r;
-    CallerChunkSlot c;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doOpenStream(std::move(r), std::move(c),
-                           self->bindFallbackExecutor(std::forward<F>(f)));
-    }
-};
 
 //------------------------------------------------------------------------------
 /** @tparam S Callable handler with signature

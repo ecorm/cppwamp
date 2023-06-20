@@ -56,6 +56,12 @@ public:
         via the handler passed to the establish method. */
     void cancel() override;
 
+    /** @name Non-copyable */
+    /// @{
+    Connector(const Connector&) = delete;
+    Connector& operator=(const Connector&) = delete;
+    /// @}
+
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;
@@ -91,6 +97,12 @@ public:
     void establish(Handler&& handler) override;
 
     void cancel() override;
+
+    /** @name Non-copyable */
+    /// @{
+    Listener(const Listener&) = delete;
+    Listener& operator=(const Listener&) = delete;
+    /// @}
 
 private:
     struct Impl;

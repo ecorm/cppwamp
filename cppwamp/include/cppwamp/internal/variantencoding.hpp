@@ -24,67 +24,67 @@ class VariantEncodingVisitor : public Visitor<>
 {
 public:
     explicit VariantEncodingVisitor(TEncoder& encoder)
-        : encoder_(encoder)
+        : encoder_(&encoder)
     {}
 
     void operator()(Null)
     {
-        encoder_.null_value();
+        encoder_->null_value();
     }
 
     void operator()(Bool b)
     {
-        encoder_.bool_value(b);
+        encoder_->bool_value(b);
     }
 
     void operator()(Int n)
     {
-        encoder_.int64_value(n);
+        encoder_->int64_value(n);
     }
 
     void operator()(UInt n)
     {
-        encoder_.uint64_value(n);
+        encoder_->uint64_value(n);
     }
 
     void operator()(Real x)
     {
-        encoder_.double_value(x);
+        encoder_->double_value(x);
     }
 
     void operator()(const String& s)
     {
-        encoder_.string_value({s.data(), s.size()});
+        encoder_->string_value({s.data(), s.size()});
     }
 
     void operator()(const Blob& b)
     {
         jsoncons::byte_string_view bsv(b.data().data(), b.data().size());
-        encoder_.byte_string_value(bsv);
+        encoder_->byte_string_value(bsv);
     }
 
     void operator()(const Array& a)
     {
-        encoder_.begin_array(a.size());
+        encoder_->begin_array(a.size());
         for (const auto& v: a)
             wamp::apply(*this, v);
-        encoder_.end_array();
+        encoder_->end_array();
     }
 
     void operator()(const Object& o)
     {
-        encoder_.begin_object(o.size());
+        encoder_->begin_object(o.size());
         for (const auto& kv: o)
         {
             const auto& key = kv.first;
-            encoder_.key({key.data(), key.size()});
+            encoder_->key({key.data(), key.size()});
             wamp::apply(*this, kv.second);
         }
-        encoder_.end_object();
+        encoder_->end_object();
     }
 
 private:
-    TEncoder& encoder_;
+    TEncoder* encoder_ = nullptr;
 };
 
 //------------------------------------------------------------------------------

@@ -191,6 +191,11 @@ public:
 
     const Executor& executor() const {return executor_;}
 
+    RouterImpl(const RouterImpl&) = delete;
+    RouterImpl(RouterImpl&&) = delete;
+    RouterImpl& operator=(const RouterImpl&) = delete;
+    RouterImpl& operator=(RouterImpl&&) = delete;
+
 private:
     using MutexGuard = std::lock_guard<std::mutex>;
     using ServerMap = std::map<std::string, RouterServer::Ptr>;

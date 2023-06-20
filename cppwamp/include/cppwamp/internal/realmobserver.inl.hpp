@@ -109,7 +109,9 @@ CPPWAMP_INLINE void convertFrom(FromVariantConverter& conv,
 CPPWAMP_INLINE void convertTo(ToVariantConverter& conv,
                               const RegistrationInfo& r)
 {
-    conv("created", internal::toRfc3339Timestamp<6>(r.created))
+    static constexpr unsigned precision = 6;
+
+    conv("created", internal::toRfc3339Timestamp<precision>(r.created))
         ("id",      r.id)
         ("invoke",  "single") // TODO: Shared registrations
         ("match",   internal::toString(r.matchPolicy))
@@ -165,7 +167,9 @@ CPPWAMP_INLINE void convertFrom(FromVariantConverter& conv, SubscriptionInfo& s)
 CPPWAMP_INLINE void convertTo(ToVariantConverter& conv,
                               const SubscriptionInfo& s)
 {
-    conv("created", internal::toRfc3339Timestamp<6>(s.created))
+    static constexpr unsigned precision = 6;
+
+    conv("created", internal::toRfc3339Timestamp<precision>(s.created))
         ("id",      s.id)
         ("match",   internal::toString(s.matchPolicy))
         ("uri",     s.uri);

@@ -127,27 +127,24 @@ public:
         return Ptr(new RandomIdPool(std::move(prng)));
     }
 
-    RandomIdPool(const RandomIdPool&) = delete;
-
-    RandomIdPool& operator=(const RandomIdPool&) = delete;
+    ~RandomIdPool() = default;
 
     ReservedId reserve()
     {
         std::lock_guard<std::mutex> lock(mutex_);
         const auto end = ids_.cend();
         IdSet::const_iterator found;
-        EphemeralId id;
-
-        do
-        {
+        EphemeralId id = 0;
+        while ((found = ids_.find(id)) != end)
             id = gen_();
-            found = ids_.find(id);
-        }
-        while (found != end);
-
         ids_.emplace(id);
         return ReservedId{shared_from_this(), id};
     }
+
+    RandomIdPool(const RandomIdPool&) = delete;
+    RandomIdPool(RandomIdPool&&) = delete;
+    RandomIdPool& operator=(const RandomIdPool&) = delete;
+    RandomIdPool& operator=(RandomIdPool&&) = delete;
 
 private:
     using IdSet = std::set<EphemeralId>;

@@ -45,9 +45,13 @@ public:
     /// Handler type used for ping response events.
     using PingHandler = std::function<void (float)>;
 
-    // Noncopyable
+    /** @name Non-copyable and non-movable. */
+    /// @{
     Transporting(const Transporting&) = delete;
+    Transporting(Transporting&&) = delete;
     Transporting& operator=(const Transporting&) = delete;
+    Transporting& operator=(Transporting&&) = delete;
+    /// @}
 
     /** Destructor. */
     virtual ~Transporting() = default;

@@ -157,7 +157,7 @@ public:
     using ChunkSlot = AnyReusableHandler<void (CallerChannel,
                                                ErrorOr<CallerInputChunk>)>;
 
-    Requestor(Peer& peer, IoStrand strand, AnyIoExecutor exec,
+    Requestor(Peer* peer, IoStrand strand, AnyIoExecutor exec,
               AnyCompletionExecutor fallbackExec)
         : deadlines_(CallerTimeoutScheduler::create(strand)),
           strand_(std::move(strand)),
@@ -199,7 +199,7 @@ public:
         auto uri = req.uri();
         req.setRequestId({}, channelId);
 
-        auto sent = peer_.send(std::move(req));
+        auto sent = peer_->send(std::move(req));
         if (!sent)
         {
             auto unex = makeUnexpected(sent.error());
@@ -288,7 +288,7 @@ public:
                     requests_.erase(kv);
                     completeRequest(handler, unex);
                 }
-                return peer_.send(CallCancellation{requestId, mode});
+                return peer_->send(CallCancellation{requestId, mode});
             }
         }
 
@@ -304,7 +304,7 @@ public:
                 channels_.erase(kv);
                 req.cancel(executor_, errc);
             }
-            return peer_.send(CallCancellation{requestId, mode});
+            return peer_->send(CallCancellation{requestId, mode});
         }
 
         return false;
@@ -315,7 +315,7 @@ public:
         auto key = chunk.requestKey({});
         if (requests_.count(key) == 0 && channels_.count(key.second) == 0)
             return false;
-        return peer_.send(std::move(chunk));
+        return peer_->send(std::move(chunk));
     }
 
     void abandonAll(std::error_code ec)
@@ -349,7 +349,7 @@ private:
         RequestId requestId = nextRequestId_ + 1;
         command.setRequestId({}, requestId);
 
-        auto sent = peer_.send(std::move(command));
+        auto sent = peer_->send(std::move(command));
         if (!sent)
         {
             auto unex = makeUnexpected(sent.error());
@@ -377,7 +377,7 @@ private:
     {
         RequestId requestId = nullId();
 
-        auto sent = peer_.send(std::move(command));
+        auto sent = peer_->send(std::move(command));
         if (!sent)
         {
             auto unex = makeUnexpected(sent.error());
@@ -414,7 +414,7 @@ private:
     IoStrand strand_;
     AnyIoExecutor executor_;
     AnyCompletionExecutor fallbackExecutor_;
-    Peer& peer_;
+    Peer* peer_ = nullptr;
     RequestId nextRequestId_ = nullId();
 };
 

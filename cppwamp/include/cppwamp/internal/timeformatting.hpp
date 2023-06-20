@@ -37,10 +37,12 @@ template <unsigned Precision>
 struct Rfc3339Subseconds
 {};
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
 template <> struct Rfc3339Subseconds<0> {using Type = std::chrono::seconds;};
 template <> struct Rfc3339Subseconds<3> {using Type = std::chrono::milliseconds;};
 template <> struct Rfc3339Subseconds<6> {using Type = std::chrono::microseconds;};
 template <> struct Rfc3339Subseconds<9> {using Type = std::chrono::nanoseconds;};
+// NOLINTEND(cppcoreguidelines-avoid-magic-numbers)
 
 //------------------------------------------------------------------------------
 template <unsigned Precision>
@@ -57,7 +59,8 @@ std::ostream& outputRfc3339Timestamp(
     auto time = chrono::system_clock::to_time_t(when);
 
 #ifdef CPPWAMP_HAS_GMTIME_R
-    std::tm tmbResult;
+    std::tm tmbResult; // NOLINT(cppcoreguidelines-pro-type-member-init)
+    std::memset(&tmbResult, 0, sizeof(tmbResult));
     std::tm* tmb = ::gmtime_r(&time, &tmbResult);
 #else
     std::tm* tmb = std::gmtime(&time);
@@ -124,10 +127,10 @@ inline std::istream& inputRfc3339Timestamp(
     namespace chrono = std::chrono;
     using Clock = chrono::system_clock;
 
-    std::tm tmb;
+    std::tm tmb; // NOLINT(cppcoreguidelines-pro-type-member-init)
     std::memset(&tmb, 0, sizeof(tmb));
-    SplitTmToTime::TickType ticks;
-    chrono::duration<double, std::ratio<1>> fpSeconds;
+    SplitTmToTime::TickType ticks = 0;
+    chrono::duration<double, std::ratio<1>> fpSeconds = {};
 
     auto locale = in.getloc();
     in.imbue(std::locale::classic());
@@ -141,19 +144,21 @@ inline std::istream& inputRfc3339Timestamp(
     if (!in)
         return in;
     if (zone != 'Z')
-        goto fail;
+    {
+        in.setstate(std::ios::failbit);
+        return in;
+    }
 
     ticks = SplitTmToTime::toTime(tmb);
     if (ticks == decltype(ticks)(-1))
-        goto fail;
+    {
+        in.setstate(std::ios::failbit);
+        return in;
+    }
 
     when = Clock::time_point{chrono::seconds{ticks}};
     fpSeconds = decltype(fpSeconds){seconds};
     when += chrono::duration_cast<Clock::duration>(fpSeconds);
-    return in;
-
-fail:
-    in.setstate(std::ios::failbit);
     return in;
 }
 

@@ -182,6 +182,7 @@ template <> struct ArgTraits<const String::value_type*>
     using FieldType                 = String;
 };
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
 template <size_t N> struct ArgTraits<String::value_type[N]>
 {
     static constexpr bool isValid   = true;
@@ -189,8 +190,8 @@ template <size_t N> struct ArgTraits<String::value_type[N]>
     using FieldType                 = String;
 };
 
-template <size_t N>
-struct ArgTraits<const String::value_type[N]>
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+template <size_t N> struct ArgTraits<const String::value_type[N]>
 {
     static constexpr bool isValid   = true;
     static String typeName()        {return "[character array]";}

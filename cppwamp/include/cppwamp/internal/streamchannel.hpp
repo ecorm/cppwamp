@@ -145,6 +145,11 @@ public:
         postToChunkHandler(unex);
     }
 
+    BasicCallerChannelImpl(const BasicCallerChannelImpl&) = delete;
+    BasicCallerChannelImpl(BasicCallerChannelImpl&&) = delete;
+    BasicCallerChannelImpl& operator=(const BasicCallerChannelImpl&) = delete;
+    BasicCallerChannelImpl& operator=(BasicCallerChannelImpl&&) = delete;
+
 private:
     void safeCancel() {caller_.cancelStream(id_);}
 
@@ -349,6 +354,11 @@ public:
     {
         postToSlot(interruptSlot_, std::move(intr));
     }
+
+    BasicCalleeChannelImpl(const BasicCalleeChannelImpl&) = delete;
+    BasicCalleeChannelImpl(BasicCalleeChannelImpl&&) = delete;
+    BasicCalleeChannelImpl operator=(const BasicCalleeChannelImpl&) = delete;
+    BasicCalleeChannelImpl operator=(BasicCalleeChannelImpl&&) = delete;
 
 private:
     bool isValidModeFor(const OutputChunk& c) const

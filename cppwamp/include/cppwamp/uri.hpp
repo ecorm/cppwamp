@@ -28,7 +28,7 @@ public:
     using Ptr = std::shared_ptr<UriValidator>;
 
     /** Destructor. */
-    virtual ~UriValidator();
+    virtual ~UriValidator() = default;
 
     /** Validates the given topic URI. */
     bool checkTopic(const Uri& uri, bool isPattern) const;
@@ -138,8 +138,6 @@ using StrictUriValidator = BasicUriValidator<StrictUriCharValidator>;
 // UriValidator member function definitions
 //******************************************************************************
 
-inline UriValidator::~UriValidator() = default;
-
 inline bool UriValidator::checkTopic(
     const Uri& uri, /**< The URI to validate */
     bool isPattern  /**< True if the URI to validate is used for
@@ -176,6 +174,7 @@ UriValidator::Ptr BasicUriValidator<TCharValidator>::create()
     return Ptr(new BasicUriValidator);
 }
 
+// NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 template <typename V>
 bool BasicUriValidator<V>::validateTopic(const Uri& uri) const
 {
@@ -205,6 +204,7 @@ bool BasicUriValidator<V>::validateError(const Uri& uri) const
 {
     return checkAsRessource(uri.data(), uri.data() + uri.size());
 }
+// NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
 template <typename V>
 BasicUriValidator<V>::BasicUriValidator() : locale_("C") {}
@@ -213,6 +213,7 @@ template <typename V>
 bool BasicUriValidator<V>::checkAsRessource(const Char* ptr,
                                             const Char* end) const
 {
+    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     if (ptr == end)
         return false;
 
@@ -231,16 +232,19 @@ bool BasicUriValidator<V>::checkAsRessource(const Char* ptr,
         }
     }
     return tokenIsValid(tokenStart, end);
+    // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 }
 
 template <typename V>
 bool BasicUriValidator<V>::checkAsPattern(const Char* ptr,
                                           const Char* end) const
 {
+    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     for (; ptr != end; ++ptr)
         if (*ptr != '.' && !CharValidator::isValid(*ptr, locale_))
             return false;
     return true;
+    // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 }
 
 template <typename V>

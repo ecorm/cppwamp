@@ -22,37 +22,37 @@ namespace wamp
 class Variant::Construct : public Visitor<>
 {
 public:
-    explicit Construct(Variant& dest) : dest_(dest) {}
+    explicit Construct(Variant& dest) : dest_(&dest) {}
 
     template <typename TField> void operator()(const TField& field) const
     {
-        dest_.template constructAs<TField>(field);
+        dest_->template constructAs<TField>(field);
     }
 
 private:
-    Variant& dest_;
+    Variant* dest_ = nullptr;
 };
 
 //------------------------------------------------------------------------------
 class Variant::MoveConstruct : public Visitor<>
 {
 public:
-    explicit MoveConstruct(Variant& dest) : dest_(dest) {}
+    explicit MoveConstruct(Variant& dest) : dest_(&dest) {}
 
     template <typename TField> void operator()(TField& field) const
     {
-        dest_.template constructAs<TField>(std::move(field));
+        dest_->template constructAs<TField>(std::move(field));
     }
 
 private:
-    Variant& dest_;
+    Variant* dest_ = nullptr;
 };
 
 //------------------------------------------------------------------------------
 class Variant::MoveAssign : public Visitor<>
 {
 public:
-    explicit MoveAssign(Variant& dest) : dest_(dest) {}
+    explicit MoveAssign(Variant& dest) : dest_(&dest) {}
 
     template <typename TField>
     void operator()(TField& leftField, TField& rightField) const
@@ -63,13 +63,13 @@ public:
     template <typename TOld, typename TNew>
     void operator()(TOld&, TNew& rhs) const
     {
-        dest_.template destructAs<TOld>();
-        dest_.template constructAs<TNew>(std::move(rhs));
-        dest_.typeId_ = FieldTraits<TNew>::typeId;
+        dest_->template destructAs<TOld>();
+        dest_->template constructAs<TNew>(std::move(rhs));
+        dest_->typeId_ = FieldTraits<TNew>::typeId;
     }
 
 private:
-    Variant& dest_;
+    Variant* dest_ = nullptr;
 };
 
 //------------------------------------------------------------------------------
@@ -90,7 +90,7 @@ class Variant::Swap : public Visitor<>
 {
 public:
     Swap(Variant& leftVariant, Variant& rightVariant)
-        : leftVariant_(leftVariant), rightVariant_(rightVariant) {}
+        : leftVariant_(&leftVariant), rightVariant_(&rightVariant) {}
 
     template <typename TField>
     void operator()(TField& leftField, TField& rightField) const
@@ -104,17 +104,17 @@ public:
     {
         TLeft leftTemp = std::move(leftField);
         leftField = TLeft{};
-        leftVariant_.template destructAs<TLeft>();
-        leftVariant_.template constructAs<TRight>(std::move(rightField));
+        leftVariant_->template destructAs<TLeft>();
+        leftVariant_->template constructAs<TRight>(std::move(rightField));
         rightField = TRight{};
-        rightVariant_.template destructAs<TRight>();
-        rightVariant_.template constructAs<TLeft>(std::move(leftTemp));
-        std::swap(leftVariant_.typeId_, rightVariant_.typeId_);
+        rightVariant_->template destructAs<TRight>();
+        rightVariant_->template constructAs<TLeft>(std::move(leftTemp));
+        std::swap(leftVariant_->typeId_, rightVariant_->typeId_);
     }
 
 private:
-    Variant& leftVariant_;
-    Variant& rightVariant_;
+    Variant* leftVariant_ = nullptr;
+    Variant* rightVariant_ = nullptr;
 };
 
 //------------------------------------------------------------------------------
@@ -422,7 +422,8 @@ CPPWAMP_INLINE Variant& Variant::operator=(Variant&& other) noexcept
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Variant& Variant::operator=(Array array)
 {
-    return this->operator=<Array>(std::move(array));
+    this->operator=<Array>(std::move(array));
+    return *this;
 }
 
 //------------------------------------------------------------------------------
@@ -431,7 +432,8 @@ CPPWAMP_INLINE Variant& Variant::operator=(Array array)
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Variant& Variant::operator=(Object object)
 {
-    return this->operator=<Object>(std::move(object));
+    this->operator=<Object>(std::move(object));
+    return *this;
 }
 
 //------------------------------------------------------------------------------

@@ -24,6 +24,8 @@ namespace internal
 class PeerListener
 {
 public:
+    virtual ~PeerListener() = default;
+
     virtual void onPeerDisconnect() = 0;
 
     virtual void onPeerFailure(std::error_code ec, bool abortSent,
