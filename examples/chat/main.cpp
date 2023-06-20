@@ -39,7 +39,10 @@ public:
         registration_ = session_.enroll(
             Procedure("say"),
             simpleRpc<void, std::string, std::string>(
-                                std::bind(&ChatService::say, this, _1, _2)),
+                [this](std::string user, std::string message)
+                {
+                    say(std::move(user), std::move(message));
+                }),
             yield).value();
     }
 
@@ -86,7 +89,10 @@ public:
         subscription_ = session_.subscribe(
                 Topic("said"),
                 simpleEvent<std::string, std::string>(
-                        std::bind(&ChatClient::said, this, _1, _2)),
+                    [this](std::string user, std::string message)
+                    {
+                        said(user, message);
+                    }),
                 yield).value();
     }
 

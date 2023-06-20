@@ -405,6 +405,7 @@ private:
             return;
         boost::asio::post(
             strand_,
+            // NOLINTNEXTLINE(modernize-avoid-bind)
             std::bind(std::move(handler), std::forward<Ts>(args)...));
     }
 

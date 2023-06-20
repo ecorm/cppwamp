@@ -365,6 +365,7 @@ private:
     template <typename F, typename... Ts>
     void post(F&& handler, Ts&&... args)
     {
+        // NOLINTNEXTLINE(modernize-avoid-bind)
         boost::asio::post(strand_, std::bind(std::forward<F>(handler),
                                              std::forward<Ts>(args)...));
     }

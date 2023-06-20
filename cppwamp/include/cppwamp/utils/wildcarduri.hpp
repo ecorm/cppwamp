@@ -55,7 +55,8 @@ public:
     static constexpr char_type separator = '.';
 
     SplitUri()
-        noexcept(std::is_nothrow_default_constructible<storage_type>::value) {}
+        noexcept(std::is_nothrow_default_constructible<storage_type>::value)
+        = default;
 
     SplitUri(const uri_type& uri): labels_(tokenize(uri)) {}
 
@@ -161,7 +162,7 @@ private:
 //------------------------------------------------------------------------------
 inline SplitUri::label_type CPPWAMP_API wildcardLabel()
 {
-    return SplitUri::label_type();
+    return {};
 }
 
 //------------------------------------------------------------------------------

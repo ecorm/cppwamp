@@ -35,15 +35,21 @@ struct RpcFixture
     {
         using namespace std::placeholders;
         dynamicReg = callee.enroll(
-                Procedure("dynamic"),
-                std::bind(&RpcFixture::dynamicRpc, this, _1),
-                yield).value();
+            Procedure("dynamic"),
+            [this](Invocation inv) -> Outcome
+            {
+                return dynamicRpc(std::move(inv));
+            },
+            yield).value();
 
         staticReg = callee.enroll(
-                Procedure("static"),
-                unpackedRpc<std::string, int>(std::bind(&RpcFixture::staticRpc,
-                                                        this, _1, _2, _3)),
-                yield).value();
+            Procedure("static"),
+            unpackedRpc<std::string, int>(
+                [this](Invocation i, std::string s, int n) -> Outcome
+                {
+                    return staticRpc(std::move(i), std::move(s), n);
+                }),
+            yield).value();
     }
 
     Outcome dynamicRpc(Invocation inv)
@@ -125,7 +131,10 @@ GIVEN( "an IO service and a ConnectionWish" )
             using namespace std::placeholders;
             f.dynamicReg = f.callee.enroll(
                 Procedure("dynamic"),
-                std::bind(&RpcFixture::dynamicRpc, &f, _1),
+                [&f](Invocation inv) -> Outcome
+                {
+                    return f.dynamicRpc(std::move(inv));
+                },
                 yield).value();
             result = f.caller.call(Rpc("dynamic").withArgs("four", 4),
                                     yield);
@@ -171,8 +180,11 @@ GIVEN( "an IO service and a ConnectionWish" )
             using namespace std::placeholders;
             f.staticReg = f.callee.enroll(
                 Procedure("static"),
-                unpackedRpc<std::string, int>(std::bind(&RpcFixture::staticRpc,
-                                                        &f, _1, _2, _3)),
+                unpackedRpc<std::string, int>(
+                    [&f](Invocation i, std::string s, int n) -> Outcome
+                    {
+                        return f.staticRpc(std::move(i), std::move(s), n);
+                    }),
                 yield).value();
             result = f.caller.call(Rpc("static").withArgs("four", 4), yield);
             REQUIRE_FALSE(!result);

@@ -103,7 +103,7 @@ public:
 
 private:
     using Self = MetaProcedures;
-    typedef Outcome (MetaProcedures::*Handler)(RouterSession&, Rpc&);
+    using Handler = Outcome (MetaProcedures::*)(RouterSession&, Rpc&);
 
     struct Entry
     {
@@ -503,7 +503,7 @@ public:
 
     MetaTopics(MetaPublisher* realm, Executor executor, IoStrand strand,
                bool metaApiEnabled)
-        : executor_(executor),
+        : executor_(std::move(executor)),
           strand_(std::move(strand)),
           context_(realm),
           metaApiEnabled_(metaApiEnabled)

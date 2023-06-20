@@ -75,7 +75,7 @@ CPPWAMP_INLINE bool MiscCategory::equivalent(const std::error_code& code,
         return false;
 }
 
-CPPWAMP_INLINE MiscCategory::MiscCategory() {}
+CPPWAMP_INLINE MiscCategory::MiscCategory() = default;
 
 CPPWAMP_INLINE MiscCategory& genericCategory()
 {
@@ -85,12 +85,12 @@ CPPWAMP_INLINE MiscCategory& genericCategory()
 
 CPPWAMP_INLINE std::error_code make_error_code(MiscErrc errc)
 {
-    return std::error_code(static_cast<int>(errc), genericCategory());
+    return {static_cast<int>(errc), genericCategory()};
 }
 
 CPPWAMP_INLINE std::error_condition make_error_condition(MiscErrc errc)
 {
-    return std::error_condition(static_cast<int>(errc), genericCategory());
+    return {static_cast<int>(errc), genericCategory()};
 }
 
 
@@ -186,7 +186,7 @@ CPPWAMP_INLINE bool WampCategory::equivalent(const std::error_code& code,
         return false;
 }
 
-CPPWAMP_INLINE WampCategory::WampCategory() {}
+CPPWAMP_INLINE WampCategory::WampCategory() = default;
 
 CPPWAMP_INLINE WampCategory& wampCategory()
 {
@@ -196,12 +196,12 @@ CPPWAMP_INLINE WampCategory& wampCategory()
 
 CPPWAMP_INLINE std::error_code make_error_code(WampErrc errc)
 {
-    return std::error_code(static_cast<int>(errc), wampCategory());
+    return {static_cast<int>(errc), wampCategory()};
 }
 
 CPPWAMP_INLINE std::error_condition make_error_condition(WampErrc errc)
 {
-    return std::error_condition(static_cast<int>(errc), wampCategory());
+    return {static_cast<int>(errc), wampCategory()};
 }
 
 //------------------------------------------------------------------------------
@@ -403,7 +403,7 @@ CPPWAMP_INLINE bool DecodingCategory::equivalent(const std::error_code& code,
     return false;
 }
 
-CPPWAMP_INLINE DecodingCategory::DecodingCategory() {}
+CPPWAMP_INLINE DecodingCategory::DecodingCategory() = default;
 
 CPPWAMP_INLINE DecodingCategory& decodingCategory()
 {
@@ -413,13 +413,12 @@ CPPWAMP_INLINE DecodingCategory& decodingCategory()
 
 CPPWAMP_INLINE std::error_code make_error_code(DecodingErrc errc)
 {
-    return std::error_code(static_cast<int>(errc), decodingCategory());
+    return {static_cast<int>(errc), decodingCategory()};
 }
 
 CPPWAMP_INLINE std::error_condition make_error_condition(DecodingErrc errc)
 {
-    return std::error_condition(static_cast<int>(errc),
-                                decodingCategory());
+    return {static_cast<int>(errc), decodingCategory()};
 }
 
 
@@ -502,7 +501,7 @@ CPPWAMP_INLINE bool TransportCategory::equivalent(const std::error_code& code,
     }
 }
 
-CPPWAMP_INLINE TransportCategory::TransportCategory() {}
+CPPWAMP_INLINE TransportCategory::TransportCategory() = default;
 
 CPPWAMP_INLINE TransportCategory& transportCategory()
 {
@@ -512,12 +511,12 @@ CPPWAMP_INLINE TransportCategory& transportCategory()
 
 CPPWAMP_INLINE std::error_code make_error_code(TransportErrc errc)
 {
-    return std::error_code(static_cast<int>(errc), transportCategory());
+    return {static_cast<int>(errc), transportCategory()};
 }
 
 CPPWAMP_INLINE std::error_condition make_error_condition(TransportErrc errc)
 {
-    return std::error_condition(static_cast<int>(errc), transportCategory());
+    return {static_cast<int>(errc), transportCategory()};
 }
 
 } // namespace wamp

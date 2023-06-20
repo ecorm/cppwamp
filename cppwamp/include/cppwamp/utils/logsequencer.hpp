@@ -50,6 +50,7 @@ public:
     /** Enqueues the given log entry. */
     void operator()(const Entry& entry) const
     {
+        // NOLINTNEXTLINE(modernize-avoid-bind)
         boost::asio::post(strand_, std::bind(logger_, entry));
     }
 

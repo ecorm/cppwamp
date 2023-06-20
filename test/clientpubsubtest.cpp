@@ -90,7 +90,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             using namespace std::placeholders;
             f.dynamicSub = f.subscriber.subscribe(
                     Topic("str.num"),
-                    std::bind(&PubSubFixture::onDynamicEvent, &f, _1),
+                    [&f](Event ev) {f.onDynamicEvent(std::move(ev));},
                     yield).value();
 
             // Check that only the dynamic slot still fires.

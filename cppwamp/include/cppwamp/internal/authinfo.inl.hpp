@@ -11,7 +11,7 @@
 namespace wamp
 {
 
-CPPWAMP_INLINE AuthInfo::AuthInfo() {}
+CPPWAMP_INLINE AuthInfo::AuthInfo() = default;
 
 CPPWAMP_INLINE AuthInfo::AuthInfo(String id, String role, String method,
                                   String provider)

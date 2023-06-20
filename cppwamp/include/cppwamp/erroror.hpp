@@ -135,10 +135,7 @@ public:
     ErrorOr() = default;
 
     /** Converting constructor taking a value. */
-    ErrorOr(value_type value)
-        : value_(std::move(value)),
-          hasError_(false)
-    {}
+    ErrorOr(value_type value) : value_(std::move(value)) {}
 
     /** Converting constructor taking an Unexpected. */
     template <typename G>

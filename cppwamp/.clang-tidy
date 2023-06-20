@@ -2,7 +2,11 @@
 Checks: >
   clang-analyzer-*,
   cppcoreguidelines-*,
-  -cppcoreguidelines-pro-type-union-access
+  modernize-*,
+  -cppcoreguidelines-pro-type-union-access,
+  -modernize-make-unique,
+  -modernize-use-trailing-return-type,
+  -modernize-avoid-c-arrays
 WarningsAsErrors: ''
 HeaderFilterRegex: ''
 AnalyzeTemporaryDtors: false

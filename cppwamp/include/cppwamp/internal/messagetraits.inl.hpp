@@ -25,6 +25,7 @@ CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(MessageKind kind)
     constexpr TypeId a = TypeId::array;
     constexpr TypeId o = TypeId::object;
 
+    // NOLINTBEGIN(modernize-use-bool-literals)
     static const std::array<MessageTraits, 71> traits{
     {
 //                           isRequest -------------------+
@@ -122,6 +123,7 @@ CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(MessageKind kind)
 /* 69 */ {"INTERRUPT",    K::none,        1,3,3,1,0,0,0,1,0, {i,i,o,n,n,n,n}},
 /* 70 */ {"YIELD",        K::invocation,  1,3,5,0,1,0,0,1,0, {i,i,o,a,o,n,n}}
     }};
+    // NOLINTEND(modernize-use-bool-literals)
 
     using T = std::underlying_type<MessageKind>::type;
     auto index = static_cast<T>(kind);

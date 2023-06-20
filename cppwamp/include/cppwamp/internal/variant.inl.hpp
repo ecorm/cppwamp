@@ -455,6 +455,7 @@ CPPWAMP_INLINE void Variant::destruct()
 CPPWAMP_INLINE Variant::Field::Field() : nullValue(null) {}
 
 //------------------------------------------------------------------------------
+// NOLINTNEXTLINE(modernize-use-equals-default)
 CPPWAMP_INLINE Variant::Field::~Field() {}
 
 //------------------------------------------------------------------------------

@@ -124,7 +124,7 @@ CPPWAMP_INLINE const std::string& accessActionLabel(AccessAction action)
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE AccessActionInfo::AccessActionInfo() {}
+CPPWAMP_INLINE AccessActionInfo::AccessActionInfo() = default;
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(

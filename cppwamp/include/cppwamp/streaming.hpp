@@ -68,8 +68,6 @@ private:
     bool isFinal_ = false;
 
 protected:
-    Chunk() = default;
-
     template <typename... Ts>
     explicit Chunk(bool isFinal, Ts&&... fields)
         : Base(in_place, std::forward<Ts>(fields)...),

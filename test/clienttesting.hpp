@@ -114,21 +114,23 @@ struct PubSubFixture
     {
         using namespace std::placeholders;
         dynamicSub = subscriber.subscribe(
-                Topic("str.num"),
-                std::bind(&PubSubFixture::onDynamicEvent, this, _1),
-                yield).value();
+            Topic("str.num"),
+            [this](Event ev) {onDynamicEvent(std::move(ev));},
+            yield).value();
 
         staticSub = subscriber.subscribe(
-                Topic("str.num"),
-                unpackedEvent<std::string, int>(
-                            std::bind(&PubSubFixture::onStaticEvent, this,
-                                      _1, _2, _3)),
-                yield).value();
+            Topic("str.num"),
+            unpackedEvent<std::string, int>(
+                [this](Event ev, std::string s, int n)
+                {
+                    onStaticEvent(std::move(ev), std::move(s), n);
+                }),
+            yield).value();
 
         otherSub = otherSubscriber.subscribe(
-                Topic("other"),
-                std::bind(&PubSubFixture::onOtherEvent, this, _1),
-                yield).value();
+            Topic("other"),
+            [this](Event ev) {onOtherEvent(std::move(ev));},
+            yield).value();
     }
 
     void onDynamicEvent(Event event)

@@ -1152,7 +1152,7 @@ Variant Variant::convertFrom(const std::vector<T>& vec)
     Variant::Array array;
     for (const auto& elem: vec)
         array.emplace_back(Variant::convertFrom(elem));
-    return Variant(std::move(array));
+    return {std::move(array)};
 }
 
 //------------------------------------------------------------------------------
@@ -1162,7 +1162,7 @@ Variant Variant::convertFrom(const std::map<String, T>& map)
     Variant::Object object;
     for (const auto& kv: map)
         object.emplace(kv.first, Variant::convertFrom(kv.second));
-    return Variant(std::move(object));
+    return {std::move(object)};
 }
 
 //------------------------------------------------------------------------------

@@ -14,8 +14,8 @@ namespace wamp
 CPPWAMP_INLINE UdsPath::UdsPath(std::string pathName, UdsOptions options,
                                 RawsockMaxLength maxRxLength,
                                 bool deletePath)
-    : pathName_(pathName),
-      options_(options),
+    : pathName_(std::move(pathName)),
+      options_(std::move(options)),
       maxRxLength_(maxRxLength),
       deletePathEnabled_(deletePath)
 {}
