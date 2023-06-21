@@ -82,6 +82,39 @@ CPPWAMP_INLINE bool CalleeChannel::attached() const {return bool(impl_);}
 
 CPPWAMP_INLINE CalleeChannel::operator bool() const {return attached();}
 
+/** @details
+    The channel is immediately closed if the given chunk is marked as final.
+    @returns
+        - false if the associated Session object is destroyed or
+                the streaming request no longer exists
+        - true if the response was accepted for processing
+        - an error code if there was a problem processing the response
+    @note This method should be called within the invocation context of the
+          StreamSlot in order to losing incoming chunks or interruptions due
+          to the ChunkSlot or InterruptSlot not being registered in time.
+    @pre `this->state() == State::awaiting`
+    @pre `response.isFinal() || this->mode == StreamMode::calleeToCaller ||
+          this->mode == StreamMode::bidirectional`
+    @post `this->state() == response.isFinal() ? State::closed : State::open`
+    @throws error::Logic if the mode precondition is not met */
+CPPWAMP_INLINE ErrorOrDone CalleeChannel::respond(
+    OutputChunk response, ChunkSlot chunkSlot, InterruptSlot interruptSlot)
+{
+    CPPWAMP_LOGIC_CHECK(attached(), "wamp::CalleeChannel::accept: "
+                                    "Channel is detached");
+    return impl_->respond(std::move(response), std::move(chunkSlot),
+                          std::move(interruptSlot));
+}
+
+/** @copydetails CalleeChannel::respond */
+CPPWAMP_INLINE ErrorOrDone CalleeChannel::accept(ChunkSlot chunkSlot,
+                                                 InterruptSlot interruptSlot)
+{
+    CPPWAMP_LOGIC_CHECK(attached(), "wamp::CalleeChannel::accept: "
+                                    "Channel is detached");
+    return impl_->accept(std::move(chunkSlot), std::move(interruptSlot));
+}
+
 /** The channel is closed if the given chunk is marked as final. */
 /** @returns
         - false if the associated Session object is destroyed
@@ -114,20 +147,6 @@ CPPWAMP_INLINE void CalleeChannel::fail(Error error)
 
 /** @post this->state() == State::detached */
 CPPWAMP_INLINE void CalleeChannel::detach() {impl_.reset();}
-
-CPPWAMP_INLINE ErrorOrDone
-CalleeChannel::doRespond(OutputChunk&& response, ChunkSlot&& onChunk,
-                         InterruptSlot&& onInterrupt)
-{
-     return impl_->respond(std::move(response), std::move(onChunk),
-                           std::move(onInterrupt));
-}
-
-CPPWAMP_INLINE ErrorOrDone CalleeChannel::doAccept(ChunkSlot&& onChunk,
-                                                   InterruptSlot&& onInterrupt)
-{
-     return impl_->accept(std::move(onChunk), std::move(onInterrupt));
-}
 
 CPPWAMP_INLINE CalleeChannel::CalleeChannel(internal::PassKey,
                                             std::shared_ptr<Impl> impl)

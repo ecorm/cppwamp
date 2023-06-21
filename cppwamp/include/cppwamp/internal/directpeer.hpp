@@ -69,6 +69,7 @@ public:
           session_(std::make_shared<DirectRouterSession>(*this))
     {}
 
+    // NOLINTNEXTLINE(bugprone-exception-escape)
     ~DirectPeer() override {realm_.leave(session_);}
 
     DirectPeer(const DirectPeer&) = delete;

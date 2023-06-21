@@ -29,7 +29,7 @@ private:                                                                \
     using Yes = char[2];                                                \
     using  No = char[1];                                                \
                                                                         \
-    struct Fallback { int member; };                                    \
+    struct Fallback { int (member); };                                  \
     struct Derived : T, Fallback { };                                   \
                                                                         \
     template <typename U> static No& test ( decltype(U::member)* );     \

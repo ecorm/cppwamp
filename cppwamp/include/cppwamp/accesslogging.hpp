@@ -178,9 +178,9 @@ class BasicAccessLogFilter
 {
 public:
     using Policy = TPolicy;
+    using Handler = std::function<void (AccessLogEntry)>;
 
-    template <typename F>
-    BasicAccessLogFilter(F&& handler) : handler_(std::forward<F>(handler)) {}
+    BasicAccessLogFilter(Handler handler) : handler_(std::move(handler)) {}
 
     void operator()(AccessLogEntry entry) const
     {

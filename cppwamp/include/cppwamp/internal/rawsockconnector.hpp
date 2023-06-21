@@ -131,8 +131,12 @@ private:
     void onHandshakeReceived(Handshake hs)
     {
         if (!hs.hasMagicOctet())
+        {
             fail(TransportErrc::badHandshake);
-        else if (hs.reserved() != 0)
+            return;
+        }
+
+        if (hs.reserved() != 0)
             fail(TransportErrc::badFeature);
         else if (hs.codecId() == codecId_)
             complete(hs);

@@ -380,14 +380,14 @@ private:
         }
     }
 
-    template <typename S, typename T>
-    void postToSlot(const S& slot, T&& request)
+    template <typename S, typename R>
+    void postToSlot(const S& slot, R&& request)
     {
         struct Posted
         {
             Ptr self;
             S slot;
-            ValueTypeOf<T> arg;
+            ValueTypeOf<R> arg;
 
             void operator()()
             {
@@ -411,7 +411,7 @@ private:
             return;
 
         auto exec = boost::asio::get_associated_executor(slot);
-        Posted posted{this->shared_from_this(), slot, std::move(request)};
+        Posted posted{this->shared_from_this(), slot, std::forward<R>(request)};
         boost::asio::post(
             executor_,
             boost::asio::bind_executor(exec, std::move(posted)));

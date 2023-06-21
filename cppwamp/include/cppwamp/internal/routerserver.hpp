@@ -342,7 +342,7 @@ private:
             return;
         }
 
-        realm_.send(shared_from_this(), std::move(command));
+        realm_.send(shared_from_this(), std::forward<C>(command));
     }
 
     void leaveRealm()
@@ -364,13 +364,14 @@ private:
     template <typename F, typename... Ts>
     void post(F&& handler, Ts&&... args)
     {
-        postAny(strand_, std::move(handler), std::forward<Ts>(args)...);
+        postAny(strand_, std::forward<F>(handler), std::forward<Ts>(args)...);
     }
 
     template <typename F, typename... Ts>
     void dispatch(F&& handler, Ts&&... args)
     {
-        dispatchAny(strand_, std::move(handler), std::forward<Ts>(args)...);
+        dispatchAny(strand_, std::forward<F>(handler),
+                    std::forward<Ts>(args)...);
     }
 
     void challenge()

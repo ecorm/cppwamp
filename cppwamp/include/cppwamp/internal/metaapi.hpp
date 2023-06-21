@@ -134,6 +134,7 @@ private:
                 .withArgs("'reason' argument must be a string");
         }
 
+        // NOLINTNEXTLINE(bugprone-use-after-move)
         auto messageArg = std::move(rpc).kwargAs<String>("message");
         if (messageArg == unex)
         {

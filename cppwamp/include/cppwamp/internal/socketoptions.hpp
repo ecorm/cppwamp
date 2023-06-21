@@ -8,9 +8,9 @@
 #define CPPWAMP_SOCKETOPTIONS_HPP
 
 #include <memory>
-#include <type_traits>
 #include <utility>
 #include <vector>
+#include "../traits.hpp"
 
 namespace wamp
 {
@@ -71,16 +71,21 @@ private:
 template <typename TProtocol>
 class SocketOption
 {
+private:
+    template <typename TOption>
+    static constexpr bool isNotSelf()
+    {
+        return !isSameType<ValueTypeOf<TOption>, SocketOption>();
+    }
+
 public:
     using Protocol = TProtocol;
 
-    template <typename TOption>
-    SocketOption(TOption&& option)
-    {
-        using DecayedOption = typename std::decay<TOption>::type;
-        using ConcreteOption = SocketOptionWrapper<TProtocol, DecayedOption>;
-        option_.reset(new ConcreteOption(std::move(option)));
-    }
+    template <typename O, CPPWAMP_NEEDS(isNotSelf<O>()) = 0>
+    SocketOption(O&& option)
+        : option_(std::make_shared<SocketOptionWrapper<TProtocol, Decay<O>>>(
+            std::forward<O>(option)))
+    {}
 
     int level(const Protocol& p) const {return option_->level(p);}
 

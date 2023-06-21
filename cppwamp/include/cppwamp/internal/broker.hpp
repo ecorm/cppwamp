@@ -497,8 +497,7 @@ private:
     {
         using Iter = utils::TrieMap<BrokerSubscription*>::const_iterator;
 
-        template <typename F>
-        PrefixVisitor(F&& f) : functor(std::forward<F>(f)) {}
+        PrefixVisitor(TFunctor f) : functor(std::move(f)) {}
 
         void operator()(Iter iter)
         {
@@ -607,12 +606,13 @@ public:
 
     ErrorOr<SubscriptionId> subscribe(RouterSession::Ptr subscriber, Topic&& t)
     {
+        auto reqId = t.requestId({});
         BrokerSubscribeRequest req{std::move(t), subscriber, subscriptions_,
                                    subIdGenerator_};
         if (req.policy() == Policy::unknown)
         {
             auto unex = makeUnexpectedError(WampErrc::optionNotAllowed);
-            auto error = Error::fromRequest({}, t, unex.value())
+            auto error = Error{{}, Topic::messageKind({}), reqId, unex.value()}
                              .withArgs("Unknown match policy");
             subscriber->sendRouterCommand(std::move(error), true);
             return unex;

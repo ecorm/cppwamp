@@ -75,6 +75,14 @@ public:
     using FallbackExecutor = AnyCompletionExecutor; ///< Fallback executor type
     using State = ChannelState;                     ///< Channel state type
 
+    /// Handler type for processing chunks sent by the caller.
+    using ChunkSlot = AnyReusableHandler<void (CalleeChannel,
+                                              ErrorOr<InputChunk>)>;
+
+    /// Handler type for processing an interruption sent by the caller.
+    using InterruptSlot =
+        AnyReusableHandler<void (CalleeChannel, Interruption)>;
+
     /** Constructs a detached channel. */
     CalleeChannel();
 
@@ -110,16 +118,14 @@ public:
 
     /** Accepts a streaming request from another peer and sends an
         initial (or final) response. */
-    template <typename S = std::nullptr_t, typename I = std::nullptr_t>
     CPPWAMP_NODISCARD ErrorOrDone
-    respond(OutputChunk response, S&& chunkSlot = nullptr,
-            I&& interruptSlot = nullptr);
+    respond(OutputChunk response, ChunkSlot chunkSlot = nullptr,
+            InterruptSlot interruptSlot = nullptr);
 
     /** Accepts a streaming request from another peer, without sending an
         initial response. */
-    template <typename S = std::nullptr_t, typename I = std::nullptr_t>
-    CPPWAMP_NODISCARD ErrorOrDone accept(S&& chunkSlot = nullptr,
-                                         I&& interruptSlot = nullptr);
+    CPPWAMP_NODISCARD ErrorOrDone accept(ChunkSlot chunkSlot = nullptr,
+                                         InterruptSlot interruptSlot = nullptr);
 
     /** Sends a chunk to the other peer. */
     CPPWAMP_NODISCARD ErrorOrDone send(OutputChunk chunk);
@@ -131,18 +137,7 @@ public:
     void detach();
 
 private:
-    using ChunkSlot = AnyReusableHandler<void (CalleeChannel,
-                                               ErrorOr<InputChunk>)>;
-
-    using InterruptSlot =
-        AnyReusableHandler<void (CalleeChannel, Interruption)>;
-
     using Impl = internal::BasicCalleeChannelImpl<CalleeChannel>;
-
-    ErrorOrDone doRespond(OutputChunk&& response, ChunkSlot&& onChunk,
-                          InterruptSlot&& onInterrupt);
-
-    ErrorOrDone doAccept(ChunkSlot&& onChunk, InterruptSlot&& onInterrupt);
 
     std::shared_ptr<Impl> impl_;
 
@@ -155,43 +150,6 @@ public:
 //******************************************************************************
 // CalleeChannel member definitions
 //******************************************************************************
-
-/** @tparam S Callable handler with signature
-              `void (CalleeChannel, InputChunk)`
-    @tparam I Callable handler with signature
-              `void (CalleeChannel, Interruption)`
-    The channel is immediately closed if the given chunk is marked as final.
-    @returns
-        - false if the associated Session object is destroyed or
-                the streaming request no longer exists
-        - true if the response was accepted for processing
-        - an error code if there was a problem processing the response
-    @note This method should be called within the invocation context of the
-          StreamSlot in order to losing incoming chunks or interruptions due
-          to the ChunkSlot or InterruptSlot not being registered in time.
-    @pre `this->state() == State::awaiting`
-    @pre `response.isFinal() || this->mode == StreamMode::calleeToCaller ||
-          this->mode == StreamMode::bidirectional`
-    @post `this->state() == response.isFinal() ? State::closed : State::open`
-    @throws error::Logic if the mode precondition is not met */
-template <typename S, typename I>
-ErrorOrDone CalleeChannel::respond(OutputChunk response, S&& chunkSlot,
-                                   I&& interruptSlot)
-{
-    CPPWAMP_LOGIC_CHECK(attached(), "wamp::CalleeChannel::accept: "
-                                    "Channel is detached");
-    return doRespond(std::move(response), std::move(chunkSlot),
-                     std::move(interruptSlot));
-}
-
-/** @copydetails CalleeChannel::respond(OutputChunk, S&&, I&&) */
-template <typename S, typename I>
-ErrorOrDone CalleeChannel::accept(S&& chunkSlot, I&& interruptSlot)
-{
-    CPPWAMP_LOGIC_CHECK(attached(), "wamp::CalleeChannel::accept: "
-                                    "Channel is detached");
-    return doAccept(std::move(chunkSlot), std::move(interruptSlot));
-}
 
 namespace internal
 {

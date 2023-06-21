@@ -23,6 +23,7 @@
 #include "codec.hpp"
 #include "erroror.hpp"
 #include "transport.hpp"
+#include "traits.hpp"
 
 namespace wamp
 {
@@ -66,9 +67,16 @@ public:
 //------------------------------------------------------------------------------
 class CPPWAMP_API ConnectorBuilder
 {
+private:
+    template <typename S>
+    static constexpr bool isNotSelf()
+    {
+        return !isSameType<ValueTypeOf<S>, ConnectorBuilder>();
+    }
+
 public:
     /** Constructor taking transport settings (e.g. TcpHost) */
-    template <typename S>
+    template <typename S, CPPWAMP_NEEDS((isNotSelf<S>())) = 0>
     explicit ConnectorBuilder(S&& transportSettings)
         : builder_(makeBuilder(std::forward<S>(transportSettings)))
     {}
@@ -86,7 +94,7 @@ private:
     template <typename S>
     static Function makeBuilder(S&& transportSettings)
     {
-        using Settings = typename std::decay<S>::type;
+        using Settings = Decay<S>;
         using Protocol = typename Settings::Protocol;
         using ConcreteConnector = Connector<Protocol>;
         return Function{

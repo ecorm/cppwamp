@@ -45,6 +45,7 @@ CPPWAMP_INLINE Session::Session(
     Automatically invokes disconnect() on the session, which drops the
     connection and cancels all pending asynchronous operations. */
 //------------------------------------------------------------------------------
+// NOLINTNEXTLINE(bugprone-exception-escape)
 CPPWAMP_INLINE Session::~Session()
 {
     if (impl_)

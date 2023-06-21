@@ -17,11 +17,11 @@
 #include <map>
 #include <memory>
 #include <set>
-#include <type_traits>
 #include "api.hpp"
 #include "asiodefs.hpp"
 #include "erroror.hpp"
 #include "transport.hpp"
+#include "traits.hpp"
 
 namespace wamp
 {
@@ -73,11 +73,18 @@ private:
 //------------------------------------------------------------------------------
 class ListenerBuilder
 {
+private:
+    template <typename S>
+    static constexpr bool isNotSelf()
+    {
+        return !isSameType<ValueTypeOf<S>, ListenerBuilder>();
+    }
+
 public:
     using CodecIds = std::set<int>;
 
     /** Constructor taking transport settings (e.g. TcpEndpoint) */
-    template <typename S>
+    template <typename S, CPPWAMP_NEEDS((isNotSelf<S>())) = 0>
     explicit ListenerBuilder(S&& transportSettings)
         : builder_(makeBuilder(std::forward<S>(transportSettings)))
     {}
@@ -95,7 +102,7 @@ private:
     template <typename S>
     static Function makeBuilder(S&& transportSettings)
     {
-        using Settings = typename std::decay<S>::type;
+        using Settings = Decay<S>;
         using Protocol = typename Settings::Protocol;
         using ConcreteListener = Listener<Protocol>;
         return Function{

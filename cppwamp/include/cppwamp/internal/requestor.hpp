@@ -34,12 +34,12 @@ public:
     using CompletionHandler =
         AnyCompletionHandler<void (ErrorOr<CallerChannel>)>;
 
-    explicit StreamRecord(CallerChannelImpl::Ptr c, StreamRequest& i,
-                          CompletionHandler&& f = {})
+    explicit StreamRecord(CallerChannelImpl::Ptr c, Error* errorPtr,
+                          TimeoutDuration timeout, CompletionHandler&& f = {})
         : handler_(std::move(f)),
-        weakChannel_(c),
-        errorPtr_(i.error({})),
-        timeout_(i.callerTimeout())
+          weakChannel_(c),
+          errorPtr_(errorPtr),
+          timeout_(timeout)
     {
         if (handler_)
             channel_ = std::move(c);
@@ -90,17 +90,15 @@ private:
         if (channel_)
         {
             if (channel_->expectsRsvp())
-                channel_->setRsvp(std::move(msg));
-
-            if (handler_)
             {
-                dispatchAny(exec, std::move(handler_),
-                            CallerChannel{{}, channel_});
-                handler_ = nullptr;
+                channel_->setRsvp(std::move(msg));
+                dispatchCompletionHandler(exec);
             }
-
-            if (!channel_->expectsRsvp())
+            else
+            {
+                dispatchCompletionHandler(exec);
                 channel_->postResult(std::move(msg));
+            }
 
             channel_.reset();
         }
@@ -109,6 +107,16 @@ private:
             auto channel = weakChannel_.lock();
             if (channel)
                 channel->postResult(std::move(msg));
+        }
+    }
+
+    void dispatchCompletionHandler(AnyIoExecutor& exec)
+    {
+        if (handler_)
+        {
+            dispatchAny(exec, std::move(handler_),
+                        CallerChannel{{}, channel_});
+            handler_ = nullptr;
         }
     }
 
@@ -176,7 +184,7 @@ public:
     template <typename C>
     ErrorOr<RequestId> request(C&& command, RequestHandler&& handler)
     {
-        return request(std::move(command), TimeoutDuration{0},
+        return request(std::forward<C>(command), TimeoutDuration{0},
                        std::move(handler));
     }
 
@@ -186,7 +194,8 @@ public:
     {
 
         using HasRequestId = MetaBool<ValueTypeOf<C>::hasRequestId({})>;
-        return doRequest(HasRequestId{}, command, timeout, std::move(handler));
+        return doRequest(HasRequestId{}, std::forward<C>(command), timeout,
+                         std::move(handler));
     }
 
     ErrorOr<CallerChannel> requestStream(
@@ -196,8 +205,12 @@ public:
         // Will take 285 years to overflow 2^53 at 1 million requests/sec
         assert(nextRequestId_ < 9007199254740992u);
         ChannelId channelId = nextRequestId_ + 1;
-        auto uri = req.uri();
         req.setRequestId({}, channelId);
+        auto uri = req.uri();
+        auto mode = req.mode();
+        auto cancelMode = req.cancelMode();
+        auto timeout = req.callerTimeout();
+        auto errorPtr = req.error({});
 
         auto sent = peer_->send(std::move(req));
         if (!sent)
@@ -210,15 +223,16 @@ public:
         ++nextRequestId_;
 
         auto channel = std::make_shared<CallerChannelImpl>(
-            channelId, std::move(uri), req.mode(), req.cancelMode(),
+            channelId, std::move(uri), mode, cancelMode,
             rsvpExpected, std::move(caller), std::move(onChunk), executor_,
             fallbackExecutor_);
         auto emplaced = channels_.emplace(
-            channelId, StreamRecord{channel, req, std::move(handler)});
+            channelId,
+            StreamRecord{channel, errorPtr, timeout, std::move(handler)});
         assert(emplaced.second);
 
-        if (req.callerTimeout().count() != 0)
-            deadlines_->insert(channel->id(), req.callerTimeout());
+        if (timeout.count() != 0)
+            deadlines_->insert(channel->id(), timeout);
 
         return CallerChannel{{}, std::move(channel)};
     }
@@ -341,7 +355,7 @@ private:
     using CallerTimeoutScheduler = TimeoutScheduler<RequestId>;
 
     template <typename C>
-    ErrorOr<RequestId> doRequest(TrueType, C& command, TimeoutDuration timeout,
+    ErrorOr<RequestId> doRequest(TrueType, C&& command, TimeoutDuration timeout,
                                  RequestHandler&& handler)
     {
         // Will take 285 years to overflow 2^53 at 1 million requests/sec
@@ -349,7 +363,7 @@ private:
         RequestId requestId = nextRequestId_ + 1;
         command.setRequestId({}, requestId);
 
-        auto sent = peer_->send(std::move(command));
+        auto sent = peer_->send(std::forward<C>(command));
         if (!sent)
         {
             auto unex = makeUnexpected(sent.error());
@@ -372,12 +386,13 @@ private:
     }
 
     template <typename C>
-    ErrorOr<RequestId> doRequest(FalseType, C& command, TimeoutDuration timeout,
+    ErrorOr<RequestId> doRequest(FalseType, C&& command,
+                                 TimeoutDuration timeout,
                                  RequestHandler&& handler)
     {
         RequestId requestId = nullId();
 
-        auto sent = peer_->send(std::move(command));
+        auto sent = peer_->send(std::forward<C>(command));
         if (!sent)
         {
             auto unex = makeUnexpected(sent.error());

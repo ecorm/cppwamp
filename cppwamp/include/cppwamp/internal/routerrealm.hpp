@@ -486,7 +486,7 @@ private:
                 auto& me = *self;
                 auto rid = u.requestId({});
                 auto topic = me.broker_.unsubscribe(s, u.subscriptionId());
-                if (!me.checkResult(topic, *s, u))
+                if (!me.checkResult<Unsubscribe>(topic, *s, rid))
                     return;
                 Unsubscribed ack{rid};
                 s->sendRouterCommand(std::move(ack), std::move(*topic));
@@ -561,7 +561,7 @@ private:
         auto rid = proc.requestId({});
         auto uri = proc.uri();
         auto regId = dealer_.enroll(originator, std::move(proc));
-        if (!checkResult(regId, *originator, proc))
+        if (!checkResult<Procedure>(regId, *originator, rid))
             return;
         Registered ack{rid, *regId};
         originator->sendRouterCommand(std::move(ack), std::move(uri));
@@ -580,7 +580,7 @@ private:
                 auto& me = *self;
                 auto rid = u.requestId({});
                 auto uri = me.dealer_.unregister(s, u.registrationId());
-                if (!me.checkResult(uri, *s, u))
+                if (!me.checkResult<Unregister>(uri, *s, rid))
                     return;
                 Unregistered ack{rid};
                 s->sendRouterCommand(std::move(ack), std::move(*uri));
@@ -612,13 +612,14 @@ private:
 
         bool isMetaProcedure = false;
         auto unex = makeUnexpectedError(WampErrc::noSuchProcedure);
+        auto rid = rpc.requestId({});
         if (metaProcedures_ && (done == unex))
             isMetaProcedure = metaProcedures_->call(*originator, std::move(rpc));
 
         // A result or error would have already been sent to the caller
         // if it was a valid meta-procedure.
         if (!isMetaProcedure)
-            checkResult(done, *originator, rpc);
+            checkResult<Rpc>(done, *originator, rid);
     }
 
     void send(RouterSession::Ptr originator, CallCancellation&& cancel)
@@ -631,8 +632,9 @@ private:
 
             void operator()()
             {
+                auto rid = c.requestId({});
                 auto done = self->dealer_.cancelCall(s, std::move(c));
-                self->checkResult(done, *s, c);
+                self->checkResult<CallCancellation>(done, *s, rid);
             }
         };
 
@@ -756,9 +758,9 @@ private:
         return true;
     }
 
-    template <typename T, typename C>
+    template <typename TCommand, typename T>
     bool checkResult(const ErrorOr<T>& result, RouterSession& originator,
-                     const C& command, bool logOnly = false)
+                     RequestId reqId, bool logOnly = false)
     {
         if (result)
             return true;
@@ -766,7 +768,7 @@ private:
         if (result == makeUnexpectedError(WampErrc::protocolViolation))
             return false; // ABORT should already have been sent to originator
 
-        auto error = Error::fromRequest({}, command, result.error());
+        Error error{{}, TCommand::messageKind({}), reqId, result.error()};
         if (logOnly)
             originator.report(error.info(true));
         else
@@ -842,7 +844,8 @@ inline bool RealmContext::join(RouterSessionPtr session)
     return true;
 }
 
-inline bool RealmContext::leave(RouterSessionPtr session)
+// NOLINTNEXTLINE(bugprone-exception-escape)
+inline bool RealmContext::leave(RouterSessionPtr session) noexcept
 {
     auto r = realm_.lock();
     if (!r)

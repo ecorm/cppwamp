@@ -39,6 +39,7 @@ public:
         return Ptr(new RouterImpl(std::move(exec), std::move(config)));
     }
 
+    // NOLINTNEXTLINE(bugprone-exception-escape)
     ~RouterImpl() {close(WampErrc::systemShutdown);}
 
     RouterRealm::Ptr addRealm(RealmConfig c)
@@ -114,7 +115,7 @@ public:
             {
                 server = RouterServer::create(executor_, std::move(c),
                                               {shared_from_this()});
-                servers_.emplace(std::move(name), server);
+                servers_.emplace(name, server);
             }
         }
 
@@ -153,7 +154,8 @@ public:
         return server != nullptr;
     }
 
-    void close(Reason r)
+    // NOLINTNEXTLINE(bugprone-exception-escape)
+    void close(Reason r) noexcept
     {
         ServerMap servers;
         {

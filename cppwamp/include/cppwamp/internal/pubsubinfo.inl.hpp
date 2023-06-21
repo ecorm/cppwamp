@@ -236,7 +236,7 @@ CPPWAMP_INLINE Event::Event(internal::PassKey, internal::Message&& msg)
 
 CPPWAMP_INLINE Event::Event(internal::PassKey, Pub&& pub, SubscriptionId sid,
                             PublicationId pid)
-    : Base(std::move(pub))
+    : Base(std::move(pub.message({})))
 {
     message().setKind(internal::MessageKind::event);
     message().at(subscriptionIdPos_) = sid;

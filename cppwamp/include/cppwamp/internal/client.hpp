@@ -170,7 +170,8 @@ public:
         safelyDispatch<Dispatched>(std::move(r), std::move(f));
     }
 
-    void disconnect()
+    // NOLINTNEXTLINE(bugprone-exception-escape)
+    void disconnect() noexcept
     {
         struct Dispatched
         {
@@ -591,14 +592,15 @@ private:
 
     void onWampReply(Message& msg)
     {
-        const char* msgName = msg.name();
         assert(msg.isReply());
+        const char* msgName = msg.name();
+        auto kind = msg.kind();
         if (!requestor_.onReply(std::move(msg)))
         {
             // Ignore spurious RESULT and ERROR responses that can occur
             // due to race conditions.
             using K = MessageKind;
-            if ((msg.kind() != K::result) && (msg.kind() != K::error))
+            if ((kind != K::result) && (kind != K::error))
             {
                 failProtocol(std::string("Received ") + msgName +
                              " response with no matching request");
@@ -1019,10 +1021,7 @@ private:
         };
 
         if (registry_.unregister(regId) && state() == State::established)
-        {
-            Unregister unreg{regId};
-            request(unreg, Requested{});
-        }
+            request(Unregister{regId}, Requested{});
     }
 
     void doUnregister(const Registration& reg,
@@ -1074,8 +1073,11 @@ private:
         if (!checkState(State::established, handler))
             return;
 
+        auto rpcCancelSlot = rpc.cancellationSlot({});
         auto boundCancelSlot =
             boost::asio::get_associated_cancellation_slot(handler);
+        auto mode = rpc.cancelMode();
+
         auto requestId = requestor_.request(
             std::move(rpc),
             rpc.callerTimeout(),
@@ -1083,7 +1085,6 @@ private:
         if (!requestId)
             return;
 
-        auto& rpcCancelSlot = rpc.cancellationSlot({});
         if (rpcCancelSlot.is_connected())
         {
             rpcCancelSlot.emplace(makeContext(), *requestId);
@@ -1092,7 +1093,6 @@ private:
         {
             auto self = shared_from_this();
             auto reqId = *requestId;
-            auto mode = rpc.cancelMode();
             boundCancelSlot.assign(
                 [this, self, reqId, mode](boost::asio::cancellation_type_t)
                 {
@@ -1198,11 +1198,12 @@ private:
     {
         if (state() != State::established)
             return;
+        auto reqId = chunk.requestId({});
         auto done = registry_.yield(std::move(chunk));
         if (incidentSlot_ && !done)
         {
             std::ostringstream oss;
-            oss << "Stream RESULT with requestId=" << chunk.requestId({})
+            oss << "Stream RESULT with requestId=" << reqId
                 << ", for registrationId=" << regId;
             const auto& uri = registry_.lookupStreamUri(regId);
             if (!uri.empty())
@@ -1229,11 +1230,12 @@ private:
     {
         if (state() != State::established)
             return;
+        auto reqId = result.requestId({});
         auto done = registry_.yield(std::move(result));
         if (incidentSlot_ && !done)
         {
             std::ostringstream oss;
-            oss << "RPC RESULT with requestId=" << result.requestId({})
+            oss << "RPC RESULT with requestId=" << reqId
                 << ", for registrationId=" << regId;
             const auto& uri = registry_.lookupProcedureUri(regId);
             if (!uri.empty())
@@ -1260,11 +1262,12 @@ private:
     {
         if (state() != State::established)
             return;
+        auto reqId = error.requestId({});
         auto done = registry_.yield(std::move(error));
         if (incidentSlot_ && !done)
         {
             std::ostringstream oss;
-            oss << "INVOCATION ERROR with requestId=" << error.requestId({})
+            oss << "INVOCATION ERROR with requestId=" << reqId
                 << ", for registrationId=" << regId;
             auto uri = registry_.lookupProcedureUri(regId);
             if (!uri.empty())
@@ -1297,10 +1300,10 @@ private:
             postAny(executor_, std::move(f), std::move(unex));
     }
 
-    template <typename TInfo>
-    ErrorOr<RequestId> request(TInfo&& info, RequestHandler&& handler)
+    template <typename C>
+    ErrorOr<RequestId> request(C&& command, RequestHandler&& handler)
     {
-        return requestor_.request(std::move(info), std::move(handler));
+        return requestor_.request(std::forward<C>(command), std::move(handler));
     }
 
     void abandonPending(std::error_code ec)

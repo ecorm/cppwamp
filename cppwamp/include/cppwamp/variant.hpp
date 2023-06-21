@@ -34,6 +34,8 @@
 #include "internal/varianttraits.hpp"
 #include "internal/variantvisitors.hpp"
 
+// NOLINTBEGIN(bugprone-macro-parentheses)
+
 //------------------------------------------------------------------------------
 /** Splits the `convert` free function for the given custom type.
 
@@ -97,6 +99,8 @@ inline void convert(::wamp::ToVariantConverter& c, Type& obj)   \
     const auto& constObj = obj;                                 \
     wamp::ConversionAccess::convertTo(c, constObj);             \
 }
+
+// NOLINTEND(bugprone-macro-parentheses)
 
 
 namespace wamp
@@ -885,7 +889,7 @@ Variant Variant::from(TValue&& value)
     @post `*this == value` */
 //------------------------------------------------------------------------------
 template <typename T, CPPWAMP_NEEDS(Variant::isValidArg<T>())>
-Variant::Variant(T&& value)
+Variant::Variant(T&& value) // NOLINT(bugprone-forwarding-reference-overload)
     : typeId_(FieldTraits<typename ArgTraits<ValueTypeOf<T>>::FieldType>::typeId)
 {
     using FieldType = typename ArgTraits<ValueTypeOf<T>>::FieldType;
