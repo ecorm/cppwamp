@@ -206,8 +206,7 @@ public:
     {
         if (has_value())
             return box_->type();
-        else
-            return typeid(void);
+        return typeid(void);
     }
 
 private:
@@ -273,8 +272,7 @@ private:
         // NOLINTBEGIN(cppcoreguidelines-owning-memory)
         if (fits<T>())
             return new (buffer_.data()) Boxed<T>(std::forward<As>(args)...);
-        else
-            return new Boxed<T>(std::forward<As>(args)...);
+        return new Boxed<T>(std::forward<As>(args)...);
         // NOLINTEND(cppcoreguidelines-owning-memory)
     }
 
@@ -284,8 +282,7 @@ private:
         // NOLINTBEGIN(cppcoreguidelines-owning-memory)
         if (fits<T>())
             return new (buffer_.data()) Boxed<T>(il, std::forward<As>(args)...);
-        else
-            return new Boxed<T>(il, std::forward<As>(args)...);
+        return new Boxed<T>(il, std::forward<As>(args)...);
         // NOLINTEND(cppcoreguidelines-owning-memory)
     }
 
@@ -305,17 +302,15 @@ private:
 
         if (isLocal())
         {
-            auto ptr = box_->moveLocal(localBuffer.data());
+            Boxing* ptr = box_->moveLocal(localBuffer.data());
             box_->~Boxing();
             box_ = nullptr;
             return ptr;
         }
-        else
-        {
-            auto ptr = box_;
-            box_ = nullptr;
-            return ptr;
-        }
+
+        Boxing* ptr = box_;
+        box_ = nullptr;
+        return ptr;
     }
 
     bool isLocal() const

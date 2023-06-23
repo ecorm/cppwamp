@@ -120,10 +120,14 @@ private:
         auto peerCodec = hs.codecId();
 
         if (!hs.hasMagicOctet())
+        {
             fail(TransportErrc::badHandshake);
+        }
         else if (hs.reserved() != 0)
+        {
             sendHandshake(Handshake::eReservedBitsUsed());
-        else if (codecIds_.count(peerCodec))
+        }
+        else if (codecIds_.count(peerCodec) != 0)
         {
             maxTxLength_ = hs.maxLength();
             auto bytes = TConfig::hostOrderHandshakeBytes(peerCodec,
@@ -131,7 +135,9 @@ private:
             sendHandshake(Handshake(bytes));
         }
         else
+        {
             sendHandshake(Handshake::eUnsupportedFormat());
+        }
     }
 
     void sendHandshake(Handshake hs)

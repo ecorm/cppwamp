@@ -11,6 +11,7 @@
 namespace wamp
 {
 
+// NOLINTBEGIN(readability-inconsistent-declaration-parameter-name)
 CPPWAMP_INLINE UdsOptions& UdsOptions::withBroadcast(bool b)          {return set<boost::asio::socket_base::broadcast>(b);}
 CPPWAMP_INLINE UdsOptions& UdsOptions::withDebug(bool b)              {return set<boost::asio::socket_base::debug>(b);}
 CPPWAMP_INLINE UdsOptions& UdsOptions::withDoNotRoute(bool b)         {return set<boost::asio::socket_base::do_not_route>(b);}
@@ -22,6 +23,7 @@ CPPWAMP_INLINE UdsOptions& UdsOptions::withReceiveLowWatermark(int n) {return se
 CPPWAMP_INLINE UdsOptions& UdsOptions::withReuseAddress(bool b)       {return set<boost::asio::socket_base::reuse_address>(b);}
 CPPWAMP_INLINE UdsOptions& UdsOptions::withSendBufferSize(int n)      {return set<boost::asio::socket_base::send_buffer_size>(n);}
 CPPWAMP_INLINE UdsOptions& UdsOptions::withSendLowWatermark(int n)    {return set<boost::asio::socket_base::send_low_watermark>(n);}
+// NOLINTEND(readability-inconsistent-declaration-parameter-name)
 
 template <typename TOption, typename... TArgs>
 UdsOptions& UdsOptions::set(TArgs... args)

@@ -515,7 +515,7 @@ public:
             RealmObserver::WeakPtr observer;
             Uri uri;
 
-            void operator()()
+            void operator()() const
             {
                 auto o = observer.lock();
                 if (o)
@@ -565,10 +565,12 @@ public:
         };
 
         if (metaApiEnabled_)
+        {
             publish(Pub{"wamp.session.on_leave"}
                         .withArgs(info.sessionId(),
                                   info.auth().id(),
                                   info.auth().role()));
+        }
 
         if (!observers_.empty())
             notifyObservers<Notifier>(std::move(info));

@@ -547,7 +547,7 @@ private:
             return;
         listener_->cancel();
         listener_.reset();
-        for (auto& s: sessions_)
+        for (const auto& s: sessions_)
             s->abort(r);
     }
 

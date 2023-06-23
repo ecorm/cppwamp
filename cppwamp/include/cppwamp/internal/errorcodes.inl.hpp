@@ -31,8 +31,7 @@ std::string lookupErrorMessage(const char* categoryName, int errorCodeValue,
     static_assert(N == unsigned(TEnum::count), "");
     if (errorCodeValue >= 0 && errorCodeValue < int(N))
         return table.at(errorCodeValue);
-    else
-        return std::string(categoryName) + ':' + std::to_string(errorCodeValue);
+    return std::string(categoryName) + ':' + std::to_string(errorCodeValue);
 }
 
 } // namespace internal
@@ -69,10 +68,9 @@ CPPWAMP_INLINE bool MiscCategory::equivalent(const std::error_code& code,
 {
     if (code.category() == wampCategory())
         return code.value() == condition;
-    else if (condition == (int)MiscErrc::success)
+    if (condition == (int)MiscErrc::success)
         return !code;
-    else
-        return false;
+    return false;
 }
 
 CPPWAMP_INLINE MiscCategory::MiscCategory() = default;
@@ -156,28 +154,24 @@ CPPWAMP_INLINE bool WampCategory::equivalent(const std::error_code& code,
     if (code.category() == wampCategory())
     {
         if (code.value() == condition)
-        {
             return true;
-        }
-        else
+
+        auto value = static_cast<WampErrc>(code.value());
+        switch (static_cast<WampErrc>(condition))
         {
-            auto value = static_cast<WampErrc>(code.value());
-            switch (static_cast<WampErrc>(condition))
-            {
-            case WampErrc::goodbyeAndOut:
-                return value == WampErrc::closedNormally;
+        case WampErrc::goodbyeAndOut:
+            return value == WampErrc::closedNormally;
 
-            case WampErrc::closedNormally:
-                return value == WampErrc::goodbyeAndOut;
+        case WampErrc::closedNormally:
+            return value == WampErrc::goodbyeAndOut;
 
-            case WampErrc::cancelled:
-                return value == WampErrc::timeout;
+        case WampErrc::cancelled:
+            return value == WampErrc::timeout;
 
-            case WampErrc::optionNotAllowed:
-                return value == WampErrc::discloseMeDisallowed;
+        case WampErrc::optionNotAllowed:
+            return value == WampErrc::discloseMeDisallowed;
 
-            default: return false;
-            }
+        default: return false;
         }
     }
     else if (condition == (int)WampErrc::success)
@@ -264,8 +258,10 @@ CPPWAMP_INLINE WampErrc errorUriToCode(const std::string& uri)
         {"wamp.error.unavailable",                   WE::unavailable}
     }};
 
-    auto end = sortedByUri.end();
-    auto iter = std::lower_bound(sortedByUri.begin(), end, uri);
+    // NOLINTBEGIN(readability-qualified-auto)
+    auto end = sortedByUri.cend();
+    auto iter = std::lower_bound(sortedByUri.cbegin(), end, uri);
+    // NOLINTEND(readability-qualified-auto)
     bool found = (iter != end) && (iter->uri == uri);
     return found ? iter->errc : WampErrc::unknown;
 }
@@ -385,21 +381,25 @@ CPPWAMP_INLINE bool DecodingCategory::equivalent(const std::error_code& code,
                                                  int condition) const noexcept
 {
     const auto& cat = code.category();
+
     if (!code)
     {
         return condition == (int)DecodingErrc::success;
     }
-    else if (condition == (int)DecodingErrc::failed)
+
+    if (condition == (int)DecodingErrc::failed)
     {
         return cat == decodingCategory() ||
                cat == jsoncons::json_error_category() ||
                cat == jsoncons::cbor::cbor_error_category() ||
                cat == jsoncons::msgpack::msgpack_error_category();
     }
-    else if (cat == decodingCategory())
+
+    if (cat == decodingCategory())
     {
         return code.value() == condition;
     }
+
     return false;
 }
 
@@ -460,45 +460,44 @@ CPPWAMP_INLINE bool TransportCategory::equivalent(const std::error_code& code,
     {
         if (code.value() == condition)
             return true;
-        else if (condition == (int)TransportErrc::failed)
+        if (condition == (int)TransportErrc::failed)
             return code.value() > (int)TransportErrc::failed;
-        else
-            return false;
+        return false;
     }
-    else
+
+    switch (condition)
     {
-        switch (condition)
-        {
-        case (int)TransportErrc::success:
-            return !code;
+    case (int)TransportErrc::success:
+        return !code;
 
-        case (int)TransportErrc::aborted:
-            return code == std::errc::operation_canceled ||
-                   code == make_error_code(boost::asio::error::operation_aborted);
+    case (int)TransportErrc::aborted:
+        return code == std::errc::operation_canceled ||
+               code == make_error_code(boost::asio::error::operation_aborted);
 
-        case (int)TransportErrc::failed:
-        {
-            if (!code)
-                return false;
-            const auto& cat = code.category();
-            return cat == std::generic_category() ||
-                   cat == std::system_category() ||
-                   cat == boost::system::generic_category() ||
-                   cat == boost::system::system_category() ||
-                   cat == boost::asio::error::get_addrinfo_category() ||
-                   cat == boost::asio::error::get_misc_category() ||
-                   cat == boost::asio::error::get_netdb_category();
-        }
-
-        case (int)TransportErrc::disconnected:
-            return code == std::errc::connection_reset ||
-                   code == make_error_code(boost::asio::error::connection_reset) ||
-                   code == make_error_code(boost::asio::error::eof);
-
-        default:
+    case (int)TransportErrc::failed:
+    {
+        if (!code)
             return false;
-        }
+        const auto& cat = code.category();
+        return cat == std::generic_category() ||
+               cat == std::system_category() ||
+               cat == boost::system::generic_category() ||
+               cat == boost::system::system_category() ||
+               cat == boost::asio::error::get_addrinfo_category() ||
+               cat == boost::asio::error::get_misc_category() ||
+               cat == boost::asio::error::get_netdb_category();
     }
+
+    case (int)TransportErrc::disconnected:
+        return code == std::errc::connection_reset ||
+               code == make_error_code(boost::asio::error::connection_reset) ||
+               code == make_error_code(boost::asio::error::eof);
+
+    default:
+        break;
+    }
+
+    return false;
 }
 
 CPPWAMP_INLINE TransportCategory::TransportCategory() = default;

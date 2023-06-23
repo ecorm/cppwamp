@@ -135,7 +135,7 @@ inline std::istream& inputRfc3339Timestamp(
     auto locale = in.getloc();
     in.imbue(std::locale::classic());
     in >> std::get_time(&tmb, "%Y-%m-%dT%H:%M:");
-    tmb.tm_isdst = false;
+    tmb.tm_isdst = 0;
     double seconds = 0;
     in >> seconds;
     in.imbue(locale);

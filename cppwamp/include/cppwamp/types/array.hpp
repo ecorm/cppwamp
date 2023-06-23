@@ -30,7 +30,7 @@ CPPWAMP_API void convert(FromVariantConverter& conv, std::array<T, Size>& array)
 {
     using namespace wamp;
     const auto& variant = conv.variant();
-    if (variant.is<Array>() == false)
+    if (!variant.is<Array>())
     {
         throw error::Conversion("Attempting to convert non-array variant "
                                 "to std::array");

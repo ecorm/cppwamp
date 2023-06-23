@@ -42,10 +42,10 @@ public:
 
     /** Sets the positional arguments for this payload from
         an array of variants. */
-    TDerived& withArgList(Array args);
+    TDerived& withArgList(Array list);
 
     /** Sets the keyword arguments for this payload. */
-    TDerived& withKwargs(Object kwargs);
+    TDerived& withKwargs(Object dict);
 
     /** Determines is there are any positional or keyward arguments. */
     bool hasArgs() const;
@@ -219,9 +219,9 @@ D& Payload<D,K>::withArgList(Array list)
 /** @post `std::equal(kwargs.begin(), kwargs.end(), this->kwargs()) == true` */
 //------------------------------------------------------------------------------
 template <typename D, internal::MessageKind K>
-D& Payload<D,K>::withKwargs(Object map)
+D& Payload<D,K>::withKwargs(Object dict)
 {
-    kwargs() = std::move(map);
+    kwargs() = std::move(dict);
     return static_cast<D&>(*this);
 }
 
@@ -622,7 +622,7 @@ size_t Payload<D,K>::unbundleAsTuple(
     if (I < array.size())
     {
         using T = typename std::tuple_element<I, std::tuple<Ts...>>::type;
-        auto& arg = array[I];
+        const auto& arg = array[I];
         if (!arg.template is<T>())
         {
             std::ostringstream oss;

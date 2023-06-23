@@ -41,9 +41,9 @@ CPPWAMP_INLINE CallCancelMode parseCallCancelModeFromOptions(const Object& opts)
         const auto& s = found->second.as<String>();
         if (s == "kill")
             return CallCancelMode::kill;
-        else if (s == "killnowait")
+        if (s == "killnowait")
             return CallCancelMode::killNoWait;
-        else if (s == "skip")
+        if (s == "skip")
             return CallCancelMode::skip;
     }
     return CallCancelMode::unknown;
@@ -228,7 +228,9 @@ CPPWAMP_INLINE Outcome& Outcome::operator=(Outcome&& other) noexcept
         destruct();
         moveFrom(std::move(other));
     }
-    else switch (type_)
+    else
+    {
+        switch (type_)
         {
         case Type::result:
             value_.result = std::move(other.value_.result);
@@ -242,6 +244,7 @@ CPPWAMP_INLINE Outcome& Outcome::operator=(Outcome&& other) noexcept
             // Do nothing
             break;
         }
+    }
 
     return *this;
 }

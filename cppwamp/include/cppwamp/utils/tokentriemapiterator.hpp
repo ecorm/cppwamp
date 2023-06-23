@@ -117,7 +117,7 @@ public:
         {cursor_.advance_depth_first_to_next_element(); return *this;}
 
     /** Postfix increment, advances to the next key in lexigraphic order. */
-    const TokenTrieMapIterator operator++(int)
+    TokenTrieMapIterator operator++(int)
         {auto temp = *this; ++(*this); return temp;}
 
 private:

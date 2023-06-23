@@ -36,7 +36,7 @@ public:
     public:
         Handler();
         Handler(internal::ClientContext caller, RequestId requestId);
-        explicit operator bool();
+        explicit operator bool() const;
         void operator()(CallCancelMode cancelMode);
 
     private:

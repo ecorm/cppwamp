@@ -128,7 +128,7 @@ private:
             {
                 Error error{PassKey{}, std::move(msg)};
                 auto unex = makeUnexpectedError(error.errorCode());
-                if (errorPtr_)
+                if (errorPtr_ != nullptr)
                     *errorPtr_ = std::move(error);
                 dispatchAny(exec, std::move(handler_), unex);
                 handler_ = nullptr;
@@ -210,7 +210,7 @@ public:
         auto mode = req.mode();
         auto cancelMode = req.cancelMode();
         auto timeout = req.callerTimeout();
-        auto errorPtr = req.error({});
+        Error* errorPtr = req.error({});
 
         auto sent = peer_->send(std::move(req));
         if (!sent)

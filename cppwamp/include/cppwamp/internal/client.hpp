@@ -857,8 +857,8 @@ private:
             return;
 
         MatchUri matchUri{topic};
-        auto record = readership_.findSubscription(matchUri);
-        if (record)
+        auto* record = readership_.findSubscription(matchUri);
+        if (record != nullptr)
         {
             auto subscription = readership_.addSubscriber(
                 *record, std::move(slot), makeContext());

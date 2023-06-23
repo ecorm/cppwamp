@@ -43,7 +43,7 @@ CPPWAMP_INLINE ErrorOr<Realm> Router::openRealm(RealmConfig config,
     return Realm{std::move(impl), std::move(fe)};
 }
 
-CPPWAMP_INLINE bool Router::closeRealm(const Uri uri, Reason r)
+CPPWAMP_INLINE bool Router::closeRealm(const Uri& uri, Reason r)
 {
     return impl_->closeRealm(uri, std::move(r));
 }

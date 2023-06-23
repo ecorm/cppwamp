@@ -118,6 +118,9 @@ public:
     void reset();
 
 private:
+    static const Object* findFeaturesDict(const Object& dict,
+                                          const char* roleName);
+
     template <typename E>
     static void parse(Flags<E>& flags, E pos, const Object* roleDict,
                       const char* featureName);
@@ -126,7 +129,6 @@ private:
     void parseCallerFeatures(const Object& dict);
     void parsePublisherFeatures(const Object& dict);
     void parseSubscriberFeatures(const Object& dict);
-    const Object* findFeaturesDict(const Object& dict, const char* roleName);
 
     Flags<CalleeFeatures> callee_;
     Flags<CallerFeatures> caller_;
@@ -211,9 +213,12 @@ private:
     static void parse(Flags<E>& flags, E pos, const Object* roleDict,
                       const char* featureName);
 
+    static const Object* findFeaturesDict(const Object& dict,
+                                          const char* roleName);
+
     void parseBrokerFeatures(const Object& dict);
+
     void parseDealerFeatures(const Object& dict);
-    const Object* findFeaturesDict(const Object& dict, const char* roleName);
 
     Flags<BrokerFeatures> broker_;
     Flags<DealerFeatures> dealer_;

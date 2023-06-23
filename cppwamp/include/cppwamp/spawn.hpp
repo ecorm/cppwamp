@@ -70,14 +70,14 @@ void spawnCompletionHandler(
 #ifdef CPPWAMP_USE_COMPLETION_YIELD_CONTEXT
     spawn(executor, std::forward<F>(function), std::forward<Ts>(extras)...);
 #else
-    auto ex1 = executor.template target<typename IoContext::executor_type>();
+    auto* ex1 = executor.template target<typename IoContext::executor_type>();
     if (ex1 != nullptr)
     {
         spawn(*ex1, std::forward<F>(function), std::forward<Ts>(extras)...);
         return;
     }
 
-    auto ex2 = executor.template target<AnyIoExecutor>();
+    auto* ex2 = executor.template target<AnyIoExecutor>();
     if (ex2 != nullptr)
     {
         spawn(*ex2, std::forward<F>(function), std::forward<Ts>(extras)...);

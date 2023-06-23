@@ -227,7 +227,7 @@ wamp::Variant::Array toArray(const std::tuple<Ts...>& tuple)
 template <typename... Ts>
 void convert(FromVariantConverter& conv, std::tuple<Ts...>& tuple)
 {
-    auto& variant = conv.variant();
+    const auto& variant = conv.variant();
     if (!variant.is<Array>())
     {
         throw error::Conversion("Cannot convert variant to tuple; "

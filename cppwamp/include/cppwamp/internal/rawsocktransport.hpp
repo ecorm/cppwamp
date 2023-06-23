@@ -310,7 +310,9 @@ private:
             {
                 if (ec)
                     rxFrame_.clear();
+
                 if (check(ec) && running_)
+                {
                     switch (msgType)
                     {
                     case RawsockMsgType::wamp:
@@ -329,7 +331,9 @@ private:
 
                     default:
                         assert(false);
+                        break;
                     }
+                }
             });
     }
 

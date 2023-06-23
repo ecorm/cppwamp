@@ -1005,8 +1005,7 @@ T Variant::valueOr(U&& fallback) const
 {
     if (!*this)
         return std::forward<U>(fallback);
-    else
-        return this->to<T>();
+    return this->to<T>();
 }
 
 //------------------------------------------------------------------------------
@@ -1494,7 +1493,7 @@ FromVariantConverter& FromVariantConverter::operator()(const String& key,
 {
     try
     {
-        auto& obj = var_->as<Object>();
+        const auto& obj = var_->as<Object>();
         auto kv = obj.find(key);
         if (kv != obj.end())
             kv->second.to(value);

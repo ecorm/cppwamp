@@ -199,7 +199,7 @@ public:
             while (iter != end)
             {
                 SessionId sid = *iter;
-                if (sessions_.count(sid))
+                if (sessions_.count(sid) != 0)
                     ++iter;
                 else
                     iter = set.erase(iter);

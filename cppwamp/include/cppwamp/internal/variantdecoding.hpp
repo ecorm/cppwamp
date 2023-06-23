@@ -307,7 +307,7 @@ private:
     bool visit_string(const string_view_type& sv, Tag, const Where& where,
                       std::error_code& ec) override
     {
-        if ( (sv.size() > 0) && (sv[0] == '\0') )
+        if ( !sv.empty() && (sv[0] == '\0') )
         {
             Blob::Data bytes;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)

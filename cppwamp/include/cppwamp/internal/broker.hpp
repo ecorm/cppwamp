@@ -136,9 +136,13 @@ private:
         std::set<String> set;
         const auto& variant = pub.optionByKey(key);
         if (variant.template is<Array>())
+        {
             for (const auto& element: variant.template as<Array>())
+            {
                 if (element.is<String>())
                     set.emplace(std::move(element.as<String>()));
+            }
+        }
         return set;
     }
 
@@ -243,11 +247,14 @@ public:
     {
         std::size_t count = 0;
         pub.setSubscriptionId(info_.id);
-        for (auto& kv : subscribers_)
+        for (const auto& kv : subscribers_)
         {
             auto subscriber = kv.second.session.lock();
-            if (subscriber && (subscriber->wampId() != inhibitedSessionId))
-                count += pub.sendTo(*subscriber);
+            if (bool(subscriber) &&
+                (subscriber->wampId() != inhibitedSessionId))
+            {
+                count += (pub.sendTo(*subscriber) ? 1 : 0);
+            }
         }
         return count;
     }

@@ -81,6 +81,12 @@ private:
     using Base = Peer;
     using IoStrandPtr = std::unique_ptr<IoStrand>;
 
+    static bool badCommand()
+    {
+        assert(false);
+        return false;
+    }
+
     void onDirectConnect(IoStrand strand, any routerLink) override
     {
         if (!strand_)
@@ -244,12 +250,6 @@ private:
     {
         TDesired desired{{}, std::move(command.message({}))};
         return sendCommand(desired);
-    }
-
-    bool badCommand()
-    {
-        assert(false);
-        return false;
     }
 
     void onAbort(Reason&& reason)

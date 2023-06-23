@@ -56,7 +56,7 @@ public:
     explicit Reason(const error::BadType& e);
 
     /** Sets the `message` member of the details dictionary. */
-    Reason& withHint(String message);
+    Reason& withHint(String text);
 
     /** Obtains the reason URI. */
     const Uri& uri() const &;

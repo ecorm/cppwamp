@@ -62,14 +62,9 @@ public:
         the client. */
     void reject(Reason r = {WampErrc::authenticationDenied});
 
-public:
-    // Internal use only
-    using ChallengerPtr = std::weak_ptr<internal::Challenger>;
-    static Ptr create(internal::PassKey, Petition&& p, ChallengerPtr c);
-    void setAuthentication(internal::PassKey, Authentication&& a);
-    Petition& hello(internal::PassKey);
-
 private:
+    using ChallengerPtr = std::weak_ptr<internal::Challenger>;
+
     AuthExchange(Petition&& p, ChallengerPtr c);
 
     Petition hello_;
@@ -78,6 +73,11 @@ private:
     Authentication authentication_;
     any note_; // Keeps the authenticator stateless
     unsigned challengeCount_ = 0;
+
+public: // Internal use only
+    static Ptr create(internal::PassKey, Petition&& p, ChallengerPtr c);
+    void setAuthentication(internal::PassKey, Authentication&& a);
+    Petition& hello(internal::PassKey);
 };
 
 

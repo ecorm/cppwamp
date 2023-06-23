@@ -98,7 +98,7 @@ public:
         auto uri = reg.procedureUri();
         auto emplaced = byKey_.emplace(key, std::move(reg));
         assert(emplaced.second);
-        auto ptr = &(emplaced.first->second);
+        auto* ptr = &(emplaced.first->second);
         byUri_.emplace(std::move(uri), ptr);
         return emplaced.first->second;
     }
@@ -634,7 +634,7 @@ public:
 
     ErrorOrDone call(RouterSession::Ptr caller, Rpc& rpc)
     {
-        auto reg = registry_.find(rpc.uri());
+        auto* reg = registry_.find(rpc.uri());
         if (reg == nullptr)
             return makeUnexpectedError(WampErrc::noSuchProcedure);
 

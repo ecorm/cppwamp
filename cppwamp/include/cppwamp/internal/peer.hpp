@@ -209,7 +209,7 @@ private:
             return;
 
         std::ostringstream oss;
-        auto name = MessageTraits::lookup(kind).name;
+        const char* name = MessageTraits::lookup(kind).name;
         oss << "[\"" << label << "\",\"" << name << "\"";
         if (!fields.empty())
             oss << "," << fields;

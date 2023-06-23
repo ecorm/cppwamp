@@ -14,6 +14,7 @@
 namespace wamp
 {
 
+// NOLINTBEGIN(readability-inconsistent-declaration-parameter-name)
 CPPWAMP_INLINE TcpOptions& TcpOptions::withBroadcast(bool b)          {return set<boost::asio::socket_base::broadcast>(b);}
 CPPWAMP_INLINE TcpOptions& TcpOptions::withDebug(bool b)              {return set<boost::asio::socket_base::debug>(b);}
 CPPWAMP_INLINE TcpOptions& TcpOptions::withDoNotRoute(bool b)         {return set<boost::asio::socket_base::do_not_route>(b);}
@@ -28,6 +29,7 @@ CPPWAMP_INLINE TcpOptions& TcpOptions::withSendLowWatermark(int n)    {return se
 CPPWAMP_INLINE TcpOptions& TcpOptions::withUnicastHops(int n)         {return set<boost::asio::ip::unicast::hops>(n);}
 CPPWAMP_INLINE TcpOptions& TcpOptions::withIpV6Only(bool b)           {return set<boost::asio::ip::v6_only>(b);}
 CPPWAMP_INLINE TcpOptions& TcpOptions::withNoDelay(bool b)            {return set<boost::asio::ip::tcp::no_delay>(b);}
+// NOLINTEND(readability-inconsistent-declaration-parameter-name)
 
 template <typename TOption, typename... TArgs>
 TcpOptions& TcpOptions::set(TArgs... args)

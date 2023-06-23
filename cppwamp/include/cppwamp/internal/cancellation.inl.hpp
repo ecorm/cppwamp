@@ -36,7 +36,7 @@ CPPWAMP_INLINE CallCancellationSlot::Handler::Handler(
       requestId_(requestId)
 {}
 
-CPPWAMP_INLINE CallCancellationSlot::Handler::operator bool()
+CPPWAMP_INLINE CallCancellationSlot::Handler::operator bool() const
 {
     return requestId_ != nullId();
 }

@@ -34,8 +34,8 @@ public:
         Quad quad;
         unsigned quadSize = 4;
         Byte sextet = 0;
-        auto byte = static_cast<const Byte*>(data);
-        auto end = byte + size;
+        const auto* byte = static_cast<const Byte*>(data);
+        const auto* end = byte + size;
         while (byte != end)
         {
             quad[0] = charFromSextet( (*byte >> 2) & 0x3f );
@@ -96,9 +96,9 @@ public:
         if (paddingExpected && (length % 4) != 0)
             return make_error_code(DecodingErrc::badBase64Length);
 
-        auto str = static_cast<const char*>(data);
+        const auto* str = static_cast<const char*>(data);
         const char* ptr = str;
-        auto end = str + length;
+        const auto* end = str + length;
         while (end - ptr > 4)
         {
             auto errc = decodeFullQuad(ptr, output);
@@ -112,7 +112,7 @@ public:
 
         Quad lastQuad;
         lastQuad.fill(+pad);
-        auto iter = lastQuad.begin();
+        auto* iter = lastQuad.begin();
         while (ptr != end)
         {
             *iter = *ptr;

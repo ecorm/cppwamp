@@ -76,10 +76,9 @@ public:
 private:
     static boost::asio::ip::tcp::endpoint makeEndpoint(const Settings& s)
     {
-        if (!s.address().empty())
-            return {boost::asio::ip::make_address(s.address()), s.port()};
-        else
+        if (s.address().empty())
             return {boost::asio::ip::tcp::v4(), s.port()};
+        return {boost::asio::ip::make_address(s.address()), s.port()};
     }
 
     template <typename F>

@@ -109,7 +109,7 @@ struct Message
 
     const char* nameOr(const char* fallback) const
     {
-        auto n = name();
+        const char* n = name();
         return n == nullptr ? fallback : n;
     }
 

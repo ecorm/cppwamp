@@ -292,10 +292,9 @@ public:
     template <typename U>
     value_type value_or(U&& v) const&
     {
-        if (has_value())
-            return value_;
-        else
+        if (!has_value())
             return std::forward<U>(v);
+        return value_;
     }
 
     /** Returns the moved stored value if it exists, or the given fallback
@@ -303,10 +302,9 @@ public:
     template <typename U>
     value_type value_or(U&& v) &&
     {
-        if (has_value())
-            return std::move(value_);
-        else
+        if (!has_value())
             return std::forward<U>(v);
+        return std::move(value_);
     }
 
 private:
