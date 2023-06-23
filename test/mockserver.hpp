@@ -131,7 +131,7 @@ public:
     }
 
     template <typename C>
-    static C toCommand(Message&& m) {return C{{}, std::move(m)};}
+    static C toCommand(Message&& m) {return C{PassKey{}, std::move(m)};}
 
 private:
     template <typename E>

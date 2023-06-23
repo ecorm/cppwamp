@@ -147,7 +147,7 @@ private:
                 }
                 catch (const error::BadType& e)
                 {
-                    Error error(e);
+                    Error error{e};
                     auto subId = slot.link->key().first;
                     error["subscriptionId"] = subId;
                     error["publicationId"] = pubId;

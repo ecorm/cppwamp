@@ -320,7 +320,7 @@ public:
     Outcome(const Outcome& other);
 
     /** Move constructor. */
-    Outcome(Outcome&& other);
+    Outcome(Outcome&& other) noexcept;
 
     /** Destructor. */
     ~Outcome();
@@ -344,7 +344,7 @@ public:
     Outcome& operator=(const Outcome& other);
 
     /** Move-assignment operator. */
-    Outcome& operator=(Outcome&& other);
+    Outcome& operator=(Outcome&& other) noexcept;
 
 private:
     CPPWAMP_HIDDEN explicit Outcome(std::nullptr_t);

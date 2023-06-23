@@ -62,7 +62,7 @@ public:
         if (!acceptor_)
         {
             if (settings_.deletePathEnabled())
-                std::remove(settings_.pathName().c_str());
+                (void)std::remove(settings_.pathName().c_str());
             acceptor_ = AcceptorPtr{new Acceptor(strand_,
                                                  settings_.pathName())};
         }

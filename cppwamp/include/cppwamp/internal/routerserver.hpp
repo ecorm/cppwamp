@@ -284,7 +284,7 @@ private:
         using K = MessageKind;
         switch (m.kind())
         {
-        case K::error:          return sendToRealm(Error{{},            std::move(m)});
+        case K::error:          return sendToRealm(Error{PassKey{},     std::move(m)});
         case K::publish:        return sendToRealm(Pub{{},              std::move(m)});
         case K::subscribe:      return sendToRealm(Topic{{},            std::move(m)});
         case K::unsubscribe:    return sendToRealm(Unsubscribe{{},      std::move(m)});

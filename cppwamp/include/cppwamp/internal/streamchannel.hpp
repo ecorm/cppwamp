@@ -129,7 +129,7 @@ public:
     {
         if (!chunkSlot_)
             return;
-        error_ = Error{{}, std::move(msg)};
+        error_ = Error{PassKey{}, std::move(msg)};
         auto errc = error_.errorCode();
         postToChunkHandler(makeUnexpectedError(errc));
     }

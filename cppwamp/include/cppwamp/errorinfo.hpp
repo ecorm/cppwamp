@@ -14,6 +14,7 @@
 #include "api.hpp"
 #include "errorcodes.hpp"
 #include "payload.hpp"
+#include "tagtypes.hpp"
 #include "wampdefs.hpp"
 #include "internal/message.hpp"
 #include "internal/passkey.hpp"
@@ -34,16 +35,23 @@ namespace wamp
 class CPPWAMP_API Error : public Payload<Error, internal::MessageKind::error>
 {
 public:
-    /** Converting constructor taking a reason URI. */
-    Error(Uri uri = {});
+    /** Default constructor. */
+    Error();
+
+    /** Converting constructor taking a reason URI and optional positional
+        payload arguments. */
+    template <typename... Ts>
+    Error(Uri uri, Ts&&... args);
 
     /** Converting constructor taking an error code, attempting to convert
-        it to a reason URI. */
-    Error(std::error_code ec);
+        it to a reason URI, as well as optional positional payload arguments. */
+    template <typename... Ts>
+    Error(std::error_code ec, Ts&&... args);
 
     /** Converting constructor taking a WampErrc, attempting to convert
-        it to a reason URI. */
-    Error(WampErrc errc);
+        it to a reason URI, as well as optional positional payload arguments. */
+    template <typename... Ts>
+    Error(WampErrc errc, Ts&&... args);
 
     /** Constructor taking an error::BadType exception and
         interpreting it as a `wamp.error.invalid_argument` reason URI. */
@@ -73,20 +81,24 @@ private:
 
     using Base = Payload<Error, internal::MessageKind::error>;
 
+    explicit Error(in_place_t, Uri uri, Array args);
+
 public:
     // Internal use only
     template <typename C>
     static Error fromRequest(internal::PassKey, const C& command,
                              std::error_code ec)
     {
-        return Error({}, C::messageKind({}), command.requestId({}), ec);
+        return Error{internal::PassKey{}, C::messageKind({}),
+                     command.requestId({}), ec};
     }
 
     template <typename C>
     static Error fromRequest(internal::PassKey, const C& command,
                              WampErrc errc)
     {
-        return Error({}, C::messageKind({}), command.requestId({}), errc);
+        return Error{internal::PassKey{}, C::messageKind({}),
+                     command.requestId({}), errc};
     }
 
     Error(internal::PassKey, internal::Message&& msg);
@@ -112,6 +124,26 @@ public:
 
     void setRequestKind(internal::PassKey, internal::MessageKind reqKind);
 };
+
+
+/******************************************************************************/
+// Error inline member function definitions
+/******************************************************************************/
+
+template <typename... Ts>
+Error::Error(Uri uri, Ts&&... args)
+    : Error(in_place, std::move(uri), Array{std::forward<Ts>(args)...})
+{}
+
+template <typename... Ts>
+Error::Error(std::error_code ec, Ts&&... args)
+    : Error(in_place, errorCodeToUri(ec), Array{std::forward<Ts>(args)...})
+{}
+
+template <typename... Ts>
+Error::Error(WampErrc errc, Ts&&... args)
+    : Error(in_place, errorCodeToUri(errc), Array{std::forward<Ts>(args)...})
+{}
 
 } // namespace wamp
 

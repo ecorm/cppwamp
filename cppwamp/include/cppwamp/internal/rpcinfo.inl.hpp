@@ -166,7 +166,7 @@ CPPWAMP_INLINE Outcome::Outcome(const Outcome& other)
 
 /** @post `this->type() == other.type()`
     @post `other.type() == Type::deferred` */
-CPPWAMP_INLINE Outcome::Outcome(wamp::Outcome&& other)
+CPPWAMP_INLINE Outcome::Outcome(wamp::Outcome&& other) noexcept
     : type_(other.type_)
 {
     moveFrom(std::move(other));
@@ -211,33 +211,18 @@ CPPWAMP_INLINE Error&& Outcome::asError() &&
 /** @post `this->type() == other.type()` */
 CPPWAMP_INLINE Outcome& Outcome::operator=(const Outcome& other)
 {
-    if (type_ != other.type_)
-    {
-        destruct();
-        copyFrom(other);
-    }
-    else switch (type_)
-        {
-        case Type::result:
-            value_.result = other.value_.result;
-            break;
-
-        case Type::error:
-            value_.error = other.value_.error;
-            break;
-
-        default:
-            // Do nothing
-            break;
-        }
-
+    Outcome temp{other};
+    operator=(std::move(temp));
     return *this;
 }
 
 /** @post `this->type() == other.type()`
     @post `other.type() == Type::deferred` */
-CPPWAMP_INLINE Outcome& Outcome::operator=(Outcome&& other)
+CPPWAMP_INLINE Outcome& Outcome::operator=(Outcome&& other) noexcept
 {
+    if (&other == this)
+        return *this;
+
     if (type_ != other.type_)
     {
         destruct();

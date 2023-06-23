@@ -373,7 +373,7 @@ public:
 
         auto reqId = callerKey_.second;
         auto ec = make_error_code(WampErrc::cancelled);
-        auto e = Error({}, MessageKind::call, reqId, ec)
+        auto e = Error{PassKey{}, MessageKind::call, reqId, ec}
                      .withArgs("Callee left realm");
         caller->sendRouterCommand(std::move(e), true);
     }
@@ -591,7 +591,7 @@ private:
                 byCalleeErase(iter);
             if (caller && !done)
             {
-                Error e{{}, MessageKind::call, job.callerKey().second,
+                Error e{PassKey{}, MessageKind::call, job.callerKey().second,
                         done.error()};
                 caller->sendRouterCommand(std::move(e), true);
             }

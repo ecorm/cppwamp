@@ -129,32 +129,19 @@ private:
 
         auto reasonArg = std::move(rpc).kwargAs<String>("reason");
         if (reasonArg == unex)
-        {
-            throw Error{WampErrc::invalidArgument}
-                .withArgs("'reason' argument must be a string");
-        }
+            throw error::Conversion{"'reason' argument must be a string"};
 
         // NOLINTNEXTLINE(bugprone-use-after-move)
         auto messageArg = std::move(rpc).kwargAs<String>("message");
         if (messageArg == unex)
-        {
-            throw Error{WampErrc::invalidArgument}
-                .withArgs("'message' argument must be a string");
-        }
+            throw error::Conversion{"'message' argument must be a string"};
 
         String reasonUri{errorCodeToUri(WampErrc::sessionKilled)};
-        if (reasonArg)
+        if (reasonArg && !reasonArg->empty())
             reasonUri = std::move(*reasonArg);
-        if (reasonUri.empty())
-        {
-            throw Error{WampErrc::invalidUri}
-                .withArgs("'reason' argument cannot be empty");
-        }
         Reason reason{std::move(reasonUri)};
-
         if (messageArg && !messageArg->empty())
             reason.withHint(std::move(*messageArg));
-
         return reason;
     }
 
@@ -164,10 +151,7 @@ private:
             return MatchPolicy::exact;
         const auto& optionsArg = rpc.args()[1];
         if (!optionsArg.is<Object>())
-        {
-            throw Error{WampErrc::invalidArgument}
-                .withArgs("second argument must be an object");
-        }
+            throw error::Conversion{"second argument must be an object"};
 
         const auto& dict = optionsArg.as<Object>();
         return getMatchPolicyOption(dict);

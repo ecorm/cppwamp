@@ -149,7 +149,7 @@ public:
         {
             if (!erased)
                 invocations_.erase(found);
-            peer_->send(Error{{}, MessageKind::invocation, reqId,
+            peer_->send(Error{PassKey{}, MessageKind::invocation, reqId,
                               WampErrc::payloadSizeExceeded});
         }
         return done;
@@ -176,7 +176,7 @@ public:
         {
             if (!erased)
                 invocations_.erase(found);
-            peer_->send(Error{{}, MessageKind::invocation, reqId,
+            peer_->send(Error{PassKey{}, MessageKind::invocation, reqId,
                               WampErrc::payloadSizeExceeded});
         }
         return done;

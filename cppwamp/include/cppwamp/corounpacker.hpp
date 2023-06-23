@@ -15,6 +15,7 @@
 
 #include <exception>
 #include <boost/version.hpp>
+#include "exceptions.hpp"
 #include "pubsubinfo.hpp"
 #include "rpcinfo.hpp"
 #include "spawn.hpp"
@@ -270,15 +271,6 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-// This is caught internally by Client while dispatching RPCs and is never
-// propagated through the API.
-//------------------------------------------------------------------------------
-struct UnpackCoroError : public Error
-{
-    UnpackCoroError() : Error(WampErrc::invalidArgument) {}
-};
-
-//------------------------------------------------------------------------------
 template <typename E>
 struct UnpackedSpawner
 {
@@ -331,7 +323,7 @@ void CoroEventUnpacker<S,A...>::operator()(Event event) const
         std::ostringstream oss;
         oss << "Expected " << sizeof...(A)
             << " args, but only got " << event.args().size();
-        throw internal::UnpackCoroError().withArgs(oss.str());
+        throw error::Conversion{oss.str()};
     }
 
     using Seq = IndexSequenceFor<A...>;
@@ -402,7 +394,7 @@ void SimpleCoroEventUnpacker<S,A...>::operator()(Event event) const
         std::ostringstream oss;
         oss << "Expected " << sizeof...(A)
             << " args, but only got " << event.args().size();
-        throw internal::UnpackCoroError().withArgs(oss.str());
+        throw error::Conversion{oss.str()};
     }
 
     invoke(std::move(event), IndexSequenceFor<A...>{});
@@ -480,7 +472,7 @@ Outcome CoroInvocationUnpacker<S,A...>::operator()(Invocation inv) const
         std::ostringstream oss;
         oss << "Expected " << sizeof...(A)
             << " args, but only got " << inv.args().size();
-        throw internal::UnpackCoroError().withArgs(oss.str());
+        throw error::Conversion{oss.str()};
     }
 
     invoke(std::move(inv), IndexSequenceFor<A...>{});
@@ -532,7 +524,7 @@ public:
             }
 
         }
-        catch (Error e)
+        catch (Error& e)
         {
             safeYield(std::move(e));
         }
@@ -600,7 +592,7 @@ SimpleCoroInvocationUnpacker<S,R,A...>::operator()(Invocation inv) const
         std::ostringstream oss;
         oss << "Expected " << sizeof...(A)
             << " args, but only got " << inv.args().size();
-        throw internal::UnpackCoroError().withArgs(oss.str());
+        throw error::Conversion{oss.str()};
     }
 
     invoke(std::is_void<ResultType>{}, std::move(inv),

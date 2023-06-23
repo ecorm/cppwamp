@@ -768,7 +768,8 @@ private:
         if (result == makeUnexpectedError(WampErrc::protocolViolation))
             return false; // ABORT should already have been sent to originator
 
-        Error error{{}, TCommand::messageKind({}), reqId, result.error()};
+        Error error{PassKey{}, TCommand::messageKind({}), reqId,
+                    result.error()};
         if (logOnly)
             originator.report(error.info(true));
         else

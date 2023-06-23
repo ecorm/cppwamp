@@ -612,7 +612,8 @@ public:
         if (req.policy() == Policy::unknown)
         {
             auto unex = makeUnexpectedError(WampErrc::optionNotAllowed);
-            auto error = Error{{}, Topic::messageKind({}), reqId, unex.value()}
+            auto error = Error{PassKey{}, Topic::messageKind({}), reqId,
+                               unex.value()}
                              .withArgs("Unknown match policy");
             subscriber->sendRouterCommand(std::move(error), true);
             return unex;

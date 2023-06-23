@@ -11,13 +11,7 @@
 namespace wamp
 {
 
-CPPWAMP_INLINE Error::Error(Uri uri)
-    : Base(in_place, 0, 0, Object{}, std::move(uri), Array{}, Object{})
-{}
-
-CPPWAMP_INLINE Error::Error(std::error_code ec) : Error(errorCodeToUri(ec)) {}
-
-CPPWAMP_INLINE Error::Error(WampErrc errc) : Error(errorCodeToUri(errc)) {}
+CPPWAMP_INLINE Error::Error() : Error(in_place, {}, {}) {}
 
 CPPWAMP_INLINE Error::Error(const error::BadType& e)
     : Error(WampErrc::invalidArgument)
@@ -55,6 +49,11 @@ CPPWAMP_INLINE AccessActionInfo Error::info(bool isServer) const
     }
     return {action, requestId(), {}, options(), uri()};
 }
+
+CPPWAMP_INLINE Error::Error(in_place_t, Uri uri, Array args)
+    : Base(in_place, 0, 0, Object{}, std::move(uri), std::move(args), Object{})
+{}
+
 
 CPPWAMP_INLINE Error::Error(internal::PassKey, internal::Message&& msg)
     : Base(std::move(msg))

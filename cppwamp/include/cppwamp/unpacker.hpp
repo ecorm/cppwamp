@@ -15,6 +15,7 @@
 
 #include <functional>
 #include <tuple>
+#include "exceptions.hpp"
 #include "pubsubinfo.hpp"
 #include "rpcinfo.hpp"
 #include "traits.hpp"
@@ -228,25 +229,6 @@ simpleRpc(TSlot&& slot);
 
 
 //******************************************************************************
-// Internal helper types
-//******************************************************************************
-
-namespace internal
-{
-
-//------------------------------------------------------------------------------
-// This is caught internally by Client while dispatching RPCs and is never
-// propagated through the API.
-//------------------------------------------------------------------------------
-struct UnpackError : public Error
-{
-    UnpackError() : Error(WampErrc::invalidArgument) {}
-};
-
-} // namespace internal
-
-
-//******************************************************************************
 // EventUnpacker implementation
 //******************************************************************************
 
@@ -265,7 +247,7 @@ void EventUnpacker<S,A...>::operator()(Event event) const
         std::ostringstream oss;
         oss << "Expected " << sizeof...(A)
             << " args, but only got " << event.args().size();
-        throw internal::UnpackError().withArgs(oss.str());
+        throw error::Conversion{oss.str()};
     }
 
     invoke(std::move(event), IndexSequenceFor<A...>{});
@@ -277,16 +259,7 @@ template <std::size_t... Seq>
 void EventUnpacker<S,A...>::invoke(Event&& event, IndexSequence<Seq...>) const
 {
     std::tuple<ValueTypeOf<A>...> args;
-
-    try
-    {
-        event.convertToTuple(args);
-    }
-    catch (const error::Conversion& e)
-    {
-        throw internal::UnpackError().withArgs(e.what());
-    }
-
+    event.convertToTuple(args);
     slot_(std::move(event), std::get<Seq>(std::move(args))...);
 }
 
@@ -317,7 +290,7 @@ void SimpleEventUnpacker<S,A...>::operator()(Event event) const
         std::ostringstream oss;
         oss << "Expected " << sizeof...(A)
             << " args, but only got " << event.args().size();
-        throw internal::UnpackError().withArgs(oss.str());
+        throw error::Conversion{oss.str()};
     }
 
     invoke(std::move(event), IndexSequenceFor<A...>{});
@@ -330,16 +303,7 @@ void SimpleEventUnpacker<S,A...>::invoke(Event&& event,
                                           IndexSequence<Seq...>) const
 {
     std::tuple<ValueTypeOf<A>...> args;
-
-    try
-    {
-        event.convertToTuple(args);
-    }
-    catch (const error::Conversion& e)
-    {
-        throw internal::UnpackError().withArgs(e.what());
-    }
-
+    event.convertToTuple(args);
     slot_(std::get<Seq>(std::move(args))...);
 }
 
@@ -379,7 +343,7 @@ Outcome InvocationUnpacker<S,A...>::operator()(Invocation inv) const
         std::ostringstream oss;
         oss << "Expected " << sizeof...(A)
             << " args, but only got " << inv.args().size();
-        throw internal::UnpackError().withArgs(oss.str());
+        throw error::Conversion{oss.str()};
     }
 
     return invoke(std::move(inv), IndexSequenceFor<A...>{});
@@ -393,16 +357,7 @@ InvocationUnpacker<S,A...>::invoke(Invocation&& inv,
                                    IndexSequence<Seq...>) const
 {
     std::tuple<ValueTypeOf<A>...> args;
-
-    try
-    {
-        inv.convertToTuple(args);
-    }
-    catch (const error::Conversion& e)
-    {
-        throw internal::UnpackError().withArgs(e.what());
-    }
-
+    inv.convertToTuple(args);
     return slot_(std::move(inv), std::get<Seq>(std::move(args))...);
 }
 
@@ -434,7 +389,7 @@ Outcome SimpleInvocationUnpacker<S,R,A...>::operator()(Invocation inv) const
         std::ostringstream oss;
         oss << "Expected " << sizeof...(A)
             << " args, but only got " << inv.args().size();
-        throw internal::UnpackError().withArgs(oss.str());
+        throw error::Conversion{oss.str()};
     }
 
     return invoke(std::is_void<ResultType>{}, std::move(inv),
@@ -448,16 +403,7 @@ Outcome SimpleInvocationUnpacker<S,R,A...>::invoke(
     TrueType, Invocation&& inv, IndexSequence<Seq...>) const
 {
     std::tuple<ValueTypeOf<A>...> args;
-
-    try
-    {
-        inv.convertToTuple(args);
-    }
-    catch (const error::Conversion& e)
-    {
-        throw internal::UnpackError().withArgs(e.what());
-    }
-
+    inv.convertToTuple(args);
     slot_(std::get<Seq>(std::move(args))...);
     return {};
 }
@@ -469,16 +415,7 @@ Outcome SimpleInvocationUnpacker<S,R,A...>::invoke(
     FalseType, Invocation&& inv, IndexSequence<Seq...>) const
 {
     std::tuple<ValueTypeOf<A>...> args;
-
-    try
-    {
-        inv.convertToTuple(args);
-    }
-    catch (const error::Conversion& e)
-    {
-        throw internal::UnpackError().withArgs(e.what());
-    }
-
+    inv.convertToTuple(args);
     ResultType result = slot_(std::get<Seq>(std::move(args))...);
     return Result().withArgs(std::move(result));
 }

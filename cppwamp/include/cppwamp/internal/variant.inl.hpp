@@ -398,8 +398,8 @@ CPPWAMP_INLINE bool Variant::operator<(const Variant &other) const
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Variant& Variant::operator=(const Variant& other)
 {
-    if (&other != this)
-        Variant(other).swap(*this);
+    Variant temp(other);
+    operator=(std::move(temp));
     return *this;
 }
 

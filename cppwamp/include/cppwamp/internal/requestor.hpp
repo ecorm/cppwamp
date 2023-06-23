@@ -126,7 +126,7 @@ private:
         {
             if (handler_)
             {
-                Error error{{}, std::move(msg)};
+                Error error{PassKey{}, std::move(msg)};
                 auto unex = makeUnexpectedError(error.errorCode());
                 if (errorPtr_)
                     *errorPtr_ = std::move(error);

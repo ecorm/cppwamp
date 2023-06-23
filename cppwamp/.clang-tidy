@@ -1,10 +1,13 @@
 ---
 Checks: >
   bugprone-*,
+  cert-*,
   clang-analyzer-*,
+  concurrency-*,
   cppcoreguidelines-*,
   modernize-*,
   -bugprone-easily-swappable-parameters,
+  -cert-dcl58-cpp,
   -cppcoreguidelines-pro-type-union-access,
   -modernize-make-unique,
   -modernize-use-trailing-return-type,

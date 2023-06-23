@@ -461,7 +461,7 @@ private:
                 {
                     slot(std::move(challenge));
                 }
-                catch (Reason r)
+                catch (Reason& r)
                 {
                     self->failAuthentication(std::move(r));
                 }
@@ -568,7 +568,7 @@ private:
         auto ec = make_error_code(WampErrc::noSuchProcedure);
         report({IncidentKind::trouble, ec,
                 "With registration ID " + std::to_string(regId)});
-        peer_->send(Error{{}, MessageKind::invocation, reqId, ec});
+        peer_->send(Error{PassKey{}, MessageKind::invocation, reqId, ec});
     }
 
     void onInvocationProgressNotAllowed(RequestId reqId, RegistrationId regId)
@@ -578,7 +578,7 @@ private:
         auto ec = make_error_code(WampErrc::optionNotAllowed);
         report({IncidentKind::trouble, ec,
                 why + ", with registration ID " + std::to_string(regId)});
-        Error error({}, MessageKind::invocation, reqId, ec);
+        Error error(PassKey{}, MessageKind::invocation, reqId, ec);
         error.withArgs(std::move(why));
         peer_->send(std::move(error));
     }
@@ -1396,7 +1396,7 @@ private:
             return true;
         }
 
-        Error error({}, std::move(*reply));
+        Error error(PassKey{}, std::move(*reply));
         WampErrc errc = error.errorCode();
 
         if (errorPtr != nullptr)
