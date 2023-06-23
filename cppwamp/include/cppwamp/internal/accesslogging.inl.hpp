@@ -19,7 +19,7 @@ namespace internal
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void outputAccessLogEntry(
-    std::ostream& out, const AccessLogEntry& entry, std::string, bool colored)
+    std::ostream& out, const AccessLogEntry& entry, bool colored)
 {
     static constexpr const char* red = "\x1b[1;31m";
     static constexpr const char* plain = "\x1b[0m";
@@ -212,18 +212,8 @@ CPPWAMP_INLINE AccessLogEntry::AccessLogEntry(ConnectionInfo connection,
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE std::string toString(const AccessLogEntry& entry)
 {
-    return toString(entry, "cppwamp");
-}
-
-//------------------------------------------------------------------------------
-/** @relates AccessLogEntry
-    @copydetails toString(const AccessLogEntry&) */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE std::string toString(const AccessLogEntry& entry,
-                                    const std::string& origin)
-{
     std::ostringstream oss;
-    toStream(oss, entry, origin);
+    toStream(oss, entry);
     return oss.str();
 }
 
@@ -234,18 +224,7 @@ CPPWAMP_INLINE std::string toString(const AccessLogEntry& entry,
 CPPWAMP_INLINE std::ostream& toStream(std::ostream& out,
                                       const AccessLogEntry& entry)
 {
-    return toStream(out, entry, "cppwamp");
-}
-
-//------------------------------------------------------------------------------
-/** @relates AccessLogEntry
-    @copydetails toString(const AccessLogEntry&) */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE std::ostream& toStream(std::ostream& out,
-                                      const AccessLogEntry& entry,
-                                      const std::string& origin)
-{
-    internal::outputAccessLogEntry(out, entry, origin, false);
+    internal::outputAccessLogEntry(out, entry, false);
     return out;
 }
 
@@ -256,18 +235,7 @@ CPPWAMP_INLINE std::ostream& toStream(std::ostream& out,
 CPPWAMP_INLINE std::ostream& toColorStream(std::ostream& out,
                                            const AccessLogEntry& entry)
 {
-    return toColorStream(out, entry, "cppwamp");
-}
-
-//------------------------------------------------------------------------------
-/** @relates AccessLogEntry
-    @copydetails toString(const AccessLogEntry&) */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE std::ostream&
-toColorStream(std::ostream& out, const AccessLogEntry& entry,
-              std::string origin)
-{
-    internal::outputAccessLogEntry(out, entry, origin, true);
+    internal::outputAccessLogEntry(out, entry, true);
     return out;
 }
 

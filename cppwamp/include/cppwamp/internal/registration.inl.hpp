@@ -33,7 +33,7 @@ CPPWAMP_INLINE void Registration::unregister()
         link->remove();
 }
 
-CPPWAMP_INLINE Registration::Registration(internal::PassKey, Link::Ptr p)
+CPPWAMP_INLINE Registration::Registration(internal::PassKey, const Link::Ptr& p)
     : link_(p),
       regId_(p->key())
 {}

@@ -165,12 +165,10 @@ public:
     using ChunkSlot = AnyReusableHandler<void (CallerChannel,
                                                ErrorOr<CallerInputChunk>)>;
 
-    Requestor(Peer* peer, IoStrand strand, AnyIoExecutor exec,
-              AnyCompletionExecutor fallbackExec)
+    Requestor(Peer* peer, IoStrand strand, AnyIoExecutor exec)
         : deadlines_(CallerTimeoutScheduler::create(strand)),
           strand_(std::move(strand)),
           executor_(std::move(exec)),
-          fallbackExecutor_(std::move(fallbackExec)),
           peer_(peer)
     {
         deadlines_->listen(
@@ -224,8 +222,7 @@ public:
 
         auto channel = std::make_shared<CallerChannelImpl>(
             channelId, std::move(uri), mode, cancelMode,
-            rsvpExpected, std::move(caller), std::move(onChunk), executor_,
-            fallbackExecutor_);
+            rsvpExpected, std::move(caller), std::move(onChunk), executor_);
         auto emplaced = channels_.emplace(
             channelId,
             StreamRecord{channel, errorPtr, timeout, std::move(handler)});
@@ -429,7 +426,6 @@ private:
     CallerTimeoutScheduler::Ptr deadlines_;
     IoStrand strand_;
     AnyIoExecutor executor_;
-    AnyCompletionExecutor fallbackExecutor_;
     Peer* peer_ = nullptr;
     RequestId nextRequestId_ = nullId();
 };

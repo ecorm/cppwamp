@@ -88,7 +88,7 @@ public:
         }
     }
 
-    TokenTrieMapImpl(TokenTrieMapImpl&& rhs)
+    TokenTrieMapImpl(TokenTrieMapImpl&& rhs) noexcept
         : TokenTrieMapImpl(std::move(rhs), rhs.alloc_)
     {}
 
@@ -123,7 +123,7 @@ public:
         return *this;
     }
 
-    TokenTrieMapImpl& operator=(TokenTrieMapImpl&& rhs)
+    TokenTrieMapImpl& operator=(TokenTrieMapImpl&& rhs) noexcept
     {
         // Do nothing for self-move-assignment to avoid invalidating iterators.
         if (&rhs != this)

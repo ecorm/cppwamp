@@ -33,7 +33,7 @@ CPPWAMP_INLINE void Subscription::unsubscribe()
         link->remove();
 }
 
-CPPWAMP_INLINE Subscription::Subscription(internal::PassKey, Link::Ptr p)
+CPPWAMP_INLINE Subscription::Subscription(internal::PassKey, const Link::Ptr& p)
     : link_(p),
       subId_(p->key().first)
 {}

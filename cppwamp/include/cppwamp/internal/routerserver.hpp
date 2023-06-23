@@ -33,8 +33,8 @@ class RouterServer;
 class ServerContext : public RouterContext
 {
 public:
-    ServerContext(RouterContext r, std::shared_ptr<RouterServer> s);
-    void removeSession(std::shared_ptr<ServerSession> s);
+    ServerContext(RouterContext r, const std::shared_ptr<RouterServer>& s);
+    void removeSession(const std::shared_ptr<ServerSession>& s);
 
 private:
     using Base = RouterContext;
@@ -129,12 +129,14 @@ public:
     using State = SessionState;
     using Index = uint64_t;
 
-    static Ptr create(const IoStrand& i, Transporting::Ptr t, AnyBufferCodec c,
+    static Ptr create(IoStrand i, Transporting::Ptr t, AnyBufferCodec c,
                       ServerContext s, ServerConfig::Ptr sc, Index sessionIndex)
     {
-        return Ptr(new ServerSession(i, std::move(t), std::move(c),
+        return Ptr(new ServerSession(std::move(i), std::move(t), std::move(c),
                                      std::move(s), std::move(sc), sessionIndex));
     }
+
+    ~ServerSession() override = default;
 
     void start()
     {
@@ -142,10 +144,15 @@ public:
         dispatch([this, self]() {startSession();});
     }
 
+    ServerSession(const ServerSession&) = delete;
+    ServerSession(ServerSession&&) = delete;
+    ServerSession& operator=(const ServerSession&) = delete;
+    ServerSession& operator=(ServerSession&&) = delete;
+
 private:
     using Base = RouterSession;
 
-    ServerSession(const IoStrand& i, Transporting::Ptr&& t, AnyBufferCodec&& c,
+    ServerSession(IoStrand i, Transporting::Ptr&& t, AnyBufferCodec&& c,
                   ServerContext&& s, ServerConfig::Ptr sc, Index sessionIndex)
         : Base(s.logger()),
           strand_(std::move(i)),
@@ -580,7 +587,7 @@ private:
     {
         auto codec = config_->makeCodec(transport->info().codecId);
         auto self = std::static_pointer_cast<RouterServer>(shared_from_this());
-        ServerContext ctx{router_, std::move(self)};
+        ServerContext ctx{router_, self};
         if (++nextSessionIndex_ == 0u)
             nextSessionIndex_ = 1u;
         auto s = ServerSession::create(boost::asio::make_strand(executor_),
@@ -592,7 +599,7 @@ private:
         listen();
     }
 
-    void removeSession(ServerSession::Ptr s)
+    void removeSession(const ServerSession::Ptr& s)
     {
         sessions_.erase(s);
     }
@@ -634,16 +641,17 @@ private:
 //******************************************************************************
 
 inline ServerContext::ServerContext(RouterContext r,
-                                    std::shared_ptr<RouterServer> s)
+                                    const std::shared_ptr<RouterServer>& s)
     : Base(std::move(r)),
-      server_(std::move(s))
+      server_(s)
 {}
 
-inline void ServerContext::removeSession(std::shared_ptr<ServerSession> s)
+inline void ServerContext::removeSession(
+    const std::shared_ptr<ServerSession>& s)
 {
     auto server = server_.lock();
     if (server)
-        server->removeSession(std::move(s));
+        server->removeSession(s);
 }
 
 } // namespace internal

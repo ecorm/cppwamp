@@ -35,15 +35,9 @@ CPPWAMP_INLINE Connector<Tcp>::Connector(IoStrand i, Settings s, int codecId)
 {}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Connector<Tcp>::Connector(Connector&&) = default;
-
-//------------------------------------------------------------------------------
 // Needed to avoid incomplete type errors due to unique_ptr.
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Connector<Tcp>::~Connector() = default;
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE Connector<Tcp>& Connector<Tcp>::operator=(Connector&&) = default;
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Connector<Tcp>::establish(Handler&& handler)
@@ -80,15 +74,9 @@ CPPWAMP_INLINE Listener<Tcp>::Listener(IoStrand i, Settings s,
 {}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Listener<Tcp>::Listener(Listener&&) = default;
-
-//------------------------------------------------------------------------------
 // Needed to avoid incomplete type errors due to unique_ptr.
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Listener<Tcp>::~Listener() = default;
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE Listener<Tcp>& Listener<Tcp>::operator=(Listener&&) = default;
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Listener<Tcp>::establish(Handler&& handler)

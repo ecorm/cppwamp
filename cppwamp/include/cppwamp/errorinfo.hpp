@@ -57,8 +57,20 @@ public:
         interpreting it as a `wamp.error.invalid_argument` reason URI. */
     explicit Error(const error::BadType& e);
 
+    /** Copy constructor. */
+    Error(const Error&) = default;
+
+    /** Move constructor. */
+    Error(Error&&) = default;
+
     /** Destructor. */
     virtual ~Error() = default;
+
+    /** Copy assignment. */
+    Error& operator=(const Error&) = default;
+
+    /** Move assignment. */
+    Error& operator=(Error&&) = default;
 
     /** Conversion to bool operator, returning false if the error is empty. */
     explicit operator bool() const;

@@ -50,7 +50,7 @@ CPPWAMP_INLINE void StreamLogger::operator()(const LogEntry& entry) const
 CPPWAMP_INLINE void StreamLogger::operator()(const AccessLogEntry& entry) const
 {
     auto& impl = *impl_;
-    toStream(*impl.output, entry, impl.origin) << "\n";
+    toStream(*impl.output, entry) << "\n";
     if (impl.flushOnWrite)
         *impl.output << std::flush;
 }

@@ -277,7 +277,7 @@ private:
 
 inline RouterContext::RouterContext() = default;
 
-inline RouterContext::RouterContext(std::shared_ptr<RouterImpl> r)
+inline RouterContext::RouterContext(const std::shared_ptr<RouterImpl>& r)
     : router_(r),
       sessionIdPool_(r->sessionIdPool_)
 {}

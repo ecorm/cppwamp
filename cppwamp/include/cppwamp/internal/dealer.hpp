@@ -33,7 +33,7 @@ namespace internal
 class DealerRegistration
 {
 public:
-    DealerRegistration(Procedure&& procedure, RouterSession::Ptr callee)
+    DealerRegistration(Procedure&& procedure, const RouterSession::Ptr& callee)
         : info_(std::move(procedure).uri({}), MatchPolicy::exact,
                 InvocationPolicy::single, 0, std::chrono::system_clock::now()),
           callee_(callee),
@@ -138,7 +138,7 @@ public:
         return found->second;
     }
 
-    void removeCallee(SessionInfo calleeInfo, MetaTopics& metaTopics)
+    void removeCallee(const SessionInfo& calleeInfo, MetaTopics& metaTopics)
     {
         auto sid = calleeInfo.sessionId();
         auto iter1 = byUri_.begin();
@@ -219,11 +219,11 @@ public:
     using Timeout = std::chrono::steady_clock::duration;
 
     static ErrorOr<DealerJob> create(
-        RouterSession::Ptr caller, RouterSession::Ptr callee, const Rpc& rpc,
-        const DealerRegistration& reg)
+        const RouterSession::Ptr& caller, const RouterSession::Ptr& callee,
+        const Rpc& rpc, const DealerRegistration& reg)
     {
         WampErrc errc = WampErrc::success;
-        DealerJob job{std::move(caller), std::move(callee), rpc, reg, errc};
+        DealerJob job{caller, callee, rpc, reg, errc};
         if (errc != WampErrc::success)
             return makeUnexpectedError(errc);
         return job;
@@ -231,7 +231,7 @@ public:
 
     DealerJob() = default;
 
-    Invocation makeInvocation(RouterSession::Ptr caller, Rpc&& rpc) const
+    Invocation makeInvocation(const RouterSession& caller, Rpc&& rpc) const
     {
         // TODO: Propagate x_foo custom options?
         // https://github.com/wamp-proto/wamp-proto/issues/345
@@ -252,7 +252,7 @@ public:
             // Disclosed properties are not in the spec, but there is
             // a consensus here:
             // https://github.com/wamp-proto/wamp-proto/issues/57
-            const auto& info = caller->info();
+            const auto& info = caller.info();
             inv.withOption("caller", info.sessionId());
             if (!info.auth().id().empty())
                 inv.withOption("caller_authid", info.auth().id());
@@ -422,8 +422,9 @@ public:
     }
 
 private:
-    DealerJob(RouterSession::Ptr caller, RouterSession::Ptr callee,
-              const Rpc& rpc, const DealerRegistration& reg, WampErrc& errc)
+    DealerJob(const RouterSession::Ptr& caller,
+              const RouterSession::Ptr& callee, const Rpc& rpc,
+              const DealerRegistration& reg, WampErrc& errc)
         : caller_(caller),
           callee_(callee),
           callerKey_(caller->wampId(), rpc.requestId({})),
@@ -612,7 +613,8 @@ public:
           metaTopics_(std::move(metaTopics))
     {}
 
-    ErrorOr<RegistrationId> enroll(RouterSession::Ptr callee, Procedure&& p)
+    ErrorOr<RegistrationId> enroll(const RouterSession::Ptr& callee,
+                                   Procedure&& p)
     {
         if (registry_.contains(p.uri()))
             return makeUnexpectedError(WampErrc::procedureAlreadyExists);
@@ -624,7 +626,8 @@ public:
         return key;
     }
 
-    ErrorOr<Uri> unregister(RouterSession::Ptr callee, RegistrationId rid)
+    ErrorOr<Uri> unregister(const RouterSession::Ptr& callee,
+                            RegistrationId rid)
     {
         // Consensus on what to do with pending invocations upon unregister
         // appears to be to allow them to continue.
@@ -632,7 +635,7 @@ public:
         return registry_.erase(*callee, rid, *metaTopics_);
     }
 
-    ErrorOrDone call(RouterSession::Ptr caller, Rpc& rpc)
+    ErrorOrDone call(const RouterSession::Ptr& caller, Rpc& rpc)
     {
         auto* reg = registry_.find(rpc.uri());
         if (reg == nullptr)
@@ -643,59 +646,16 @@ public:
             return makeUnexpectedError(WampErrc::noSuchProcedure);
 
         auto rpcReqId = rpc.requestId({});
+
         bool isContinuation = rpcReqId <= caller->lastInsertedCallRequestId();
         if (isContinuation)
-        {
-            return continueCall(std::move(caller), std::move(callee),
-                                std::move(rpc), *reg);
-        }
-        return newCall(std::move(caller), std::move(callee),
-                       std::move(rpc), *reg);
+            return continueCall(*caller, *callee, std::move(rpc), *reg);
+
+        return newCall(caller, callee, std::move(rpc), *reg);
     }
 
-    ErrorOrDone newCall(RouterSession::Ptr caller, RouterSession::Ptr callee,
-                        Rpc&& rpc, const DealerRegistration& reg)
-    {
-        auto uri = rpc.uri();
-        auto job = DealerJob::create(caller, callee, rpc, reg);
-        if (!job)
-            return makeUnexpected(job.error());
-        caller->setLastInsertedCallRequestId(rpc.requestId({}));
-        auto inv = job->makeInvocation(caller, std::move(rpc));
-        auto reqId = callee->sendInvocation(std::move(inv), std::move(uri));
-        jobs_.insert(std::move(*job), reqId);
-        return true;
-    }
-
-    ErrorOrDone continueCall(RouterSession::Ptr caller,
-                             RouterSession::Ptr callee, Rpc&& rpc,
-                             const DealerRegistration& reg)
-    {
-        auto uri = rpc.uri();
-        auto found = jobs_.byCallerFind({caller->wampId(), rpc.requestId({})});
-
-        /*  Ignore requests for call continuations when the call has already
-            ended. Due to races, the caller may not be aware that the call is
-            ended when it sent the CALL, but the caller will eventually become
-            aware of the call having ended and can react accordingly.
-            https://github.com/wamp-proto/wamp-proto/issues/482 */
-        if (found == jobs_.byCallerEnd())
-            return false;
-
-        auto& job = found->second;
-        if (!job.isProgressiveCall())
-        {
-            auto unex = makeUnexpectedError(WampErrc::protocolViolation);
-            caller->abort(Reason{unex.value()}.withHint(
-                "Cannot reinvoke an RPC that is closed to further progress"));
-            return unex;
-        }
-        auto inv = job.makeProgressiveInvocation(std::move(rpc));
-        callee->sendRouterCommand(std::move(inv), std::move(uri));
-        return true;
-    }
-
-    ErrorOrDone cancelCall(RouterSession::Ptr caller, CallCancellation&& cncl)
+    ErrorOrDone cancelCall(const RouterSession::Ptr& caller,
+                           CallCancellation&& cncl)
     {
         DealerJobKey callerKey{caller->wampId(), cncl.requestId({})};
         auto iter = jobs_.byCallerFind(callerKey);
@@ -711,7 +671,7 @@ public:
         return done;
     }
 
-    void yieldResult(RouterSession::Ptr callee, Result&& result)
+    void yieldResult(const RouterSession::Ptr& callee, Result&& result)
     {
         DealerJobKey calleeKey{callee->wampId(), result.requestId({})};
         auto iter = jobs_.byCalleeFind(calleeKey);
@@ -724,7 +684,7 @@ public:
             jobs_.updateProgressiveResultDeadline(job);
     }
 
-    void yieldError(RouterSession::Ptr callee, Error&& error)
+    void yieldError(const RouterSession::Ptr& callee, Error&& error)
     {
         DealerJobKey calleeKey{callee->wampId(), error.requestId({})};
         auto iter = jobs_.byCalleeFind(calleeKey);
@@ -735,7 +695,7 @@ public:
         jobs_.byCalleeErase(iter);
     }
 
-    void removeSession(SessionInfo info)
+    void removeSession(const SessionInfo& info)
     {
         registry_.removeCallee(info, *metaTopics_);
         jobs_.removeSession(info.sessionId());
@@ -773,6 +733,48 @@ private:
     using MutexGuard = std::lock_guard<std::mutex>;
 
     RegistrationId nextRegistrationId() {return ++nextRegistrationId_;}
+
+    ErrorOrDone newCall(const RouterSession::Ptr& caller,
+                        const RouterSession::Ptr& callee,
+                        Rpc&& rpc, const DealerRegistration& reg)
+    {
+        auto uri = rpc.uri();
+        auto job = DealerJob::create(caller, callee, rpc, reg);
+        if (!job)
+            return makeUnexpected(job.error());
+        caller->setLastInsertedCallRequestId(rpc.requestId({}));
+        auto inv = job->makeInvocation(*caller, std::move(rpc));
+        auto reqId = callee->sendInvocation(std::move(inv), std::move(uri));
+        jobs_.insert(std::move(*job), reqId);
+        return true;
+    }
+
+    ErrorOrDone continueCall(RouterSession& caller, RouterSession& callee,
+                             Rpc&& rpc, const DealerRegistration& reg)
+    {
+        auto uri = rpc.uri();
+        auto found = jobs_.byCallerFind({caller.wampId(), rpc.requestId({})});
+
+        /*  Ignore requests for call continuations when the call has already
+            ended. Due to races, the caller may not be aware that the call is
+            ended when it sent the CALL, but the caller will eventually become
+            aware of the call having ended and can react accordingly.
+            https://github.com/wamp-proto/wamp-proto/issues/482 */
+        if (found == jobs_.byCallerEnd())
+            return false;
+
+        auto& job = found->second;
+        if (!job.isProgressiveCall())
+        {
+            auto unex = makeUnexpectedError(WampErrc::protocolViolation);
+            caller.abort(Reason{unex.value()}.withHint(
+                "Cannot reinvoke an RPC that is closed to further progress"));
+            return unex;
+        }
+        auto inv = job.makeProgressiveInvocation(std::move(rpc));
+        callee.sendRouterCommand(std::move(inv), std::move(uri));
+        return true;
+    }
 
     mutable std::mutex queryMutex_;
     DealerRegistry registry_;

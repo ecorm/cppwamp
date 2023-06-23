@@ -132,19 +132,19 @@ public:
 
     void detach();
 
-    virtual void onRealmClosed(Uri);
+    virtual void onRealmClosed(const Uri&);
 
-    virtual void onJoin(SessionInfo);
+    virtual void onJoin(const SessionInfo&);
 
-    virtual void onLeave(SessionInfo);
+    virtual void onLeave(const SessionInfo&);
 
-    virtual void onRegister(SessionInfo, RegistrationInfo);
+    virtual void onRegister(const SessionInfo&, const RegistrationInfo&);
 
-    virtual void onUnregister(SessionInfo, RegistrationInfo);
+    virtual void onUnregister(const SessionInfo&, const RegistrationInfo&);
 
-    virtual void onSubscribe(SessionInfo, SubscriptionInfo);
+    virtual void onSubscribe(const SessionInfo&, const SubscriptionInfo&);
 
-    virtual void onUnsubscribe(SessionInfo, SubscriptionInfo);
+    virtual void onUnsubscribe(const SessionInfo&, const SubscriptionInfo&);
 
     RealmObserver(const RealmObserver&) = delete;
     RealmObserver(RealmObserver&&) = delete;

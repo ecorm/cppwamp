@@ -46,7 +46,7 @@ struct FileLogger::Impl
          FileLoggerOptions options)
         : origin(std::move(originLabel)),
           file(filepath.c_str(), modeFlags(options.truncate())),
-          options(std::move(options))
+          options(options)
     {}
 
     static std::ios_base::openmode modeFlags(bool truncate)
@@ -61,14 +61,13 @@ struct FileLogger::Impl
 
 CPPWAMP_INLINE FileLogger::FileLogger(const std::string& filepath,
                                       FileLoggerOptions options)
-    : FileLogger(filepath, "cppwamp", std::move(options))
+    : FileLogger(filepath, "cppwamp", options)
 {}
 
 CPPWAMP_INLINE FileLogger::FileLogger(const std::string& filepath,
                                       std::string originLabel,
                                       FileLoggerOptions options)
-    : impl_(std::make_shared<Impl>(filepath, std::move(originLabel),
-                                   std::move(options)))
+    : impl_(std::make_shared<Impl>(filepath, std::move(originLabel), options))
 {}
 
 CPPWAMP_INLINE void FileLogger::operator()(const LogEntry& entry) const
@@ -82,7 +81,7 @@ CPPWAMP_INLINE void FileLogger::operator()(const LogEntry& entry) const
 CPPWAMP_INLINE void FileLogger::operator()(const AccessLogEntry& entry) const
 {
     auto& impl = *impl_;
-    toStream(impl.file, entry, impl.origin) << "\n";
+    toStream(impl.file, entry) << "\n";
     if (impl.options.flushOnWrite())
         impl.file << std::flush;
 }

@@ -96,9 +96,9 @@ public:
     operator EphemeralId() const {return value_;}
 
 private:
-    ReservedId(std::shared_ptr<RandomIdPool> pool, EphemeralId id)
-        : pool_(std::move(pool)),
-        value_(id)
+    ReservedId(const std::shared_ptr<RandomIdPool>& pool, EphemeralId id)
+        : pool_(pool),
+          value_(id)
     {}
 
     void moveFrom(ReservedId& rhs) noexcept

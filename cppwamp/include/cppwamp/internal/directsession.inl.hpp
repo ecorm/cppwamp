@@ -16,7 +16,7 @@ CPPWAMP_INLINE DirectSession::DirectSession(Executor exec)
     : Base(std::make_shared<internal::DirectPeer>(), std::move(exec))
 {}
 
-CPPWAMP_INLINE DirectSession::DirectSession(const Executor& exec,
+CPPWAMP_INLINE DirectSession::DirectSession(Executor exec,
                                             FallbackExecutor fallbackExec)
     : Base(std::make_shared<internal::DirectPeer>(), std::move(exec),
            std::move(fallbackExec))
@@ -28,7 +28,7 @@ CPPWAMP_INLINE void DirectSession::connect(DirectRouterLink router)
 {
     CPPWAMP_LOGIC_CHECK(state() == State::disconnected,
                         "wamp::DirectionSession::connect: Invalid state");
-    Base::directConnect(router);
+    Base::directConnect(std::move(router));
 }
 
 } // namespace wamp

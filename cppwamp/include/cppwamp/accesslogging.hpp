@@ -137,27 +137,13 @@ struct CPPWAMP_API AccessLogEntry
     @relates AccessLogEntry */
 std::string toString(const AccessLogEntry& entry);
 
-/** Obtains a formatted log entry string with a custom origin field.
-    @relates AccessLogEntry */
-std::string toString(const AccessLogEntry& entry, const std::string& origin);
-
 /** Outputs a formatted log entry combining all available information.
     @relates AccessLogEntry */
 std::ostream& toStream(std::ostream& out, const AccessLogEntry& entry);
 
-/** Outputs a formatted log entry with a custom origin field.
-    @relates AccessLogEntry */
-std::ostream& toStream(std::ostream& out, const AccessLogEntry& entry,
-                       const std::string& origin);
-
 /** Outputs a formatted access log entry using ANSI color escape codes.
     @relates AccessLogEntry */
 std::ostream& toColorStream(std::ostream& out, const AccessLogEntry& entry);
-
-/** Outputs a formatted, colored access log entry with a custom origin field.
-    @relates AccessLogEntry */
-std::ostream& toColorStream(std::ostream& out, const AccessLogEntry& entry,
-                            std::string origin);
 
 /** Outputs a AccessLogEntry to an output stream.
     @relates AccessLogEntry */

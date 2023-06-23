@@ -51,6 +51,8 @@ public:
 
     SocketOptionWrapper(TOption&& option) : option_(std::move(option)) {}
 
+    ~SocketOptionWrapper() override = default;
+
     int level(const Protocol& p) const override {return option_.level(p);}
 
     int name(const Protocol& p) const override {return option_.name(p);}
@@ -58,6 +60,11 @@ public:
     const void* data(const Protocol& p) const override {return option_.data(p);}
 
     size_t size(const Protocol& p) const override {return option_.size(p);}
+
+    SocketOptionWrapper(const SocketOptionWrapper&) = delete;
+    SocketOptionWrapper(SocketOptionWrapper&&) = delete;
+    SocketOptionWrapper& operator=(const SocketOptionWrapper&) = delete;
+    SocketOptionWrapper& operator=(SocketOptionWrapper&&) = delete;
 
 private:
     TOption option_;

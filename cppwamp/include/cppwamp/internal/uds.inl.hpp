@@ -35,15 +35,9 @@ CPPWAMP_INLINE Connector<Uds>::Connector(IoStrand i, Settings s, int codecId)
 {}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Connector<Uds>::Connector(Connector&&) = default;
-
-//------------------------------------------------------------------------------
 // Needed to avoid incomplete type errors.
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Connector<Uds>::~Connector() = default;
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE Connector<Uds>& Connector<Uds>::operator=(Connector&&) = default;
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Connector<Uds>::establish(Handler&& handler)
@@ -79,7 +73,7 @@ CPPWAMP_INLINE Listener<Uds>::Listener(IoStrand i, Settings s,
 {}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Listener<Uds>::Listener(Listener&&) = default;
+CPPWAMP_INLINE Listener<Uds>::Listener(Listener&&) noexcept = default;
 
 //------------------------------------------------------------------------------
 // Needed to avoid incomplete type errors.
@@ -87,7 +81,8 @@ CPPWAMP_INLINE Listener<Uds>::Listener(Listener&&) = default;
 CPPWAMP_INLINE Listener<Uds>::~Listener() = default;
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Listener<Uds>& Listener<Uds>::operator=(Listener&&) = default;
+CPPWAMP_INLINE Listener<Uds>& Listener<Uds>::operator=(Listener&&) noexcept
+    = default;
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Listener<Uds>::establish(Handler&& handler)

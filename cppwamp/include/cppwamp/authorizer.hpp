@@ -117,7 +117,7 @@ private:
 public:
     // Internal use only
     AuthorizationRequest(internal::PassKey, internal::RealmContext r,
-                         std::shared_ptr<internal::RouterSession> s);
+                         const std::shared_ptr<internal::RouterSession>& s);
 };
 
 //------------------------------------------------------------------------------

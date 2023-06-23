@@ -56,7 +56,7 @@ private:
 
 public:
     // Internal use only
-    Subscription(internal::PassKey, Link::Ptr p);
+    Subscription(internal::PassKey, const Link::Ptr& p);
     Key key(internal::PassKey) const;
     void disarm(internal::PassKey);
     bool canUnsubscribe(internal::PassKey,

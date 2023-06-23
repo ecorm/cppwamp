@@ -56,7 +56,7 @@ private:
 
 public:
     // Internal use only
-    Registration(internal::PassKey, Link::Ptr p);
+    Registration(internal::PassKey, const Link::Ptr& p);
     Key key(internal::PassKey) const;
     void disarm(internal::PassKey);
     bool canUnregister(internal::PassKey,

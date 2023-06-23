@@ -42,37 +42,37 @@ struct TestRealmObserver : public RealmObserver
         return std::make_shared<TestRealmObserver>();
     }
 
-    void onRealmClosed(Uri u) override
+    void onRealmClosed(const Uri& u) override
     {
-        realmClosedEvents.push_back(std::move(u));
+        realmClosedEvents.push_back(u);
     }
 
-    void onJoin(SessionInfo s) override
+    void onJoin(const SessionInfo& s) override
     {
         joinEvents.push_back(s);
     }
 
-    void onLeave(SessionInfo s) override
+    void onLeave(const SessionInfo& s) override
     {
         leaveEvents.push_back(s);
     }
 
-    void onRegister(SessionInfo s, RegistrationInfo r) override
+    void onRegister(const SessionInfo& s, const RegistrationInfo& r) override
     {
         registerEvents.push_back({s, std::move(r)});
     }
 
-    void onUnregister(SessionInfo s, RegistrationInfo r) override
+    void onUnregister(const SessionInfo& s, const RegistrationInfo& r) override
     {
         unregisterEvents.push_back({s, std::move(r)});
     }
 
-    void onSubscribe(SessionInfo s, SubscriptionInfo i) override
+    void onSubscribe(const SessionInfo& s, const SubscriptionInfo& i) override
     {
         subscribeEvents.push_back({s, std::move(i)});
     }
 
-    void onUnsubscribe(SessionInfo s, SubscriptionInfo i) override
+    void onUnsubscribe(const SessionInfo& s, const SubscriptionInfo& i) override
     {
         unsubscribeEvents.push_back({s, std::move(i)});
     }
@@ -572,7 +572,7 @@ TEST_CASE( "Router realm session events", "[WAMP][Router]" )
 
         ~ModifiedRealmObserver() {leaveCountPtr_ = nullptr;}
 
-        void onLeave(SessionInfo) override
+        void onLeave(const SessionInfo&) override
         {
             assert(leaveCountPtr_);
             ++(*leaveCountPtr_);

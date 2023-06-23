@@ -117,6 +117,11 @@ public:
         lastInsertedCallRequestId_.store(rid);
     }
 
+    RouterSession(const RouterSession&) = delete;
+    RouterSession(RouterSession&&) = delete;
+    RouterSession& operator=(const RouterSession&) = delete;
+    RouterSession& operator=(RouterSession&&) = delete;
+
 protected:
     RouterSession(RouterLogger::Ptr logger = nullptr)
         : logger_(std::move(logger)),

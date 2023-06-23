@@ -82,7 +82,7 @@ public:
 
     RealmContext() = default;
 
-    RealmContext(std::shared_ptr<RouterRealm> r);
+    RealmContext(const std::shared_ptr<RouterRealm>& r);
 
     bool expired() const;
 
@@ -92,7 +92,7 @@ public:
 
     bool join(RouterSessionPtr session);
 
-    bool leave(RouterSessionPtr session) noexcept;
+    bool leave(const RouterSessionPtr& session) noexcept;
 
     template <typename C>
     bool send(RouterSessionPtr originator, C&& command);
@@ -111,7 +111,7 @@ class RouterContext
 public:
     RouterContext();
 
-    RouterContext(std::shared_ptr<RouterImpl> r);
+    RouterContext(const std::shared_ptr<RouterImpl>& r);
 
     bool expired() const;
 

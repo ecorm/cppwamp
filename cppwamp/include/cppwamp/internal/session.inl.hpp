@@ -31,8 +31,8 @@ CPPWAMP_INLINE Session::Session(
     @post `this->fallbackExecutor() == exec` */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::Session(
-    const Executor& exec, /**< Executor from which Session will extract
-                               a strand for its internal I/O operations */
+    Executor exec, /**< Executor from which Session will extract
+                        a strand for its internal I/O operations */
     FallbackExecutor fallbackExec /**< Fallback executor to use for
                                        user-provided handlers. */
 )
@@ -162,11 +162,9 @@ CPPWAMP_INLINE Session::Session(std::shared_ptr<internal::Peer> peer,
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::Session(std::shared_ptr<internal::Peer> peer,
-                                const Executor& exec,
-                                FallbackExecutor fallbackExec)
-    : fallbackExecutor_(fallbackExec),
-      impl_(internal::Client::create(std::move(peer), exec,
-                                     std::move(fallbackExec)))
+                                Executor exec, FallbackExecutor fallbackExec)
+    : fallbackExecutor_(std::move(fallbackExec)),
+      impl_(internal::Client::create(std::move(peer), std::move(exec)))
 {}
 
 //------------------------------------------------------------------------------
@@ -219,7 +217,7 @@ CPPWAMP_INLINE void Session::doSubscribe(Topic&& t, EventSlot&& s,
 CPPWAMP_INLINE void Session::doUnsubscribe(const Subscription& s,
                                            CompletionHandler<bool>&& f)
 {
-    impl_->unsubscribe(std::move(s), std::move(f));
+    impl_->unsubscribe(s, std::move(f));
 }
 
 CPPWAMP_INLINE void Session::doPublish(
@@ -238,7 +236,7 @@ CPPWAMP_INLINE void Session::doEnroll(
 CPPWAMP_INLINE void Session::doUnregister(const Registration& r,
                                           CompletionHandler<bool>&& f)
 {
-    impl_->unregister(std::move(r), std::move(f));
+    impl_->unregister(r, std::move(f));
 }
 
 CPPWAMP_INLINE void Session::doCall(Rpc&& r, CompletionHandler<Result>&& f)

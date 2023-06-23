@@ -292,7 +292,7 @@ protected:
 
     explicit Command(internal::Message&& msg) : Base(std::move(msg)) {}
 
-    template <MessageKind M>
+    template <MessageKind M, CPPWAMP_NEEDS(M != K) = 0>
     explicit Command(Command<M>&& command)
         : Base(std::move(command.message().fields()))
     {}

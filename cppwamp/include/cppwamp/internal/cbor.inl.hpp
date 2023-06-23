@@ -42,7 +42,7 @@ SinkEncoder<Cbor, S>::SinkEncoder() : impl_(new Impl) {}
 
 //------------------------------------------------------------------------------
 template <typename S>
-SinkEncoder<Cbor, S>::SinkEncoder(SinkEncoder&&) = default;
+SinkEncoder<Cbor, S>::SinkEncoder(SinkEncoder&&) noexcept = default;
 
 //------------------------------------------------------------------------------
 // Avoids incomplete type errors due to unique_ptr.
@@ -52,7 +52,8 @@ SinkEncoder<Cbor, S>::~SinkEncoder() = default;
 
 //------------------------------------------------------------------------------
 template <typename S>
-SinkEncoder<Cbor, S>& SinkEncoder<Cbor, S>::operator=(SinkEncoder&&) = default;
+SinkEncoder<Cbor, S>& SinkEncoder<Cbor, S>::operator=(SinkEncoder&&) noexcept
+    = default;
 
 //------------------------------------------------------------------------------
 template <typename S>
@@ -101,7 +102,7 @@ SourceDecoder<Cbor, S>::SourceDecoder() : impl_(new Impl) {}
 
 //------------------------------------------------------------------------------
 template <typename S>
-SourceDecoder<Cbor, S>::SourceDecoder(SourceDecoder&&) = default;
+SourceDecoder<Cbor, S>::SourceDecoder(SourceDecoder&&) noexcept = default;
 
 //------------------------------------------------------------------------------
 // Avoids incomplete type errors due to unique_ptr.
@@ -112,7 +113,7 @@ SourceDecoder<Cbor, S>::~SourceDecoder() = default;
 //------------------------------------------------------------------------------
 template <typename S>
 SourceDecoder<Cbor, S>&
-SourceDecoder<Cbor, S>::operator=(SourceDecoder&&) = default;
+SourceDecoder<Cbor, S>::operator=(SourceDecoder&&) noexcept = default;
 
 //------------------------------------------------------------------------------
 template <typename S>

@@ -103,7 +103,7 @@ void AuthorizationRequest::send(C&& command, Authorization a)
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AuthorizationRequest::AuthorizationRequest(
     internal::PassKey, internal::RealmContext r,
-    std::shared_ptr<internal::RouterSession> s)
+    const std::shared_ptr<internal::RouterSession>& s)
     : realm_(std::move(r)),
       originator_(s),
       info_(s->sharedInfo())

@@ -79,7 +79,7 @@ public:
     ClientContext() = default;
 
     ClientContext(const std::shared_ptr<ClientLike>& client)
-        : client_(std::move(client))
+        : client_(client)
     {}
 
     bool expired() const {return client_.expired();}

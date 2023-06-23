@@ -30,7 +30,7 @@ public:
 
     static Ptr create(ClientContext context, TKey key = {})
     {
-        return Ptr(new SlotLink(key, std::move(context)));
+        return Ptr(new SlotLink(std::move(context), key));
     }
 
     bool disarm()
@@ -59,14 +59,14 @@ public:
     }
 
 private:
-    SlotLink(TKey key, ClientContext&& context)
-        : key_(std::move(key)),
-          context_(std::move(context)),
+    SlotLink(ClientContext&& context, TKey key)
+        : context_(std::move(context)),
+          key_(std::move(key)),
           armed_(true)
     {}
 
-    Key key_;
     ClientContext context_;
+    Key key_;
     std::atomic<bool> armed_;
 };
 

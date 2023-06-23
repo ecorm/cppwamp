@@ -73,6 +73,16 @@ public:
     /** Creates an instance of the validator. */
     static Ptr create();
 
+    ~BasicUriValidator() override = default;
+
+    /** @name Non-copyable and non-movable */
+    /// @{
+    BasicUriValidator(const BasicUriValidator&) = delete;
+    BasicUriValidator(BasicUriValidator&&) = delete;
+    BasicUriValidator& operator=(const BasicUriValidator&) = delete;
+    BasicUriValidator& operator=(BasicUriValidator&&) = delete;
+    /// @}
+
 protected:
     bool validateTopic(const Uri& uri) const override;
 

@@ -1212,7 +1212,7 @@ void Variant::convertTo(std::map<String, T>& map) const
     {
         T value;
         kv.second.convertTo(value);
-        map.emplace(std::move(kv.first), std::move(value));
+        map.emplace(kv.first, std::move(value));
     }
 }
 

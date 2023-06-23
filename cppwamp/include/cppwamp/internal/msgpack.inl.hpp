@@ -42,7 +42,7 @@ SinkEncoder<Msgpack, S>::SinkEncoder() : impl_(new Impl) {}
 
 //------------------------------------------------------------------------------
 template <typename S>
-SinkEncoder<Msgpack, S>::SinkEncoder(SinkEncoder&&) = default;
+SinkEncoder<Msgpack, S>::SinkEncoder(SinkEncoder&&) noexcept = default;
 
 //------------------------------------------------------------------------------
 // Avoids incomplete type errors due to unique_ptr.
@@ -53,7 +53,7 @@ SinkEncoder<Msgpack, S>::~SinkEncoder() = default;
 //------------------------------------------------------------------------------
 template <typename S>
 SinkEncoder<Msgpack, S>&
-SinkEncoder<Msgpack, S>::operator=(SinkEncoder&&) = default;
+SinkEncoder<Msgpack, S>::operator=(SinkEncoder&&) noexcept = default;
 
 //------------------------------------------------------------------------------
 template <typename S>
@@ -102,7 +102,7 @@ SourceDecoder<Msgpack, S>::SourceDecoder() : impl_(new Impl) {}
 
 //------------------------------------------------------------------------------
 template <typename S>
-SourceDecoder<Msgpack, S>::SourceDecoder(SourceDecoder&&) = default;
+SourceDecoder<Msgpack, S>::SourceDecoder(SourceDecoder&&) noexcept = default;
 
 //------------------------------------------------------------------------------
 // Avoids incomplete type errors due to unique_ptr.
@@ -113,7 +113,7 @@ SourceDecoder<Msgpack, S>::~SourceDecoder() = default;
 //------------------------------------------------------------------------------
 template <typename S>
 SourceDecoder<Msgpack, S>&
-SourceDecoder<Msgpack, S>::operator=(SourceDecoder&&) = default;
+SourceDecoder<Msgpack, S>::operator=(SourceDecoder&&) noexcept = default;
 
 //------------------------------------------------------------------------------
 template <typename S>

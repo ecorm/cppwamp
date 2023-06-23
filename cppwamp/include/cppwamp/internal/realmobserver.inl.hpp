@@ -202,21 +202,23 @@ CPPWAMP_INLINE void RealmObserver::detach()
         subject->onDetach(oid);
 }
 
-CPPWAMP_INLINE void RealmObserver::onRealmClosed(Uri) {}
+CPPWAMP_INLINE void RealmObserver::onRealmClosed(const Uri&) {}
 
-CPPWAMP_INLINE void RealmObserver::onJoin(SessionInfo) {}
+CPPWAMP_INLINE void RealmObserver::onJoin(const SessionInfo&) {}
 
-CPPWAMP_INLINE void RealmObserver::onLeave(SessionInfo) {}
+CPPWAMP_INLINE void RealmObserver::onLeave(const SessionInfo&) {}
 
-CPPWAMP_INLINE void RealmObserver::onRegister(SessionInfo, RegistrationInfo) {}
+CPPWAMP_INLINE void RealmObserver::onRegister(const SessionInfo&,
+                                              const RegistrationInfo&) {}
 
-CPPWAMP_INLINE void RealmObserver::onUnregister(SessionInfo,
-                                                RegistrationInfo) {}
+CPPWAMP_INLINE void RealmObserver::onUnregister(const SessionInfo&,
+                                                const RegistrationInfo&) {}
 
-CPPWAMP_INLINE void RealmObserver::onSubscribe(SessionInfo, SubscriptionInfo) {}
+CPPWAMP_INLINE void RealmObserver::onSubscribe(const SessionInfo&,
+                                               const SubscriptionInfo&) {}
 
-CPPWAMP_INLINE void RealmObserver::onUnsubscribe(SessionInfo,
-                                                 SubscriptionInfo) {}
+CPPWAMP_INLINE void RealmObserver::onUnsubscribe(const SessionInfo&,
+                                                 const SubscriptionInfo&) {}
 
 CPPWAMP_INLINE RealmObserver::RealmObserver() : observerId_(0) {}
 
@@ -234,7 +236,7 @@ CPPWAMP_INLINE void RealmObserver::attach(SubjectPtr d, ObserverId oid,
     subject_ = std::move(d);
     observerId_.store(oid);
     if (!executor_)
-        executor_ = std::move(e);
+        executor_ = e;
 }
 
 } // namespace wamp

@@ -34,7 +34,7 @@ class BrokerPublication
 {
 public:
     BrokerPublication(Pub&& pub, PublicationId pid,
-                      RouterSession::Ptr publisher)
+                      const RouterSession::Ptr& publisher)
         : topicUri_(pub.uri()),
           eligibleSessions_(setOfSessionIds(pub, "eligible")),
           eligibleAuthIds_(setOfStrings(pub, "eligible_authid")),
@@ -140,7 +140,7 @@ private:
             for (const auto& element: variant.template as<Array>())
             {
                 if (element.is<String>())
-                    set.emplace(std::move(element.as<String>()));
+                    set.emplace(element.as<String>());
             }
         }
         return set;
@@ -231,14 +231,14 @@ public:
         info_.subscriberCount = info_.subscribers.size();
     }
 
-    bool removeSubscriber(SessionInfo subscriberInfo, MetaTopics& metaTopics)
+    bool removeSubscriber(const SessionInfo& subscriberInfo, MetaTopics& metaTopics)
     {
         auto sid = subscriberInfo.sessionId();
         auto wasRemoved = subscribers_.erase(sid) != 0;
         info_.subscribers.erase(sid);
         info_.subscriberCount = info_.subscribers.size();
         if (wasRemoved && metaTopics.enabled())
-            metaTopics.onUnsubscribe(std::move(subscriberInfo), info(false));
+            metaTopics.onUnsubscribe(subscriberInfo, info(false));
         return wasRemoved;
     }
 
@@ -283,7 +283,7 @@ private:
 class BrokerSubscribeRequest
 {
 public:
-    BrokerSubscribeRequest(Topic&& t, RouterSession::Ptr s,
+    BrokerSubscribeRequest(Topic&& t, const RouterSession::Ptr& s,
                            BrokerSubscriptionMap& subs,
                            BrokerSubscriptionIdGenerator& gen)
         : uri_(std::move(t).uri({})),
@@ -347,7 +347,8 @@ public:
 
     void erase(const Uri& topicUri) {trie_.erase(topicUri);}
 
-    void removeSubscriber(SessionInfo subscriberInfo, MetaTopics& metaTopics)
+    void removeSubscriber(const SessionInfo& subscriberInfo,
+                          MetaTopics& metaTopics)
     {
         auto iter = trie_.begin();
         auto end = trie_.end();
@@ -607,11 +608,12 @@ class Broker
 {
 public:
     Broker(RandomNumberGenerator64 prng, MetaTopics::Ptr metaTopics)
-        : pubIdGenerator_(prng),
+        : pubIdGenerator_(std::move(prng)),
           metaTopics_(std::move(metaTopics))
     {}
 
-    ErrorOr<SubscriptionId> subscribe(RouterSession::Ptr subscriber, Topic&& t)
+    ErrorOr<SubscriptionId> subscribe(const RouterSession::Ptr& subscriber,
+                                      Topic&& t)
     {
         auto reqId = t.requestId({});
         BrokerSubscribeRequest req{std::move(t), subscriber, subscriptions_,
@@ -649,7 +651,7 @@ public:
         return sub->info().id;
     }
 
-    ErrorOr<Uri> unsubscribe(RouterSession::Ptr subscriber,
+    ErrorOr<Uri> unsubscribe(const RouterSession::Ptr& subscriber,
                              SubscriptionId subId)
     {
         auto found = subscriptions_.find(subId);
@@ -676,10 +678,9 @@ public:
     }
 
     std::pair<PublicationId, std::size_t>
-    publish(RouterSession::Ptr publisher, Pub&& pub)
+    publish(const RouterSession::Ptr& publisher, Pub&& pub)
     {
-        BrokerPublication info(std::move(pub), pubIdGenerator_(),
-                               std::move(publisher));
+        BrokerPublication info(std::move(pub), pubIdGenerator_(), publisher);
         std::size_t count = 0;
         count += byExact_.publish(info);
         count += byPrefix_.publish(info);
@@ -695,7 +696,7 @@ public:
         byWildcard_.publish(info, inhibitedSessionId);
     }
 
-    void removeSubscriber(SessionInfo subscriberInfo)
+    void removeSubscriber(const SessionInfo& subscriberInfo)
     {
         MutexGuard guard{queryMutex_};
 
@@ -797,7 +798,7 @@ private:
         return uri.rfind("wamp.", 0) == 0;
     }
 
-    void eraseTopic(Uri uri, Policy policy,
+    void eraseTopic(const Uri& uri, Policy policy,
                     BrokerSubscriptionMap::iterator iter)
     {
         subscriptions_.erase(iter);

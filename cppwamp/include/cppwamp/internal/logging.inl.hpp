@@ -81,9 +81,9 @@ CPPWAMP_INLINE const std::string& LogEntry::message() const & {return message_;}
 CPPWAMP_INLINE std::string&& LogEntry::message() && {return std::move(message_);}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE LogEntry& LogEntry::append(std::string extra)
+CPPWAMP_INLINE LogEntry& LogEntry::append(const std::string& extra)
 {
-    message_ += std::move(extra);
+    message_ += extra;
     return *this;
 }
 
@@ -166,7 +166,8 @@ CPPWAMP_INLINE std::ostream& toColorStream(std::ostream& out,
     @copydetails toString(const LogEntry&) */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE std::ostream&
-    toColorStream(std::ostream& out, const LogEntry& entry, std::string origin)
+    toColorStream(std::ostream& out, const LogEntry& entry,
+                  const std::string& origin)
 {
     static constexpr const char* sep = " | ";
     static constexpr const char* red = "\x1b[1;31m";

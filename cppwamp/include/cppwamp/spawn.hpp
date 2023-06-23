@@ -119,7 +119,7 @@ struct Propagating
 
     void operator()(std::exception_ptr e) const
     {
-        if (e) std::rethrow_exception(e);
+        if (e) std::rethrow_exception(std::move(e));
     }
 };
 

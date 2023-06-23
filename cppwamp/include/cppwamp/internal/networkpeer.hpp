@@ -148,7 +148,7 @@ private:
             std::weak_ptr<NetworkPeer> weakSelf =
                 std::static_pointer_cast<NetworkPeer>(shared_from_this());
             transport_->start(
-                [weakSelf](ErrorOr<MessageBuffer> buffer)
+                [weakSelf](const ErrorOr<MessageBuffer>& buffer)
                 {
                     auto self = weakSelf.lock();
                     if (self)
@@ -174,11 +174,11 @@ private:
         }
     }
 
-    void onTransportRx(ErrorOr<MessageBuffer>& buffer)
+    void onTransportRx(const ErrorOr<MessageBuffer>& buffer)
     {
         // Ignore transport cancellation errors when disconnecting.
         if (buffer.has_value())
-            onTransportRx(std::move(*buffer));
+            onTransportRx(*buffer);
         else if (buffer.error() == TransportErrc::disconnected)
             onRemoteDisconnect();
         else if (state() != State::disconnected)
@@ -198,7 +198,7 @@ private:
         return sendMessage(command.message({}));
     }
 
-    void onTransportRx(MessageBuffer buffer)
+    void onTransportRx(const MessageBuffer& buffer)
     {
         // Ignore messages that may have been already posted by the transport
         // when disconnection occurred.

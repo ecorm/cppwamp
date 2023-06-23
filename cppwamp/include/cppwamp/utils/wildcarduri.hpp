@@ -62,7 +62,7 @@ public:
 
     SplitUri(const char_type* uri): labels_(tokenize(uri)) {}
 
-    SplitUri(const storage_type& labels): labels_(std::move(labels)) {}
+    SplitUri(storage_type labels): labels_(std::move(labels)) {}
 
     template <typename... Ts>
     SplitUri(in_place_t, Ts&&... args) : labels_(std::forward<Ts>(args)...) {}

@@ -39,14 +39,8 @@ public:
     /** Constructor. */
     Connector(IoStrand i, Settings s, int codecId);
 
-    /** Move constructor. */
-    Connector(Connector&&);
-
     /** Destructor. */
     ~Connector() override;
-
-    /** Move assignment. */
-    Connector& operator=(Connector&&);
 
     /** Starts establishing the transport connection, emitting a
         Transportable::Ptr via the given handler if successful. */
@@ -56,10 +50,12 @@ public:
         via the handler passed to the establish method. */
     void cancel() override;
 
-    /** @name Non-copyable */
+    /** @name Non-copyable and non-movable */
     /// @{
     Connector(const Connector&) = delete;
+    Connector(Connector&&) = delete;
     Connector& operator=(const Connector&) = delete;
+    Connector& operator=(Connector&&) = delete;
     /// @}
 
 private:
@@ -86,19 +82,19 @@ public:
     Listener(IoStrand i, Settings s, CodecIds codecIds);
 
     /** Move constructor. */
-    Listener(Listener&&);
+    Listener(Listener&&) noexcept;
 
     /** Destructor. */
     ~Listener() override;
 
     /** Move assignment. */
-    Listener& operator=(Listener&&);
+    Listener& operator=(Listener&&) noexcept;
 
     void establish(Handler&& handler) override;
 
     void cancel() override;
 
-    /** @name Non-copyable */
+    /** @name Non-copyable and non-movable */
     /// @{
     Listener(const Listener&) = delete;
     Listener& operator=(const Listener&) = delete;

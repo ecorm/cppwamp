@@ -90,17 +90,17 @@ public:
     {
         auto link = Link::create(std::move(subscriber), {subId, slotId});
         slots_.emplace(slotId, LinkedSlot{std::move(handler), link});
-        subscription = Subscription({}, std::move(link));
+        subscription = Subscription({}, link);
     }
 
     Subscription addSlot(SlotId slotId, EventSlot&& handler,
                          ClientContext subscriber)
     {
-        auto link = Link::create(subscriber, {subId_, slotId});
+        auto link = Link::create(std::move(subscriber), {subId_, slotId});
         LinkedSlot linkedSlot{std::move(handler), link};
         auto emplaced = slots_.emplace(slotId, std::move(linkedSlot));
         assert(emplaced.second);
-        return Subscription{{}, std::move(link)};
+        return Subscription{{}, link};
     }
 
     void removeSlot(SlotId slotId) {slots_.erase(slotId);}
@@ -158,7 +158,7 @@ private:
 
         auto slotExec = boost::asio::get_associated_executor(slot.handler);
         event.setExecutor({}, slotExec);
-        Posted posted{std::move(event), std::move(slot)};
+        Posted posted{std::move(event), slot};
         boost::asio::post(
             executor,
             boost::asio::bind_executor(slotExec, std::move(posted)));

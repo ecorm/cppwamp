@@ -46,7 +46,7 @@ public:
     BasicCallerChannelImpl(
         ChannelId id, String&& uri, StreamMode mode, CallCancelMode cancelMode,
         bool expectsRsvp, ClientContext caller, ChunkSlot&& onChunk,
-        AnyIoExecutor exec, FallbackExecutor userExec)
+        AnyIoExecutor exec)
         : uri_(std::move(uri)),
           chunkSlot_(std::move(onChunk)),
           executor_(std::move(exec)),

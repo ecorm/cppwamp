@@ -85,7 +85,7 @@ CPPWAMP_INLINE ErrorOr<bool> Realm::killSessionById(SessionId sid, Reason r)
 CPPWAMP_INLINE Realm::SessionIdSet
 Realm::killSessionIf(const SessionPredicate& filter, Reason r)
 {
-    return impl_->killSessionIf(std::move(filter), std::move(r));
+    return impl_->killSessionIf(filter, std::move(r));
 }
 
 CPPWAMP_INLINE Realm::SessionIdSet Realm::killSessions(SessionIdSet set,

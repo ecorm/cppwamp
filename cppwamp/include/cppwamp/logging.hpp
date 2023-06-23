@@ -66,7 +66,7 @@ public:
     std::string&& message() &&;
 
     /** Appends the given text to the entry's information text. */
-    LogEntry& append(std::string extra);
+    LogEntry& append(const std::string& extra);
 
     /** Obtains the error code associated with this entry, if applicable. */
     const std::error_code& error() const;
@@ -105,7 +105,7 @@ std::ostream& toColorStream(std::ostream& out, const LogEntry& entry);
 /** Outputs a formatted, colored log entry with a custom origin field.
     @relates LogEntry */
 std::ostream& toColorStream(std::ostream& out, const LogEntry& entry,
-                            std::string origin);
+                            const std::string& origin);
 
 /** Outputs a LogEntry to an output stream.
     @relates LogEntry */

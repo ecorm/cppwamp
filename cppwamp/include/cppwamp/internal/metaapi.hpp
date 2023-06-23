@@ -496,7 +496,7 @@ public:
 
     bool enabled() const {return metaApiEnabled_ || !observers_.empty();}
 
-    void addObserver(RealmObserver::Ptr o, const FallbackExecutor& e)
+    void addObserver(const RealmObserver::Ptr& o, const FallbackExecutor& e)
     {
         WeakPtr self = std::static_pointer_cast<MetaTopics>(shared_from_this());
         auto id = ++nextObserverId_;
@@ -508,7 +508,7 @@ public:
 
     void clearSessionInhibitions() {inhibitedSessionId_ = nullId();}
 
-    void onRealmClosed(Uri uri) override
+    void onRealmClosed(const Uri& uri) override
     {
         struct Notifier
         {
@@ -524,21 +524,21 @@ public:
         };
 
         if (!observers_.empty())
-            notifyObservers<Notifier>(std::move(uri));
+            notifyObservers<Notifier>(uri);
     }
     
-    void onJoin(SessionInfo info) override
+    void onJoin(const SessionInfo& info) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
             SessionInfo s;
 
-            void operator()()
+            void operator()() const
             {
                 auto o = observer.lock();
                 if (o)
-                    o->onJoin(std::move(s));
+                    o->onJoin(s);
             }
         };
 
@@ -546,21 +546,21 @@ public:
             publish(Pub{"wamp.session.on_join"}.withArgs(toObject(info)));
 
         if (!observers_.empty())
-            notifyObservers<Notifier>(std::move(info));
+            notifyObservers<Notifier>(info);
     }
     
-    void onLeave(SessionInfo info) override
+    void onLeave(const SessionInfo& info) override
     {
         struct Notifier
         {
             RealmObserver::WeakPtr observer;
             SessionInfo s;
 
-            void operator()()
+            void operator()() const
             {
                 auto o = observer.lock();
                 if (o)
-                    o->onLeave(std::move(s));
+                    o->onLeave(s);
             }
         };
 
@@ -573,10 +573,11 @@ public:
         }
 
         if (!observers_.empty())
-            notifyObservers<Notifier>(std::move(info));
+            notifyObservers<Notifier>(info);
     }
     
-    void onRegister(SessionInfo info, RegistrationInfo r) override
+    void onRegister(const SessionInfo& info,
+                    const RegistrationInfo& reg) override
     {
         struct Notifier
         {
@@ -584,11 +585,11 @@ public:
             SessionInfo s;
             RegistrationInfo r;
 
-            void operator()()
+            void operator()() const
             {
                 auto o = observer.lock();
                 if (o)
-                    o->onRegister(std::move(s), std::move(r));
+                    o->onRegister(s, r);
             }
         };
 
@@ -596,20 +597,21 @@ public:
         {
             auto sid = info.sessionId();
 
-            if (r.calleeCount == 1u)
+            if (reg.calleeCount == 1u)
             {
                 publish(Pub{"wamp.registration.on_create"}
-                            .withArgs(sid, Variant::from(r)));
+                            .withArgs(sid, Variant::from(reg)));
             }
 
-            publish(Pub{"wamp.registration.on_register"}.withArgs(sid, r.id));
+            publish(Pub{"wamp.registration.on_register"}.withArgs(sid, reg.id));
         }
 
         if (!observers_.empty())
-            notifyObservers<Notifier>(std::move(info), std::move(r));
+            notifyObservers<Notifier>(info, reg);
     }
     
-    void onUnregister(SessionInfo info, RegistrationInfo r) override
+    void onUnregister(const SessionInfo& info,
+                      const RegistrationInfo& reg) override
     {
         struct Notifier
         {
@@ -617,28 +619,29 @@ public:
             SessionInfo s;
             RegistrationInfo r;
 
-            void operator()()
+            void operator()() const
             {
                 auto o = observer.lock();
                 if (o)
-                    o->onUnregister(std::move(s), std::move(r));
+                    o->onUnregister(s, r);
             }
         };
 
         if (metaApiEnabled_)
         {
             auto sid = info.sessionId();
-            publish(Pub{"wamp.registration.on_unregister"}.withArgs(sid, r.id));
+            publish(Pub{"wamp.registration.on_unregister"}.withArgs(sid, reg.id));
 
-            if (r.calleeCount == 0)
-                publish(Pub{"wamp.registration.on_delete"}.withArgs(sid, r.id));
+            if (reg.calleeCount == 0)
+                publish(Pub{"wamp.registration.on_delete"}.withArgs(sid, reg.id));
         }
 
         if (!observers_.empty())
-            notifyObservers<Notifier>(std::move(info), std::move(r));
+            notifyObservers<Notifier>(info, reg);
     }
     
-    void onSubscribe(SessionInfo info, SubscriptionInfo sub) override
+    void onSubscribe(const SessionInfo& info,
+                     const SubscriptionInfo& sub) override
     {
         struct Notifier
         {
@@ -646,11 +649,11 @@ public:
             SessionInfo s;
             SubscriptionInfo sub;
 
-            void operator()()
+            void operator()() const
             {
                 auto o = observer.lock();
                 if (o)
-                    o->onSubscribe(std::move(s), std::move(sub));
+                    o->onSubscribe(s, sub);
             }
         };
 
@@ -669,10 +672,11 @@ public:
         }
 
         if (!observers_.empty())
-            notifyObservers<Notifier>(std::move(info), std::move(sub));
+            notifyObservers<Notifier>(info, sub);
     }
     
-    void onUnsubscribe(SessionInfo info, SubscriptionInfo sub) override
+    void onUnsubscribe(const SessionInfo& info,
+                       const SubscriptionInfo& sub) override
     {
         struct Notifier
         {
@@ -680,11 +684,11 @@ public:
             SessionInfo s;
             SubscriptionInfo sub;
 
-            void operator()()
+            void operator()() const
             {
                 auto o = observer.lock();
                 if (o)
-                    o->onUnsubscribe(std::move(s), std::move(sub));
+                    o->onUnsubscribe(s, sub);
             }
         };
 
@@ -702,7 +706,7 @@ public:
         }
 
         if (!observers_.empty())
-            notifyObservers<Notifier>(std::move(info), std::move(sub));
+            notifyObservers<Notifier>(info, sub);
     }
 
 private:

@@ -118,7 +118,7 @@ SinkEncoder<Json, S>::SinkEncoder() : impl_(new Impl) {}
 
 //------------------------------------------------------------------------------
 template <typename S>
-SinkEncoder<Json, S>::SinkEncoder(SinkEncoder&&) = default;
+SinkEncoder<Json, S>::SinkEncoder(SinkEncoder&&) noexcept = default;
 
 //------------------------------------------------------------------------------
 // Avoids incomplete type errors due to unique_ptr.
@@ -128,7 +128,8 @@ SinkEncoder<Json, S>::~SinkEncoder() = default;
 
 //------------------------------------------------------------------------------
 template <typename S>
-SinkEncoder<Json, S>& SinkEncoder<Json, S>::operator=(SinkEncoder&&) = default;
+SinkEncoder<Json, S>& SinkEncoder<Json, S>::operator=(SinkEncoder&&) noexcept
+    = default;
 
 //------------------------------------------------------------------------------
 template <typename S>
@@ -171,7 +172,7 @@ SourceDecoder<Json, S>::SourceDecoder() : impl_(new Impl) {}
 
 //------------------------------------------------------------------------------
 template <typename S>
-SourceDecoder<Json, S>::SourceDecoder(SourceDecoder&&) = default;
+SourceDecoder<Json, S>::SourceDecoder(SourceDecoder&&) noexcept = default;
 
 //------------------------------------------------------------------------------
 // Avoids incomplete type errors due to unique_ptr.
@@ -182,7 +183,7 @@ SourceDecoder<Json, S>::~SourceDecoder() = default;
 //------------------------------------------------------------------------------
 template <typename S>
 SourceDecoder<Json, S>&
-SourceDecoder<Json, S>::operator=(SourceDecoder&&) = default;
+SourceDecoder<Json, S>::operator=(SourceDecoder&&) noexcept = default;
 
 //------------------------------------------------------------------------------
 template <typename S>

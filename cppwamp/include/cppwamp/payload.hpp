@@ -211,7 +211,8 @@ D& Payload<D,K>::withArgsTuple(const std::tuple<Ts...>& tuple)
 template <typename D, internal::MessageKind K>
 D& Payload<D,K>::withArgList(Array list)
 {
-    args() = std::move(list);
+    Array& a = args();
+    a = std::move(list);
     return static_cast<D&>(*this);
 }
 
@@ -221,7 +222,8 @@ D& Payload<D,K>::withArgList(Array list)
 template <typename D, internal::MessageKind K>
 D& Payload<D,K>::withKwargs(Object dict)
 {
-    kwargs() = std::move(dict);
+    Object& o = kwargs();
+    o = std::move(dict);
     return static_cast<D&>(*this);
 }
 

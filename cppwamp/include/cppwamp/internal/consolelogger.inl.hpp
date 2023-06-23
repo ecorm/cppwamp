@@ -54,7 +54,7 @@ CPPWAMP_INLINE void ConsoleLogger::operator()(const LogEntry& entry) const
 CPPWAMP_INLINE void ConsoleLogger::operator()(const AccessLogEntry& entry) const
 {
     auto& impl = *impl_;
-    toStream(std::clog, entry, impl.origin) << "\n";
+    toStream(std::clog, entry) << "\n";
     if (impl.flushOnWrite)
         std::clog << std::flush;
 }
@@ -101,7 +101,7 @@ CPPWAMP_INLINE void
 ColorConsoleLogger::operator()(const AccessLogEntry& entry) const
 {
     auto& impl = *impl_;
-    toColorStream(std::clog, entry, impl.origin) << "\n";
+    toColorStream(std::clog, entry) << "\n";
     if (impl.flushOnWrite)
         std::clog << std::flush;
 }

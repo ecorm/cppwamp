@@ -61,13 +61,13 @@ public:
     SinkEncoder();
 
     /** Move constructor. */
-    SinkEncoder(SinkEncoder&&);
+    SinkEncoder(SinkEncoder&&) noexcept;
 
     /** Destructor. */
     ~SinkEncoder();
 
     /** Move assignment. */
-    SinkEncoder& operator=(SinkEncoder&&);
+    SinkEncoder& operator=(SinkEncoder&&) noexcept;
 
     /** Serializes from the given variant to the given output sink
         (it does not first clear the output, by design). */
@@ -119,13 +119,13 @@ public:
     SourceDecoder();
 
     /** Move constructor. */
-    SourceDecoder(SourceDecoder&&);
+    SourceDecoder(SourceDecoder&&) noexcept;
 
     /** Destructor. */
     ~SourceDecoder();
 
     /** Move assignment. */
-    SourceDecoder& operator=(SourceDecoder&&);
+    SourceDecoder& operator=(SourceDecoder&&) noexcept;
 
     /** Deserializes from the given input source to the given variant. */
     CPPWAMP_NODISCARD std::error_code decode(Source source, Variant& variant);

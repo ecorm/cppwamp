@@ -64,21 +64,14 @@ public:
 
     static Ptr create(Peer::Ptr peer, AnyIoExecutor exec)
     {
-        return Ptr(new Client(std::move(peer), exec, exec));
+        return Ptr(new Client(std::move(peer), std::move(exec)));
     }
 
-    static Ptr create(Peer::Ptr peer, AnyIoExecutor exec,
-                      AnyCompletionExecutor userExec)
-    {
-        return Ptr(new Client(std::move(peer), std::move(exec),
-                              std::move(userExec)));
-    }
+    ~Client() override = default;
 
     State state() const {return peer_->state();}
 
     const AnyIoExecutor& executor() const {return executor_;}
-
-    const AnyCompletionExecutor& userExecutor() const {return userExecutor_;}
 
     const IoStrand& strand() const {return strand_;}
 
@@ -299,7 +292,7 @@ public:
             Ptr self;
             Registration r;
             CompletionHandler<bool> f;
-            void operator()() {self->doUnregister(std::move(r), std::move(f));}
+            void operator()() {self->doUnregister(r, std::move(f));}
         };
 
         r.disarm({});
@@ -357,18 +350,22 @@ public:
         safelyDispatch<Dispatched>(std::move(r), std::move(c), std::move(f));
     }
 
+    Client(const Client&) = delete;
+    Client(Client&&) = delete;
+    Client& operator=(const Client&) = delete;
+    Client& operator=(Client&&) = delete;
+
 private:
     using RequestKey          = typename Message::RequestKey;
     using RequestHandler      = AnyCompletionHandler<void (ErrorOr<Message>)>;
 
-    Client(Peer::Ptr peer, AnyIoExecutor exec, AnyCompletionExecutor userExec)
+    Client(Peer::Ptr peer, AnyIoExecutor exec)
         : executor_(std::move(exec)),
-          userExecutor_(std::move(userExec)),
           strand_(boost::asio::make_strand(executor_)),
           peer_(std::move(peer)),
           readership_(executor_),
           registry_(peer_.get(), executor_),
-          requestor_(peer_.get(), strand_, executor_, userExecutor_)
+          requestor_(peer_.get(), strand_, executor_)
     {
         peer_->listen(this);
     }
@@ -1013,7 +1010,7 @@ private:
     {
         struct Requested
         {
-            void operator()(ErrorOr<Message>)
+            void operator()(const ErrorOr<Message>&)
             {
                 // Don't propagate WAMP errors, as we prefer this
                 // to be a no-fail cleanup operation.
@@ -1337,7 +1334,7 @@ private:
     {
         struct Requested
         {
-            void operator()(ErrorOr<Message>)
+            void operator()(const ErrorOr<Message>&)
             {
                 // Don't propagate WAMP errors, as we prefer
                 // this to be a no-fail cleanup operation.
@@ -1460,7 +1457,6 @@ private:
     ClientContext makeContext() {return ClientContext{shared_from_this()};}
 
     AnyIoExecutor executor_;
-    AnyCompletionExecutor userExecutor_;
     IoStrand strand_;
     Peer::Ptr peer_;
     Readership readership_;

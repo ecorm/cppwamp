@@ -29,7 +29,7 @@ public:
 
     /** Constructor taking an executor for I/O operations
         and another for user-provided handlers. */
-    DirectSession(const Executor& exec, FallbackExecutor fallbackExec);
+    DirectSession(Executor exec, FallbackExecutor fallbackExec);
 
     /** Constructor taking an execution context. */
     template <typename E, CPPWAMP_NEEDS(isExecutionContext<E>()) = 0>

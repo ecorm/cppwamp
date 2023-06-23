@@ -6,6 +6,7 @@ Checks: >
   concurrency-*,
   cppcoreguidelines-*,
   modernize-*,
+  performance-*,
   readability-*,
   -bugprone-easily-swappable-parameters,
   -cert-dcl21-cpp,

@@ -163,7 +163,7 @@ inline std::istream& inputRfc3339Timestamp(
 }
 
 //------------------------------------------------------------------------------
-inline bool parseRfc3339Timestamp(std::string s,
+inline bool parseRfc3339Timestamp(const std::string& s,
                                   std::chrono::system_clock::time_point& when)
 {
     std::istringstream iss{s};

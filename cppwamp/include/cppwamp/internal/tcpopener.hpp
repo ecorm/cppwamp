@@ -95,7 +95,7 @@ private:
             typename std::decay<F>::type callback;
 
             void operator()(boost::system::error_code asioEc,
-                            tcp::resolver::iterator)
+                            const tcp::resolver::iterator&)
             {
                 SocketPtr socket{std::move(self->socket_)};
                 self->socket_.reset();

@@ -94,7 +94,8 @@ private:
 template <typename D, internal::MessageKind K>
 D& Options<D,K>::withOption(String key, Variant value)
 {
-    options()[std::move(key)] = std::move(value);
+    Object& o = options();
+    o[std::move(key)] = std::move(value);
     return static_cast<D&>(*this);
 }
 
@@ -102,7 +103,8 @@ D& Options<D,K>::withOption(String key, Variant value)
 template <typename D, internal::MessageKind K>
 D& Options<D,K>::withOptions(Object opts)
 {
-    options() = std::move(opts);
+    Object& o = options();
+    o = std::move(opts);
     return static_cast<D&>(*this);
 }
 

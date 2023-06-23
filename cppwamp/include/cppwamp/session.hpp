@@ -141,7 +141,7 @@ public:
 
     /** Constructor taking an executor for I/O operations
         and another for user-provided handlers. */
-    Session(const Executor& exec, FallbackExecutor fallbackExec);
+    Session(Executor exec, FallbackExecutor fallbackExec);
 
     /** Constructor taking an execution context. */
     template <typename E, CPPWAMP_NEEDS(isExecutionContext<E>()) = 0>
@@ -319,7 +319,7 @@ public:
 protected:
     Session(std::shared_ptr<internal::Peer> peer, Executor exec);
 
-    Session(std::shared_ptr<internal::Peer> peer, const Executor& exec,
+    Session(std::shared_ptr<internal::Peer> peer, Executor exec,
             FallbackExecutor fallbackExec);
 
     void directConnect(any link);
@@ -447,8 +447,7 @@ struct Session::UnsubscribeOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doUnsubscribe(std::move(s),
-                            self->bindFallbackExecutor(std::forward<F>(f)));
+        self->doUnsubscribe(s, self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -491,8 +490,7 @@ struct Session::UnregisterOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doUnregister(std::move(r),
-                           self->bindFallbackExecutor(std::forward<F>(f)));
+        self->doUnregister(r, self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 

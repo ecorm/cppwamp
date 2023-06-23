@@ -55,6 +55,8 @@ public:
                                    std::move(rctx)));
     }
 
+    ~RouterRealm() override = default;
+
     const Executor& executor() const {return executor_;}
 
     const IoStrand& strand() const {return strand_;}
@@ -69,7 +71,7 @@ public:
         {
             Ptr self;
             RouterSession::Ptr session;
-            void operator()() {self->joinSession(std::move(session));}
+            void operator()() {self->joinSession(session);}
         };
 
         safelyDispatch<Dispatched>(std::move(session));
@@ -94,11 +96,7 @@ public:
             Ptr self;
             RealmObserver::Ptr o;
             FallbackExecutor e;
-
-            void operator()()
-            {
-                self->metaTopics_->addObserver(std::move(o), std::move(e));
-            }
+            void operator()() {self->metaTopics_->addObserver(o, e);}
         };
 
         safelyDispatch<Dispatched>(std::move(o), std::move(e));
@@ -260,6 +258,11 @@ public:
         return broker_.forEachMatch(uri, std::forward<F>(functor));
     }
 
+    RouterRealm(const RouterRealm&) = delete;
+    RouterRealm(RouterRealm&&) = delete;
+    RouterRealm& operator=(const RouterRealm&) = delete;
+    RouterRealm& operator=(RouterRealm&&) = delete;
+
 private:
     using SessionMap = std::map<SessionId, RouterSession::Ptr>;
     using RealmProcedures = MetaProcedures<RouterRealm>;
@@ -287,7 +290,7 @@ private:
 
     RouterLogger::Ptr logger() const {return logger_;}
 
-    void joinSession(RouterSession::Ptr session)
+    void joinSession(const RouterSession::Ptr& session)
     {
         auto reservedId = router_.reserveSessionId();
         auto id = reservedId.get();
@@ -302,7 +305,7 @@ private:
             metaTopics_->onJoin(session->sharedInfo());
     }
 
-    void removeSession(SessionInfo info)
+    void removeSession(const SessionInfo& info)
     {
         auto sid = info.sessionId();
         auto found = sessions_.find(sid);
@@ -391,7 +394,7 @@ private:
             }
         }
 
-        for (auto session: killedSessions)
+        for (const auto& session: killedSessions)
         {
             session->abort(reason);
             // session->abort will call RouterRealm::leave,
@@ -401,13 +404,13 @@ private:
         return killedIds;
     }
 
-    void leave(RouterSession::Ptr session)
+    void leave(const RouterSession::Ptr& session)
     {
         struct Dispatched
         {
             Ptr self;
             SessionInfo info;
-            void operator()() {self->removeSession(std::move(info));}
+            void operator()() {self->removeSession(info);}
         };
 
         if (!session->isJoined())
@@ -456,7 +459,7 @@ private:
         authorize(std::move(originator), std::move(topic));
     }
 
-    void onAuthorized(RouterSession::Ptr originator, Topic&& topic,
+    void onAuthorized(const RouterSession::Ptr& originator, Topic&& topic,
                       Authorization auth)
     {
         if (!checkAuthorization(*originator, topic, auth))
@@ -507,7 +510,7 @@ private:
         authorize(std::move(originator), std::move(pub));
     }
 
-    void onAuthorized(RouterSession::Ptr originator, Pub&& pub,
+    void onAuthorized(const RouterSession::Ptr& originator, Pub&& pub,
                       Authorization auth)
     {
         auto uri = pub.uri();
@@ -552,7 +555,7 @@ private:
         authorize(std::move(originator), std::move(proc));
     }
 
-    void onAuthorized(RouterSession::Ptr originator, Procedure&& proc,
+    void onAuthorized(const RouterSession::Ptr& originator, Procedure&& proc,
                       Authorization auth)
     {
         if (!checkAuthorization(*originator, proc, auth))
@@ -601,7 +604,7 @@ private:
         authorize(std::move(originator), std::move(rpc));
     }
 
-    void onAuthorized(RouterSession::Ptr originator, Rpc&& rpc,
+    void onAuthorized(const RouterSession::Ptr& originator, Rpc&& rpc,
                       Authorization auth)
     {
         if (!checkAuthorization(*originator, rpc, auth))
@@ -649,11 +652,7 @@ private:
             Ptr self;
             RouterSession::Ptr s;
             Result r;
-
-            void operator()()
-            {
-                self->dealer_.yieldResult(std::move(s), std::move(r));
-            }
+            void operator()() {self->dealer_.yieldResult(s, std::move(r));}
         };
 
         originator->report(result.info(false));
@@ -667,11 +666,7 @@ private:
             Ptr self;
             RouterSession::Ptr s;
             Error e;
-
-            void operator()()
-            {
-                self->dealer_.yieldError(std::move(s), std::move(e));
-            }
+            void operator()() {self->dealer_.yieldError(s, std::move(e));}
         };
 
         originator->report(error.info(false));
@@ -820,8 +815,8 @@ private:
 // RealmContext
 //******************************************************************************
 
-inline RealmContext::RealmContext(std::shared_ptr<RouterRealm> r)
-    : realm_(std::move(r))
+inline RealmContext::RealmContext(const std::shared_ptr<RouterRealm>& r)
+    : realm_(r)
 {}
 
 inline bool RealmContext::expired() const {return realm_.expired();}
@@ -846,12 +841,12 @@ inline bool RealmContext::join(RouterSessionPtr session)
 }
 
 // NOLINTNEXTLINE(bugprone-exception-escape)
-inline bool RealmContext::leave(RouterSessionPtr session) noexcept
+inline bool RealmContext::leave(const RouterSessionPtr& session) noexcept
 {
     auto r = realm_.lock();
     if (!r)
         return false;
-    r->leave(std::move(session));
+    r->leave(session);
     return true;
 }
 
