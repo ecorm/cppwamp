@@ -47,7 +47,7 @@ public:
           publisherExcluded_(pub.excludeMe())
     {
         Object customOptions;
-        bool publisherDisclosed = pub.discloseMe();
+        const bool publisherDisclosed = pub.discloseMe();
 
         // TODO: Propagate x_foo custom options?
         // https://github.com/wamp-proto/wamp-proto/issues/345
@@ -105,7 +105,7 @@ public:
 
     bool sendTo(RouterSession& subscriber) const
     {
-        bool eligible = isEligible(subscriber);
+        const bool eligible = isEligible(subscriber);
         if (eligible)
             subscriber.sendEvent(event_);
         return eligible;
@@ -497,30 +497,34 @@ public:
 
         PrefixVisitor<Decay<F>> visitor(std::forward<F>(functor));
         trie().for_each_prefix_of(uri, visitor);
-        return visitor.count;
+        return visitor.count();
     }
 private:
     template <typename TFunctor>
-    struct PrefixVisitor
+    class PrefixVisitor
     {
+    public:
         using Iter = utils::TrieMap<BrokerSubscription*>::const_iterator;
 
-        PrefixVisitor(TFunctor f) : functor(std::move(f)) {}
+        PrefixVisitor(TFunctor f) : functor_(std::move(f)) {}
+
+        std::size_t count() const {return count_;}
 
         void operator()(Iter iter)
         {
-            if (!more)
+            if (!more_)
                 return;
 
             const BrokerSubscription* record = iter.value();
-            more = functor(record->info());
-            if (more)
-                ++count;
+            more_ = functor_(record->info());
+            if (more_)
+                ++count_;
         }
 
-        TFunctor functor;
-        std::size_t count = 0;
-        bool more = true;
+    private:
+        TFunctor functor_;
+        std::size_t count_ = 0;
+        bool more_ = true;
     };
 
     using Base = BrokerTopicMapBase<utils::TrieMap<BrokerSubscription*>,
@@ -631,7 +635,7 @@ public:
         BrokerSubscription* sub = nullptr;
 
         {
-            MutexGuard guard{queryMutex_};
+            const MutexGuard guard{queryMutex_};
 
             switch (req.policy())
             {
@@ -663,8 +667,8 @@ public:
         auto policy = record.info().matchPolicy;
 
         {
-            MutexGuard guard{queryMutex_};
-            bool subscriberRemoved =
+            const MutexGuard guard{queryMutex_};
+            const bool subscriberRemoved =
                 record.removeSubscriber(subscriber->sharedInfo(), *metaTopics_);
 
             if (record.empty())
@@ -698,7 +702,7 @@ public:
 
     void removeSubscriber(const SessionInfo& subscriberInfo)
     {
-        MutexGuard guard{queryMutex_};
+        const MutexGuard guard{queryMutex_};
 
         byExact_.removeSubscriber(subscriberInfo, *metaTopics_);
         byPrefix_.removeSubscriber(subscriberInfo, *metaTopics_);
@@ -719,7 +723,7 @@ public:
     ErrorOr<SubscriptionInfo> getSubscription(SubscriptionId sid,
                                               bool listSubscribers) const
     {
-        MutexGuard guard{queryMutex_};
+        const MutexGuard guard{queryMutex_};
         auto found = subscriptions_.find(sid);
         if (found == subscriptions_.end())
             return makeUnexpectedError(WampErrc::noSuchSubscription);
@@ -729,7 +733,7 @@ public:
     ErrorOr<SubscriptionInfo> lookupSubscription(
         const Uri& uri, MatchPolicy p, bool listSubscribers) const
     {
-        MutexGuard guard{queryMutex_};
+        const MutexGuard guard{queryMutex_};
 
         switch (p)
         {
@@ -755,7 +759,7 @@ public:
     template <typename F>
     std::size_t forEachSubscription(MatchPolicy p, F&& functor) const
     {
-        MutexGuard guard{queryMutex_};
+        const MutexGuard guard{queryMutex_};
 
         switch (p)
         {
@@ -781,7 +785,7 @@ public:
     template <typename F>
     std::size_t forEachMatch(const Uri& uri, F&& functor) const
     {
-        MutexGuard guard{queryMutex_};
+        const MutexGuard guard{queryMutex_};
         auto count = byExact_.forEachMatch(uri, std::forward<F>(functor));
         count += byPrefix_.forEachMatch(uri, functor);
         count += byWildcard_.forEachMatch(uri, std::forward<F>(functor));

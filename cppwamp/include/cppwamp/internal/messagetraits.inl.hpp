@@ -129,7 +129,7 @@ CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(MessageKind kind)
 
     using T = std::underlying_type<MessageKind>::type;
     auto index = static_cast<T>(kind);
-    if (index < 0 && index >= T(traits.size()))
+    if (index >= T(traits.size()))
         index = 0;
     return traits.at(index);
 }

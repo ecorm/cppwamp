@@ -24,6 +24,7 @@ class Variant::Construct : public Visitor<>
 public:
     explicit Construct(Variant& dest) : dest_(&dest) {}
 
+    // NOLINTNEXTLINE(misc-no-recursion)
     template <typename TField> void operator()(const TField& field) const
     {
         dest_->template constructAs<TField>(field);
@@ -138,6 +139,7 @@ class Variant::LessThan : public Visitor<bool>
 {
 public:
     template <typename TField>
+    // NOLINTNEXTLINE(misc-no-recursion)
     bool operator()(const TField& leftField, const TField& rightField) const
     {
         return leftField < rightField;
@@ -206,6 +208,7 @@ private:
 CPPWAMP_INLINE Variant::Variant() noexcept : typeId_(TypeId::null) {}
 
 //------------------------------------------------------------------------------
+// NOLINTNEXTLINE(misc-no-recursion)
 CPPWAMP_INLINE Variant::Variant(const Variant& other)
     : typeId_(other.typeId_)
 {
@@ -355,6 +358,7 @@ CPPWAMP_INLINE const Variant& Variant::at(const String& key) const
 | Array      | false | false | false | false | false | false  | L==R  | false  |
 | Object     | false | false | false | false | false | false  | false | L==R   | */
 //------------------------------------------------------------------------------
+// NOLINTNEXTLINE(misc-no-recursion)
 CPPWAMP_INLINE bool Variant::operator==(const Variant& other) const
 {
     return wamp::apply(internal::VariantEquivalentTo<Variant>(), *this, other);
@@ -387,6 +391,7 @@ CPPWAMP_INLINE bool Variant::operator!=(const Variant& other) const
 | Array      | false | false | false | false | false | false  | L<R   | true   |
 | Object     | false | false | false | false | false | false  | false | L<R    | */
 //------------------------------------------------------------------------------
+// NOLINTNEXTLINE(misc-no-recursion)
 CPPWAMP_INLINE bool Variant::operator<(const Variant &other) const
 {
     return wamp::apply(LessThan(), *this, other);

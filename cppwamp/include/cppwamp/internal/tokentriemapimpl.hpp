@@ -55,8 +55,11 @@ public:
     protected:
         ValueComp(KeyComp c) : comp(std::move(c)) {}
 
-        // NOLINTNEXTLINE(cppcoreguidelines-non-private-member-variables-in-classes)
+        // NOLINTBEGIN(cppcoreguidelines-non-private-member-variables-in-classes)
+        // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
         KeyComp comp;
+        // NOLINTEND(misc-non-private-member-variables-in-classes)
+        // NOLINTEND(cppcoreguidelines-non-private-member-variables-in-classes)
 
         friend class TokenTrieMapImpl;
     };
@@ -94,7 +97,7 @@ public:
 
     TokenTrieMapImpl(TokenTrieMapImpl&& rhs, const Allocator& alloc) noexcept
         : sentinel_(PassKey{}),
-          alloc_(alloc_),
+          alloc_(alloc),
           size_(rhs.size_),
           comp_(std::move(rhs.comp_))
     {

@@ -136,8 +136,8 @@ public:
 
         // Error may have already been returned due to interruption being
         // handled by Client::onInterrupt.
-        bool moot = found->second.moot;
-        bool erased = !result.isProgress({}) || moot;
+        const bool moot = found->second.moot;
+        const bool erased = !result.isProgress({}) || moot;
         if (erased)
             invocations_.erase(found);
         if (moot)
@@ -164,8 +164,8 @@ public:
 
         // Error may have already been returned due to interruption being
         // handled by Client::onInterrupt.
-        bool moot = found->second.moot;
-        bool erased = chunk.isFinal() || moot;
+        const bool moot = found->second.moot;
+        const bool erased = chunk.isFinal() || moot;
         if (erased)
             invocations_.erase(found);
         if (moot)
@@ -191,7 +191,7 @@ public:
 
         // Error may have already been returned due to interruption being
         // handled by Client::onInterrupt.
-        bool moot = found->second.moot;
+        const bool moot = found->second.moot;
         invocations_.erase(found);
         if (moot)
             return false;
@@ -270,7 +270,7 @@ public:
     {
         for (auto& kv: invocations_)
         {
-            InvocationRecord& rec = kv.second;
+            const InvocationRecord& rec = kv.second;
             auto ch = rec.channel.lock();
             if (ch)
                 ch->abandon(ec);

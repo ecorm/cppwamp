@@ -29,6 +29,7 @@ namespace utils
     The format is per wamp::toString(const LogEntry&).
     Entries below LogLevel::warning are output to std::clog, and all others
     are output to std::cerr. Concurrent output operations are not serialized. */
+// TODO: Unify with ColorConsoleLogger via options
 //------------------------------------------------------------------------------
 class CPPWAMP_API ConsoleLogger
 {

@@ -33,7 +33,7 @@ struct Message
 
     static ErrorOr<Message> parse(Array&& fields)
     {
-        MessageKind kind = parseMsgType(fields);
+        const MessageKind kind = parseMsgType(fields);
         const auto unex = makeUnexpectedError(WampErrc::protocolViolation);
         if (kind == MessageKind::none)
             return unex;

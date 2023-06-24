@@ -572,8 +572,8 @@ size_t Payload<D,K>::unbundleToTuple(
 //------------------------------------------------------------------------------
 template <typename D, internal::MessageKind K>
 template <size_t I, typename... Ts>
-size_t Payload<D,K>::unbundleToTuple(
-    const Array& array, std::tuple<Ts...>& tuple, FalseType)
+size_t Payload<D,K>::unbundleToTuple(const Array&, std::tuple<Ts...>&,
+                                     FalseType)
 {
     return I;
 }
@@ -647,8 +647,8 @@ size_t Payload<D,K>::unbundleAsTuple(
 //------------------------------------------------------------------------------
 template <typename D, internal::MessageKind K>
 template <size_t I, typename... Ts>
-size_t Payload<D,K>::unbundleAsTuple(
-    const Array& array, std::tuple<Ts...>& tuple, FalseType)
+size_t Payload<D,K>::unbundleAsTuple(const Array&, std::tuple<Ts...>&,
+                                     FalseType)
 {
     return I;
 }

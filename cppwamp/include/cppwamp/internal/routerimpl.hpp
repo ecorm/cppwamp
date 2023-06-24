@@ -48,7 +48,7 @@ public:
         RouterRealm::Ptr realm;
 
         {
-            MutexGuard lock(realmsMutex_);
+            const MutexGuard guard(realmsMutex_);
             if (realms_.find(uri) == realms_.end())
             {
                 realm = RouterRealm::create(
@@ -78,7 +78,7 @@ public:
         RouterRealm::Ptr realm;
 
         {
-            MutexGuard lock(realmsMutex_);
+            const MutexGuard guard(realmsMutex_);
             auto kv = realms_.find(uri);
             if (kv != realms_.end())
             {
@@ -97,7 +97,7 @@ public:
 
     RouterRealm::Ptr realmAt(const String& uri) const
     {
-        MutexGuard lock{realmsMutex_};
+        const MutexGuard guard{realmsMutex_};
         auto found = realms_.find(uri);
         if (found == realms_.end())
             return nullptr;
@@ -110,7 +110,7 @@ public:
         auto name = c.name();
 
         {
-            MutexGuard lock(serversMutex_);
+            const MutexGuard guard(serversMutex_);
             if (servers_.find(name) == servers_.end())
             {
                 server = RouterServer::create(executor_, std::move(c),
@@ -137,7 +137,7 @@ public:
         RouterServer::Ptr server;
 
         {
-            MutexGuard lock(serversMutex_);
+            const MutexGuard guard(serversMutex_);
             auto kv = servers_.find(name);
             if (kv != servers_.end())
             {
@@ -159,14 +159,14 @@ public:
     {
         ServerMap servers;
         {
-            MutexGuard lock(serversMutex_);
+            const MutexGuard guard(serversMutex_);
             servers = std::move(servers_);
             servers_.clear();
         }
 
         RealmMap realms;
         {
-            MutexGuard lock(realmsMutex_);
+            const MutexGuard guard(realmsMutex_);
             realms = std::move(realms_);
             realms_.clear();
         }
@@ -248,7 +248,7 @@ private:
 
     RealmContext realmContextAt(const String& uri) const
     {
-        MutexGuard lock{realmsMutex_};
+        const MutexGuard guard{realmsMutex_};
         auto found = realms_.find(uri);
         if (found == realms_.end())
             return {};

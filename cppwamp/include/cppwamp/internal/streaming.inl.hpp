@@ -57,7 +57,7 @@ CPPWAMP_INLINE CalleeInputChunk::CalleeInputChunk(internal::PassKey,
 
 CPPWAMP_INLINE StreamMode CalleeInputChunk::mode(internal::PassKey)
 {
-    bool wantsProgress = optionOr<bool>("receive_progress", false);
+    const bool wantsProgress = optionOr<bool>("receive_progress", false);
 
     using M = StreamMode;
     if (isFinal())

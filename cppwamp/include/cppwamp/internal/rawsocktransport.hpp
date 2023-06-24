@@ -230,7 +230,7 @@ private:
 
             auto self = this->shared_from_this();
             boost::asio::async_write(*socket_, txFrame_->gatherBuffers(),
-                [this, self](boost::system::error_code asioEc, size_t size)
+                [this, self](boost::system::error_code asioEc, size_t)
                 {
                     bool frameWasPoisoned = txFrame_ && txFrame_->isPoisoned();
                     txFrame_.reset();

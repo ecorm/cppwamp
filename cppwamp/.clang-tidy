@@ -5,6 +5,7 @@ Checks: >
   clang-analyzer-*,
   concurrency-*,
   cppcoreguidelines-*,
+  misc-*,
   modernize-*,
   performance-*,
   readability-*,
@@ -12,6 +13,7 @@ Checks: >
   -cert-dcl21-cpp,
   -cert-dcl58-cpp,
   -cppcoreguidelines-pro-type-union-access,
+  -misc-definitions-in-headers,
   -modernize-make-unique,
   -modernize-use-trailing-return-type,
   -modernize-avoid-c-arrays,
@@ -25,6 +27,8 @@ AnalyzeTemporaryDtors: false
 FormatStyle: none
 CheckOptions:
   - key: cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor
+    value: true
+  - key: misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic
     value: true
   - key: readability-braces-around-statements.ShortStatementLines
     value: 3

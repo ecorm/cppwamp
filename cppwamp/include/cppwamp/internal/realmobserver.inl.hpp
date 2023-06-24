@@ -82,7 +82,7 @@ CPPWAMP_INLINE void convertFrom(FromVariantConverter& conv,
 
         if (!created.empty())
         {
-            bool ok = internal::parseRfc3339Timestamp(created, r.created);
+            const bool ok = internal::parseRfc3339Timestamp(created, r.created);
             if (!ok)
             {
                 throw error::Conversion("'created' property must be "
@@ -153,7 +153,7 @@ CPPWAMP_INLINE void convertFrom(FromVariantConverter& conv, SubscriptionInfo& s)
 
     if (!created.empty())
     {
-        bool ok = internal::parseRfc3339Timestamp(created, s.created);
+        const bool ok = internal::parseRfc3339Timestamp(created, s.created);
         if (!ok)
         {
             throw error::Conversion("'created' property must be "
@@ -188,7 +188,7 @@ CPPWAMP_INLINE bool RealmObserver::isAttached() const
 
 CPPWAMP_INLINE void RealmObserver::bindExecutor(AnyCompletionExecutor e)
 {
-    std::lock_guard<std::mutex> guard(mutex_);
+    const std::lock_guard<std::mutex> guard(mutex_);
     executor_ = std::move(e);
 }
 
@@ -232,7 +232,7 @@ CPPWAMP_INLINE void RealmObserver::onDetach(ObserverId oid) {}
 CPPWAMP_INLINE void RealmObserver::attach(SubjectPtr d, ObserverId oid,
                                           const FallbackExecutor& e)
 {
-    std::lock_guard<std::mutex> guard(mutex_);
+    const std::lock_guard<std::mutex> guard(mutex_);
     subject_ = std::move(d);
     observerId_.store(oid);
     if (!executor_)

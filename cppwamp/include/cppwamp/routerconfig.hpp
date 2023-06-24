@@ -138,7 +138,7 @@ public:
 
     RouterConfig& withLogHandler(LogHandler f);
 
-    RouterConfig& withLogLevel(LogLevel l);
+    RouterConfig& withLogLevel(LogLevel level);
 
     RouterConfig& withAccessLogHandler(AccessLogHandler f);
 

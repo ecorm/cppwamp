@@ -104,14 +104,14 @@ public:
 
     std::size_t sessionCount() const
     {
-        std::lock_guard<std::mutex> guard{sessionQueryMutex_};
+        const std::lock_guard<std::mutex> guard{sessionQueryMutex_};
         return sessions_.size();
     }
 
     template <typename F>
     std::size_t forEachSession(F&& functor) const
     {
-        std::lock_guard<std::mutex> guard{sessionQueryMutex_};
+        const std::lock_guard<std::mutex> guard{sessionQueryMutex_};
         std::size_t count = 0;
         for (const auto& kv: sessions_)
         {
@@ -124,7 +124,7 @@ public:
 
     SessionInfo getSession(SessionId sid) const
     {
-        MutexGuard guard{sessionQueryMutex_};
+        const MutexGuard guard{sessionQueryMutex_};
         auto found = sessions_.find(sid);
         return (found == sessions_.end()) ? SessionInfo{}
                                           : found->second->sharedInfo();
@@ -141,7 +141,7 @@ public:
         };
 
         {
-            MutexGuard guard{sessionQueryMutex_};
+            const MutexGuard guard{sessionQueryMutex_};
             auto iter = sessions_.find(sid);
             if (iter == sessions_.end())
                 return makeUnexpectedError(WampErrc::noSuchSession);
@@ -165,7 +165,7 @@ public:
         SessionIdSet set;
 
         {
-            MutexGuard guard{sessionQueryMutex_};
+            const MutexGuard guard{sessionQueryMutex_};
             for (const auto& kv: sessions_)
             {
                 const auto& session = kv.second;
@@ -191,12 +191,12 @@ public:
         };
 
         {
-            MutexGuard guard{sessionQueryMutex_};
+            const MutexGuard guard{sessionQueryMutex_};
             auto end = set.end();
             auto iter = set.begin();
             while (iter != end)
             {
-                SessionId sid = *iter;
+                const SessionId sid = *iter;
                 if (sessions_.count(sid) != 0)
                     ++iter;
                 else
@@ -297,7 +297,7 @@ private:
         session->setWampId(std::move(reservedId));
 
         {
-            MutexGuard guard{sessionQueryMutex_};
+            const MutexGuard guard{sessionQueryMutex_};
             sessions_.emplace(id, session);
         }
 
@@ -313,7 +313,7 @@ private:
             return;
 
         {
-            MutexGuard guard(sessionQueryMutex_);
+            const MutexGuard guard(sessionQueryMutex_);
             sessions_.erase(found);
         }
 
@@ -330,7 +330,7 @@ private:
         SessionMap sessions;
 
         {
-            MutexGuard guard{sessionQueryMutex_};
+            const MutexGuard guard{sessionQueryMutex_};
             sessions = std::move(sessions_);
             sessions_.clear();
         }
@@ -452,7 +452,7 @@ private:
             return originator->sendRouterCommand(std::move(error), true);
         }
 
-        bool isPattern = topic.matchPolicy() != MatchPolicy::exact;
+        const bool isPattern = topic.matchPolicy() != MatchPolicy::exact;
         if (!uriValidator_->checkTopic(topic.uri(), isPattern))
             return originator->abort({WampErrc::invalidUri});
 
@@ -514,8 +514,8 @@ private:
                       Authorization auth)
     {
         auto uri = pub.uri();
-        auto rid = pub.requestId({});
-        bool wantsAck = pub.optionOr<bool>("acknowledge", false);
+        const auto rid = pub.requestId({});
+        const bool wantsAck = pub.optionOr<bool>("acknowledge", false);
 
         if (!checkAuthorization(*originator, pub, auth))
             return;
@@ -698,11 +698,11 @@ private:
             return true;
 
         auto ec = make_error_code(WampErrc::authorizationDenied);
-        bool isKnownAuthError = true;
+        const bool isKnownAuthError = true;
 
         if (auth.error())
         {
-            bool isKnownAuthError =
+            const bool isKnownAuthError =
                 auth.error() == WampErrc::authorizationDenied ||
                 auth.error() == WampErrc::authorizationFailed ||
                 auth.error() == WampErrc::authorizationRequired ||
@@ -734,7 +734,8 @@ private:
         auto authRule = auth.disclosure();
         auto rule = (authRule == DR::preset) ? realmRule : authRule;
         bool disclosed = command.discloseMe();
-        bool isStrict = rule == DR::strictConceal || rule == DR::strictReveal;
+        const bool isStrict = rule == DR::strictConceal ||
+                              rule == DR::strictReveal;
 
         if (disclosed && isStrict)
         {

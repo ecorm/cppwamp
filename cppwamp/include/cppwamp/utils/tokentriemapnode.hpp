@@ -322,7 +322,7 @@ public: // Internal use only
 
     TokenTrieMapNode(std::allocator_arg_t, const tree_allocator_type& alloc,
                      PassKey, TokenTrieMapNode&& other)
-        : children_(std::move(other.children_)),
+        : children_(std::move(other.children_), alloc),
           position_(std::move(other.position_)),
           element_(other.element_),
           parent_(other.parent_)

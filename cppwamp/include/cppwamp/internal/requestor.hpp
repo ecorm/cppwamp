@@ -202,7 +202,7 @@ public:
     {
         // Will take 285 years to overflow 2^53 at 1 million requests/sec
         assert(nextRequestId_ < 9007199254740992u);
-        ChannelId channelId = nextRequestId_ + 1;
+        const ChannelId channelId = nextRequestId_ + 1;
         req.setRequestId({}, channelId);
         auto uri = req.uri();
         auto mode = req.mode();
@@ -288,7 +288,7 @@ public:
         auto unex = makeUnexpectedError(errc);
 
         {
-            RequestKey key{MessageKind::call, requestId};
+            const RequestKey key{MessageKind::call, requestId};
             auto kv = requests_.find(key);
             if (kv != requests_.end())
             {
@@ -331,7 +331,7 @@ public:
 
     void abandonAll(std::error_code ec)
     {
-        UnexpectedError unex{ec};
+        const UnexpectedError unex{ec};
         for (auto& kv: requests_)
             completeRequest(kv.second, unex);
         for (auto& kv: channels_)
@@ -387,7 +387,7 @@ private:
                                  TimeoutDuration timeout,
                                  RequestHandler&& handler)
     {
-        RequestId requestId = nullId();
+        const RequestId requestId = nullId();
 
         auto sent = peer_->send(std::forward<C>(command));
         if (!sent)

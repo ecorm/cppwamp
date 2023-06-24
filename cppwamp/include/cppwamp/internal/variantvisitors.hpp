@@ -378,7 +378,7 @@ private:
     }
 
     template <typename TField, typename TResult>
-    static void convert(FalseType, const TField& from, TResult& to)
+    static void convert(FalseType, const TField& /*from*/, TResult& /*to*/)
     {
         throw error::Conversion(
             "Invalid conversion from " + FieldTraits<TField>::typeName() +

@@ -92,7 +92,7 @@ public:
         MessageBuffer buffer;
         codec_.encode(msg.fields(), buffer);
 
-        bool fits = buffer.size() <= maxTxLength_;
+        const bool fits = buffer.size() <= maxTxLength_;
         if (!fits)
         {
             r.options().clear();
@@ -129,7 +129,7 @@ private:
         return done;
     }
     
-    void onDirectConnect(IoStrand strand, any routerLink) override
+    void onDirectConnect(IoStrand, any) override
     {
         assert(false);
     }
@@ -145,7 +145,7 @@ private:
     {
         if (!transport_->isStarted())
         {
-            std::weak_ptr<NetworkPeer> weakSelf =
+            const std::weak_ptr<NetworkPeer> weakSelf =
                 std::static_pointer_cast<NetworkPeer>(shared_from_this());
             transport_->start(
                 [weakSelf](const ErrorOr<MessageBuffer>& buffer)
@@ -225,8 +225,8 @@ private:
                                 "or field schema");
         }
 
-        bool isValidForRole = isRouter() ? msg->traits().isRouterRx
-                                         : msg->traits().isClientRx;
+        const bool isValidForRole = isRouter() ? msg->traits().isRouterRx
+                                               : msg->traits().isClientRx;
         if (!isValidForRole)
         {
             return failProtocol("Role does not support receiving " +
@@ -288,8 +288,8 @@ private:
     void onAbort(Message& msg)
     {
         auto s = state();
-        bool wasJoining = s == State::establishing ||
-                          s == State::authenticating;
+        const bool wasJoining = s == State::establishing ||
+                                s == State::authenticating;
         Reason r{{}, std::move(msg)};
         setState(wasJoining ? State::closed : State::failed);
         listener().onPeerAbort(std::move(r), wasJoining);
@@ -311,7 +311,7 @@ private:
     void onGoodbye(Message& msg)
     {
         Reason reason{{}, std::move(msg)};
-        bool isShuttingDown = state() == State::shuttingDown;
+        const bool isShuttingDown = state() == State::shuttingDown;
         listener().onPeerGoodbye(std::move(reason), isShuttingDown);
     }
 

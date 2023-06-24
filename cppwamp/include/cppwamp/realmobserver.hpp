@@ -173,7 +173,7 @@ private:
 
         AnyCompletionExecutor e;
         {
-            std::lock_guard<std::mutex> guard{mutex_};
+            const std::lock_guard<std::mutex> guard{mutex_};
             e = executor_;
         }
         assert(e != nullptr);

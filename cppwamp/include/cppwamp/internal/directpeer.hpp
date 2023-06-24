@@ -98,7 +98,7 @@ private:
         session_->report({AccessAction::clientConnect});
     }
 
-    void onConnect(Transporting::Ptr t, AnyBufferCodec c) override
+    void onConnect(Transporting::Ptr, AnyBufferCodec) override
     {
         CPPWAMP_LOGIC_ERROR("Cannot connect a wamp::DirectionSession via "
                             " a wamp::Session base class reference/pointer");
@@ -213,23 +213,23 @@ private:
         return sendCommand(result);
     }
 
-    ErrorOrDone send(Welcome&& c) override           {return badCommand();}
-    ErrorOrDone send(Authentication&& c) override    {return badCommand();}
-    ErrorOrDone send(Challenge&& c) override         {return badCommand();}
-    ErrorOrDone send(Published&& c) override         {return badCommand();}
-    ErrorOrDone send(Event&& c) override             {return badCommand();}
-    ErrorOrDone send(Subscribed&& c) override        {return badCommand();}
-    ErrorOrDone send(Unsubscribed&& c) override      {return badCommand();}
-    ErrorOrDone send(Invocation&& c) override        {return badCommand();}
-    ErrorOrDone send(Interruption&& c) override      {return badCommand();}
-    ErrorOrDone send(Registered&& c) override        {return badCommand();}
-    ErrorOrDone send(Unregistered&& c) override      {return badCommand();}
+    ErrorOrDone send(Welcome&&) override        {return badCommand();}
+    ErrorOrDone send(Authentication&&) override {return badCommand();}
+    ErrorOrDone send(Challenge&&) override      {return badCommand();}
+    ErrorOrDone send(Published&&) override      {return badCommand();}
+    ErrorOrDone send(Event&&) override          {return badCommand();}
+    ErrorOrDone send(Subscribed&&) override     {return badCommand();}
+    ErrorOrDone send(Unsubscribed&&) override   {return badCommand();}
+    ErrorOrDone send(Invocation&&) override     {return badCommand();}
+    ErrorOrDone send(Interruption&&) override   {return badCommand();}
+    ErrorOrDone send(Registered&&) override     {return badCommand();}
+    ErrorOrDone send(Unregistered&&) override   {return badCommand();}
 
     ErrorOrDone abort(Reason reason) override
     {
         traceTx(reason.message({}));
         session_->report(reason.info(false));
-        bool ready = readyToAbort();
+        const bool ready = readyToAbort();
         disconnect();
         if (!ready)
             return makeUnexpectedError(MiscErrc::invalidState);

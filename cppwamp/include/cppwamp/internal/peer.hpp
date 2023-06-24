@@ -52,10 +52,7 @@ public:
         return compareAndSetState(State::disconnected, State::connecting);
     }
 
-    void failConnecting(std::error_code ec)
-    {
-        setState(State::failed);
-    }
+    void failConnecting() {setState(State::failed);}
 
     void connect(Transporting::Ptr transport, AnyBufferCodec codec)
     {

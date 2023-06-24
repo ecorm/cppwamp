@@ -131,7 +131,7 @@ public:
 
     ReservedId reserve()
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        const std::lock_guard<std::mutex> lock(mutex_);
         const auto end = ids_.cend();
         IdSet::const_iterator found;
         EphemeralId id = 0;
@@ -153,7 +153,7 @@ private:
 
     void free(EphemeralId id)
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        const std::lock_guard<std::mutex> lock(mutex_);
         ids_.erase(id);
     }
 

@@ -237,9 +237,9 @@ public:
         // https://github.com/wamp-proto/wamp-proto/issues/345
 
         Object customOptions;
-        auto trustLevel = rpc.trustLevel({});
-        bool callerDisclosed = rpc.discloseMe();
-        bool hasTrustLevel = rpc.hasTrustLevel({});
+        const auto trustLevel = rpc.trustLevel({});
+        const bool callerDisclosed = rpc.discloseMe();
+        const bool hasTrustLevel = rpc.hasTrustLevel({});
 
         auto found = rpc.options().find("custom");
         if (found != rpc.options().end() && found->second.is<Object>())
@@ -309,7 +309,7 @@ public:
             return false; // notifyAbandonedCallee has already sent ERROR
 
         auto calleeFeatures = callee->info().features().callee();
-        bool calleeHasCallCanceling =
+        const bool calleeHasCallCanceling =
             calleeFeatures.all_of(CalleeFeatures::callCanceling);
         mode = calleeHasCallCanceling ? mode : Mode::skip;
 
@@ -386,7 +386,7 @@ public:
             return true;
         result.setKindToResult({});
         result.setRequestId({}, callerKey_.second);
-        bool isProgress = result.optionOr<bool>("progress", false);
+        const bool isProgress = result.optionOr<bool>("progress", false);
         result.withOptions({});
         if (isProgress)
             result.withOption("progress", true);
@@ -437,7 +437,7 @@ private:
             timeout_ = *timeout;
 
         auto calleeFeatures = callee->info().features().callee();
-        bool calleeHasCallCancelling =
+        const bool calleeHasCallCancelling =
             calleeFeatures.all_of(CalleeFeatures::callCanceling);
 
         // Not clear what the behavior should be when progressive results are
@@ -445,7 +445,7 @@ private:
         // https://github.com/wamp-proto/wamp-proto/issues/467
         if (rpc.progressiveResultsAreEnabled({}))
         {
-            bool calleeHasProgressiveCallResults =
+            const bool calleeHasProgressiveCallResults =
                 calleeHasCallCancelling &&
                 calleeFeatures.all_of(CalleeFeatures::progressiveCallResults);
             progressiveResultsRequested_ = calleeHasProgressiveCallResults;
@@ -453,7 +453,7 @@ private:
 
         if (rpc.isProgress({}))
         {
-            bool calleeHasProgressiveCallInvocations =
+            const bool calleeHasProgressiveCallInvocations =
                 calleeHasCallCancelling &&
                 calleeFeatures.all_of(CalleeFeatures::progressiveCallInvocations);
 
@@ -546,10 +546,10 @@ public:
         auto end = byCallee_.end();
         while (iter != end)
         {
-            SessionId calleeSessionId = iter->first.first;
-            SessionId callerSessionId = iter->second->first.first;
-            bool calleeMatches = calleeSessionId == sessionId;
-            bool callerMatches = callerSessionId == sessionId;
+            const SessionId calleeSessionId = iter->first.first;
+            const SessionId callerSessionId = iter->second->first.first;
+            const bool calleeMatches = calleeSessionId == sessionId;
+            const bool callerMatches = callerSessionId == sessionId;
 
             if (calleeMatches || callerMatches)
             {
@@ -647,9 +647,10 @@ public:
 
         auto rpcReqId = rpc.requestId({});
 
-        bool isContinuation = rpcReqId <= caller->lastInsertedCallRequestId();
+        const bool isContinuation = rpcReqId <=
+                                    caller->lastInsertedCallRequestId();
         if (isContinuation)
-            return continueCall(*caller, *callee, std::move(rpc), *reg);
+            return continueCall(*caller, *callee, std::move(rpc));
 
         return newCall(caller, callee, std::move(rpc), *reg);
     }
@@ -657,7 +658,7 @@ public:
     ErrorOrDone cancelCall(const RouterSession::Ptr& caller,
                            CallCancellation&& cncl)
     {
-        DealerJobKey callerKey{caller->wampId(), cncl.requestId({})};
+        const DealerJobKey callerKey{caller->wampId(), cncl.requestId({})};
         auto iter = jobs_.byCallerFind(callerKey);
         if (iter == jobs_.byCallerEnd())
             return false;
@@ -673,7 +674,7 @@ public:
 
     void yieldResult(const RouterSession::Ptr& callee, Result&& result)
     {
-        DealerJobKey calleeKey{callee->wampId(), result.requestId({})};
+        const DealerJobKey calleeKey{callee->wampId(), result.requestId({})};
         auto iter = jobs_.byCalleeFind(calleeKey);
         if (iter == jobs_.byCalleeEnd())
             return;
@@ -686,7 +687,7 @@ public:
 
     void yieldError(const RouterSession::Ptr& callee, Error&& error)
     {
-        DealerJobKey calleeKey{callee->wampId(), error.requestId({})};
+        const DealerJobKey calleeKey{callee->wampId(), error.requestId({})};
         auto iter = jobs_.byCalleeFind(calleeKey);
         if (iter == jobs_.byCalleeEnd())
             return;
@@ -750,7 +751,7 @@ private:
     }
 
     ErrorOrDone continueCall(RouterSession& caller, RouterSession& callee,
-                             Rpc&& rpc, const DealerRegistration& reg)
+                             Rpc&& rpc)
     {
         auto uri = rpc.uri();
         auto found = jobs_.byCallerFind({caller.wampId(), rpc.requestId({})});

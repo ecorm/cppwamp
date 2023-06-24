@@ -262,7 +262,7 @@ CPPWAMP_INLINE WampErrc errorUriToCode(const std::string& uri)
     auto end = sortedByUri.cend();
     auto iter = std::lower_bound(sortedByUri.cbegin(), end, uri);
     // NOLINTEND(readability-qualified-auto)
-    bool found = (iter != end) && (iter->uri == uri);
+    const bool found = (iter != end) && (iter->uri == uri);
     return found ? iter->errc : WampErrc::unknown;
 }
 

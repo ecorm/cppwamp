@@ -439,7 +439,7 @@ private:
         }
     }
 
-    void onPeerAuthenticate(Authentication&& authentication) override
+    void onPeerAuthenticate(Authentication&&) override
     {
         assert(false);
     }
@@ -505,8 +505,8 @@ private:
 
     void onEvent(Message& msg)
     {
-        Event event{{}, std::move(msg)};
-        bool ok = readership_.onEvent(event);
+        const Event event{{}, std::move(msg)};
+        const bool ok = readership_.onEvent(event);
         if (!ok && incidentSlot_)
         {
             std::ostringstream oss;
@@ -618,7 +618,7 @@ private:
     {
         Reason reason{{}, std::move(reply)};
         const auto& uri = reason.uri();
-        WampErrc errc = errorUriToCode(uri);
+        const WampErrc errc = errorUriToCode(uri);
 
         if (reasonPtr != nullptr)
             *reasonPtr = std::move(reason);
@@ -709,7 +709,7 @@ private:
             {
                 if (wishes.size() > 1)
                     ec = make_error_code(TransportErrc::exhausted);
-                peer_->failConnecting(ec);
+                peer_->failConnecting();
                 completeNow(*handler, UnexpectedError(ec));
             }
         }
@@ -842,7 +842,7 @@ private:
                 auto& me = *self;
                 if (!me.checkReply(reply, MessageKind::subscribed, handler))
                     return;
-                Subscribed ack{std::move(*reply)};
+                const Subscribed ack{std::move(*reply)};
                 auto sub = me.readership_.createSubscription(
                     ack.subscriptionId(), std::move(matchUri), std::move(slot),
                     me.makeContext());
@@ -932,7 +932,7 @@ private:
                 auto& me = *self;
                 if (me.checkReply(reply, MessageKind::published, handler))
                 {
-                    Published ack{std::move(*reply)};
+                    const Published ack{std::move(*reply)};
                     me.completeNow(handler, ack.publicationId());
                 }
             }
@@ -960,7 +960,7 @@ private:
                 auto& me = *self;
                 if (!me.checkReply(reply, MessageKind::registered, f))
                     return;
-                Registered ack{std::move(*reply)};
+                const Registered ack{std::move(*reply)};
                 r.setRegistrationId(ack.registrationId());
                 auto reg = me.registry_.enroll(std::move(r));
                 me.completeNow(f, std::move(reg));
@@ -990,7 +990,7 @@ private:
                 auto& me = *self;
                 if (!me.checkReply(reply, MessageKind::registered, f))
                     return;
-                Registered ack{std::move(*reply)};
+                const Registered ack{std::move(*reply)};
                 r.setRegistrationId(ack.registrationId());
                 auto reg = me.registry_.enroll(std::move(r));
                 me.completeNow(f, std::move(reg));
@@ -1040,7 +1040,6 @@ private:
         if (!reg || !registry_.unregister(reg.id()))
             return complete(handler, false);
 
-        Unregister cmd{reg.id()};
         if (checkState(State::established, handler))
         {
             request(Unregister{reg.id()},
@@ -1283,7 +1282,7 @@ private:
     template <typename F>
     bool checkState(State expectedState, F& handler)
     {
-        bool valid = state() == expectedState;
+        const bool valid = state() == expectedState;
         if (!valid)
             postErrorToHandler(MiscErrc::invalidState, handler);
         return valid;
@@ -1373,7 +1372,7 @@ private:
     template <typename THandler>
     bool checkError(const ErrorOr<Message>& msg, THandler& handler)
     {
-        bool ok = msg.has_value();
+        const bool ok = msg.has_value();
         if (!ok)
             dispatchHandler(handler, UnexpectedError(msg.error()));
         return ok;
@@ -1394,7 +1393,7 @@ private:
         }
 
         Error error(PassKey{}, std::move(*reply));
-        WampErrc errc = error.errorCode();
+        const WampErrc errc = error.errorCode();
 
         if (errorPtr != nullptr)
             *errorPtr = std::move(error);

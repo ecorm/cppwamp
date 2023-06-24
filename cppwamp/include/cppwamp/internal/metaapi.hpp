@@ -280,7 +280,7 @@ private:
         return Result{killed.size()};
     }
 
-    Outcome listRegistrations(RouterSession&, Rpc& rpc)
+    Outcome listRegistrations(RouterSession&, Rpc&)
     {
         std::vector<RegistrationId> exact;
         std::vector<RegistrationId> prefix;
@@ -368,7 +368,7 @@ private:
         return Result{info->calleeCount};
     }
 
-    Outcome listSubscriptions(RouterSession&, Rpc& rpc)
+    Outcome listSubscriptions(RouterSession&, Rpc&)
     {
         std::vector<SubscriptionId> exact;
         std::vector<SubscriptionId> prefix;
@@ -498,7 +498,8 @@ public:
 
     void addObserver(const RealmObserver::Ptr& o, const FallbackExecutor& e)
     {
-        WeakPtr self = std::static_pointer_cast<MetaTopics>(shared_from_this());
+        const WeakPtr self =
+            std::static_pointer_cast<MetaTopics>(shared_from_this());
         auto id = ++nextObserverId_;
         o->attach(self, id, e);
         observers_.emplace(id, o);

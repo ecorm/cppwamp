@@ -249,14 +249,14 @@ private:
         // ServerSession::onStateChanged will perform the retire() operation.
     }
 
-    void onPeerChallenge(Challenge&& challenge) override {assert(false);}
+    void onPeerChallenge(Challenge&&) override {assert(false);}
 
     void onPeerAuthenticate(Authentication&& authentication) override
     {
         Base::report(authentication.info());
 
-        bool isExpected = authExchange_ != nullptr &&
-                          state() == State::authenticating;
+        const bool isExpected = authExchange_ != nullptr &&
+                                state() == State::authenticating;
         if (!isExpected)
         {
             return abortSession(Reason(WampErrc::protocolViolation).
@@ -311,7 +311,7 @@ private:
         assert(!alreadyStarted_);
         alreadyStarted_ = true;
 
-        std::weak_ptr<ServerSession> self = shared_from_this();
+        const std::weak_ptr<ServerSession> self = shared_from_this();
 
         if (routerLogLevel() == LogLevel::trace)
             enableTracing();
@@ -405,10 +405,10 @@ private:
 
     void welcome(SessionInfoImpl::Ptr info)
     {
-        auto s = state();
-        bool readyToWelcome = authExchange_ != nullptr &&
-                              (s == State::establishing ||
-                               s == State::authenticating);
+        const auto s = state();
+        const bool readyToWelcome = authExchange_ != nullptr &&
+                                    (s == State::establishing ||
+                                     s == State::authenticating);
         if (!readyToWelcome)
         {
             authExchange_.reset();
@@ -446,9 +446,9 @@ private:
     void reject(Reason&& r)
     {
         authExchange_.reset();
-        auto s = state();
-        bool readyToReject = s == State::establishing ||
-                             s == State::authenticating;
+        const auto s = state();
+        const bool readyToReject = s == State::establishing ||
+                                   s == State::authenticating;
         if (!readyToReject)
             return;
 
@@ -563,7 +563,7 @@ private:
         if (!listener_)
             return;
 
-        std::weak_ptr<RouterServer> self{shared_from_this()};
+        const std::weak_ptr<RouterServer> self{shared_from_this()};
         listener_->establish(
             [this, self](ErrorOr<Transporting::Ptr> transport)
             {

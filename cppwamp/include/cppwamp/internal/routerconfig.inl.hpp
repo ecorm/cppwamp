@@ -130,9 +130,9 @@ CPPWAMP_INLINE RouterConfig& RouterConfig::withLogHandler(LogHandler f)
     return *this;
 }
 
-CPPWAMP_INLINE RouterConfig& RouterConfig::withLogLevel(LogLevel l)
+CPPWAMP_INLINE RouterConfig& RouterConfig::withLogLevel(LogLevel level)
 {
-    logLevel_ = l;
+    logLevel_ = level;
     return *this;
 }
 

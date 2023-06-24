@@ -168,8 +168,7 @@ private:
     }
 
     template <typename T>
-    std::error_code addObjectElement(T&& value, bool isComposite,
-                                     const Where& where)
+    std::error_code addObjectElement(T&& value, bool isComposite, const Where&)
     {
         auto& ctx = context();
         if (!ctx.keyIsDone())
@@ -368,7 +367,7 @@ private:
 
 public:
     template <typename... TArgs>
-    explicit GenericDecoder(std::string codecName, TArgs&&... inputStubArgs)
+    explicit GenericDecoder(std::string codecName, TArgs&&... /*inputStubArgs*/)
         : inputStub_(typename SourceTraits::StubArg{}),
           parser_(inputStub_),
           codecName_(std::move(codecName))

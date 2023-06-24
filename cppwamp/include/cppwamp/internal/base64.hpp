@@ -284,7 +284,7 @@ private:
 
         if (!padAllowedHere && c == pad)
             return DecodingErrc::badBase64Padding;
-        uint8_t index = c;
+        const uint8_t index = c;
         sextet = table.at(index);
         if (sextet == bad)
             return DecodingErrc::badBase64Char;
