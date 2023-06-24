@@ -107,32 +107,33 @@ ResultTypeOf<V> apply(V&& v, X&& x)
     }
 
     // Unreachable. Return null case to silence warning.
-    return std::forward<V>(v)(x.template as<I::null>());
+    return std::forward<V>(v)(A::alt<I::null>(std::forward<X>(x)));
 }
 
 //------------------------------------------------------------------------------
 template <typename V, typename X, typename Y>
 ResultTypeOf<V> apply(V&& v, X&& x, Y&& y)
 {
+    using A = internal::VariantUncheckedAccess;
     using I = decltype(x.typeId());
 
     switch(y.typeId())
     {
-    case I::null:    return applyWithOperand(std::forward<V>(v), std::forward<X>(x), y.template as<I::null>());
-    case I::boolean: return applyWithOperand(std::forward<V>(v), std::forward<X>(x), y.template as<I::boolean>());
-    case I::integer: return applyWithOperand(std::forward<V>(v), std::forward<X>(x), y.template as<I::integer>());
-    case I::uint:    return applyWithOperand(std::forward<V>(v), std::forward<X>(x), y.template as<I::uint>());
-    case I::real:    return applyWithOperand(std::forward<V>(v), std::forward<X>(x), y.template as<I::real>());
-    case I::string:  return applyWithOperand(std::forward<V>(v), std::forward<X>(x), y.template as<I::string>());
-    case I::blob:    return applyWithOperand(std::forward<V>(v), std::forward<X>(x), y.template as<I::blob>());
-    case I::array:   return applyWithOperand(std::forward<V>(v), std::forward<X>(x), y.template as<I::array>());
-    case I::object:  return applyWithOperand(std::forward<V>(v), std::forward<X>(x), y.template as<I::object>());
+    case I::null:    return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<I::null>   (std::forward<Y>(y)));
+    case I::boolean: return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<I::boolean>(std::forward<Y>(y)));
+    case I::integer: return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<I::integer>(std::forward<Y>(y)));
+    case I::uint:    return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<I::uint>   (std::forward<Y>(y)));
+    case I::real:    return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<I::real>   (std::forward<Y>(y)));
+    case I::string:  return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<I::string> (std::forward<Y>(y)));
+    case I::blob:    return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<I::blob>   (std::forward<Y>(y)));
+    case I::array:   return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<I::array>  (std::forward<Y>(y)));
+    case I::object:  return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<I::object> (std::forward<Y>(y)));
     default:         assert(false);
     }
 
     // Unreachable. Return null case to silence warning.
     return applyWithOperand(std::forward<V>(v), std::forward<X>(x),
-                            y.template as<I::null>());
+                            A::alt<I::null>(std::forward<Y>(y)));
 }
 
 //------------------------------------------------------------------------------
