@@ -31,6 +31,24 @@ using ArrayType  = std::vector<Variant>;
 using ObjectType = std::map<String, Variant>;
 
 //------------------------------------------------------------------------------
+struct VariantUncheckedAccess
+{
+    template <typename TField, typename TVariant>
+    static auto alt(TVariant&& v) ->
+        decltype(std::forward<TVariant>(v).template alt<TField>())
+    {
+        return std::forward<TVariant>(v).template alt<TField>();
+    }
+
+    template <TypeId id, typename TVariant>
+    static auto alt(TVariant&& v) ->
+        decltype(std::forward<TVariant>(v).template alt<id>())
+    {
+        return std::forward<TVariant>(v).template alt<id>();
+    }
+};
+
+//------------------------------------------------------------------------------
 template <TypeId typeId> struct FieldTypeForId {};
 template <> struct FieldTypeForId<TypeId::null>    {using Type = Null;};
 template <> struct FieldTypeForId<TypeId::boolean> {using Type = Bool;};
@@ -44,6 +62,7 @@ template <> struct FieldTypeForId<TypeId::object>  {using Type = ObjectType;};
 
 
 //------------------------------------------------------------------------------
+// TODO: Return const String&
 template <typename TField>
 struct FieldTraits
 {

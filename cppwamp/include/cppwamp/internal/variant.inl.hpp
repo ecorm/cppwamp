@@ -488,6 +488,7 @@ CPPWAMP_INLINE bool isScalar(const Variant& v)
 }
 
 //------------------------------------------------------------------------------
+// TODO: Return const String&
 CPPWAMP_INLINE Variant::String typeNameOf(const Variant& v)
 {
     return wamp::apply(internal::VariantTypeName(), v);
@@ -594,7 +595,8 @@ CPPWAMP_INLINE std::string toString(const Variant& v)
 CPPWAMP_INLINE bool operator==(const Variant& variant,
                                const Variant::CharType* str)
 {
-    return variant.is<String>() && (variant.as<String>() == str);
+    using A = internal::VariantUncheckedAccess;
+    return variant.is<String>() && (A::alt<String>(variant) == str);
 }
 
 //------------------------------------------------------------------------------
@@ -620,7 +622,8 @@ CPPWAMP_INLINE bool operator==(Variant::CharType* str, const Variant& variant)
 CPPWAMP_INLINE bool operator!=(const Variant& variant,
                                const Variant::CharType* str)
 {
-    return !variant.is<String>() || (variant.as<String>() != str);
+    using A = internal::VariantUncheckedAccess;
+    return !variant.is<String>() || (A::alt<String>(variant) != str);
 }
 
 //------------------------------------------------------------------------------

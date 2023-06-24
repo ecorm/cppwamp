@@ -28,6 +28,8 @@ namespace wamp
 template <typename T, std::size_t Size>
 CPPWAMP_API void convert(FromVariantConverter& conv, std::array<T, Size>& array)
 {
+    using A = internal::VariantUncheckedAccess;
+
     using namespace wamp;
     const auto& variant = conv.variant();
     if (!variant.is<Array>())
@@ -37,7 +39,7 @@ CPPWAMP_API void convert(FromVariantConverter& conv, std::array<T, Size>& array)
     }
 
     std::array<T, Size> newArray;
-    const auto& variantArray = variant.as<Array>();
+    const auto& variantArray = A::alt<Array>(variant);
     if (variantArray.size() != Size)
     {
         throw error::Conversion("Variant array size does not match that "

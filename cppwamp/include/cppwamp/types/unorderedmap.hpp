@@ -30,6 +30,8 @@ template <typename T>
 void CPPWAMP_API convert(FromVariantConverter& conv,
                          std::unordered_map<String, T>& map)
 {
+    using A = internal::VariantUncheckedAccess;
+
     const auto& variant = conv.variant();
     if (!variant.is<Object>())
     {
@@ -38,7 +40,7 @@ void CPPWAMP_API convert(FromVariantConverter& conv,
     }
 
     std::unordered_map<String, T> newMap;
-    for (const auto& kv: variant.as<Object>())
+    for (const auto& kv: A::alt<Object>(variant))
     {
         try
         {

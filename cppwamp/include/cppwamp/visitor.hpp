@@ -17,6 +17,7 @@
 #include <utility>
 #include "api.hpp"
 #include "traits.hpp"
+#include "internal/varianttraits.hpp"
 
 namespace wamp
 {
@@ -88,19 +89,20 @@ CPPWAMP_API ResultTypeOf<TVisitor> applyWithOperand(TVisitor&& v, TVariant&& x,
 template <typename V, typename X>
 ResultTypeOf<V> apply(V&& v, X&& x)
 {
+    using A = internal::VariantUncheckedAccess;
     using I = decltype(x.typeId());
 
     switch (x.typeId())
     {
-    case I::null:    return std::forward<V>(v)(x.template as<I::null>());
-    case I::boolean: return std::forward<V>(v)(x.template as<I::boolean>());
-    case I::integer: return std::forward<V>(v)(x.template as<I::integer>());
-    case I::uint:    return std::forward<V>(v)(x.template as<I::uint>());
-    case I::real:    return std::forward<V>(v)(x.template as<I::real>());
-    case I::string:  return std::forward<V>(v)(x.template as<I::string>());
-    case I::blob:    return std::forward<V>(v)(x.template as<I::blob>());
-    case I::array:   return std::forward<V>(v)(x.template as<I::array>());
-    case I::object:  return std::forward<V>(v)(x.template as<I::object>());
+    case I::null:    return std::forward<V>(v)(A::alt<I::null>   (std::forward<X>(x)));
+    case I::boolean: return std::forward<V>(v)(A::alt<I::boolean>(std::forward<X>(x)));
+    case I::integer: return std::forward<V>(v)(A::alt<I::integer>(std::forward<X>(x)));
+    case I::uint:    return std::forward<V>(v)(A::alt<I::uint>   (std::forward<X>(x)));
+    case I::real:    return std::forward<V>(v)(A::alt<I::real>   (std::forward<X>(x)));
+    case I::string:  return std::forward<V>(v)(A::alt<I::string> (std::forward<X>(x)));
+    case I::blob:    return std::forward<V>(v)(A::alt<I::blob>   (std::forward<X>(x)));
+    case I::array:   return std::forward<V>(v)(A::alt<I::array>  (std::forward<X>(x)));
+    case I::object:  return std::forward<V>(v)(A::alt<I::object> (std::forward<X>(x)));
     default:         assert(false);
     }
 
@@ -137,19 +139,20 @@ ResultTypeOf<V> apply(V&& v, X&& x, Y&& y)
 template <typename V, typename X, typename O>
 ResultTypeOf<V> applyWithOperand(V&& v, X&& x, O&& o)
 {
+    using A = internal::VariantUncheckedAccess;
     using I = decltype(x.typeId());
 
     switch (x.typeId())
     {
-    case I::null:    return std::forward<V>(v)(x.template as<I::null>(),    std::forward<O>(o));
-    case I::boolean: return std::forward<V>(v)(x.template as<I::boolean>(), std::forward<O>(o));
-    case I::integer: return std::forward<V>(v)(x.template as<I::integer>(), std::forward<O>(o));
-    case I::uint:    return std::forward<V>(v)(x.template as<I::uint>(),    std::forward<O>(o));
-    case I::real:    return std::forward<V>(v)(x.template as<I::real>(),    std::forward<O>(o));
-    case I::string:  return std::forward<V>(v)(x.template as<I::string>(),  std::forward<O>(o));
-    case I::blob:    return std::forward<V>(v)(x.template as<I::blob>(),    std::forward<O>(o));
-    case I::array:   return std::forward<V>(v)(x.template as<I::array>(),   std::forward<O>(o));
-    case I::object:  return std::forward<V>(v)(x.template as<I::object>(),  std::forward<O>(o));
+    case I::null:    return std::forward<V>(v)(A::alt<I::null>   (std::forward<X>(x)), std::forward<O>(o));
+    case I::boolean: return std::forward<V>(v)(A::alt<I::boolean>(std::forward<X>(x)), std::forward<O>(o));
+    case I::integer: return std::forward<V>(v)(A::alt<I::integer>(std::forward<X>(x)), std::forward<O>(o));
+    case I::uint:    return std::forward<V>(v)(A::alt<I::uint>   (std::forward<X>(x)), std::forward<O>(o));
+    case I::real:    return std::forward<V>(v)(A::alt<I::real>   (std::forward<X>(x)), std::forward<O>(o));
+    case I::string:  return std::forward<V>(v)(A::alt<I::string> (std::forward<X>(x)), std::forward<O>(o));
+    case I::blob:    return std::forward<V>(v)(A::alt<I::blob>   (std::forward<X>(x)), std::forward<O>(o));
+    case I::array:   return std::forward<V>(v)(A::alt<I::array>  (std::forward<X>(x)), std::forward<O>(o));
+    case I::object:  return std::forward<V>(v)(A::alt<I::object> (std::forward<X>(x)), std::forward<O>(o));
     default:         assert(false);
     }
 

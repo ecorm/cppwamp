@@ -251,11 +251,13 @@ Options<D,K>::Options(internal::Message&& msg)
 //------------------------------------------------------------------------------
 inline bool optionToUnsignedInteger(const Variant& option, UInt& number)
 {
+    using A = internal::VariantUncheckedAccess;
+
     switch (option.typeId())
     {
     case TypeId::integer:
     {
-        auto n = option.as<Int>();
+        auto n = A::alt<Int>(option);
         if (n < 0)
             return false;
         number = n;
@@ -263,12 +265,12 @@ inline bool optionToUnsignedInteger(const Variant& option, UInt& number)
     }
 
     case TypeId::uint:
-        number = option.as<UInt>();
+        number = A::alt<UInt>(option);
         break;
 
     case TypeId::real:
     {
-        auto x = option.as<Real>();
+        auto x = A::alt<Real>(option);
         if (x < 0)
             return false;
 

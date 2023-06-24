@@ -28,6 +28,8 @@ namespace wamp
 template <typename T>
 CPPWAMP_API void convert(FromVariantConverter& conv, std::unordered_set<T>& set)
 {
+    using A = internal::VariantUncheckedAccess;
+
     const auto& variant = conv.variant();
     if (!variant.is<Array>())
     {
@@ -36,7 +38,7 @@ CPPWAMP_API void convert(FromVariantConverter& conv, std::unordered_set<T>& set)
     }
 
     std::unordered_set<T> newSet;
-    const auto& array = variant.as<Array>();
+    const auto& array = A::alt<Array>(variant);
     for (Array::size_type i=0; i<array.size(); ++i)
     {
         try

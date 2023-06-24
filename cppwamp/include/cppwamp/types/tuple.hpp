@@ -227,13 +227,15 @@ wamp::Variant::Array toArray(const std::tuple<Ts...>& tuple)
 template <typename... Ts>
 void convert(FromVariantConverter& conv, std::tuple<Ts...>& tuple)
 {
+    using A = internal::VariantUncheckedAccess;
+
     const auto& variant = conv.variant();
     if (!variant.is<Array>())
     {
         throw error::Conversion("Cannot convert variant to tuple; "
                                 "the variant is not an array");
     }
-    toTuple(variant.as<Array>(), tuple);
+    toTuple(A::alt<Array>(variant), tuple);
 }
 
 //------------------------------------------------------------------------------
@@ -277,7 +279,8 @@ bool operator!=(const std::tuple<Ts...>& tuple, const Array& array)
 template <typename... Ts>
 bool operator==(const Variant& variant, const std::tuple<Ts...>& tuple)
 {
-    return variant.is<Array>() && variant.as<Array>() == tuple;
+    using A = internal::VariantUncheckedAccess;
+    return variant.is<Array>() && A::alt<Array>(variant) == tuple;
 }
 
 //------------------------------------------------------------------------------
@@ -291,7 +294,8 @@ bool operator==(const std::tuple<Ts...>& tuple, const Variant& variant)
 template <typename... Ts>
 bool operator!=(const Variant& variant, const std::tuple<Ts...>& tuple)
 {
-    return !variant.is<Array>() || variant.as<Array>() != tuple;
+    using A = internal::VariantUncheckedAccess;
+    return !variant.is<Array>() || A::alt<Array>(variant) != tuple;
 }
 
 //------------------------------------------------------------------------------

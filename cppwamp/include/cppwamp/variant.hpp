@@ -419,7 +419,19 @@ private:
     CPPWAMP_HIDDEN void convertTo(std::map<String, T>& map) const;
 
     template <typename TField, typename V>
-    CPPWAMP_HIDDEN static TField& get(V&& variant);
+    static TField& get(V&& variant);
+
+    template <typename TField>
+    CPPWAMP_HIDDEN TField& alt();
+
+    template <typename TField>
+    CPPWAMP_HIDDEN const TField& alt() const;
+
+    template <TypeId id>
+    CPPWAMP_HIDDEN BoundTypeForId<id>& alt();
+
+    template <TypeId id>
+    CPPWAMP_HIDDEN const BoundTypeForId<id>& alt() const;
 
     union Field
     {
@@ -442,6 +454,8 @@ private:
     } field_;
 
     TypeId typeId_;
+
+    friend struct internal::VariantUncheckedAccess;
 };
 
 //------------------------------------------------------------------------------
@@ -1217,14 +1231,49 @@ void Variant::convertTo(std::map<String, T>& map) const
 }
 
 //------------------------------------------------------------------------------
-template <typename TField, typename V> TField& Variant::get(V&& variant)
+template <typename TField, typename V>
+TField& Variant::get(V&& variant)
 {
     using FieldType = typename std::remove_const<TField>::type;
     static_assert(FieldTraits<FieldType>::isValid, "Invalid field type");
     if (!variant.template is<FieldType>())
+    {
         throw error::Access(wamp::typeNameOf(variant),
                             FieldTraits<FieldType>::typeName());
+    }
     return Access<FieldType>::get(&variant.field_);
+}
+
+//------------------------------------------------------------------------------
+template <typename TField>
+CPPWAMP_HIDDEN TField& Variant::alt()
+{
+    static_assert(FieldTraits<TField>::isValid, "Invalid field type");
+    assert(is<TField>());
+    return Access<TField>::get(&field_);
+}
+
+//------------------------------------------------------------------------------
+template <typename TField>
+CPPWAMP_HIDDEN const TField& Variant::alt() const
+{
+    static_assert(FieldTraits<TField>::isValid, "Invalid field type");
+    assert(is<TField>());
+    return Access<TField>::get(&field_);
+}
+
+//------------------------------------------------------------------------------
+template <TypeId id>
+CPPWAMP_HIDDEN Variant::BoundTypeForId<id>& Variant::alt()
+{
+    return alt<Variant::BoundTypeForId<id>>();
+}
+
+//------------------------------------------------------------------------------
+template <TypeId id>
+CPPWAMP_HIDDEN const Variant::BoundTypeForId<id>& Variant::alt() const
+{
+    return alt<Variant::BoundTypeForId<id>>();
 }
 
 //------------------------------------------------------------------------------

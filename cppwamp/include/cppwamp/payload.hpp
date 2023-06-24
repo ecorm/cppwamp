@@ -599,6 +599,8 @@ template <typename D, internal::MessageKind K>
 template <typename T, typename... Ts>
 void Payload<D,K>::unbundleAs(Array& array, size_t& index, T& head, Ts&... tail)
 {
+    using A = internal::VariantUncheckedAccess;
+
     if (index < array.size())
     {
         auto& arg = array[index];
@@ -610,7 +612,7 @@ void Payload<D,K>::unbundleAs(Array& array, size_t& index, T& head, Ts&... tail)
                 << " is not of type: " << typeNameOf<T>();
             throw error::Access(oss.str());
         }
-        head = std::move(arg.as<T>());
+        head = std::move(A::alt<T>(arg));
         unbundleAs(array, ++index, tail...);
     }
 }
@@ -621,6 +623,8 @@ template <size_t I, typename... Ts>
 size_t Payload<D,K>::unbundleAsTuple(
     const Array& array, std::tuple<Ts...>& tuple, TrueType)
 {
+    using A = internal::VariantUncheckedAccess;
+
     if (I < array.size())
     {
         using T = typename std::tuple_element<I, std::tuple<Ts...>>::type;
@@ -633,7 +637,7 @@ size_t Payload<D,K>::unbundleAsTuple(
                 << " is not of type: " << typeNameOf<T>();
             throw error::Access(oss.str());
         }
-        std::get<I>(tuple) = std::move(arg.as<T>());
+        std::get<I>(tuple) = std::move(A::alt<T>(arg));
         using More = std::integral_constant<bool, I+1 != sizeof...(Ts)>;
         return unbundleAsTuple<I+1, Ts...>(array, tuple, More{});
     }

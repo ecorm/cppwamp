@@ -27,6 +27,8 @@ namespace wamp
 template <typename T>
 void CPPWAMP_API convert(FromVariantConverter& conv, std::set<T>& set)
 {
+    using A = internal::VariantUncheckedAccess;
+
     const auto& variant = conv.variant();
     if (!variant.is<Array>())
     {
@@ -35,7 +37,7 @@ void CPPWAMP_API convert(FromVariantConverter& conv, std::set<T>& set)
     }
 
     std::set<T> newSet;
-    const auto& array = variant.as<Array>();
+    const auto& array = A::alt<Array>(variant);
     for (Array::size_type i=0; i<array.size(); ++i)
     {
         try
