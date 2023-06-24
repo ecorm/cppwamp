@@ -80,12 +80,12 @@ struct Message
     Message() : kind_(MessageKind::none) {}
 
     template <typename... Ts>
-    Message(MessageKind kind, Ts&&... fields)
+    explicit Message(MessageKind kind, Ts&&... fields)
         : kind_(kind),
           fields_(Array{static_cast<Int>(kind), std::forward<Ts>(fields)...})
     {}
 
-    Message(Array&& array)
+    explicit Message(Array&& array)
         : kind_(MessageKind::none),
           fields_(std::move(array))
     {}
@@ -93,7 +93,7 @@ struct Message
     void setKind(MessageKind t)
     {
         kind_ = t;
-        fields_.at(0) = Int(t);
+        fields_.at(0) = static_cast<Int>(t);
     }
 
     MessageKind kind() const {return kind_;}
@@ -189,17 +189,17 @@ protected:
     RequestCommand() = default;
 
     template <typename... Ts>
-    RequestCommand(MessageKind kind, Ts&&... fields)
+    explicit RequestCommand(MessageKind kind, Ts&&... fields)
         : message_(kind, std::forward<Ts>(fields)...),
           requestId_(message_.template to<RequestId>(requestIdPos_))
     {}
 
-    RequestCommand(Message&& msg)
+    explicit RequestCommand(Message&& msg)
         : message_(std::move(msg)),
           requestId_(message_.template to<RequestId>(requestIdPos_))
     {}
 
-    RequestCommand(Array&& array)
+    explicit RequestCommand(Array&& array)
         : message_(std::move(array)),
           requestId_(message_.template to<RequestId>(requestIdPos_))
     {}
@@ -251,13 +251,13 @@ protected:
     NonRequestCommand() = default;
 
     template <typename... Ts>
-    NonRequestCommand(MessageKind kind, Ts&&... fields)
+    explicit NonRequestCommand(MessageKind kind, Ts&&... fields)
         : message_(kind, std::forward<Ts>(fields)...)
     {}
 
-    NonRequestCommand(Message&& msg) : message_(std::move(msg)) {}
+    explicit NonRequestCommand(Message&& msg) : message_(std::move(msg)) {}
 
-    NonRequestCommand(Array&& array) : message_(std::move(array)) {}
+    explicit NonRequestCommand(Array&& array) : message_(std::move(array)) {}
 
     const Message& message() const {return message_;}
 
@@ -286,7 +286,7 @@ protected:
     Command() = default;
 
     template <typename... Ts>
-    Command(in_place_t, Ts&&... fields)
+    explicit Command(in_place_t, Ts&&... fields)
         : Base(K, std::forward<Ts>(fields)...)
     {}
 

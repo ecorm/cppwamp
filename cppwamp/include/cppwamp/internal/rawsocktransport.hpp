@@ -352,7 +352,8 @@ private:
             namespace chrn = std::chrono;
             pingStop_ = chrn::high_resolution_clock::now();
             using Fms = chrn::duration<float, chrn::milliseconds::period>;
-            float elapsed = Fms(pingStop_ - pingStart_).count();
+            const Fms fms{pingStop_ - pingStart_};
+            const float elapsed = fms.count();
             post(pingHandler_, elapsed);
             pingHandler_ = nullptr;
         }

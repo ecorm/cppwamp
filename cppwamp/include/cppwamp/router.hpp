@@ -104,7 +104,7 @@ public: // Internal use only
 class DirectRouterLink
 {
 public:
-    DirectRouterLink(Router& router);
+    DirectRouterLink(Router& router); // NOLINT(google-explicit-constructor)
     
     DirectRouterLink& withAuthInfo(AuthInfo info);
 

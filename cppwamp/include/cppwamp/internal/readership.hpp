@@ -176,7 +176,7 @@ public:
     using EventSlotKey = ClientLike::SubscriptionKey;
     using EventSlot = AnyReusableHandler<void (Event)>;
 
-    Readership(AnyIoExecutor exec) : executor_(std::move(exec)) {}
+    explicit Readership(AnyIoExecutor exec) : executor_(std::move(exec)) {}
 
     SubscriptionRecord* findSubscription(const MatchUri& topic)
     {

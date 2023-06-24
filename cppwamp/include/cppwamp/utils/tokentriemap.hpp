@@ -248,22 +248,24 @@ public:
     /// @{
 
     /** Obtains an iterator to the beginning. */
-    iterator begin() noexcept {return impl_.firstValueCursor();}
+    iterator begin() noexcept {return iterator{impl_.firstValueCursor()};}
 
     /** Obtains an iterator to the beginning. */
     const_iterator begin() const noexcept {return cbegin();}
 
     /** Obtains an iterator to the beginning. */
-    const_iterator cbegin() const noexcept {return impl_.firstValueCursor();}
+    const_iterator cbegin() const noexcept
+        {return const_iterator{impl_.firstValueCursor()};}
 
     /** Obtains an iterator to the end. */
-    iterator end() noexcept {return impl_.sentinelCursor();}
+    iterator end() noexcept {return iterator{impl_.sentinelCursor()};}
 
     /** Obtains an iterator to the end. */
     const_iterator end() const noexcept {return cend();}
 
     /** Obtains an iterator to the end. */
-    const_iterator cend() const noexcept {return impl_.sentinelCursor();}
+    const_iterator cend() const noexcept
+        {return const_iterator{impl_.sentinelCursor()};}
     /// @}
 
     /// @name Cursors
@@ -382,10 +384,11 @@ public:
         {return add(std::move(key), std::forward<Us>(args)...);}
 
     /** Erases the element at the given iterator position. */
-    iterator erase(iterator pos) {return impl_.erase(pos.cursor());}
+    iterator erase(iterator pos) {return iterator{impl_.erase(pos.cursor())};}
 
     /** Erases the element at the given iterator position. */
-    iterator erase(const_iterator pos) {return impl_.erase(pos.cursor());}
+    iterator erase(const_iterator pos)
+        {return iterator{impl_.erase(pos.cursor())};}
 
     /** Erases the element associated with the given key.
         @returns The number of elements erased (0 or 1). */
@@ -412,10 +415,11 @@ public:
     size_type count(const key_type& key) const {return impl_.locate(key) ? 1 : 0;}
 
     /** Finds the element associated with the given key. */
-    iterator find(const key_type& key) {return impl_.locate(key);}
+    iterator find(const key_type& key) {return iterator{impl_.locate(key)};}
 
     /** Finds the element associated with the given key. */
-    const_iterator find(const key_type& key) const {return impl_.locate(key);}
+    const_iterator find(const key_type& key) const
+        {return const_iterator{impl_.locate(key)};}
 
     /** Checks if the container contains the element with the given key. */
     bool contains(const key_type& key) const {return bool(impl_.locate(key));}
@@ -432,21 +436,23 @@ public:
 
     /** Obtains an iterator to the first element not less than the
         given key. */
-    iterator lower_bound(const key_type& key) {return impl_.lowerBound(key);}
+    iterator lower_bound(const key_type& key)
+        {return iterator{impl_.lowerBound(key)};}
 
     /** Obtains an iterator to the first element not less than the
         given key. */
     const_iterator lower_bound(const key_type& key) const
-        {return impl_.lowerBound(key);}
+        {return const_iterator{impl_.lowerBound(key)};}
 
     /** Obtains an iterator to the first element greater than than the
         given key. */
-    iterator upper_bound(const key_type& key) {return impl_.upperBound(key);}
+    iterator upper_bound(const key_type& key)
+        {return iterator{impl_.upperBound(key)};}
 
     /** Obtains an iterator to the first element greater than than the
         given key. */
     const_iterator upper_bound(const key_type& key) const
-        {return impl_.upperBound(key);}
+        {return const_iterator{impl_.upperBound(key)};}
 
     /** Obtains the function that compares keys. */
     key_compare key_comp() const {return impl_.keyComp();}

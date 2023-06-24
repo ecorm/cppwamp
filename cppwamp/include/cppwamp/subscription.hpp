@@ -81,7 +81,8 @@ public:
     ScopedSubscription(ScopedSubscription&& other) noexcept;
 
     /** Converting constructor taking a Subscription object to manage. */
-    ScopedSubscription(Subscription subscription);
+    ScopedSubscription( // NOLINT(google-explicit-constructor)
+        Subscription subscription);
 
     /** Destructor which automatically unsubscribes the subscription. */
     ~ScopedSubscription();

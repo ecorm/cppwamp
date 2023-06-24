@@ -38,7 +38,7 @@ public:
     explicit Blob(Data data);
 
     /** Constructor taking an initializer list. */
-    explicit Blob(std::initializer_list<uint8_t> list);
+    Blob(std::initializer_list<uint8_t> list);
 
     /** Obtains the blob's array of bytes. */
     Data& data();

@@ -34,7 +34,7 @@ namespace internal { class RouterServer; } // Forward declaration
 class CPPWAMP_API RealmConfig
 {
 public:
-    RealmConfig(Uri uri);
+    RealmConfig(Uri uri); // NOLINT(google-explicit-constructor)
 
     RealmConfig& withAuthorizer(Authorizer::Ptr a);
 

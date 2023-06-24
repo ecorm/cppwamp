@@ -150,7 +150,7 @@ inline std::istream& inputRfc3339Timestamp(
     }
 
     ticks = SplitTmToTime::toTime(tmb);
-    if (ticks == decltype(ticks)(-1))
+    if (ticks == static_cast<decltype(ticks)>(-1))
     {
         in.setstate(std::ios::failbit);
         return in;
@@ -168,7 +168,7 @@ inline bool parseRfc3339Timestamp(const std::string& s,
 {
     std::istringstream iss{s};
     inputRfc3339Timestamp(iss, when);
-    return bool(iss);
+    return static_cast<bool>(iss);
 }
 
 } // namespace internal

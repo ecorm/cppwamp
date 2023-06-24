@@ -55,7 +55,7 @@ public:
                     boost::asio::make_strand(executor_),
                     std::move(c),
                     config_,
-                    {shared_from_this()});
+                    RouterContext{shared_from_this()});
                 realms_.emplace(uri, realm);
             }
         }
@@ -113,8 +113,8 @@ public:
             const MutexGuard guard(serversMutex_);
             if (servers_.find(name) == servers_.end())
             {
-                server = RouterServer::create(executor_, std::move(c),
-                                              {shared_from_this()});
+                server = RouterServer::create(
+                    executor_, std::move(c), RouterContext{shared_from_this()});
                 servers_.emplace(name, server);
             }
         }
@@ -252,7 +252,7 @@ private:
         auto found = realms_.find(uri);
         if (found == realms_.end())
             return {};
-        return {found->second};
+        return RealmContext{found->second};
     }
 
     uint64_t nextDirectSessionIndex() {return ++nextDirectSessionIndex_;}

@@ -77,7 +77,7 @@ private:
 class Variant::Destruct : public Visitor<>
 {
 public:
-    Destruct(void* field) : field_(field) {}
+    explicit Destruct(void* field) : field_(field) {}
 
     template <typename TField>
     void operator()(TField&) const {Access<TField>::destruct(field_);}

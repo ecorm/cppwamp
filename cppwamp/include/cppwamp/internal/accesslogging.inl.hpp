@@ -26,7 +26,7 @@ CPPWAMP_INLINE void outputAccessLogEntry(
 
     struct PutField
     {
-        PutField(std::ostream& out) : out_(&out) {}
+        explicit PutField(std::ostream& out) : out_(&out) {}
 
         PutField& operator<<(const std::string& field)
         {

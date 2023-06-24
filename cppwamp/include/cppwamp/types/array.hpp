@@ -30,20 +30,20 @@ CPPWAMP_API void convert(FromVariantConverter& conv, std::array<T, Size>& array)
 {
     using A = internal::VariantUncheckedAccess;
 
-    using namespace wamp;
     const auto& variant = conv.variant();
     if (!variant.is<Array>())
     {
-        throw error::Conversion("Attempting to convert non-array variant "
-                                "to std::array");
+        throw error::Conversion{"Attempting to convert non-array variant "
+                                "to std::array"};
     }
 
     std::array<T, Size> newArray;
     const auto& variantArray = A::alt<Array>(variant);
     if (variantArray.size() != Size)
     {
-        throw error::Conversion("Variant array size does not match that "
-            "of std::array<T," + std::to_string(Size) + ">");
+        throw error::Conversion{
+            "Variant array size does not match that of std::array<T," +
+            std::to_string(Size) + ">"};
     }
 
     for (Array::size_type i=0; i<variantArray.size(); ++i)
@@ -56,7 +56,7 @@ CPPWAMP_API void convert(FromVariantConverter& conv, std::array<T, Size>& array)
         {
             std::string msg = e.what();
             msg += " (for element #" + std::to_string(i) + ")";
-            throw error::Conversion(msg);
+            throw error::Conversion{msg};
         }
     }
     array = std::move(newArray);
@@ -69,7 +69,6 @@ CPPWAMP_API void convert(FromVariantConverter& conv, std::array<T, Size>& array)
 template <typename T, std::size_t Size>
 CPPWAMP_API void convert(ToVariantConverter& conv, std::array<T, Size>& array)
 {
-    using namespace wamp;
     Array variantArray;
     for (const auto& elem: array)
     {

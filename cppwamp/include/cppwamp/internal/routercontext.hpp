@@ -82,7 +82,7 @@ public:
 
     RealmContext() = default;
 
-    RealmContext(const std::shared_ptr<RouterRealm>& r);
+    explicit RealmContext(const std::shared_ptr<RouterRealm>& r);
 
     bool expired() const;
 
@@ -111,7 +111,7 @@ class RouterContext
 public:
     RouterContext();
 
-    RouterContext(const std::shared_ptr<RouterImpl>& r);
+    explicit RouterContext(const std::shared_ptr<RouterImpl>& r);
 
     bool expired() const;
 

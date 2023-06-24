@@ -61,18 +61,20 @@ CPPWAMP_INLINE Error::Error(internal::PassKey, internal::Message&& msg)
 
 CPPWAMP_INLINE Error::Error(internal::PassKey, internal::MessageKind reqKind,
                             RequestId rid, WampErrc errc, Object opts)
-    : Base(in_place, Int(reqKind), rid, std::move(opts), errorCodeToUri(errc))
+    : Base(in_place, static_cast<Int>(reqKind), rid, std::move(opts),
+           errorCodeToUri(errc))
 {}
 
 CPPWAMP_INLINE Error::Error(internal::PassKey, internal::MessageKind reqKind,
                             RequestId rid, std::error_code ec, Object opts)
-    : Base(in_place, Int(reqKind), rid, std::move(opts), errorCodeToUri(ec))
+    : Base(in_place, static_cast<Int>(reqKind), rid, std::move(opts),
+           errorCodeToUri(ec))
 {}
 
 CPPWAMP_INLINE void Error::setRequestKind(internal::PassKey,
                                           internal::MessageKind reqKind)
 {
-    message().at(requestKindPos_) = Int(reqKind);
+    message().at(requestKindPos_) = static_cast<Int>(reqKind);
 }
 
 } // namespace wamp

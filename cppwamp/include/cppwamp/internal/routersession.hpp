@@ -123,7 +123,7 @@ public:
     RouterSession& operator=(RouterSession&&) = delete;
 
 protected:
-    RouterSession(RouterLogger::Ptr logger = nullptr)
+    explicit RouterSession(RouterLogger::Ptr logger = nullptr)
         : logger_(std::move(logger)),
           nextOutboundRequestId_(0),
           lastInsertedCallRequestId_(0)

@@ -63,9 +63,9 @@ public:
     /// @}
 
 protected:
-    ProcedureLike(String&& uri);
+    explicit ProcedureLike(String&& uri);
 
-    ProcedureLike(internal::Message&& msg);
+    explicit ProcedureLike(internal::Message&& msg);
 
 private:
     static constexpr unsigned uriPos_ = 3;
@@ -89,7 +89,7 @@ class CPPWAMP_API Procedure: public ProcedureLike<Procedure>
 {
 public:
     /** Converting constructor taking a procedure URI. */
-    Procedure(Uri uri);
+    Procedure(Uri uri); // NOLINT(google-explicit-constructor)
 
 private:
     using Base = ProcedureLike<Procedure>;
@@ -181,8 +181,8 @@ public:
     /// @}
 
 protected:
-    RpcLike(Uri&& uri);
-    RpcLike(internal::Message&& msg);
+    explicit RpcLike(Uri&& uri);
+    explicit RpcLike(internal::Message&& msg);
 
 private:
     static constexpr unsigned uriPos_  = 3;
@@ -219,7 +219,7 @@ class CPPWAMP_API Rpc : public RpcLike<Rpc>
 {
 public:
     /** Converting constructor taking a procedure URI. */
-    Rpc(Uri uri);
+    Rpc(Uri uri); // NOLINT(google-explicit-constructor)
 
  private:
     using Base = RpcLike<Rpc>;
@@ -303,18 +303,22 @@ public:
     /** Default-constructs an outcome containing an empty Result object. */
     Outcome();
 
-    /** Converting constructor taking a Result object. */
-    Outcome(Result result);
-
     /** Converting constructor taking a braced initializer list of positional
         arguments to be stored in a Result. */
     Outcome(std::initializer_list<Variant> args);
+
+    // NOLINTBEGIN(google-explicit-constructor)
+
+    /** Converting constructor taking a Result object. */
+    Outcome(Result result);
 
     /** Converting constructor taking an Error object. */
     Outcome(Error error);
 
     /** Converting constructor taking a deferment. */
     Outcome(Deferment);
+
+    // NOLINTEND(google-explicit-constructor)
 
     /** Copy constructor. */
     Outcome(const Outcome& other);
@@ -470,8 +474,9 @@ class CPPWAMP_API CallCancellation
 {
 public:
     /** Converting constructor. */
-    CallCancellation(RequestId reqId,
-                     CallCancelMode cancelMode = Rpc::defaultCancelMode());
+    CallCancellation(// NOLINT(google-explicit-constructor)
+        RequestId reqId,
+        CallCancelMode cancelMode = Rpc::defaultCancelMode());
 
     /** Obtains the cancel mode. */
     CallCancelMode mode() const;

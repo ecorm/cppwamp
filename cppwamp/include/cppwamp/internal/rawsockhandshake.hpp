@@ -26,22 +26,34 @@ class RawsockHandshake
 {
 public:
     static size_t byteLengthOf(RawsockMaxLength len)
-        {return 1u << ((int)len + byteLengthPos_);}
+    {
+        return 1u << (static_cast<int>(len) + byteLengthPos_);
+    }
 
     static RawsockHandshake fromBigEndian(uint32_t big)
-        {return RawsockHandshake(endian::bigToNative32(big));}
+    {
+        return RawsockHandshake(endian::bigToNative32(big));
+    }
 
     static RawsockHandshake eUnsupportedFormat()
-        {return RawsockHandshake(magicOctet_ | eUnsupportedFormatBits_);}
+    {
+        return RawsockHandshake(magicOctet_ | eUnsupportedFormatBits_);
+    }
 
     static RawsockHandshake eUnacceptableLength()
-        {return RawsockHandshake(magicOctet_ | eUnacceptableLengthBits_);}
+    {
+        return RawsockHandshake(magicOctet_ | eUnacceptableLengthBits_);
+    }
 
     static RawsockHandshake eReservedBitsUsed()
-        {return RawsockHandshake(magicOctet_ | eReservedBitsUsedBits_);}
+    {
+        return RawsockHandshake(magicOctet_ | eReservedBitsUsedBits_);
+    }
 
     static RawsockHandshake eMaxConnections()
-        {return RawsockHandshake(magicOctet_ | eMaxConnectionsBits_);}
+    {
+        return RawsockHandshake(magicOctet_ | eMaxConnectionsBits_);
+    }
 
     RawsockHandshake() : hs_(magicOctet_) {}
 

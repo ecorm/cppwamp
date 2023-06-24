@@ -58,14 +58,19 @@ public:
         noexcept(std::is_nothrow_default_constructible<storage_type>::value)
         = default;
 
-    SplitUri(const uri_type& uri): labels_(tokenize(uri)) {}
+    // NOLINTBEGIN(google-explicit-constructor)
 
-    SplitUri(const char_type* uri): labels_(tokenize(uri)) {}
+    SplitUri(const uri_type& uri) : labels_(tokenize(uri)) {}
 
-    SplitUri(storage_type labels): labels_(std::move(labels)) {}
+    SplitUri(const char_type* uri) : labels_(tokenize(uri)) {}
+
+    SplitUri(storage_type labels) : labels_(std::move(labels)) {}
+
+    // NOLINTEND(google-explicit-constructor)
 
     template <typename... Ts>
-    SplitUri(in_place_t, Ts&&... args) : labels_(std::forward<Ts>(args)...) {}
+    explicit SplitUri(in_place_t, Ts&&... args)
+        : labels_(std::forward<Ts>(args)...) {}
 
     SplitUri& operator=(const uri_type& uri)
     {

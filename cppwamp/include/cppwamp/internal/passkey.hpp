@@ -76,8 +76,9 @@ namespace internal
         friend class SubscriptionRecord;
         friend class UriChecker;
     };
-}
 
-}
+} // namespace internal
+
+} // namespace wamp
 
 #endif // CPPWAMP_PASSKEY_HPP

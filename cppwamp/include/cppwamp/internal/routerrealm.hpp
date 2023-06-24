@@ -686,7 +686,7 @@ private:
             return onAuthorized(std::move(s), std::forward<C>(command), true);
         }
 
-        AuthorizationRequest r{{}, shared_from_this(), s};
+        AuthorizationRequest r{{}, RealmContext{shared_from_this()}, s};
         authorizer->authorize(std::forward<C>(command), std::move(r));
     }
 

@@ -494,7 +494,7 @@ public:
     using ByCalleeIterator = ByCallee::iterator;
     using ByCallerIterator = ByCaller::iterator;
 
-    DealerJobMap(IoStrand strand)
+    explicit DealerJobMap(IoStrand strand)
         : timeoutScheduler_(TimeoutScheduler<Key>::create(std::move(strand)))
     {
         timeoutScheduler_->listen([this](Key k){onTimeout(k);});

@@ -13,6 +13,7 @@
            options. */
 //------------------------------------------------------------------------------
 
+#include <cstdint>
 #include <string>
 #include "api.hpp"
 #include "rawsockoptions.hpp"
@@ -30,13 +31,16 @@ public:
     /// Transport protocol tag associated with these settings.
     using Protocol = Tcp;
 
+    /// Numeric port type
+    using Port = uint_least16_t;
+
     /// The default maximum length permitted for incoming messages.
     static constexpr RawsockMaxLength defaultMaxRxLength =
         RawsockMaxLength::MB_16;
 
     /** Constructor taking a port number. */
-    TcpEndpoint(
-        unsigned short port,         ///< Port number.
+    explicit TcpEndpoint(
+        Port port,                   ///< Port number.
         TcpOptions options = {},     ///< TCP socket options.
         RawsockMaxLength maxRxLength
             = defaultMaxRxLength     ///< Maximum inbound message length
@@ -61,7 +65,7 @@ public:
     const std::string& address() const;
 
     /** Obtains the the port number. */
-    unsigned short port() const;
+    Port port() const;
 
     /** Obtains the transport options. */
     const TcpOptions& options() const;
@@ -75,8 +79,8 @@ public:
 private:
     std::string address_;
     TcpOptions options_;
-    RawsockMaxLength maxRxLength_;
-    unsigned short port_;
+    RawsockMaxLength maxRxLength_ = {};
+    Port port_ = 0;
 };
 
 } // namespace wamp

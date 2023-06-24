@@ -38,6 +38,8 @@ public:
     /** Default constructor. */
     Error();
 
+    // NOLINTBEGIN(google-explicit-constructor)
+
     /** Converting constructor taking a reason URI and optional positional
         payload arguments. */
     template <typename... Ts>
@@ -52,6 +54,8 @@ public:
         it to a reason URI, as well as optional positional payload arguments. */
     template <typename... Ts>
     Error(WampErrc errc, Ts&&... args);
+
+    // NOLINTEND(google-explicit-constructor)
 
     /** Constructor taking an error::BadType exception and
         interpreting it as a `wamp.error.invalid_argument` reason URI. */

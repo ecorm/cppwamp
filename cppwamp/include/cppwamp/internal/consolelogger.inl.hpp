@@ -25,6 +25,8 @@ struct ConsoleLogger::Impl
     bool flushOnWrite = false;
 };
 
+CPPWAMP_INLINE ConsoleLogger::ConsoleLogger() = default;
+
 CPPWAMP_INLINE ConsoleLogger::ConsoleLogger(bool flushOnWrite)
     : ConsoleLogger(std::string{"cppwamp"}, flushOnWrite)
 {}

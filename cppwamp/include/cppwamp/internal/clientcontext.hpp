@@ -78,7 +78,7 @@ public:
 
     ClientContext() = default;
 
-    ClientContext(const std::shared_ptr<ClientLike>& client)
+    explicit ClientContext(const std::shared_ptr<ClientLike>& client)
         : client_(client)
     {}
 

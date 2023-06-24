@@ -250,7 +250,7 @@ public:
         for (const auto& kv : subscribers_)
         {
             auto subscriber = kv.second.session.lock();
-            if (bool(subscriber) &&
+            if (static_cast<bool>(subscriber) &&
                 (subscriber->wampId() != inhibitedSessionId))
             {
                 count += (pub.sendTo(*subscriber) ? 1 : 0);
@@ -404,7 +404,7 @@ public:
 
 protected:
     template <typename... Ts>
-    BrokerTopicMapBase(Ts&&... trieArgs)
+    explicit BrokerTopicMapBase(Ts&&... trieArgs)
         : trie_(std::forward<Ts>(trieArgs)...)
     {}
 
@@ -506,7 +506,7 @@ private:
     public:
         using Iter = utils::TrieMap<BrokerSubscription*>::const_iterator;
 
-        PrefixVisitor(TFunctor f) : functor_(std::move(f)) {}
+        explicit PrefixVisitor(TFunctor f) : functor_(std::move(f)) {}
 
         std::size_t count() const {return count_;}
 

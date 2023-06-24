@@ -77,7 +77,8 @@ public:
 
     /** Conversion from mutable iterator to const iterator. */
     template <bool M, CPPWAMP_NEEDS(!IsMutable && M) = 0>
-    TokenTrieMapIterator(const TokenTrieMapIterator<N, M>& rhs)
+    TokenTrieMapIterator( // NOLINT(google-explicit-constructor)
+        const TokenTrieMapIterator<N, M>& rhs)
         : cursor_(rhs.cursor()) {}
 
     /** Assignment from mutable iterator to const iterator. */
@@ -123,7 +124,7 @@ public:
 private:
     using Node = typename cursor_type::node_type;
 
-    TokenTrieMapIterator(cursor_type cursor) : cursor_(cursor) {}
+    explicit TokenTrieMapIterator(cursor_type cursor) : cursor_(cursor) {}
 
     cursor_type cursor_;
 

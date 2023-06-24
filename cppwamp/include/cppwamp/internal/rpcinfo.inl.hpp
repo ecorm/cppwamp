@@ -136,15 +136,15 @@ CPPWAMP_INLINE void Result::setKindToResult(internal::PassKey)
 CPPWAMP_INLINE Outcome::Outcome() : Outcome(Result()) {}
 
 /** @post `this->type() == Type::result` */
+CPPWAMP_INLINE Outcome::Outcome(std::initializer_list<Variant> args)
+    : Outcome(Result(args))
+{}
+
+/** @post `this->type() == Type::result` */
 CPPWAMP_INLINE Outcome::Outcome(Result result) : type_(Type::result)
 {
     new (&value_.result) Result(std::move(result));
 }
-
-/** @post `this->type() == Type::result` */
-CPPWAMP_INLINE Outcome::Outcome(std::initializer_list<Variant> args)
-    : Outcome(Result(args))
-{}
 
 /** @post `this->type() == Type::error` */
 CPPWAMP_INLINE Outcome::Outcome(Error error) : type_(Type::error)

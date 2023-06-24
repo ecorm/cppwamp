@@ -72,7 +72,9 @@ public:
 private:
     struct Impl;
 
-    CallCancellationSlot(std::shared_ptr<Impl> impl) : impl_(std::move(impl)) {}
+    explicit CallCancellationSlot(std::shared_ptr<Impl> impl)
+        : impl_(std::move(impl))
+    {}
 
     std::shared_ptr<Impl> impl_;
 

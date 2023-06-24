@@ -116,7 +116,10 @@ public:
 private:
     struct Context
     {
-        Context(bool isArray = false) : isArray(isArray), isPopulated(false) {}
+        explicit Context(bool isArray = false)
+            : isArray(isArray),
+              isPopulated(false)
+        {}
 
         bool needsArraySeparator() const {return isArray && isPopulated;}
 
@@ -128,7 +131,7 @@ private:
 
     void next() {context_.back().populate();}
 
-    void enter(bool isArray = false) {context_.push_back(isArray);}
+    void enter(bool isArray = false) {context_.push_back(Context{isArray});}
 
     void leave()
     {
@@ -150,7 +153,7 @@ public:
 
     JsonSinkProxy() = default;
 
-    JsonSinkProxy(TSink& out) : sink_(&out) {}
+    explicit JsonSinkProxy(TSink& out) : sink_(&out) {}
 
     void append(const value_type* data, size_t size)
     {

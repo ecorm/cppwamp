@@ -75,7 +75,7 @@ public:
 
 protected:
     template <typename... Ts>
-    Options(in_place_t, Ts&&... fields);
+    explicit Options(in_place_t, Ts&&... fields);
 
     template <internal::MessageKind M>
     explicit Options(internal::Command<M>&& command);

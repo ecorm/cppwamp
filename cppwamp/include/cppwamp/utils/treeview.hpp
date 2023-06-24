@@ -101,11 +101,12 @@ public:
     TreeView() = default;
 
     /** Constructs a view that targets the given tree. */
-    TreeView(tree_pointer tree) : tree_(tree) {}
+    explicit TreeView(tree_pointer tree) : tree_(tree) {}
 
     /** Converts from mutable to immutable tree view. */
     template <bool M, CPPWAMP_NEEDS(!IsMutable && M) = 0>
-    TreeView(TreeView<TTree, M> rhs) : tree_(rhs.tree_) {}
+    TreeView(TreeView<TTree, M> rhs) // NOLINT(google-explicit-constructor)
+        : tree_(rhs.tree_) {}
 
     /** Obtains the tree's allocator. */
     typename tree_type::allocator_type get_allocator() const noexcept

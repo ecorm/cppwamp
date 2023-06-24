@@ -81,6 +81,7 @@ public:
     ScopedRegistration(ScopedRegistration&& other) noexcept;
 
     /** Converting constructor taking a Registration object to manage. */
+    // NOLINTNEXTLINE(google-explicit-constructor)
     ScopedRegistration(Registration registration);
 
     /** Destructor which automatically unsubscribes the subscription. */

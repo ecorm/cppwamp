@@ -41,6 +41,8 @@ class CPPWAMP_API Reason
     : public Options<Reason, internal::MessageKind::goodbye>
 {
 public:
+    // NOLINTBEGIN(google-explicit-constructor)
+
     /** Converting constructor taking an optional reason URI. */
     Reason(Uri uri = {});
 
@@ -51,6 +53,8 @@ public:
     /** Converting constructor taking a WampErrc, attempting to convert
         it to a reason URI. */
     Reason(WampErrc errc);
+
+    // NOLINTEND(google-explicit-constructor)
 
     /** Constructor taking an error::BadType exception. */
     explicit Reason(const error::BadType& e);
@@ -97,7 +101,7 @@ class CPPWAMP_API Petition : public Options<Petition,
 {
 public:
     /** Converting constructor taking a realm URI. */
-    Petition(Uri realm);
+    Petition(Uri realm); // NOLINT(google-explicit-constructor)
 
     /** Specifies the Reason object in which to store abort details returned
         by the router. */
@@ -247,7 +251,7 @@ public:
     Authentication();
 
     /** Converting constructor taking the authentication signature. */
-    Authentication(String signature);
+    Authentication(String signature); // NOLINT(google-explicit-constructor)
 
     /** Obtains the authentication signature. */
     const String& signature() const;
@@ -286,7 +290,7 @@ class CPPWAMP_API Challenge
 {
 public:
     /** Constructs a challenge. */
-    Challenge(String authMethod = {});
+    explicit Challenge(String authMethod = {});
 
     Challenge& withChallenge(String challenge);
 
@@ -385,7 +389,8 @@ CPPWAMP_API const std::string& incidentKindLabel(IncidentKind k);
 class CPPWAMP_API Incident
 {
 public:
-    Incident(IncidentKind kind, std::string msg = {});
+    Incident( // NOLINT(google-explicit-constructor)
+        IncidentKind kind, std::string msg = {});
 
     Incident(IncidentKind kind, std::error_code ec, std::string msg = {});
 

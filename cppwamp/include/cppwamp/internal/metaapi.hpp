@@ -34,7 +34,7 @@ class MetaProcedures
 public:
     using Context = TContext;
 
-    MetaProcedures(Context* realm) :
+    explicit MetaProcedures(Context* realm) :
         handlers_(
         {{
             {"wamp.registration.count_callees",     &Self::countRegistrationCallees},

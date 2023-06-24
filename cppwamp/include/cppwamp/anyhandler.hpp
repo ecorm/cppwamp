@@ -93,6 +93,8 @@ public:
     /** Default constructor. */
     AnyReusableHandler() = default;
 
+    // NOLINTBEGIN(google-explicit-constructor)
+
     /** Constructor copying another AnyReusableHandler with a different
         signature.
         Participates in overload resolution when
@@ -129,7 +131,9 @@ public:
     {}
 
     /** Constructs an empty AnyReusableHandler. */
-    AnyReusableHandler(std::nullptr_t) noexcept {}
+    AnyReusableHandler(std::nullptr_t) noexcept {};
+
+    // NOLINTEND(google-explicit-constructor)
 
     /** Renders an AnyReusableHandler empty. */
     AnyReusableHandler& operator=(std::nullptr_t) noexcept

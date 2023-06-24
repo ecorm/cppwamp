@@ -55,12 +55,17 @@ enum class DisclosureRule
 class CPPWAMP_API Authorization
 {
 public:
-    /** Constructor taking a boolean indicating if the operation is allowed. */
+    // NOLINTBEGIN(google-explicit-constructor)
+
+    /** Converting constructor taking a boolean indicating if the operation
+        is allowed. */
     Authorization(bool allowed = true);
 
-    /** Constructor taking an error code indicating that the authorization
-        operation itself has failed. */
+    /** Converting constructor taking an error code indicating that the
+        authorization operation itself has failed. */
     Authorization(std::error_code ec);
+
+    // NOLINTEND(google-explicit-constructor)
 
     /** Sets the rule that governs how the caller/publisher is disclosed. */
     Authorization& withDisclosure(DisclosureRule d);

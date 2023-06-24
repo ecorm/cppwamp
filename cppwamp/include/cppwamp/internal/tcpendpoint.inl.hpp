@@ -11,7 +11,7 @@
 namespace wamp
 {
 
-CPPWAMP_INLINE TcpEndpoint::TcpEndpoint(unsigned short port, TcpOptions options,
+CPPWAMP_INLINE TcpEndpoint::TcpEndpoint(Port port, TcpOptions options,
                                         RawsockMaxLength maxRxLength)
     : options_(std::move(options)),
       maxRxLength_(maxRxLength),
@@ -44,10 +44,7 @@ CPPWAMP_INLINE const std::string& TcpEndpoint::address() const
     return address_;
 }
 
-CPPWAMP_INLINE unsigned short TcpEndpoint::port() const
-{
-    return port_;
-}
+CPPWAMP_INLINE TcpEndpoint::Port TcpEndpoint::port() const {return port_;}
 
 CPPWAMP_INLINE const TcpOptions& TcpEndpoint::options() const {return options_;}
 

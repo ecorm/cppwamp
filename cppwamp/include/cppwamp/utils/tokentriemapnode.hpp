@@ -171,12 +171,13 @@ public:
 
     /** Obtains a view of the node's child tree.
         @pre `!this->is_sentinel` */
-    tree_view_type children() {assert(!is_sentinel()); return {&children_};}
+    tree_view_type children()
+        {assert(!is_sentinel()); return tree_view_type{&children_};}
 
     /** Obtains a view of the node's child tree.
         @pre `!this->is_sentinel` */
     const_tree_view_type children() const
-        {assert(!is_sentinel()); return {&children_};}
+        {assert(!is_sentinel()); return const_tree_view_type{&children_};}
 
 private:
     using TreeIterator = typename tree_type::iterator;
@@ -266,7 +267,7 @@ private:
     friend class internal::TokenTrieMapImpl;
 
 public: // Internal use only
-    TokenTrieMapNode(PassKey) : position_(children_.end()) {}
+    explicit TokenTrieMapNode(PassKey) : position_(children_.end()) {}
 
     TokenTrieMapNode(PassKey, key_compare comp)
         : children_(std::move(comp)),
@@ -395,7 +396,8 @@ public:
 
     /** Conversion from mutable cursor to const cursor. */
     template <bool RM, CPPWAMP_NEEDS(!IsMutable && RM) = 0>
-    TokenTrieMapCursor(const TokenTrieMapCursor<N, RM>& rhs)
+    TokenTrieMapCursor( // NOLINT(google-explicit-constructor)
+        const TokenTrieMapCursor<N, RM>& rhs)
         : parent_(rhs.parent_),
           target_(rhs.target_)
     {}

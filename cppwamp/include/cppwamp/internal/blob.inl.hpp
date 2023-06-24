@@ -45,11 +45,11 @@ CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Blob& blob)
     {
         using value_type = char;
 
-        Sink(std::ostream& out) : out_(&out) {}
+        explicit Sink(std::ostream& out) : out_(&out) {}
 
         void append(const value_type* data, std::size_t n)
         {
-            out_->write(data, std::streamsize(n));
+            out_->write(data, static_cast<std::streamsize>(n));
         }
 
     private:

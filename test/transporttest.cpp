@@ -279,7 +279,8 @@ void checkSendReply(TFixture& f,
             {
                 CHECK( buf.error() == TransportErrc::aborted );
             }
-        });
+        },
+        nullptr);
 
     sender->start(
         [&](ErrorOr<MessageBuffer> buf)
@@ -294,7 +295,8 @@ void checkSendReply(TFixture& f,
             {
                 CHECK( buf.error() == TransportErrc::aborted );
             }
-        });
+        },
+        nullptr);
 
     sender->send(message);
 
@@ -326,7 +328,8 @@ void checkConsecutiveSendReceive(TFixture& f, Transporting::Ptr& sender,
         {
             REQUIRE( !buf );
             CHECK( buf.error() == TransportErrc::aborted );
-        });
+        },
+        nullptr);
 
     size_t count = 0;
 
@@ -345,7 +348,8 @@ void checkConsecutiveSendReceive(TFixture& f, Transporting::Ptr& sender,
             {
                 CHECK( buf.error() == TransportErrc::aborted );
             }
-        });
+        },
+        nullptr);
 
     for (const auto& msg: messages)
         sender->send(msg);
@@ -525,7 +529,8 @@ TEMPLATE_TEST_CASE( "Normal communications", "[Transport]",
             {
                 CHECK( buf.error() == TransportErrc::aborted );
             }
-        });
+        },
+        nullptr);
 
     sender->start(
         [&](ErrorOr<MessageBuffer> buf)
@@ -539,7 +544,8 @@ TEMPLATE_TEST_CASE( "Normal communications", "[Transport]",
             {
                 CHECK( buf.error() == TransportErrc::aborted );
             }
-        });
+        },
+        nullptr);
 
     sender->send(message);
 
@@ -612,7 +618,8 @@ TEMPLATE_TEST_CASE( "Normal communications", "[Transport]",
             {
                 CHECK( buf.error() == TransportErrc::aborted );
             }
-        });
+        },
+        nullptr);
 
     sender2->start(
         [&](ErrorOr<MessageBuffer> buf)
@@ -628,7 +635,8 @@ TEMPLATE_TEST_CASE( "Normal communications", "[Transport]",
             {
                 CHECK( buf.error() == TransportErrc::aborted );
             }
-        });
+        },
+        nullptr);
 
     sender->send(message);
     sender2->send(message2);
@@ -695,13 +703,15 @@ TEMPLATE_TEST_CASE( "Ping/pong messages", "[Transport]",
         [&](ErrorOr<MessageBuffer>)
         {
             FAIL( "unexpected receive or error");
-        });
+        },
+        nullptr);
 
     f.server->start(
         [&](ErrorOr<MessageBuffer>)
         {
             FAIL( "unexpected receive or error");
-        });
+        },
+        nullptr);
 
     bool pingCompleted = false;
     auto payload = makeMessageBuffer("hello");
@@ -819,7 +829,8 @@ TEMPLATE_TEST_CASE( "Cancel receive", "[Transport]",
         [&](ErrorOr<MessageBuffer> buf)
         {
             clientHandlerInvoked = true;
-        });
+        },
+        nullptr);
 
     std::error_code serverError;
     f.server->start(
@@ -827,7 +838,8 @@ TEMPLATE_TEST_CASE( "Cancel receive", "[Transport]",
         {
             REQUIRE( !buf );
             serverError = buf.error();
-        });
+        },
+        nullptr);
 
     f.cctx.poll();
     f.cctx.reset();
@@ -866,7 +878,8 @@ TEMPLATE_TEST_CASE( "Cancel send", "[Transport]",
         [&](ErrorOr<MessageBuffer> buf)
         {
             handlerInvoked = true;
-        });
+        },
+        nullptr);
     MessageBuffer message(f.client->info().maxTxLength, 'a');
     f.client->send(message);
     REQUIRE_NOTHROW( f.cctx.poll() );
@@ -1013,14 +1026,16 @@ GIVEN ( "a mock server under-reporting its maximum receive length" )
             {
                 REQUIRE( !message );
                 clientFailed = true;
-            });
+            },
+            nullptr);
 
         server->start(
             [&](ErrorOr<MessageBuffer> message)
             {
                 REQUIRE( !message );
                 serverFailed = true;
-            });
+            },
+            nullptr);
 
         client->send(std::move(tooLong));
 
@@ -1079,14 +1094,16 @@ GIVEN ( "a mock client under-reporting its maximum receive length" )
                 REQUIRE( !message );
                 CHECK( message.error() == TransportErrc::tooLong );
                 clientFailed = true;
-            });
+            },
+            nullptr);
 
         server->start(
             [&](ErrorOr<MessageBuffer> message)
             {
                 REQUIRE( !message );
                 serverFailed = true;
-            });
+            },
+            nullptr);
 
         server->send(tooLong);
 
@@ -1142,7 +1159,8 @@ GIVEN ( "A mock client that sends an invalid message type" )
             {
                 REQUIRE( !message );
                 clientFailed = true;
-            });
+            },
+            nullptr);
 
         server->start(
             [&](ErrorOr<MessageBuffer> message)
@@ -1150,7 +1168,8 @@ GIVEN ( "A mock client that sends an invalid message type" )
                 REQUIRE( !message );
                 CHECK( message.error() == TransportErrc::badCommand );
                 serverFailed = true;
-            });
+            },
+            nullptr);
 
         auto msg = makeMessageBuffer("Hello");
         client->send(std::move(msg));
@@ -1208,14 +1227,16 @@ GIVEN ( "A mock server that sends an invalid message type" )
                 REQUIRE( !message );
                 CHECK( message.error() == TransportErrc::badCommand );
                 clientFailed = true;
-            });
+            },
+            nullptr);
 
         server->start(
             [&](ErrorOr<MessageBuffer> message)
             {
                 REQUIRE( !message );
                 serverFailed = true;
-            });
+            },
+            nullptr);
 
         auto msg = makeMessageBuffer("Hello");;
         server->send(msg);

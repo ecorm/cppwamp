@@ -37,8 +37,8 @@ public:
     static constexpr RawsockMaxLength defaultMaxRxLength =
         RawsockMaxLength::MB_16;
 
-    /** Converting constructor taking a path name. */
-    UdsPath(
+    /** Constructor taking a path name. */
+    explicit UdsPath(
         std::string pathName,        ///< Path name of the Unix domain socket.
         UdsOptions options = {},     ///< Socket options.
         RawsockMaxLength maxRxLength

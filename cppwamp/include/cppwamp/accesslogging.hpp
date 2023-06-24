@@ -73,8 +73,9 @@ struct CPPWAMP_API AccessActionInfo
 
     AccessActionInfo();
 
-    AccessActionInfo(Action action, std::string target = {},
-                     Object options = {}, std::string errorUri = {});
+    AccessActionInfo( // NOLINT(google-explicit-constructor)
+        Action action, std::string target = {}, Object options = {},
+        std::string errorUri = {});
 
     AccessActionInfo(Action action, std::string target, Object options,
                      std::error_code ec);
@@ -166,7 +167,9 @@ public:
     using Policy = TPolicy;
     using Handler = std::function<void (AccessLogEntry)>;
 
-    BasicAccessLogFilter(Handler handler) : handler_(std::move(handler)) {}
+    explicit BasicAccessLogFilter(Handler handler)
+        : handler_(std::move(handler))
+    {}
 
     void operator()(AccessLogEntry entry) const
     {

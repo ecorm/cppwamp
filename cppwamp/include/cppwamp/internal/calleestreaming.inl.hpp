@@ -78,7 +78,10 @@ CPPWAMP_INLINE const AnyCompletionExecutor& CalleeChannel::fallbackExecutor() co
     return impl_->fallbackExecutor();
 }
 
-CPPWAMP_INLINE bool CalleeChannel::attached() const {return bool(impl_);}
+CPPWAMP_INLINE bool CalleeChannel::attached() const
+{
+    return static_cast<bool>(impl_);
+}
 
 CPPWAMP_INLINE CalleeChannel::operator bool() const {return attached();}
 

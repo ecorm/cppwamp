@@ -44,7 +44,10 @@ ConnectionInfo::serverSessionNumber() const
     return impl_ ? impl_->serverSessionNumber() : 0;
 }
 
-CPPWAMP_INLINE ConnectionInfo::operator bool() const {return bool(impl_);}
+CPPWAMP_INLINE ConnectionInfo::operator bool() const
+{
+    return static_cast<bool>(impl_);
+}
 
 CPPWAMP_INLINE ConnectionInfo::ConnectionInfo(
     internal::PassKey, std::shared_ptr<internal::ConnectionInfoImpl> impl)

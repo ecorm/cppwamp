@@ -72,7 +72,7 @@ CPPWAMP_INLINE void CallCancellationSlot::clear() {impl_->handler = {};}
 
 CPPWAMP_INLINE bool CallCancellationSlot::has_handler() const
 {
-    return bool(impl_->handler);
+    return static_cast<bool>(impl_->handler);
 }
 
 CPPWAMP_INLINE bool CallCancellationSlot::is_connected() const

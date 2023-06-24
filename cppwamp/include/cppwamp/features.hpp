@@ -97,7 +97,7 @@ public:
                    Flags<SubscriberFeatures> subscriber);
 
     /** Constructor taking a roles dictionary to be parsed for features. */
-    ClientFeatures(const Object& dict);
+    explicit ClientFeatures(const Object& dict);
 
     /** Obtains the callee feature flags. */
     Flags<CalleeFeatures> callee() const;
@@ -197,7 +197,7 @@ public:
     RouterFeatures(Flags<BrokerFeatures> broker, Flags<DealerFeatures> dealer);
 
     /** Constructor taking a roles dictionary to be parsed for features. */
-    RouterFeatures(const Object& dict);
+    explicit RouterFeatures(const Object& dict);
 
     /** Obtains the broker feature flags. */
     Flags<BrokerFeatures> broker() const;

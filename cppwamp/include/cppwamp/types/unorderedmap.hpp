@@ -72,7 +72,6 @@ void CPPWAMP_API convert(ToVariantConverter& conv,
     conv.variant() = std::move(obj);
 }
 
-
-}
+} // namespace wamp
 
 #endif // CPPWAMP_TYPES_UNORDEREDMAP_HPP

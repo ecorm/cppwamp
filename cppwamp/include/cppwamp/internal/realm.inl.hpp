@@ -43,7 +43,7 @@ CPPWAMP_INLINE const Uri& Realm::uri() const
     return isAttached() ? impl_->uri() : empty;
 }
 
-CPPWAMP_INLINE bool Realm::isAttached() const {return bool(impl_);}
+CPPWAMP_INLINE bool Realm::isAttached() const {return static_cast<bool>(impl_);}
 
 CPPWAMP_INLINE bool Realm::isOpen() const
 {

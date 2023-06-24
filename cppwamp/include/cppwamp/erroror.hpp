@@ -134,6 +134,8 @@ public:
     /** Default constructor. */
     ErrorOr() = default;
 
+    // NOLINTBEGIN(google-explicit-constructor)
+
     /** Converting constructor taking a value. */
     ErrorOr(value_type value) : value_(std::move(value)) {}
 
@@ -144,6 +146,8 @@ public:
           error_(std::move(unex).value()),
           hasError_(true)
     {}
+
+    // NOLINTEND(google-explicit-constructor)
 
     /** Initializes the value in-place using the given value constructor
         arguments. */
@@ -311,7 +315,7 @@ private:
     CPPWAMP_HIDDEN void checkError() const
     {
         if (hasError_)
-            throw error::Failure(error_);
+            throw error::Failure{error_};
     }
 
     value_type value_;

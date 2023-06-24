@@ -36,7 +36,7 @@ class CPPWAMP_API Topic
 {
 public:
     /** Converting constructor taking a topic URI. */
-    Topic(Uri uri);
+    Topic(Uri uri); // NOLINT(google-explicit-constructor)
 
     /** Obtains the topic URI. */
     const Uri& uri() const;
@@ -79,7 +79,7 @@ class CPPWAMP_API Pub : public Payload<Pub, internal::MessageKind::publish>
 {
 public:
     /** Converting constructor taking a topic URI. */
-    Pub(Uri topic);
+    Pub(Uri topic); // NOLINT(google-explicit-constructor)
 
     /** Obtains the topic URI. */
     const Uri& uri() const;

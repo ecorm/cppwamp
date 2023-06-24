@@ -28,8 +28,8 @@ template <typename TEnum, std::size_t N>
 std::string lookupErrorMessage(const char* categoryName, int errorCodeValue,
                                const std::array<std::string, N>& table)
 {
-    static_assert(N == unsigned(TEnum::count), "");
-    if (errorCodeValue >= 0 && errorCodeValue < int(N))
+    static_assert(N == static_cast<unsigned>(TEnum::count), "");
+    if (errorCodeValue >= 0 && errorCodeValue < static_cast<int>(N))
         return table.at(errorCodeValue);
     return std::string(categoryName) + ':' + std::to_string(errorCodeValue);
 }
@@ -48,7 +48,9 @@ CPPWAMP_INLINE const char* MiscCategory::name() const noexcept
 
 CPPWAMP_INLINE std::string MiscCategory::message(int ev) const
 {
-    static const std::array<std::string, unsigned(MiscErrc::count)> msg{
+    static constexpr auto count = static_cast<unsigned>(MiscErrc::count);
+
+    static const std::array<std::string, count> msg{
     {
         /* success          */ "Operation successful",
         /* abandoned        */ "Operation abandoned by this peer",
@@ -68,7 +70,7 @@ CPPWAMP_INLINE bool MiscCategory::equivalent(const std::error_code& code,
 {
     if (code.category() == wampCategory())
         return code.value() == condition;
-    if (condition == (int)MiscErrc::success)
+    if (condition == static_cast<int>(MiscErrc::success))
         return !code;
     return false;
 }
@@ -103,7 +105,9 @@ CPPWAMP_INLINE const char* WampCategory::name() const noexcept
 
 CPPWAMP_INLINE std::string WampCategory::message(int ev) const
 {
-    static const std::array<std::string, unsigned(WampErrc::count)> msg =
+    static constexpr auto count = static_cast<unsigned>(WampErrc::count);
+
+    static const std::array<std::string, count> msg =
     {
 /* success                */ "Operation successful",
 /* unknown                */ "Unknown error URI",
@@ -174,7 +178,7 @@ CPPWAMP_INLINE bool WampCategory::equivalent(const std::error_code& code,
         default: return false;
         }
     }
-    else if (condition == (int)WampErrc::success)
+    else if (condition == static_cast<int>(WampErrc::success))
         return !code;
     else
         return false;
@@ -212,7 +216,8 @@ CPPWAMP_INLINE WampErrc errorUriToCode(const std::string& uri)
     };
 
     static constexpr unsigned legacyCount = 5u;
-    static constexpr unsigned count = unsigned(WampErrc::count) + legacyCount;
+    static constexpr auto count = static_cast<unsigned>(WampErrc::count) +
+                                  legacyCount;
 
     using WE = WampErrc;
     static const std::array<Record, count> sortedByUri{
@@ -272,7 +277,8 @@ CPPWAMP_INLINE WampErrc errorUriToCode(const std::string& uri)
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE const std::string& errorCodeToUri(WampErrc errc)
 {
-    static constexpr auto count = unsigned(WampErrc::count);
+    static constexpr auto count = static_cast<unsigned>(WampErrc::count);
+
     static const std::array<std::string, count> sortedByErrc{
     {
         "cppwamp.error.success",
@@ -362,7 +368,9 @@ CPPWAMP_INLINE const char* DecodingCategory::name() const noexcept
 
 CPPWAMP_INLINE std::string DecodingCategory::message(int ev) const
 {
-    static const std::array<std::string, unsigned(DecodingErrc::count)> msg{
+    static constexpr auto count = static_cast<unsigned>(DecodingErrc::count);
+
+    static const std::array<std::string, count> msg{
     {
         /* success           */ "Decoding succesful",
         /* failed            */ "Decoding failed",
@@ -384,10 +392,10 @@ CPPWAMP_INLINE bool DecodingCategory::equivalent(const std::error_code& code,
 
     if (!code)
     {
-        return condition == (int)DecodingErrc::success;
+        return condition == static_cast<int>(DecodingErrc::success);
     }
 
-    if (condition == (int)DecodingErrc::failed)
+    if (condition == static_cast<int>(DecodingErrc::failed))
     {
         return cat == decodingCategory() ||
                cat == jsoncons::json_error_category() ||
@@ -433,7 +441,9 @@ CPPWAMP_INLINE const char* TransportCategory::name() const noexcept
 
 CPPWAMP_INLINE std::string TransportCategory::message(int ev) const
 {
-    static const std::array<std::string, unsigned(TransportErrc::count)> msg{
+    static constexpr auto count = static_cast<unsigned>(TransportErrc::count);
+
+    static const std::array<std::string, count> msg{
     {
         /* success        */ "Transport operation successful",
         /* aborted        */ "Transport operation aborted",
@@ -460,21 +470,21 @@ CPPWAMP_INLINE bool TransportCategory::equivalent(const std::error_code& code,
     {
         if (code.value() == condition)
             return true;
-        if (condition == (int)TransportErrc::failed)
-            return code.value() > (int)TransportErrc::failed;
+        if (condition == static_cast<int>(TransportErrc::failed))
+            return code.value() > static_cast<int>(TransportErrc::failed);
         return false;
     }
 
-    switch (condition)
+    switch (static_cast<TransportErrc>(condition))
     {
-    case (int)TransportErrc::success:
+    case TransportErrc::success:
         return !code;
 
-    case (int)TransportErrc::aborted:
+    case TransportErrc::aborted:
         return code == std::errc::operation_canceled ||
                code == make_error_code(boost::asio::error::operation_aborted);
 
-    case (int)TransportErrc::failed:
+    case TransportErrc::failed:
     {
         if (!code)
             return false;
@@ -488,7 +498,7 @@ CPPWAMP_INLINE bool TransportCategory::equivalent(const std::error_code& code,
                cat == boost::asio::error::get_netdb_category();
     }
 
-    case (int)TransportErrc::disconnected:
+    case TransportErrc::disconnected:
         return code == std::errc::connection_reset ||
                code == make_error_code(boost::asio::error::connection_reset) ||
                code == make_error_code(boost::asio::error::eof);

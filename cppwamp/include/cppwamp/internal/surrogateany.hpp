@@ -116,7 +116,7 @@ public:
     {}
 
     template <typename T, Needs<Reqs::constructible<T>()> = 0>
-    SurrogateAny(T&& value)
+    SurrogateAny(T&& value) // NOLINT(google-explicit-constructor)
         : box_(construct<Decay<T>>(std::forward<T>(value)))
     {}
 
@@ -225,7 +225,7 @@ private:
         T value;
 
         template <typename... As>
-        Boxed(As&&... args) : value(std::forward<As>(args)...) {}
+        explicit Boxed(As&&... args) : value(std::forward<As>(args)...) {}
 
         const std::type_info& type() const noexcept override
         {

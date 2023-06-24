@@ -53,6 +53,7 @@ public:
         }
 
     protected:
+        // NOLINTNEXTLINE(google-explicit-constructor)
         ValueComp(KeyComp c) : comp(std::move(c)) {}
 
         // NOLINTBEGIN(cppcoreguidelines-non-private-member-variables-in-classes)

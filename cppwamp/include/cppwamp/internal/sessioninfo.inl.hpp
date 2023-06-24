@@ -47,7 +47,10 @@ CPPWAMP_INLINE ClientFeatures SessionInfo::features() const
     return impl_ ? impl_->features() : ClientFeatures{};
 }
 
-CPPWAMP_INLINE SessionInfo::operator bool() const {return bool(impl_);}
+CPPWAMP_INLINE SessionInfo::operator bool() const
+{
+    return static_cast<bool>(impl_);
+}
 
 CPPWAMP_INLINE SessionInfo::SessionInfo(
     internal::PassKey, std::shared_ptr<const internal::SessionInfoImpl> impl)

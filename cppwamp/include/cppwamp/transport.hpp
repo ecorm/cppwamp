@@ -63,8 +63,7 @@ public:
     virtual bool isStarted() const = 0;
 
     /** Starts the transport's I/O operations. */
-    virtual void start(RxHandler rxHandler,
-                       TxErrorHandler txHandler = nullptr) = 0;
+    virtual void start(RxHandler rxHandler, TxErrorHandler txHandler) = 0;
 
     /** Sends the given serialized message via the transport. */
     virtual void send(MessageBuffer message) = 0;

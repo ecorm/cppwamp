@@ -92,7 +92,10 @@ CPPWAMP_INLINE Error&& CallerChannel::error() &&
     return std::move(*impl_).error();
 }
 
-CPPWAMP_INLINE bool CallerChannel::attached() const {return bool(impl_);}
+CPPWAMP_INLINE bool CallerChannel::attached() const
+{
+    return static_cast<bool>(impl_);
+}
 
 CPPWAMP_INLINE CallerChannel::operator bool() const {return attached();}
 

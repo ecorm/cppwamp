@@ -212,24 +212,24 @@ public:
 
     /** Converting constructor taking an initial value. */
     template <typename T, CPPWAMP_NEEDS(Variant::isValidArg<T>()) = 0>
-    Variant(T&& value);
+    Variant(T&& value); // NOLINT(google-explicit-constructor)
 
     /** Converting constructor taking an initial Array value. */
-    Variant(Array array);
+    Variant(Array array); // NOLINT(google-explicit-constructor)
 
     /** Converting constructor taking a `std::vector` of initial Array
         values. */
     template <typename T,
              CPPWAMP_NEEDS(Variant::isValidArg<std::vector<T>>()) = 0>
-    Variant(std::vector<T> vec);
+    Variant(std::vector<T> vec); // NOLINT(google-explicit-constructor)
 
     /** Converting constructor taking an initial Object value. */
-    Variant(Object object);
+    Variant(Object object); // NOLINT(google-explicit-constructor)
 
     /** Converting constructor taking a `std::map` of key-value pairs. */
     template <typename T,
               CPPWAMP_NEEDS((Variant::isValidArg<std::map<String, T>>())) = 0>
-    Variant(std::map<String, T> map);
+    Variant(std::map<String, T> map); // NOLINT(google-explicit-constructor)
 
     /** Destructor. */
     ~Variant();

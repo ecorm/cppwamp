@@ -136,7 +136,8 @@ public:
 private:
     template <typename E>
     MockServer(E&& exec, uint16_t port)
-        : listener_(boost::asio::make_strand(exec), port, {Json::id()})
+        : listener_(boost::asio::make_strand(exec), TcpEndpoint{port},
+                    {Json::id()})
     {}
 
     void listen()

@@ -64,7 +64,11 @@ class CPPWAMP_API OutputSink<std::string>
 {
 public:
     using Output = std::string;
-    OutputSink(Output& s) : output_(&s) {}
+
+    OutputSink(Output& s) // NOLINT(google-explicit-constructor)
+        : output_(&s)
+    {}
+
     Output& output() const {return *output_;}
 
 private:
@@ -79,7 +83,11 @@ class CPPWAMP_API OutputSink<MessageBuffer>
 {
 public:
     using Output = MessageBuffer;
-    OutputSink(Output& b) : output_(&b) {}
+
+    OutputSink(Output& b) // NOLINT(google-explicit-constructor)
+        : output_(&b)
+    {}
+
     Output& output() const {return *output_;}
 
 private:
@@ -94,7 +102,11 @@ class CPPWAMP_API OutputSink<std::ostream>
 {
 public:
     using Output = std::ostream;
-    OutputSink(Output& b) : output_(&b) {}
+
+    OutputSink(Output& b) // NOLINT(google-explicit-constructor)
+        : output_(&b)
+    {}
+
     Output& output() const {return *output_;}
 
 private:
@@ -186,7 +198,11 @@ class CPPWAMP_API InputSource<std::string>
 {
 public:
     using Input = std::string;
-    InputSource(const Input& s) : input_(&s) {}
+
+    InputSource(const Input& s) // NOLINT(google-explicit-constructor)
+        : input_(&s)
+    {}
+
     const Input& input() const {return *input_;}
 
 private:
@@ -201,7 +217,11 @@ class CPPWAMP_API InputSource<MessageBuffer>
 {
 public:
     using Input = MessageBuffer;
-    InputSource(const Input& b) : input_(&b) {}
+
+    InputSource(const Input& b) // NOLINT(google-explicit-constructor)
+        : input_(&b)
+    {}
+
     const Input& input() const {return *input_;}
 
 private:
@@ -216,7 +236,11 @@ class CPPWAMP_API InputSource<std::istream>
 {
 public:
     using Input = std::istream;
-    InputSource(Input& b) : input_(&b) {}
+
+    InputSource(Input& b) // NOLINT(google-explicit-constructor)
+        : input_(&b)
+    {}
+
     Input& input() const {return *input_;}
 
 private:
@@ -394,9 +418,10 @@ public:
     /** Constructs an empty AnyCodec. */
     AnyCodec() = default;
 
-    /** Constructor taking a serialization format tag (e.g. wamp::json). */
+    /** Converting constructor taking a serialization format tag
+        (e.g. wamp::json). */
     template <typename TFormat>
-    AnyCodec(TFormat)
+    AnyCodec(TFormat) // NOLINT(google-explicit-constructor)
         : codec_(std::make_shared<PolymorphicCodec<TFormat, Sink, Source>>())
     {}
 

@@ -30,12 +30,16 @@ namespace utils
     Entries below LogLevel::warning are output to std::clog, and all others
     are output to std::cerr. Concurrent output operations are not serialized. */
 // TODO: Unify with ColorConsoleLogger via options
+// TODO: Options instead of constructor overloads
 //------------------------------------------------------------------------------
 class CPPWAMP_API ConsoleLogger
 {
 public:
     /** Default constructor. */
-    ConsoleLogger(bool flushOnWrite = false);
+    ConsoleLogger();
+
+    /** Constructor taking a flushOnWrite option. */
+    explicit ConsoleLogger(bool flushOnWrite);
 
     /** Constructor taking a custom origin label. */
     explicit ConsoleLogger(std::string originLabel, bool flushOnWrite = false);

@@ -110,9 +110,7 @@ private:
     public:
         Context() = default;
 
-        Context(Variant& v)
-            : variant_(&v)
-        {}
+        explicit Context(Variant& v) : variant_(&v) {}
 
         Variant& variant() {return *variant_;}
 
@@ -153,7 +151,7 @@ private:
         variant_ = std::forward<T>(value);
         hasRoot_ = true;
         if (isComposite)
-            contextStack_.push_back(variant_);
+            contextStack_.push_back(Context{variant_});
         return {};
     }
 
@@ -163,7 +161,7 @@ private:
         auto& array = context().variant().template as<TypeId::array>();
         array.push_back(std::forward<T>(value));
         if (isComposite)
-            contextStack_.push_back(array.back());
+            contextStack_.push_back(Context{array.back()});
         return {};
     }
 
@@ -190,7 +188,7 @@ private:
         }
         ctx.setKeyIsDone(false);
         if (isComposite)
-            contextStack_.push_back(*newElement);
+            contextStack_.push_back(Context{*newElement});
 
         return {};
     }

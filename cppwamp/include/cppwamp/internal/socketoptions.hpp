@@ -49,7 +49,9 @@ public:
     using Protocol = TProtocol;
     using Option = TOption;
 
-    SocketOptionWrapper(TOption&& option) : option_(std::move(option)) {}
+    explicit SocketOptionWrapper(TOption&& option)
+        : option_(std::move(option))
+    {}
 
     ~SocketOptionWrapper() override = default;
 
@@ -89,7 +91,7 @@ public:
     using Protocol = TProtocol;
 
     template <typename O, CPPWAMP_NEEDS(isNotSelf<O>()) = 0>
-    SocketOption(O&& option)
+    explicit SocketOption(O&& option)
         : option_(std::make_shared<SocketOptionWrapper<TProtocol, Decay<O>>>(
             std::forward<O>(option)))
     {}

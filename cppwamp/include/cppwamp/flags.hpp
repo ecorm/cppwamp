@@ -107,9 +107,6 @@ public:
     /** Default constructor which clears all flags. */
     constexpr Flags() noexcept : n_(0) {}
 
-    /** Converting constructor taking a single enumerator. */
-    constexpr Flags(flag_type e) noexcept : n_(static_cast<integer_type>(e)) {}
-
     /** Converting constructor taking an initializer list of enumerators. */
     CPPWAMP_CONSTEXPR14
     Flags(std::initializer_list<flag_type> list) noexcept
@@ -119,7 +116,12 @@ public:
             n_ |= static_cast<integer_type>(e);
     }
 
+    /** Converting constructor taking a single enumerator. */
+    constexpr Flags(flag_type e) noexcept // NOLINT(google-explicit-constructor)
+        : n_(static_cast<integer_type>(e)) {}
+
     /** Constructor taking a std::bitset. */
+    explicit
 #if defined(__cpp_lib_constexpr_bitset) || defined(CPPWAMP_FOR_DOXYGEN)
     constexpr
 #endif
@@ -369,10 +371,7 @@ constexpr Flags<E> operator~(E enumerator) noexcept
 
 /** Convenience function for representing a bit in a flags enumeration.
     @relates Flags */
-static constexpr unsigned long long flag_bit(unsigned pos)
-{
-    return 1ull << pos;
-}
+static constexpr uintmax_t flag_bit(unsigned pos) {return uintmax_t{1u} << pos;}
 
 } // namespace wamp
 

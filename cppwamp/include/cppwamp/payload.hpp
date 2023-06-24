@@ -115,7 +115,7 @@ public:
 
 protected:
     template <typename... Ts>
-    Payload(in_place_t, Ts&&... fields);
+    explicit Payload(in_place_t, Ts&&... fields);
 
     template <internal::MessageKind M>
     explicit Payload(internal::Command<M>&& command);

@@ -36,7 +36,7 @@ public:
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
 
-    DirectRouterSession(DirectPeer& peer);
+    explicit DirectRouterSession(DirectPeer& peer);
 
     void connect(DirectRouterLink&& link);
 

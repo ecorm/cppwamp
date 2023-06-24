@@ -44,7 +44,7 @@ class RandomEphemeralIdGenerator
 public:
     using Gen64 = std::function<uint64_t ()>;
 
-    RandomEphemeralIdGenerator(Gen64 gen) : gen_(std::move(gen)) {}
+    explicit RandomEphemeralIdGenerator(Gen64 gen) : gen_(std::move(gen)) {}
 
     EphemeralId operator()()
     {
@@ -93,7 +93,7 @@ public:
 
     EphemeralId get() const {return value_;}
 
-    operator EphemeralId() const {return value_;}
+    explicit operator EphemeralId() const {return value_;}
 
 private:
     ReservedId(const std::shared_ptr<RandomIdPool>& pool, EphemeralId id)

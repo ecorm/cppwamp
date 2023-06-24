@@ -75,7 +75,7 @@ struct StreamRegistration
 //------------------------------------------------------------------------------
 struct InvocationRecord
 {
-    InvocationRecord(RegistrationId regId) : registrationId(regId) {}
+    explicit InvocationRecord(RegistrationId regId) : registrationId(regId) {}
 
     CalleeChannelImpl::WeakPtr channel;
     RegistrationId registrationId;
@@ -454,7 +454,7 @@ private:
     void postStreamInterruption(Interruption& intr, InvocationRecord& rec)
     {
         auto channel = rec.channel.lock();
-        if (bool(channel) && channel->hasInterruptHandler())
+        if (static_cast<bool>(channel) && channel->hasInterruptHandler())
             channel->postInterrupt(std::move(intr));
         else
             automaticallyRespondToInterruption(intr, rec);
