@@ -133,9 +133,8 @@ public:
     {
         const std::lock_guard<std::mutex> lock(mutex_);
         const auto end = ids_.cend();
-        IdSet::const_iterator found;
-        EphemeralId id = 0;
-        while ((found = ids_.find(id)) != end)
+        EphemeralId id = gen_();
+        while (ids_.count(id) != 0)
             id = gen_();
         ids_.emplace(id);
         return ReservedId{shared_from_this(), id};
