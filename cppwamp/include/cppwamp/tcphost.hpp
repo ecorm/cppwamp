@@ -63,10 +63,18 @@ public:
 
     /** Couples a serialization format with these transport settings to
         produce a ConnectionWish that can be passed to Session::connect. */
-    template <typename TFormat>
-    ConnectionWish withFormat(TFormat) const
+    template <typename F, CPPWAMP_NEEDS(IsCodecFormat<F>::value) = 0>
+    ConnectionWish withFormat(F) const
     {
-        return ConnectionWish{*this, TFormat{}};
+        return ConnectionWish{*this, F{}};
+    }
+
+    /** Couples serialization format options with these transport settings to
+        produce a ConnectionWish that can be passed to Session::connect. */
+    template <typename F>
+    ConnectionWish withFormatOptions(const CodecOptions<F>& codecOptions) const
+    {
+        return ConnectionWish{*this, codecOptions};
     }
 
     /** Obtains the TCP host name. */

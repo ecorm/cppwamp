@@ -40,6 +40,9 @@ struct CPPWAMP_API Msgpack
 /** Instance of the Msgpack tag. */
 constexpr CPPWAMP_INLINE Msgpack msgpack;
 
+template <>
+struct IsCodecFormat<Msgpack> : TrueType {};
+
 //------------------------------------------------------------------------------
 /** CodecOptions options type alias for MessagePack, wrapping
     jsoncons::msgpack::msgpack_options */

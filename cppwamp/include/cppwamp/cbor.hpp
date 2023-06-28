@@ -40,6 +40,9 @@ struct CPPWAMP_API Cbor
 /** Instance of the Cbor tag. */
 constexpr CPPWAMP_INLINE Cbor cbor;
 
+template <>
+struct IsCodecFormat<Cbor> : TrueType {};
+
 //------------------------------------------------------------------------------
 /** CodecOptions options type alias for JSON, wrapping
     jsoncons::cbor::cbor_options */

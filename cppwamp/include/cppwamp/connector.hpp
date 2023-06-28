@@ -117,10 +117,21 @@ class ConnectionWish
 public:
     /** Constructor taking a @ref TransportSettings instance and a
         @ref CodecFormat instance. */
-    template <typename TTransportSettings, typename TCodecFormat>
+    template <typename TTransportSettings,
+             typename TCodecFormat,
+             CPPWAMP_NEEDS(IsCodecFormat<TCodecFormat>::value) = 0>
     ConnectionWish(TTransportSettings&& wish, TCodecFormat)
         : connectorBuilder_(std::forward<TTransportSettings>(wish)),
           codecBuilder_(TCodecFormat{})
+    {}
+
+    /** Constructor taking a @ref TransportSettings instance and a
+        @ref CodecOptions instance. */
+    template <typename TTransportSettings, typename TFormat>
+    ConnectionWish(TTransportSettings&& wish,
+                   const CodecOptions<TFormat>& codecOptions)
+        : connectorBuilder_(std::forward<TTransportSettings>(wish)),
+          codecBuilder_(codecOptions)
     {}
 
     /** Obtains the numeric codec ID of the desired serialization format. */

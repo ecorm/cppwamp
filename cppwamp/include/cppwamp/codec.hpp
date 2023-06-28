@@ -43,6 +43,14 @@ struct CPPWAMP_API KnownCodecIds
 };
 
 //------------------------------------------------------------------------------
+/** Indicates if the given type is a codec format tag.
+    Must be specialized for every codec. */
+//------------------------------------------------------------------------------
+template <typename TFormat, typename Enable = void>
+struct IsCodecFormat : FalseType
+{};
+
+//------------------------------------------------------------------------------
 /** Type-erased wrapper around options supported by the underlying codec
     implementation. */
 //------------------------------------------------------------------------------
@@ -510,7 +518,8 @@ public:
 
     /** Converting constructor taking a serialization format tag
         (e.g. wamp::Json). */
-    template <typename TFormat>
+    template <typename TFormat,
+             CPPWAMP_NEEDS(IsCodecFormat<TFormat>::value) = 0>
     AnyCodec(TFormat) // NOLINT(google-explicit-constructor)
         : codec_(std::make_shared<PolymorphicCodec<TFormat, Sink, Source>>())
     {}
@@ -567,9 +576,17 @@ public:
     using AnyCodecType = AnyCodec<TSink, TSource>;
 
     /** Constructor taking a serialization format tag. */
-    template <typename TFormat>
+    template <typename TFormat,
+             CPPWAMP_NEEDS(IsCodecFormat<TFormat>::value) = 0>
     explicit CodecBuilder(TFormat)
-        : builder_([]() -> AnyCodecType {return AnyCodecType(TFormat{});}),
+        : builder_([]() -> AnyCodecType {return AnyCodecType{TFormat{}};}),
+          id_(TFormat::id())
+    {}
+
+    /** Constructor taking codec options. */
+    template <typename TFormat>
+    explicit CodecBuilder(const CodecOptions<TFormat>& options)
+        : builder_([options]() -> AnyCodecType {return AnyCodecType{options};}),
           id_(TFormat::id())
     {}
 

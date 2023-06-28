@@ -368,7 +368,7 @@ GIVEN( "a string Variant with multi-byte UTF-8 characters" )
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Json options", "[Variant][Codec][Json][thisone]" )
+SCENARIO( "Json options", "[Variant][Codec][Json]" )
 {
     jsoncons::json_options jsonOptions;
     jsonOptions.max_nesting_depth(2);

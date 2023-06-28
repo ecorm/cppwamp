@@ -6,6 +6,7 @@
 
 #if defined(CPPWAMP_TEST_HAS_CORO)
 
+#include <jsoncons/json_options.hpp>
 #include "clienttesting.hpp"
 
 using namespace test;
@@ -467,6 +468,52 @@ GIVEN( "a Session and an alternate ConnectionWish" )
         ioctx.run();
     }
 }}
+
+
+//------------------------------------------------------------------------------
+SCENARIO( "Connecting with codec options", "[WAMP][Basic]" )
+{
+    IoContext ioctx;
+    Session s(ioctx);
+    s.observeIncidents([](Incident i){std::cout << i.toLogEntry() << std::endl;});
+    s.enableTracing();
+
+    jsoncons::json_options opts;
+    opts.float_format(jsoncons::float_chars_format::fixed);
+    opts.precision(1);
+    opts.inf_to_str("inf");
+    const auto where = TcpHost("localhost", validPort)
+                           .withFormatOptions(JsonOptions{opts});
+    double value = 0;
+
+    auto event = [&value](Event event)
+    {
+        event.convertTo(value);
+    };
+
+    spawn(ioctx, [&](YieldContext yield)
+    {
+        s.connect(where, yield).value();
+        s.join(Petition(testRealm), yield).value();
+        s.subscribe(Topic("foo"), event, yield).value();
+
+        s.publish(Pub("foo").withArgs(10.14).withExcludeMe(false));
+        while (value == 0)
+            suspendCoro(yield);
+        CHECK_THAT(value, Catch::Matchers::WithinAbs(10.1, 0.01));
+        value = 0;
+
+        using Limits = std::numeric_limits<double>;
+        s.publish(Pub("foo").withArgs(Limits::infinity()).withExcludeMe(false));
+        while (value == 0)
+            suspendCoro(yield);
+        CHECK(std::isinf(value));
+
+        s.disconnect();
+    });
+
+    ioctx.run();
+}
 
 
 //------------------------------------------------------------------------------

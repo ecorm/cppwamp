@@ -40,6 +40,10 @@ struct CPPWAMP_API Json
 /** Instance of the Json tag. */
 constexpr CPPWAMP_INLINE Json json;
 
+template <>
+struct IsCodecFormat<Json> : TrueType {};
+
+
 //------------------------------------------------------------------------------
 /// CodecOptions options type alias for JSON, wrapping jsoncons::json_options
 //------------------------------------------------------------------------------

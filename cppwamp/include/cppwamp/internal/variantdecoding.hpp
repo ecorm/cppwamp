@@ -14,8 +14,7 @@
 #include <vector>
 #include <jsoncons/byte_string.hpp>
 #include <jsoncons/config/version.hpp>
-#include <jsoncons/json_visitor.hpp>
-#include <jsoncons/json_visitor2.hpp>
+#include <jsoncons/item_event_visitor.hpp>
 #include <jsoncons/ser_context.hpp>
 #include <jsoncons/source.hpp>
 #include <jsoncons/tag_type.hpp>
@@ -201,7 +200,7 @@ private:
 
 
     // visit overrides common to jsoncons::json_visitor
-    // and jsoncons::json_visitor2
+    // and jsoncons::item_event_visitor
 
     void visit_flush() override {}
 
@@ -320,7 +319,7 @@ private:
 
 //------------------------------------------------------------------------------
 class VariantDecodingVisitor :
-    public VariantDecodingVisitorBase<jsoncons::json_visitor2>
+    public VariantDecodingVisitorBase<jsoncons::item_event_visitor>
 {
 private:
     bool visit_string(const string_view_type& sv, Tag, const Where& where,
