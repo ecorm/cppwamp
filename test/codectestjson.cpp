@@ -10,6 +10,7 @@
 #include <catch2/catch.hpp>
 #include <cppwamp/variant.hpp>
 #include <cppwamp/json.hpp>
+#include <jsoncons/json_options.hpp>
 
 using namespace wamp;
 namespace Matchers = Catch::Matchers;
@@ -364,4 +365,42 @@ GIVEN( "a string Variant with multi-byte UTF-8 characters" )
         }
     }
 }
+}
+
+//------------------------------------------------------------------------------
+SCENARIO( "Json options", "[Variant][Codec][Json][thisone]" )
+{
+    jsoncons::json_options jsonOptions;
+    jsonOptions.max_nesting_depth(2);
+    jsonOptions.float_format(jsoncons::float_chars_format::fixed);
+    jsonOptions.precision(2);
+
+    JsonOptions options(jsonOptions);
+    AnyStringCodec codec{options};
+
+    WHEN( "encoding with options" )
+    {
+        Variant v{1.1};
+        std::string output;
+        std::string expected{"1.10"};
+
+        codec.encode(v, output);
+        CHECK(output == expected);
+
+        output.clear();
+        wamp::encode(v, options, output);
+        CHECK(output == expected);
+    }
+
+    WHEN( "decoding with options" )
+    {
+        std::string input{"[[[42]]]"};
+
+        Variant v;
+        auto ec = codec.decode(input, v);
+        CHECK(ec == jsoncons::json_errc::max_nesting_depth_exceeded);
+
+        ec = wamp::decode(input, options, v);
+        CHECK(ec == jsoncons::json_errc::max_nesting_depth_exceeded);
+    }
 }

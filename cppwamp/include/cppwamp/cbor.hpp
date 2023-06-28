@@ -41,6 +41,12 @@ struct CPPWAMP_API Cbor
 constexpr CPPWAMP_INLINE Cbor cbor;
 
 //------------------------------------------------------------------------------
+/** CodecOptions options type alias for JSON, wrapping
+    jsoncons::cbor::cbor_options */
+//------------------------------------------------------------------------------
+using CborOptions = CodecOptions<Cbor>;
+
+//------------------------------------------------------------------------------
 /** CBOR encoder.
     This class uses [jsoncons][1] to serialize CBOR payloads from Variant
     instances.
@@ -56,9 +62,13 @@ class CPPWAMP_API SinkEncoder<Cbor, TSink>
 public:
     using Sink = TSink;
     using Output = typename Sink::Output;
+    using Options = CborOptions;
 
     /** Default constructor. */
     SinkEncoder();
+
+    /** Constructor taking encoder options. */
+    explicit SinkEncoder(const Options& options);
 
     /** Move constructor. */
     SinkEncoder(SinkEncoder&&) noexcept;
@@ -114,9 +124,13 @@ class CPPWAMP_API SourceDecoder<Cbor, TSource>
 public:
     using Source = TSource;
     using Input = typename Source::Input;
+    using Options = CborOptions;
 
     /** Default constructor. */
     SourceDecoder();
+
+    /** Constructor taking decoder options. */
+    explicit SourceDecoder(const Options& options);
 
     /** Move constructor. */
     SourceDecoder(SourceDecoder&&) noexcept;

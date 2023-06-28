@@ -18,6 +18,10 @@ template <typename S>
 class SinkEncoder<Cbor, S>::Impl
 {
 public:
+    Impl() = default;
+
+    explicit Impl(const CborOptions& options) : encoder_(options) {}
+
     void encode(const Variant& variant, S sink)
     {
         encoder_.encode(variant, sink);
@@ -27,6 +31,7 @@ private:
     struct Config
     {
         using Sink = S;
+        using Options = jsoncons::cbor::cbor_options;
 
         template <typename TUnderlyingEncoderSink>
         using EncoderType =
@@ -39,6 +44,12 @@ private:
 //------------------------------------------------------------------------------
 template <typename S>
 SinkEncoder<Cbor, S>::SinkEncoder() : impl_(new Impl) {}
+
+//------------------------------------------------------------------------------
+template <typename S>
+SinkEncoder<Cbor, S>::SinkEncoder(const Options& options)
+    : impl_(new Impl(options))
+{}
 
 //------------------------------------------------------------------------------
 template <typename S>
@@ -79,6 +90,8 @@ class SourceDecoder<Cbor, S>::Impl
 public:
     Impl() : decoder_("Cbor") {}
 
+    explicit Impl(const CborOptions& options) : decoder_("Cbor", options) {}
+
     std::error_code decode(Source source, Variant& variant)
     {
         return decoder_.decode(source.input(), variant);
@@ -88,6 +101,7 @@ private:
     struct Config
     {
         using Source = S;
+        using Options = jsoncons::cbor::cbor_options;
 
         template <typename TImplSource>
         using Parser = jsoncons::cbor::basic_cbor_parser<TImplSource>;
@@ -99,6 +113,12 @@ private:
 //------------------------------------------------------------------------------
 template <typename S>
 SourceDecoder<Cbor, S>::SourceDecoder() : impl_(new Impl) {}
+
+//------------------------------------------------------------------------------
+template <typename S>
+SourceDecoder<Cbor, S>::SourceDecoder(const Options& options)
+    : impl_(new Impl(options))
+{}
 
 //------------------------------------------------------------------------------
 template <typename S>

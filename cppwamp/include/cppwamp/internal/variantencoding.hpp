@@ -118,6 +118,7 @@ class GenericEncoder
 {
 private:
     using SinkTraits = internal::GenericEncoderSinkTraits<typename TConfig::Sink>;
+    using Options = typename TConfig::Options;
 
 public:
     using Sink = typename TConfig::Sink;
@@ -127,8 +128,15 @@ public:
         encoder_(stub_)
     {}
 
+    template <typename O>
+    explicit GenericEncoder(const O& codecOptions) :
+        stub_(typename SinkTraits::StubArg{}),
+        encoder_(stub_, codecOptions.template as<Options>())
+    {}
+
     void encode(const Variant& variant, Sink sink)
     {
+        // TODO: Typed arrays
         encoder_.reset(sink.output());
         wamp::apply(VariantEncodingVisitor<Encoder>(encoder_),
                     variant);

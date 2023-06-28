@@ -8,6 +8,7 @@
 #include <catch2/catch.hpp>
 #include <cppwamp/variant.hpp>
 #include <cppwamp/msgpack.hpp>
+#include <jsoncons_ext/msgpack/msgpack_options.hpp>
 
 using namespace wamp;
 
@@ -223,5 +224,31 @@ GIVEN( "a Msgpack message with a non-string key" )
         CHECK(v == 42);
     }
 }
+}
 
+//------------------------------------------------------------------------------
+SCENARIO( "Msgpack options", "[Variant][Codec][Msgpack]" )
+{
+jsoncons::msgpack::msgpack_options msgpackOptions;
+msgpackOptions.max_nesting_depth(2);
+
+MsgpackOptions options(msgpackOptions);
+AnyBufferCodec codec{options};
+
+WHEN( "decoding with options" )
+{
+    MessageBuffer input{
+        0x91,            // array(1)
+            0x91,        // array(1)
+                0x91,    // array(1)
+                    0x2A // unsigned(42)
+    };
+
+    Variant v;
+    auto ec = codec.decode(input, v);
+    CHECK(ec == jsoncons::msgpack::msgpack_errc::max_nesting_depth_exceeded);
+
+    ec = wamp::decode(input, options, v);
+    CHECK(ec == jsoncons::msgpack::msgpack_errc::max_nesting_depth_exceeded);
+}
 }

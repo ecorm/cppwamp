@@ -9,6 +9,7 @@
 #include <catch2/catch.hpp>
 #include <cppwamp/variant.hpp>
 #include <cppwamp/cbor.hpp>
+#include <jsoncons_ext/cbor/cbor_options.hpp>
 
 using namespace wamp;
 
@@ -224,7 +225,6 @@ GIVEN( "a CBOR message with a non-string key" )
         CHECK(v == 42);
     }
 }
-
 }
 
 //------------------------------------------------------------------------------
@@ -249,4 +249,52 @@ SCENARIO( "CBOR typed array", "[Variant][Codec][Cbor]" )
     CHECK( a[1] == 17767 );
     CHECK( a[2] == 35243 );
     CHECK( a[3] == 52719 );
+}
+
+//------------------------------------------------------------------------------
+SCENARIO( "CBOR options", "[Variant][Codec][Cbor]" )
+{
+    jsoncons::cbor::cbor_options cborOptions;
+    cborOptions.max_nesting_depth(2);
+    cborOptions.pack_strings(true);
+
+    CborOptions options(cborOptions);
+    AnyBufferCodec codec{options};
+
+    WHEN( "encoding with options" )
+    {
+        Variant v{Array{"foo", "foo"}};
+        MessageBuffer output;
+        MessageBuffer expected{
+            0x82,                  // array(2)
+                0x63,              // text(3)
+                    'f', 'o', 'o', // "foo"
+                0xD8, 0x19,        // tag(25), reference previous string
+                00                 // unsigned(0)
+        };
+
+        codec.encode(v, output);
+        CHECK_THAT(output, Catch::Matchers::Equals(expected));
+
+        output.clear();
+        wamp::encode(v, options, output);
+        CHECK_THAT(output, Catch::Matchers::Equals(expected));
+    }
+
+    WHEN( "decoding with options" )
+    {
+        MessageBuffer input{
+            0x81,                  // array(1)
+                0x81,              // array(1)
+                    0x81,          // array(1)
+                        0x18, 0x2A // unsigned(42)
+        };
+
+        Variant v;
+        auto ec = codec.decode(input, v);
+        CHECK(ec == jsoncons::cbor::cbor_errc::max_nesting_depth_exceeded);
+
+        ec = wamp::decode(input, options, v);
+        CHECK(ec == jsoncons::cbor::cbor_errc::max_nesting_depth_exceeded);
+    }
 }

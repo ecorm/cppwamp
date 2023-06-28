@@ -41,6 +41,11 @@ struct CPPWAMP_API Json
 constexpr CPPWAMP_INLINE Json json;
 
 //------------------------------------------------------------------------------
+/// CodecOptions options type alias for JSON, wrapping jsoncons::json_options
+//------------------------------------------------------------------------------
+using JsonOptions = CodecOptions<Json>;
+
+//------------------------------------------------------------------------------
 /** JSON encoder.
     This class uses [jsoncons][1] to serialize JSON payloads from Variant
     instances.
@@ -56,9 +61,13 @@ class CPPWAMP_API SinkEncoder<Json, TSink>
 public:
     using Sink = TSink;
     using Output = typename Sink::Output;
+    using Options = JsonOptions;
 
     /** Default constructor. */
     SinkEncoder();
+
+    /** Constructor taking encoder options. */
+    explicit SinkEncoder(const Options& options);
 
     /** Move constructor. */
     SinkEncoder(SinkEncoder&&) noexcept;
@@ -114,9 +123,13 @@ class CPPWAMP_API SourceDecoder<Json, TSource>
 public:
     using Source = TSource;
     using Input = typename Source::Input;
+    using Options = JsonOptions;
 
     /** Default constructor. */
     SourceDecoder();
+
+    /** Constructor taking decoder options. */
+    explicit SourceDecoder(const Options& options);
 
     /** Move constructor. */
     SourceDecoder(SourceDecoder&&) noexcept;

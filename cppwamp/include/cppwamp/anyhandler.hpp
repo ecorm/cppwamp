@@ -32,6 +32,7 @@
 #include "traits.hpp"
 
 // TODO: Immediate executor support for Boost >= 1.82
+// https://github.com/chriskohlhoff/asio/issues/1320
 
 namespace wamp
 {

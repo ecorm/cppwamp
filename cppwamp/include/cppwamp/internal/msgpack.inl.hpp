@@ -18,6 +18,10 @@ template <typename S>
 class SinkEncoder<Msgpack, S>::Impl
 {
 public:
+    Impl() = default;
+
+    explicit Impl(const MsgpackOptions& options) : encoder_(options) {}
+
     void encode(const Variant& variant, S sink)
     {
         encoder_.encode(variant, sink);
@@ -27,6 +31,7 @@ private:
     struct Config
     {
         using Sink = S;
+        using Options = jsoncons::msgpack::msgpack_options;
 
         template <typename TUnderlyingEncoderSink>
         using EncoderType =
@@ -39,6 +44,12 @@ private:
 //------------------------------------------------------------------------------
 template <typename S>
 SinkEncoder<Msgpack, S>::SinkEncoder() : impl_(new Impl) {}
+
+//------------------------------------------------------------------------------
+template <typename S>
+SinkEncoder<Msgpack, S>::SinkEncoder(const Options& options)
+    : impl_(new Impl(options))
+{}
 
 //------------------------------------------------------------------------------
 template <typename S>
@@ -79,6 +90,8 @@ class SourceDecoder<Msgpack, S>::Impl
 public:
     Impl() : decoder_("Msgpack") {}
 
+    explicit Impl(const MsgpackOptions& opts) : decoder_("Msgpack", opts) {}
+
     std::error_code decode(Source source, Variant& variant)
     {
         return decoder_.decode(source.input(), variant);
@@ -88,6 +101,7 @@ private:
     struct Config
     {
         using Source = S;
+        using Options = jsoncons::msgpack::msgpack_options;
 
         template <typename TImplSource>
         using Parser = jsoncons::msgpack::basic_msgpack_parser<TImplSource>;
@@ -99,6 +113,12 @@ private:
 //------------------------------------------------------------------------------
 template <typename S>
 SourceDecoder<Msgpack, S>::SourceDecoder() : impl_(new Impl) {}
+
+//------------------------------------------------------------------------------
+template <typename S>
+SourceDecoder<Msgpack, S>::SourceDecoder(const Options& options)
+    : impl_(new Impl(options))
+{}
 
 //------------------------------------------------------------------------------
 template <typename S>

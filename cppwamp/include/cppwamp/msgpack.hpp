@@ -41,8 +41,14 @@ struct CPPWAMP_API Msgpack
 constexpr CPPWAMP_INLINE Msgpack msgpack;
 
 //------------------------------------------------------------------------------
+/** CodecOptions options type alias for MessagePack, wrapping
+    jsoncons::msgpack::msgpack_options */
+//------------------------------------------------------------------------------
+using MsgpackOptions = CodecOptions<Msgpack>;
+
+//------------------------------------------------------------------------------
 /** %Msgpack encoder.
-    This class uses [jsoncons][1] to serialize MSGPACK payloads from Variant
+    This class uses [jsoncons][1] to serialize MessagePack payloads from Variant
     instances.
     [1]: https://github.com/danielaparker/jsoncons
 
@@ -56,9 +62,13 @@ class CPPWAMP_API SinkEncoder<Msgpack, TSink>
 public:
     using Sink = TSink;
     using Output = typename Sink::Output;
+    using Options = MsgpackOptions;
 
     /** Default constructor. */
     SinkEncoder();
+
+    /** Constructor taking encoder options. */
+    explicit SinkEncoder(const Options& options);
 
     /** Move constructor. */
     SinkEncoder(SinkEncoder&&) noexcept;
@@ -114,9 +124,13 @@ class CPPWAMP_API SourceDecoder<Msgpack, TSource>
 public:
     using Source = TSource;
     using Input = typename Source::Input;
+    using Options = MsgpackOptions;
 
     /** Default constructor. */
     SourceDecoder();
+
+    /** Constructor taking decoder options. */
+    explicit SourceDecoder(const Options& options);
 
     /** Move constructor. */
     SourceDecoder(SourceDecoder&&) noexcept;

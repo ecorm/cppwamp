@@ -362,12 +362,19 @@ class GenericDecoder
 {
 private:
     using SourceTraits = GenericDecoderSourceTraits<typename TConfig::Source>;
+    using Options = typename TConfig::Options;
 
 public:
-    template <typename... TArgs>
-    explicit GenericDecoder(std::string codecName, TArgs&&... /*inputStubArgs*/)
+    explicit GenericDecoder(std::string codecName)
         : inputStub_(typename SourceTraits::StubArg{}),
           parser_(inputStub_),
+          codecName_(std::move(codecName))
+    {}
+
+    template <typename O>
+    GenericDecoder(std::string codecName, const O& codecOptions)
+        : inputStub_(typename SourceTraits::StubArg{}),
+        parser_(inputStub_, codecOptions.template as<Options>()),
           codecName_(std::move(codecName))
     {}
 

@@ -29,6 +29,11 @@ class JsonDecoderImpl
 public:
     JsonDecoderImpl() : parser_(jsoncons::strict_json_parsing{}) {}
 
+    explicit JsonDecoderImpl(const JsonOptions& opts)
+        : parser_(opts.as<jsoncons::json_options>(),
+                  jsoncons::strict_json_parsing{})
+    {}
+
     std::error_code decode(const TInput& input, Variant& variant)
     {
         parser_.reinitialize();
@@ -66,6 +71,10 @@ template <>
 class JsonDecoderImpl<std::istream> : public JsonDecoderImpl<std::string>
 {
 public:
+    JsonDecoderImpl() = default;
+
+    explicit JsonDecoderImpl(const JsonOptions& opts) : Base(opts) {}
+
     std::error_code decode(std::istream& in, Variant& variant)
     {
         bytes_.clear();
@@ -97,8 +106,12 @@ template <typename S>
 class SinkEncoder<Json, S>::Impl
 {
 public:
-    template <typename Sable>
-    void encode(const Variant& variant, Sable& output)
+    Impl() = default;
+
+    explicit Impl(const JsonOptions& options) : encoderImpl_(options) {}
+
+    template <typename Sinkable>
+    void encode(const Variant& variant, Sinkable& output)
     {
         encoderImpl_.encode(variant, output);
     }
@@ -115,6 +128,12 @@ private:
 //------------------------------------------------------------------------------
 template <typename S>
 SinkEncoder<Json, S>::SinkEncoder() : impl_(new Impl) {}
+
+//------------------------------------------------------------------------------
+template <typename S>
+SinkEncoder<Json, S>::SinkEncoder(const Options& options)
+    : impl_(new Impl(options))
+{}
 
 //------------------------------------------------------------------------------
 template <typename S>
@@ -157,6 +176,10 @@ template <typename S>
 class SourceDecoder<Json, S>::Impl
 {
 public:
+    Impl() = default;
+
+    explicit Impl(const JsonOptions& options) : decoderImpl_(options) {}
+
     std::error_code decode(Source source, Variant& variant)
     {
         return decoderImpl_.decode(source.input(), variant);
@@ -169,6 +192,12 @@ private:
 //------------------------------------------------------------------------------
 template <typename S>
 SourceDecoder<Json, S>::SourceDecoder() : impl_(new Impl) {}
+
+//------------------------------------------------------------------------------
+template <typename S>
+SourceDecoder<Json, S>::SourceDecoder(const Options& options)
+    : impl_(new Impl(options))
+{}
 
 //------------------------------------------------------------------------------
 template <typename S>
