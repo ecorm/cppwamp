@@ -99,8 +99,11 @@ then the following expressions must be valid:
 
 Expression                      | Effect
 ------------------------------- | ------
+`CodecEncoder()`                | Constructs an encoder with default options.
+`CodecEncoder(options)`         | Constructs an encoder with the given options.
 `encoder.encode(variant, sink)` | Encodes the variant into the given output sink.
-*/
+
+where `options` is an instance of `CodecOptions<TFormat>`. */
 
 //------------------------------------------------------------------------------
 /** @page CodecDecoder CodecDecoder
@@ -117,8 +120,11 @@ then the following expressions must be valid:
 
 Expression                        | Effect
 --------------------------------- | ------
+`CodecDecoder()`                  | Constructs an encoder with default options.
+`CodecDecoder(options)`           | Constructs an encoder with the given options.
 `decoder.decode(source, variant)` | Decodes the source into the given variant, returning a std::error_code.
-*/
+
+where `options` is an instance of `CodecOptions<TFormat>`. */
 
 //------------------------------------------------------------------------------
 /** @page CodecFormat CodecFormat

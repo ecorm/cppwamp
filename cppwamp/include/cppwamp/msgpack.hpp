@@ -50,6 +50,12 @@ struct IsCodecFormat<Msgpack> : TrueType {};
 using MsgpackOptions = CodecOptions<Msgpack>;
 
 //------------------------------------------------------------------------------
+/** Generates MessagePack codec options with the given maximum
+    recursion depth. */
+//------------------------------------------------------------------------------
+CPPWAMP_API MsgpackOptions msgpackWithMaxDepth(unsigned maxDepth);
+
+//------------------------------------------------------------------------------
 /** %Msgpack encoder.
     This class uses [jsoncons][1] to serialize MessagePack payloads from Variant
     instances.

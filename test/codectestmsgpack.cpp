@@ -8,7 +8,7 @@
 #include <catch2/catch.hpp>
 #include <cppwamp/variant.hpp>
 #include <cppwamp/msgpack.hpp>
-#include <jsoncons_ext/msgpack/msgpack_options.hpp>
+#include <jsoncons_ext/msgpack/msgpack_error.hpp>
 
 using namespace wamp;
 
@@ -229,10 +229,7 @@ GIVEN( "a Msgpack message with a non-string key" )
 //------------------------------------------------------------------------------
 SCENARIO( "Msgpack options", "[Variant][Codec][Msgpack]" )
 {
-jsoncons::msgpack::msgpack_options msgpackOptions;
-msgpackOptions.max_nesting_depth(2);
-
-MsgpackOptions options(msgpackOptions);
+MsgpackOptions options = msgpackWithMaxDepth(2);
 AnyBufferCodec codec{options};
 
 WHEN( "decoding with options" )

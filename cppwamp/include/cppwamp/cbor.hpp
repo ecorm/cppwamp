@@ -50,6 +50,11 @@ struct IsCodecFormat<Cbor> : TrueType {};
 using CborOptions = CodecOptions<Cbor>;
 
 //------------------------------------------------------------------------------
+/** Generates CBOR codec options with the given maximum recursion depth. */
+//------------------------------------------------------------------------------
+CPPWAMP_API CborOptions cborWithMaxDepth(unsigned maxDepth);
+
+//------------------------------------------------------------------------------
 /** CBOR encoder.
     This class uses [jsoncons][1] to serialize CBOR payloads from Variant
     instances.

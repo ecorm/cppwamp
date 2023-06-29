@@ -6,12 +6,27 @@
 
 #include "../cbor.hpp"
 #include <jsoncons_ext/cbor/cbor_encoder.hpp>
+#include <jsoncons_ext/cbor/cbor_options.hpp>
 #include <jsoncons_ext/cbor/cbor_parser.hpp>
 #include "variantdecoding.hpp"
 #include "variantencoding.hpp"
 
 namespace wamp
 {
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE CborOptions cborWithMaxDepth(unsigned maxDepth)
+{
+    using Depth = decltype(std::declval<jsoncons::cbor::cbor_options>()
+                               .max_nesting_depth());
+    using Limits = std::numeric_limits<Depth>;
+    CPPWAMP_LOGIC_CHECK(maxDepth < Limits::max(),
+                        "maxDepth exceeds limit of underlying option");
+    jsoncons::cbor::cbor_options opts;
+    opts.max_nesting_depth(static_cast<int>(maxDepth));
+    return CborOptions{std::move(opts)};
+}
+
 
 //------------------------------------------------------------------------------
 template <typename S>

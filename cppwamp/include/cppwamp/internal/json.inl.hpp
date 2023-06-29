@@ -8,10 +8,13 @@
 #include <array>
 #include <cassert>
 #include <cstring>
+#include <limits>
 #include <utility>
 #include <vector>
 #include <jsoncons/json_encoder.hpp>
+#include <jsoncons/json_options.hpp>
 #include <jsoncons/json_parser.hpp>
+#include "../exceptions.hpp"
 #include "../traits.hpp"
 #include "jsonencoding.hpp"
 #include "variantdecoding.hpp"
@@ -95,6 +98,23 @@ private:
 };
 
 } // namespace internal
+
+
+//******************************************************************************
+// JSON options
+//******************************************************************************
+
+CPPWAMP_INLINE JsonOptions jsonWithMaxDepth(unsigned maxDepth)
+{
+    using Depth =
+        decltype(std::declval<jsoncons::json_options>().max_nesting_depth());
+    using Limits = std::numeric_limits<Depth>;
+    CPPWAMP_LOGIC_CHECK(maxDepth < Limits::max(),
+                        "maxDepth exceeds limit of underlying option");
+    jsoncons::json_options opts;
+    opts.max_nesting_depth(static_cast<int>(maxDepth));
+    return JsonOptions{std::move(opts)};
+}
 
 
 //******************************************************************************

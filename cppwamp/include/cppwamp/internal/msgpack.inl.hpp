@@ -14,6 +14,20 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE MsgpackOptions msgpackWithMaxDepth(unsigned maxDepth)
+{
+    using Depth = decltype(std::declval<jsoncons::msgpack::msgpack_options>()
+                               .max_nesting_depth());
+    using Limits = std::numeric_limits<Depth>;
+    CPPWAMP_LOGIC_CHECK(maxDepth < Limits::max(),
+                        "maxDepth exceeds limit of underlying option");
+    jsoncons::msgpack::msgpack_options opts;
+    opts.max_nesting_depth(static_cast<int>(maxDepth));
+    return MsgpackOptions{std::move(opts)};
+}
+
+
+//------------------------------------------------------------------------------
 template <typename S>
 class SinkEncoder<Msgpack, S>::Impl
 {

@@ -50,6 +50,11 @@ struct IsCodecFormat<Json> : TrueType {};
 using JsonOptions = CodecOptions<Json>;
 
 //------------------------------------------------------------------------------
+/** Generates JSON codec options with the given maximum recursion depth. */
+//------------------------------------------------------------------------------
+CPPWAMP_API JsonOptions jsonWithMaxDepth(unsigned maxDepth);
+
+//------------------------------------------------------------------------------
 /** JSON encoder.
     This class uses [jsoncons][1] to serialize JSON payloads from Variant
     instances.
