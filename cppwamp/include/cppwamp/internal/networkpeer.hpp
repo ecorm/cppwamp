@@ -32,7 +32,7 @@ public:
     ~NetworkPeer() override
     {
         if (transport_)
-            transport_->close();
+            transport_->stop();
     }
 
     ErrorOrDone sendMessage(const Message& msg)
@@ -102,8 +102,8 @@ public:
         }
 
         traceTx(msg);
-        transport_->sendNowAndClose(std::move(buffer));
         setState(State::failed);
+        transport_->sendNowAndStop(std::move(buffer));
         if (!fits)
             return makeUnexpectedError(WampErrc::payloadSizeExceeded);
         return true;
@@ -143,7 +143,7 @@ private:
 
     void onEstablish() override
     {
-        if (!transport_->isStarted())
+        if (!transport_->isRunning())
         {
             const std::weak_ptr<NetworkPeer> weakSelf =
                 std::static_pointer_cast<NetworkPeer>(shared_from_this());
@@ -169,7 +169,7 @@ private:
     {
         if (transport_)
         {
-            transport_->close();
+            transport_->stop();
             transport_.reset();
         }
     }

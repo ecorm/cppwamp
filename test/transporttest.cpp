@@ -92,8 +92,8 @@ struct LoopbackFixture
 
     void disconnect()
     {
-        server->close();
-        client->close();
+        server->stop();
+        client->stop();
     }
 
     void run()
@@ -628,8 +628,8 @@ TEMPLATE_TEST_CASE( "Normal communications", "[Transport]",
             {
                 receivedReply2 = true;
                 CHECK( reply2 == *buf );
-                sender2->close();
-                receiver2->close();
+                sender2->stop();
+                receiver2->stop();
             }
             else
             {
@@ -846,7 +846,7 @@ TEMPLATE_TEST_CASE( "Cancel receive", "[Transport]",
 
     // Close the transport while the receive operation is in progress,
     // and check the client handler is not invoked.
-    f.client->close();
+    f.client->stop();
     REQUIRE_NOTHROW( f.run() );
     CHECK_FALSE( clientHandlerInvoked );
     CHECK_FALSE( !serverError );
@@ -886,7 +886,7 @@ TEMPLATE_TEST_CASE( "Cancel send", "[Transport]",
     f.cctx.reset();
 
     // Close the transport and check that the client handler was not invoked.
-    f.client->close();
+    f.client->stop();
     f.run();
     CHECK_FALSE( handlerInvoked );
 }

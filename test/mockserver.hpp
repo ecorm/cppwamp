@@ -49,8 +49,8 @@ public:
             },
             [](std::error_code) {});
     }
-
-    void close() {transport_->close();}
+    
+    void close() {transport_->stop();}
 
     const MessageList& messages() const {return messages_;}
 

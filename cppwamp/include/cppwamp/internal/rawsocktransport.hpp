@@ -140,11 +140,11 @@ public:
 
     TransportInfo info() const override {return info_;}
 
-    bool isStarted() const override {return running_;}
+    bool isRunning() const override {return running_;}
 
     void start(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
     {
-        assert(!isStarted());
+        assert(!isRunning());
         rxHandler_ = rxHandler;
         txErrorHandler_ = txErrorHandler;
         receive();
@@ -153,14 +153,24 @@ public:
 
     void send(MessageBuffer message) override
     {
-        assert(isStarted());
+        // Due to the handler being posted, the caller may not be aware of a
+        // network error having already occurred by time this is called.
+        // So do nothing if the transport is already closed.
+        if (!isRunning())
+            return;
+
         auto buf = enframe(RawsockMsgType::wamp, std::move(message));
         sendFrame(std::move(buf));
     }
 
-    void sendNowAndClose(MessageBuffer message) override
+    void sendNowAndStop(MessageBuffer message) override
     {
-        assert(isStarted());
+        // Due to the handler being posted, the caller may not be aware of a
+        // network error having already occurred by time this is called.
+        // So do nothing if the transport is already closed.
+        if (!isRunning())
+            return;
+
         assert(socket_ && "Attempting to send on bad transport");
         auto frame = enframe(RawsockMsgType::wamp, std::move(message));
         assert((frame->payload().size() <= info_.maxTxLength) &&
@@ -168,9 +178,10 @@ public:
         frame->poison();
         txQueue_.push_front(std::move(frame));
         transmit();
+        running_ = false;
     }
 
-    void close() override
+    void stop() override
     {
         rxHandler_ = nullptr;
         txErrorHandler_ = nullptr;
@@ -182,7 +193,7 @@ public:
 
     void ping(MessageBuffer message, PingHandler handler) override
     {
-        assert(isStarted());
+        assert(isRunning());
         pingHandler_ = std::move(handler);
         pingFrame_ = enframe(RawsockMsgType::ping, std::move(message));
         sendFrame(pingFrame_);
@@ -245,7 +256,7 @@ private:
                     }
                     else if (frameWasPoisoned)
                     {
-                        close();
+                        stop();
                     }
                     else
                     {
@@ -411,6 +422,7 @@ private:
         txFrame_ = nullptr;
         pingFrame_ = nullptr;
         socket_.reset();
+        running_ = false;
     }
 
     IoStrand strand_;

@@ -59,8 +59,8 @@ public:
     /** Obtains information pertaining to this transport. */
     virtual TransportInfo info() const = 0;
 
-    /** Returns true if the transport has been started. */
-    virtual bool isStarted() const = 0;
+    /** Returns true if the transport is running. */
+    virtual bool isRunning() const = 0;
 
     /** Starts the transport's I/O operations. */
     virtual void start(RxHandler rxHandler, TxErrorHandler txHandler) = 0;
@@ -70,10 +70,10 @@ public:
 
     /** Sends the given serialized message, placing it at the top of the queue,
         then closes the underlying socket. */
-    virtual void sendNowAndClose(MessageBuffer message) = 0;
+    virtual void sendNowAndStop(MessageBuffer message) = 0;
 
     /** Stops I/O operations and closes the underlying socket. */
-    virtual void close() = 0;
+    virtual void stop() = 0;
 
     /** Sends a transport-level ping message. */
     virtual void ping(MessageBuffer message, PingHandler handler) = 0;
