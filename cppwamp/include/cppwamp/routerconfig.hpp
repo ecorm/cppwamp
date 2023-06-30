@@ -88,11 +88,8 @@ public:
     using Ptr = std::shared_ptr<ServerConfig>;
 
     template <typename S, typename F, typename... Fs>
-    explicit ServerConfig(String name, S&& transportSettings, F format,
-                          Fs... extraFormats);
-
-    template <typename... TFormats>
-    ServerConfig& withFormats(TFormats... formats);
+    explicit ServerConfig(String name, S&& transportSettings, F&& format,
+                          Fs&&... extraFormats);
 
     ServerConfig& withAuthenticator(Authenticator::Ptr a);
 
@@ -121,12 +118,12 @@ private:
 };
 
 template <typename S, typename F, typename... Fs>
-ServerConfig::ServerConfig(String name, S&& transportSettings, F format,
-                           Fs... extraFormats)
+ServerConfig::ServerConfig(String name, S&& transportSettings, F&& format,
+                           Fs&&... extraFormats)
     : name_(std::move(name)),
       listenerBuilder_(std::forward<S>(transportSettings)),
-      codecBuilders_({BufferCodecBuilder{format},
-                     BufferCodecBuilder{extraFormats}...})
+      codecBuilders_({BufferCodecBuilder{std::forward<F>(format)},
+                      BufferCodecBuilder{std::forward<Fs>(extraFormats)}...})
 {}
 
 //------------------------------------------------------------------------------

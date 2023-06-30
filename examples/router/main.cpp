@@ -61,7 +61,8 @@ int main()
     auto realmConfig = wamp::RealmConfig("cppwamp.examples");
 
     auto serverConfig =
-        wamp::ServerConfig("tcp12345", wamp::TcpEndpoint{12345}, wamp::json)
+        wamp::ServerConfig("tcp12345", wamp::TcpEndpoint{12345},
+                           wamp::jsonWithMaxDepth(10))
             .withAuthenticator(authenticator);
 
     auto echo = [](wamp::Invocation inv) -> wamp::Outcome

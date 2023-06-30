@@ -79,7 +79,6 @@ public:
             sink_.push_back(',');
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         auto data = reinterpret_cast<const typename Sink::value_type*>(prefix);
-        // TODO: Use jsoncons::byte_string_chars_format::base64
         sink_.append(data, sizeof(prefix) - 1);
         Base64::encode(b.data().data(), b.data().size(), sink_);
         sink_.push_back('\"');
