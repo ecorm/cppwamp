@@ -15,6 +15,8 @@
     @brief Contains the ConversionAccess class. */
 //------------------------------------------------------------------------------
 
+// NOLINTBEGIN(bugprone-macro-parentheses)
+
 //------------------------------------------------------------------------------
 /* Generates a metafunction that checks for the presence of a member.
    Adapted from
@@ -29,7 +31,7 @@ private:                                                                \
     using Yes = char[2];                                                \
     using  No = char[1];                                                \
                                                                         \
-    struct Fallback { int (member); };                                  \
+    struct Fallback { int member; };                                    \
     struct Derived : T, Fallback { };                                   \
                                                                         \
     template <typename U> static No& test ( decltype(U::member)* );     \
@@ -44,6 +46,8 @@ template < class T >                                                    \
 struct has_member_##member                                              \
 : public std::integral_constant<bool, HasMember_##member<T>::result>    \
 {};
+
+// NOLINTEND(bugprone-macro-parentheses)
 
 
 namespace wamp

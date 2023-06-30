@@ -132,7 +132,6 @@ public:
     ReservedId reserve()
     {
         const std::lock_guard<std::mutex> lock(mutex_);
-        const auto end = ids_.cend();
         EphemeralId id = gen_();
         while (ids_.count(id) != 0)
             id = gen_();
