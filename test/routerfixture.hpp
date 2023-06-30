@@ -51,6 +51,20 @@ private:
     std::shared_ptr<Impl> impl_;
 };
 
+//------------------------------------------------------------------------------
+struct RouterLogLevelGuard
+{
+    explicit RouterLogLevelGuard(wamp::LogLevel level) : level_(level) {}
+
+    ~RouterLogLevelGuard()
+    {
+        RouterFixture::instance().router().setLogLevel(level_);
+    }
+
+private:
+    wamp::LogLevel level_;
+};
+
 } // namespace test
 
 #endif // CPPWAMP_TEST_TESTROUTER_HPP

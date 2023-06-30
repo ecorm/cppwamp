@@ -518,8 +518,6 @@ private:
 
     void onInvocation(Message& msg)
     {
-        // TODO: Callee-initiated timeouts
-
         Invocation inv{{}, std::move(msg)};
         inv.setCallee({}, makeContext());
         auto reqId = inv.requestId();

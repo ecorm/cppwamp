@@ -374,17 +374,31 @@ CPPWAMP_INLINE ErrorOr<SessionId> Invocation::caller() const
     This function returns the value of the `INVOCATION.Details.trustlevel|integer`
     detail.
     @returns An integer variant if the trust level is available. Otherwise,
-             a null variant is returned. */
+             an error is returned. */
 CPPWAMP_INLINE ErrorOr<TrustLevel> Invocation::trustLevel() const
 {
     return toUnsignedInteger("trustlevel");
 }
 
 /** @details
+    This function returns the value of the `INVOCATION.Details.timeout|integer`
+    detail.
+    @returns A string variant if the procedure URI is available. Otherwise,
+             an error is returned. */
+CPPWAMP_INLINE ErrorOr<Invocation::CalleeTimeoutDuration>
+Invocation::timeout() const
+{
+    auto t = toUnsignedInteger("timeout");
+    if (!t.has_value())
+        return UnexpectedError{t.error()};
+    return CalleeTimeoutDuration{*t};
+}
+
+/** @details
     This function returns the value of the `INVOCATION.Details.procedure|uri`
     detail.
     @returns A string variant if the procedure URI is available. Otherwise,
-             a null variant is returned. */
+             an error is returned. */
 CPPWAMP_INLINE ErrorOr<Uri> Invocation::procedure() const
 {
     return optionAs<String>("procedure");

@@ -18,6 +18,7 @@
 #include "../errorcodes.hpp"
 #include "../errorinfo.hpp"
 #include "../erroror.hpp"
+#include "../routerconfig.hpp"
 #include "../rpcinfo.hpp"
 #include "metaapi.hpp"
 #include "routersession.hpp"
@@ -220,10 +221,11 @@ public:
 
     static ErrorOr<DealerJob> create(
         const RouterSession::Ptr& caller, const RouterSession::Ptr& callee,
-        const Rpc& rpc, const DealerRegistration& reg)
+        const Rpc& rpc, const DealerRegistration& reg,
+        bool calleeTimeoutEnabled)
     {
         WampErrc errc = WampErrc::success;
-        DealerJob job{caller, callee, rpc, reg, errc};
+        DealerJob job{caller, callee, rpc, reg, errc, calleeTimeoutEnabled};
         if (errc != WampErrc::success)
             return makeUnexpectedError(errc);
         return job;
@@ -231,7 +233,8 @@ public:
 
     DealerJob() = default;
 
-    Invocation makeInvocation(const RouterSession& caller, Rpc&& rpc) const
+    Invocation makeInvocation(const RouterSession& caller, Rpc&& rpc,
+                              bool calleeTimeoutEnabled) const
     {
         // TODO: Propagate x_foo custom options?
         // https://github.com/wamp-proto/wamp-proto/issues/345
@@ -244,6 +247,16 @@ public:
         auto found = rpc.options().find("custom");
         if (found != rpc.options().end() && found->second.is<Object>())
             customOptions = std::move(found->second.as<Object>());
+
+        Variant timeout;
+        if (calleeTimeoutEnabled)
+        {
+            // TODO: Per-callee timeout forwarding
+            // https://github.com/wamp-proto/wamp-proto/issues/500
+            auto found = rpc.options().find("timeout");
+            if (found != rpc.options().end())
+                timeout = std::move(found->second);
+        }
 
         Invocation inv{{}, std::move(rpc), registrationId_};
 
@@ -271,6 +284,9 @@ public:
 
         if (!customOptions.empty())
             inv.withOption("custom", std::move(customOptions));
+
+        if (!timeout.is<Null>())
+            inv.withOption("timeout", std::move(timeout));
 
         return inv;
     }
@@ -424,17 +440,21 @@ public:
 private:
     DealerJob(const RouterSession::Ptr& caller,
               const RouterSession::Ptr& callee, const Rpc& rpc,
-              const DealerRegistration& reg, WampErrc& errc)
+              const DealerRegistration& reg, WampErrc& errc,
+              bool calleeTimeoutEnabled)
         : caller_(caller),
           callee_(callee),
           callerKey_(caller->wampId(), rpc.requestId({})),
           calleeKey_(callee->wampId(), nullId()),
           registrationId_(reg.info().id)
     {
-        auto timeout = rpc.dealerTimeout();
-        hasTimeout_ = timeout.has_value() && (*timeout != Timeout{0});
-        if (hasTimeout_)
-            timeout_ = *timeout;
+        if (!calleeTimeoutEnabled)
+        {
+            auto timeout = rpc.dealerTimeout();
+            hasTimeout_ = timeout.has_value() && (*timeout != Timeout{0});
+            if (hasTimeout_)
+                timeout_ = *timeout;
+        }
 
         auto calleeFeatures = callee->info().features().callee();
         const bool calleeHasCallCancelling =
@@ -608,9 +628,10 @@ private:
 class Dealer
 {
 public:
-    Dealer(IoStrand strand, MetaTopics::Ptr metaTopics)
+    Dealer(IoStrand strand, MetaTopics::Ptr metaTopics, const RealmConfig& cfg)
         : jobs_(std::move(strand)),
-          metaTopics_(std::move(metaTopics))
+          metaTopics_(std::move(metaTopics)),
+          callTimeoutForwardingEnabled_(cfg.callTimeoutForwardingEnabled())
     {}
 
     ErrorOr<RegistrationId> enroll(const RouterSession::Ptr& callee,
@@ -739,12 +760,19 @@ private:
                         const RouterSession::Ptr& callee,
                         Rpc&& rpc, const DealerRegistration& reg)
     {
+        auto calleeFeatures = callee->info().features().callee();
+        bool calleeTimeoutEnabled =
+            callTimeoutForwardingEnabled_ &&
+            calleeFeatures.any_of(CalleeFeatures::callTimeout);
+
         auto uri = rpc.uri();
-        auto job = DealerJob::create(caller, callee, rpc, reg);
+        auto job = DealerJob::create(caller, callee, rpc, reg,
+                                     calleeTimeoutEnabled);
         if (!job)
             return makeUnexpected(job.error());
         caller->setLastInsertedCallRequestId(rpc.requestId({}));
-        auto inv = job->makeInvocation(*caller, std::move(rpc));
+        auto inv = job->makeInvocation(*caller, std::move(rpc),
+                                       calleeTimeoutEnabled);
         auto reqId = callee->sendInvocation(std::move(inv), std::move(uri));
         jobs_.insert(std::move(*job), reqId);
         return true;
@@ -782,6 +810,7 @@ private:
     DealerJobMap jobs_;
     RegistrationId nextRegistrationId_ = nullId();
     MetaTopics::Ptr metaTopics_;
+    bool callTimeoutForwardingEnabled_ = false;
 };
 
 } // namespace internal

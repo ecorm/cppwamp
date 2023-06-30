@@ -384,6 +384,9 @@ class CPPWAMP_API Invocation
     : public Payload<Invocation, internal::MessageKind::invocation>
 {
 public:
+    /** The duration type used for callee-initiated timeouts. */
+    using CalleeTimeoutDuration = std::chrono::duration<UInt, std::milli>;
+
     /** Default constructor */
     Invocation();
 
@@ -429,6 +432,15 @@ public:
 
     /** Obtains the trust level integer. */
     ErrorOr<TrustLevel> trustLevel() const;
+    /// @}
+
+    /** @name Call Timeouts
+        See [Call Timeouts in the WAMP Specification]
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-call-timeouts)
+        @{ */
+
+    /** Obtains the timeout duration for this invocation. */
+    ErrorOr<CalleeTimeoutDuration> timeout() const;
     /// @}
 
     /** @name Pattern-based Registrations

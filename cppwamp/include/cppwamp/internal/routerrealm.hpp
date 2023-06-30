@@ -278,7 +278,7 @@ private:
           metaTopics_(std::make_shared<MetaTopics>(this, executor_, strand_,
                                                    config_.metaApiEnabled())),
           broker_(std::move(rng), metaTopics_),
-          dealer_(strand_, metaTopics_),
+          dealer_(strand_, metaTopics_, config_),
           logSuffix_(" (Realm " + config_.uri() + ")"),
           logger_(router_.logger()),
           uriValidator_(rcfg.uriValidator()),

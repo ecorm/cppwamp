@@ -23,7 +23,7 @@ CPPWAMP_INLINE ClientFeatures ClientFeatures::provided()
         using F = CalleeFeatures;
         f.callee_ = F::basic |
                     F::callCanceling |
-                    /*F::callTimeout |*/ // TODO: Callee-initiated timeouts
+                    F::callTimeout |
                     F::callTrustLevels |
                     F::callerIdentification |
                     F::patternBasedRegistration |
@@ -66,6 +66,7 @@ CPPWAMP_INLINE const Object& ClientFeatures::providedRoles()
     {
         {"callee", Object{{"features", Object{{
             {"call_canceling",                true},
+            {"call_timeout",                  true},
             {"call_trustlevels",              true},
             {"caller_identification",         true},
             {"pattern_based_registration",    true},

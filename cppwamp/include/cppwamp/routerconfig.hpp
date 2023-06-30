@@ -31,6 +31,7 @@ namespace wamp
 namespace internal { class RouterServer; } // Forward declaration
 
 //------------------------------------------------------------------------------
+// TODO: Test these options
 class CPPWAMP_API RealmConfig
 {
 public:
@@ -50,6 +51,8 @@ public:
 
     RealmConfig& withMetaApiEnabled(bool enabled = true);
 
+    RealmConfig& withCallTimeoutForwardingEnabled(bool enabled = true);
+
     const Uri& uri() const;
 
     Authorizer::Ptr authorizer() const;
@@ -62,12 +65,15 @@ public:
 
     bool metaApiEnabled() const;
 
+    bool callTimeoutForwardingEnabled() const;
+
 private:
     Uri uri_;
     Authorizer::Ptr authorizer_;
     DisclosureRule publisherDisclosure_ = DisclosureRule::originator;
     DisclosureRule callerDisclosure_ = DisclosureRule::originator;
     bool metaApiEnabled_ = false;
+    bool callTimeoutForwardingEnabled_ = false;
     // bool authorizationCacheEnabled_ = false;
 };
 

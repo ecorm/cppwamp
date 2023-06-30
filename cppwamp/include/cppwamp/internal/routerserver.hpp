@@ -323,7 +323,6 @@ private:
 
     void abortSession(Reason r)
     {
-        shuttingDown_ = true;
         report({AccessAction::serverAbort, {}, r.options(), r.uri()});
         peer_->abort(r);
         leaveRealm();
@@ -485,7 +484,6 @@ private:
     RequestIdChecker requestIdChecker_;
     UriValidator::Ptr uriValidator_;
     bool alreadyStarted_ = false;
-    bool shuttingDown_ = false;
 };
 
 //------------------------------------------------------------------------------

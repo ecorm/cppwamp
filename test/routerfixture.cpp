@@ -183,6 +183,7 @@ void RouterFixture::start()
 void RouterFixture::stop()
 {
     std::cout << "Shutting down router..." << std::endl;
+    impl_->router().setLogLevel(wamp::LogLevel::error);
     impl_->stop();
     std::cout << "Router stopped" << std::endl;
 }
