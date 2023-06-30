@@ -20,6 +20,7 @@
 #include "../erroror.hpp"
 #include "../routerconfig.hpp"
 #include "../rpcinfo.hpp"
+#include "../utils/triemap.hpp"
 #include "metaapi.hpp"
 #include "routersession.hpp"
 #include "timeoutscheduler.hpp"
@@ -58,8 +59,6 @@ public:
 
     const Uri& procedureUri() const & {return info_.uri;}
 
-    Uri&& procedureUri() && {return std::move(info_.uri);} // TODO: Check if legit
-
     RouterSession::WeakPtr callee() const {return callee_;}
 
     SessionId calleeId() const {return calleeId_;}
@@ -96,11 +95,10 @@ public:
     DealerRegistration& insert(Key key, DealerRegistration&& reg)
     {
         reg.setRegistrationId(key);
-        auto uri = reg.procedureUri();
         auto emplaced = byKey_.emplace(key, std::move(reg));
         assert(emplaced.second);
-        auto* ptr = &(emplaced.first->second);
-        byUri_.emplace(std::move(uri), ptr);
+        DealerRegistration* ptr = &(emplaced.first->second);
+        byUri_.emplace(ptr->info().uri, ptr);
         return emplaced.first->second;
     }
 
@@ -136,7 +134,7 @@ public:
         auto found = byUri_.find(procedure);
         if (found == byUri_.end())
             return nullptr;
-        return found->second;
+        return found.value();
     }
 
     void removeCallee(const SessionInfo& calleeInfo, MetaTopics& metaTopics)
@@ -146,7 +144,7 @@ public:
         auto end1 = byUri_.end();
         while (iter1 != end1)
         {
-            auto* reg = iter1->second;
+            auto* reg = iter1.value();
             if (reg->calleeId() == sid)
                 iter1 = byUri_.erase(iter1);
             else
@@ -189,7 +187,7 @@ public:
         auto found = byUri_.find(uri);
         if (found == byUri_.end())
             return makeUnexpectedError(WampErrc::noSuchRegistration);
-        return found->second->info(listCallees);
+        return found.value()->info(listCallees);
     }
 
     template <typename F>
@@ -207,7 +205,7 @@ public:
 
 private:
     std::map<Key, DealerRegistration> byKey_;
-    std::map<Uri, DealerRegistration*> byUri_; // TODO: Use trie
+    utils::TrieMap<DealerRegistration*> byUri_;
 };
 
 //------------------------------------------------------------------------------
@@ -760,8 +758,8 @@ private:
                         const RouterSession::Ptr& callee,
                         Rpc&& rpc, const DealerRegistration& reg)
     {
-        auto calleeFeatures = callee->info().features().callee();
-        bool calleeTimeoutEnabled =
+        const auto calleeFeatures = callee->info().features().callee();
+        const bool calleeTimeoutEnabled =
             callTimeoutForwardingEnabled_ &&
             calleeFeatures.any_of(CalleeFeatures::callTimeout);
 
