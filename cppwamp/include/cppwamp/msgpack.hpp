@@ -63,13 +63,13 @@ CPPWAMP_API MsgpackOptions msgpackWithMaxDepth(unsigned maxDepth);
 
     Meets the requirements of the @ref CodecEncoder concept.
 
-    @tparam TSink The output sink type in which to encode. */
+    @tparam S The output sink type in which to encode. */
 //------------------------------------------------------------------------------
-template <typename TSink>
-class CPPWAMP_API SinkEncoder<Msgpack, TSink>
+template <typename S>
+class CPPWAMP_API SinkEncoder<Msgpack, S>
 {
 public:
-    using Sink = TSink;
+    using Sink = S;
     using Output = typename Sink::Output;
     using Options = MsgpackOptions;
 
@@ -125,13 +125,13 @@ using MsgpackStreamEncoder = MsgpackEncoder<StreamSink>;
 
     Meets the requirements of the @ref CodecDecoder concept.
 
-    @tparam TSource The input source type from which to decode. */
+    @tparam S The input source type from which to decode. */
 //------------------------------------------------------------------------------
-template <typename TSource>
-class CPPWAMP_API SourceDecoder<Msgpack, TSource>
+template <typename S>
+class CPPWAMP_API SourceDecoder<Msgpack, S>
 {
 public:
-    using Source = TSource;
+    using Source = S;
     using Input = typename Source::Input;
     using Options = MsgpackOptions;
 

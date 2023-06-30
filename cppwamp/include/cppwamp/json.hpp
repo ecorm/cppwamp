@@ -62,13 +62,13 @@ CPPWAMP_API JsonOptions jsonWithMaxDepth(unsigned maxDepth);
 
     Meets the requirements of the @ref CodecEncoder concept.
 
-    @tparam TSink The output sink type in which to encode. */
+    @tparam S The output sink type in which to encode. */
 //------------------------------------------------------------------------------
-template <typename TSink>
-class CPPWAMP_API SinkEncoder<Json, TSink>
+template <typename S>
+class CPPWAMP_API SinkEncoder<Json, S>
 {
 public:
-    using Sink = TSink;
+    using Sink = S;
     using Output = typename Sink::Output;
     using Options = JsonOptions;
 
@@ -124,13 +124,13 @@ using JsonStreamEncoder = JsonEncoder<StreamSink>;
 
     Meets the requirements of the @ref CodecDecoder concept.
 
-    @tparam TSource The input source type from which to decode. */
+    @tparam S The input source type from which to decode. */
 //------------------------------------------------------------------------------
-template <typename TSource>
-class CPPWAMP_API SourceDecoder<Json, TSource>
+template <typename S>
+class CPPWAMP_API SourceDecoder<Json, S>
 {
 public:
-    using Source = TSource;
+    using Source = S;
     using Input = typename Source::Input;
     using Options = JsonOptions;
 
