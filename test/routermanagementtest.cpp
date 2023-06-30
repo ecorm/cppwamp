@@ -484,14 +484,8 @@ TEST_CASE( "Router realm management", "[WAMP][Router]" )
         }
 
         {
-            INFO("Closing non-existing realm");
-            bool closed = theRouter.closeRealm("bogus");
-            CHECK_FALSE(closed);
-        }
-
-        {
             INFO("Accessing non-existing realm");
-            auto found = theRouter.realmAt("bogus");
+            auto found = theRouter.realm("bogus");
             REQUIRE_FALSE(found.has_value());
             CHECK(found == makeUnexpectedError(WampErrc::noSuchRealm));
         }
@@ -510,7 +504,7 @@ TEST_CASE( "Router realm management", "[WAMP][Router]" )
             CHECK(realm.isOpen());
             CHECK(realm.uri() == uri);
 
-            auto found = theRouter.realmAt(uri, ioctx.get_executor());
+            auto found = theRouter.realm(uri, ioctx.get_executor());
             REQUIRE(found.has_value());
             CHECK(found->isOpen());
             CHECK(found->uri() == uri);
@@ -519,13 +513,17 @@ TEST_CASE( "Router realm management", "[WAMP][Router]" )
             auto observer = TestRealmObserver::create();
             realm.observe(observer);
 
-            bool closed = theRouter.closeRealm(uri);
+            Realm realm2 = realm;
+            bool closed = realm.close();
             CHECK(closed);
+            CHECK_FALSE(realm.close());
 
             while (realm.isOpen() || observer->realmClosedEvents.empty())
                 suspendCoro(yield);
             CHECK_THAT(observer->realmClosedEvents,
                        Matchers::Equals(std::vector<Uri>({uri})));
+            CHECK_FALSE(realm2.isOpen());
+            CHECK_FALSE(realm2.close());
 
             realm = {};
             CHECK_FALSE(bool(realm));
@@ -576,7 +574,7 @@ TEST_CASE( "Router realm session events", "[WAMP][Router]" )
     Session s{ioctx};
     Welcome welcome;
 
-    auto realm = theRouter.realmAt(testRealm, ioctx.get_executor()).value();
+    auto realm = theRouter.realm(testRealm, ioctx.get_executor()).value();
     REQUIRE(realm.fallbackExecutor() == ioctx.get_executor());
     auto observer1 = TestRealmObserver::create();
     auto observer2 = TestRealmObserver::create();
@@ -655,7 +653,7 @@ TEST_CASE( "Router realm session queries", "[WAMP][Router]" )
 
     spawn(ioctx, [&](YieldContext yield)
     {
-        auto realm = theRouter.realmAt(testRealm, ioctx.get_executor()).value();
+        auto realm = theRouter.realm(testRealm, ioctx.get_executor()).value();
         REQUIRE(realm.fallbackExecutor() == ioctx.get_executor());
 
         checkRealmSessions("No sessions joined yet", realm, {});
@@ -708,7 +706,7 @@ TEST_CASE( "Killing router sessions", "[WAMP][Router]" )
         auto any = [](const SessionInfo&) {return true;};
         auto none = [](const SessionInfo&) {return false;};
 
-        auto realm = theRouter.realmAt(testRealm, ioctx.get_executor()).value();
+        auto realm = theRouter.realm(testRealm, ioctx.get_executor()).value();
         REQUIRE(realm.fallbackExecutor() == ioctx.get_executor());
         auto observer = TestRealmObserver::create();
         realm.observe(observer);
@@ -818,7 +816,7 @@ TEST_CASE( "Router realm registration queries and events", "[WAMP][Router]" )
     Session s{ioctx};
 
     auto observer = TestRealmObserver::create();
-    auto realm = theRouter.realmAt(testRealm, ioctx.get_executor()).value();
+    auto realm = theRouter.realm(testRealm, ioctx.get_executor()).value();
     REQUIRE(realm.fallbackExecutor() == ioctx.get_executor());
     realm.observe(observer);
 
@@ -902,7 +900,7 @@ TEST_CASE( "Router realm subscription queries and events", "[WAMP][Router]" )
     Session s2{ioctx};
 
     auto observer = TestRealmObserver::create();
-    auto realm = theRouter.realmAt(testRealm, ioctx.get_executor()).value();
+    auto realm = theRouter.realm(testRealm, ioctx.get_executor()).value();
     REQUIRE(realm.fallbackExecutor() == ioctx.get_executor());
     realm.observe(observer);
 
@@ -1003,7 +1001,7 @@ TEST_CASE( "Router realm subscription matching", "[WAMP][Router]" )
     Session s{ioctx};
 
     auto observer = TestRealmObserver::create();
-    auto realm = theRouter.realmAt(testRealm, ioctx.get_executor()).value();
+    auto realm = theRouter.realm(testRealm, ioctx.get_executor()).value();
     REQUIRE(realm.fallbackExecutor() == ioctx.get_executor());
     realm.observe(observer);
 

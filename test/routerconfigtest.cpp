@@ -27,15 +27,11 @@ const auto withTcp = TcpHost("localhost", testPort).withFormat(json);
 class ScopedRealm
 {
 public:
-    ScopedRealm(Router& router, Realm realm)
-        : router_(&router),
-          realm_(std::move(realm))
-    {}
+    ScopedRealm(Realm realm) : realm_(std::move(realm)) {}
 
-    ~ScopedRealm() {router_->closeRealm(realm_.uri());}
+    ~ScopedRealm() {realm_.close();}
 
 private:
-    Router* router_;
     Realm realm_;
 };
 
@@ -70,7 +66,7 @@ TEST_CASE( "Router call timeout forwarding config", "[WAMP][Router]" )
         return deferment;
     };
 
-    ScopedRealm realm{router, router.openRealm(config).value()};
+    ScopedRealm realm{router.openRealm(config).value()};
 
     spawn(ioctx, [&](YieldContext yield)
     {

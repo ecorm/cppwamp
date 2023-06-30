@@ -43,12 +43,7 @@ CPPWAMP_INLINE ErrorOr<Realm> Router::openRealm(RealmConfig config,
     return Realm{std::move(impl), std::move(fe)};
 }
 
-CPPWAMP_INLINE bool Router::closeRealm(const Uri& uri, Reason r)
-{
-    return impl_->closeRealm(uri, std::move(r));
-}
-
-CPPWAMP_INLINE ErrorOr<Realm> Router::realmAt(const Uri& uri) const
+CPPWAMP_INLINE ErrorOr<Realm> Router::realm(const Uri& uri) const
 {
     auto realmImpl = impl_->realmAt(uri);
     if (!realmImpl)
@@ -56,8 +51,8 @@ CPPWAMP_INLINE ErrorOr<Realm> Router::realmAt(const Uri& uri) const
     return Realm{std::move(realmImpl), impl_->executor()};
 }
 
-CPPWAMP_INLINE ErrorOr<Realm> Router::realmAt(const Uri& uri,
-                                              FallbackExecutor fe) const
+CPPWAMP_INLINE ErrorOr<Realm> Router::realm(const Uri& uri,
+                                            FallbackExecutor fe) const
 {
     auto realmImpl = impl_->realmAt(uri);
     if (!realmImpl)

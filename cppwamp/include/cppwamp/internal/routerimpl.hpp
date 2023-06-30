@@ -313,6 +313,15 @@ inline RealmContext RouterContext::realmAt(const String& uri) const
     return r->realmContextAt(uri);
 }
 
+inline bool RouterContext::closeRealm(const String& uri, Reason reason)
+{
+    auto r = router_.lock();
+    if (!r)
+        return false;
+    return r->closeRealm(uri, std::move(reason));
+
+}
+
 inline uint64_t RouterContext::nextDirectSessionIndex()
 {
     auto r = router_.lock();

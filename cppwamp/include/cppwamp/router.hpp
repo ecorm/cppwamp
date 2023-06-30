@@ -75,11 +75,9 @@ public:
 
     ErrorOr<Realm> openRealm(RealmConfig config, FallbackExecutor fe);
 
-    bool closeRealm(const Uri& uri, Reason r = shutdownReason());
+    ErrorOr<Realm> realm(const Uri& uri) const;
 
-    ErrorOr<Realm> realmAt(const Uri& uri) const;
-
-    ErrorOr<Realm> realmAt(const Uri& uri, FallbackExecutor fe) const;
+    ErrorOr<Realm> realm(const Uri& uri, FallbackExecutor fe) const;
 
     bool openServer(ServerConfig config);
 

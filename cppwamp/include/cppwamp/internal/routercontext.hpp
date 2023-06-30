@@ -12,6 +12,7 @@
 #include <memory>
 #include "../accesslogging.hpp"
 #include "../anyhandler.hpp"
+#include "../clientinfo.hpp"
 #include "../logging.hpp"
 #include "../uri.hpp"
 #include "random.hpp"
@@ -124,6 +125,8 @@ public:
     ReservedId reserveSessionId();
 
     RealmContext realmAt(const String& uri) const;
+
+    bool closeRealm(const String& uri, Reason reason);
 
     uint64_t nextDirectSessionIndex();
 

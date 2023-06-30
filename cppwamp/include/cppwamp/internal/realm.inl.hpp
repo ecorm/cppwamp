@@ -50,6 +50,15 @@ CPPWAMP_INLINE bool Realm::isOpen() const
     return isAttached() && impl_->isOpen();
 }
 
+CPPWAMP_INLINE bool Realm::close(Reason r)
+{
+    if (!isAttached())
+        return false;
+    bool closed = impl_->closeViaRouter(std::move(r));
+    impl_.reset();
+    return closed;
+}
+
 CPPWAMP_INLINE void Realm::observe(RealmObserver::Ptr o)
 {
     CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");

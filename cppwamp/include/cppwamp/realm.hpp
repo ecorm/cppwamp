@@ -69,6 +69,8 @@ public:
 
     bool isOpen() const;
 
+    bool close(Reason r = Reason{WampErrc::systemShutdown});
+
     void observe(RealmObserver::Ptr o);
 
     std::size_t sessionCount() const;

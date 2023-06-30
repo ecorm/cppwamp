@@ -89,6 +89,11 @@ public:
         safelyDispatch<Dispatched>(std::move(r));
     }
 
+    bool closeViaRouter(Reason r)
+    {
+        return router_.closeRealm(uri(), std::move(r));
+    }
+
     void observe(RealmObserver::Ptr o, FallbackExecutor e)
     {
         struct Dispatched
