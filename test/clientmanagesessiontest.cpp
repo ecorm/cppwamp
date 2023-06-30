@@ -475,8 +475,6 @@ SCENARIO( "Connecting with codec options", "[WAMP][Basic]" )
 {
     IoContext ioctx;
     Session s(ioctx);
-    s.observeIncidents([](Incident i){std::cout << i.toLogEntry() << std::endl;});
-    s.enableTracing();
 
     jsoncons::json_options opts;
     opts.float_format(jsoncons::float_chars_format::fixed);

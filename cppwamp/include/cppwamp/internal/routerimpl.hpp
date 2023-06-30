@@ -55,7 +55,8 @@ public:
                     boost::asio::make_strand(executor_),
                     std::move(c),
                     config_,
-                    RouterContext{shared_from_this()});
+                    RouterContext{shared_from_this()},
+                    config_.rngFactory()());
                 realms_.emplace(uri, realm);
             }
         }
@@ -211,13 +212,10 @@ private:
                                        config_.accessLogHandler())),
           nextDirectSessionIndex_(0)
     {
-        if (!config_.sessionRNG())
-            config_.withSessionRNG(internal::DefaultPRNG64{});
+        if (!config_.rngFactory())
+            config_.withRngFactory(internal::DefaultPRNGFactory{});
 
-        if (!config_.publicationRNG())
-            config_.withPublicationRNG(internal::DefaultPRNG64{});
-
-        sessionIdPool_ = RandomIdPool::create(config_.sessionRNG());
+        sessionIdPool_ = RandomIdPool::create(config_.rngFactory()());
     }
 
     void inform(String msg)

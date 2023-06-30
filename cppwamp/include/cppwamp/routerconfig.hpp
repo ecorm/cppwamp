@@ -127,6 +127,9 @@ ServerConfig::ServerConfig(String name, S&& transportSettings, F format,
 using RandomNumberGenerator64 = std::function<uint64_t ()>;
 
 //------------------------------------------------------------------------------
+using RandomNumberGeneratorFactory = std::function<RandomNumberGenerator64 ()>;
+
+//------------------------------------------------------------------------------
 class CPPWAMP_API RouterConfig
 {
 public:
@@ -144,11 +147,7 @@ public:
 
     RouterConfig& withUriValidator(UriValidator::Ptr v);
 
-    RouterConfig& withSessionRNG(RandomNumberGenerator64 f);
-
-    // This RNG needs to be distinct from session RNG because they
-    // can be invoked from different threads.
-    RouterConfig& withPublicationRNG(RandomNumberGenerator64 f);
+    RouterConfig& withRngFactory(RandomNumberGeneratorFactory f);
 
     const LogHandler& logHandler() const;
 
@@ -158,16 +157,13 @@ public:
 
     UriValidator::Ptr uriValidator() const;
 
-    const RandomNumberGenerator64& sessionRNG() const;
-
-    const RandomNumberGenerator64& publicationRNG() const;
+    const RandomNumberGeneratorFactory& rngFactory() const;
 
 private:
     LogHandler logHandler_;
     AccessLogHandler accessLogHandler_;
     UriValidator::Ptr uriValidator_;
-    RandomNumberGenerator64 sessionRng_;
-    RandomNumberGenerator64 publicationRng_;
+    RandomNumberGeneratorFactory rngFactory_;
     LogLevel logLevel_ = LogLevel::warning;
 
 public:

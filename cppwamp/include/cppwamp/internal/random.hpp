@@ -26,16 +26,21 @@ namespace internal
 class CPPWAMP_HIDDEN DefaultPRNG64
 {
 public:
-    explicit DefaultPRNG64() : prng_(new Gen) {}
+    DefaultPRNG64() = default;
 
-    explicit DefaultPRNG64(uint64_t seed) : prng_(new Gen(seed)) {}
+    explicit DefaultPRNG64(uint64_t seed) : prng_(seed) {}
 
-    uint64_t operator()() {return (*prng_)();}
+    uint64_t operator()() {return prng_();}
 
 private:
-    using Gen = bundled::prng::Generator;
+    bundled::prng::Generator prng_;
+};
 
-    std::shared_ptr<Gen> prng_; // In heap to avoid losing state in copies.
+//------------------------------------------------------------------------------
+class CPPWAMP_HIDDEN DefaultPRNGFactory
+{
+public:
+    DefaultPRNG64 operator()() {return DefaultPRNG64{};}
 };
 
 //------------------------------------------------------------------------------

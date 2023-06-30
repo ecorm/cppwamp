@@ -49,10 +49,10 @@ public:
     using SessionIdSet     = std::set<SessionId>;
 
     static Ptr create(Executor e, RealmConfig c, const RouterConfig& rcfg,
-                      RouterContext rctx)
+                      RouterContext rctx, RandomNumberGenerator64 rng)
     {
         return Ptr(new RouterRealm(std::move(e), std::move(c), rcfg,
-                                   std::move(rctx)));
+                                   std::move(rctx), std::move(rng)));
     }
 
     ~RouterRealm() override = default;
@@ -270,14 +270,14 @@ private:
     using RealmProceduresPtr = std::unique_ptr<RealmProcedures>;
 
     RouterRealm(Executor&& e, RealmConfig&& c, const RouterConfig& rcfg,
-                RouterContext&& rctx)
+                RouterContext&& rctx, RandomNumberGenerator64&& rng)
         : executor_(std::move(e)),
           strand_(boost::asio::make_strand(executor_)),
           config_(std::move(c)),
           router_(std::move(rctx)),
           metaTopics_(std::make_shared<MetaTopics>(this, executor_, strand_,
                                                    config_.metaApiEnabled())),
-          broker_(rcfg.publicationRNG(), metaTopics_),
+          broker_(std::move(rng), metaTopics_),
           dealer_(strand_, metaTopics_),
           logSuffix_(" (Realm " + config_.uri() + ")"),
           logger_(router_.logger()),

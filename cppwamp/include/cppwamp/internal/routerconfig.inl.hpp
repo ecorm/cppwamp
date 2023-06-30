@@ -150,16 +150,9 @@ CPPWAMP_INLINE RouterConfig& RouterConfig::withUriValidator(UriValidator::Ptr v)
 }
 
 CPPWAMP_INLINE RouterConfig&
-RouterConfig::withSessionRNG(RandomNumberGenerator64 f)
+RouterConfig::withRngFactory(RandomNumberGeneratorFactory f)
 {
-    sessionRng_ = std::move(f);
-    return *this;
-}
-
-CPPWAMP_INLINE RouterConfig&
-RouterConfig::withPublicationRNG(RandomNumberGenerator64 f)
-{
-    publicationRng_ = std::move(f);
+    rngFactory_ = std::move(f);
     return *this;
 }
 
@@ -181,15 +174,10 @@ CPPWAMP_INLINE UriValidator::Ptr RouterConfig::uriValidator() const
     return uriValidator_;
 }
 
-CPPWAMP_INLINE const RandomNumberGenerator64& RouterConfig::sessionRNG() const
+CPPWAMP_INLINE const RandomNumberGeneratorFactory&
+RouterConfig::rngFactory() const
 {
-    return sessionRng_;
-}
-
-CPPWAMP_INLINE const RandomNumberGenerator64&
-RouterConfig::publicationRNG() const
-{
-    return publicationRng_;
+    return rngFactory_;
 }
 
 CPPWAMP_INLINE void RouterConfig::initialize(internal::PassKey)
