@@ -21,6 +21,7 @@
 #include <functional>
 #include <memory>
 #include <utility>
+#include "anyhandler.hpp"
 #include "api.hpp"
 #include "pubsubinfo.hpp"
 #include "rpcinfo.hpp"
@@ -128,25 +129,45 @@ public:
 //------------------------------------------------------------------------------
 /** Interface for user-defined authorizers. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Authorizer
+class CPPWAMP_API Authorizer : public std::enable_shared_from_this<Authorizer>
 {
 public:
+    /// Shared pointer type
     using Ptr = std::shared_ptr<Authorizer>;
 
     /** Destructor. */
     virtual ~Authorizer() = default;
 
+    /** Binds an executor via which to post an authorization handler. */
+    void bindExecutor(AnyCompletionExecutor e);
+
     /** Authorizes a subscribe request. */
-    virtual void authorize(Topic t, AuthorizationRequest a);
+    void authorize(Topic t, AuthorizationRequest a, AnyIoExecutor& ioExec);
 
     /** Authorizes a publish request. */
-    virtual void authorize(Pub p, AuthorizationRequest a);
+    void authorize(Pub p, AuthorizationRequest a, AnyIoExecutor& ioExec);
 
     /** Authorizes a registration request. */
-    virtual void authorize(Procedure p, AuthorizationRequest a);
+    void authorize(Procedure p, AuthorizationRequest a, AnyIoExecutor& ioExec);
 
     /** Authorizes a call request. */
-    virtual void authorize(Rpc r, AuthorizationRequest a);
+    void authorize(Rpc r, AuthorizationRequest a, AnyIoExecutor& ioExec);
+
+protected:
+    /** Can be overridden to conditionally authorize a subscribe request. */
+    virtual void onAuthorize(Topic t, AuthorizationRequest a);
+
+    /** Can be overridden to conditionally authorize a publish request. */
+    virtual void onAuthorize(Pub p, AuthorizationRequest a);
+
+    /** Can be overridden to conditionally authorize a registration request. */
+    virtual void onAuthorize(Procedure p, AuthorizationRequest a);
+
+    /** Can be overridden to conditionally authorize a call request. */
+    virtual void onAuthorize(Rpc r, AuthorizationRequest a);
+
+private:
+    AnyCompletionExecutor executor_;
 };
 
 } // namespace wamp

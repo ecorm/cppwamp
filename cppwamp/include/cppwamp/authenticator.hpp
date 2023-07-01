@@ -85,33 +85,24 @@ public: // Internal use only
 //------------------------------------------------------------------------------
 /** Interface for user-defined authenticators. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Authenticator : std::enable_shared_from_this<Authenticator>
+class CPPWAMP_API Authenticator
+    : public std::enable_shared_from_this<Authenticator>
 {
 public:
+    /// Shared pointer type
     using Ptr = std::shared_ptr<Authenticator>;
 
+    /** Destructor. */
     virtual ~Authenticator() = default;
 
-    void authenticate(AuthExchange::Ptr exchange, AnyIoExecutor& exec)
-    {
-        if (executor_ == nullptr)
-        {
-            onAuthenticate(std::move(exchange));
-        }
-        else
-        {
-            auto self = shared_from_this();
-            boost::asio::post(
-                exec,
-                boost::asio::bind_executor(
-                    executor_,
-                    [this, self, exchange]() {onAuthenticate(exchange);} ));
-        }
-    }
+    /** Binds an executor via which to post the authentication handler. */
+    void bindExecutor(AnyCompletionExecutor e);
 
-    void bindExecutor(AnyCompletionExecutor e) {executor_ = std::move(e);}
+    /** Executes the `onAuthenticate` handler. */
+    void authenticate(AuthExchange::Ptr exchange, AnyIoExecutor& ioExec);
 
 protected:
+    /** Must be overriden to perform authentication. */
     virtual void onAuthenticate(AuthExchange::Ptr) = 0;
 
 private:

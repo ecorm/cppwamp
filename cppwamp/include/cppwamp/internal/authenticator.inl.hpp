@@ -12,6 +12,10 @@
 namespace wamp
 {
 
+//******************************************************************************
+// AuthExchange
+//******************************************************************************
+
 CPPWAMP_INLINE const Petition& AuthExchange::hello() const {return hello_;}
 
 CPPWAMP_INLINE const Challenge& AuthExchange::challenge() const
@@ -77,5 +81,37 @@ CPPWAMP_INLINE AuthExchange::AuthExchange(Petition&& p, ChallengerPtr c)
     : hello_(std::move(p)),
       challenger_(std::move(c))
 {}
+
+
+//******************************************************************************
+// Authenticator
+//******************************************************************************
+
+/** @details
+    This method makes it so that the `onAuthenticate` handler will be posted
+    via the given executor. If no executor is set, the `onAuthenticate` handler
+    is executed directly from the server's execution strand. */
+CPPWAMP_INLINE void Authenticator::bindExecutor(AnyCompletionExecutor e)
+{
+    executor_ = std::move(e);
+}
+
+CPPWAMP_INLINE void Authenticator::authenticate(AuthExchange::Ptr exchange,
+                                                AnyIoExecutor& ioExec)
+{
+    if (executor_ == nullptr)
+    {
+        onAuthenticate(std::move(exchange));
+    }
+    else
+    {
+        auto self = shared_from_this();
+        boost::asio::post(
+            ioExec,
+            boost::asio::bind_executor(
+                executor_,
+                [this, self, exchange]() {onAuthenticate(exchange);} ));
+    }
+}
 
 } // namespace wamp

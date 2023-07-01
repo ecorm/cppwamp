@@ -115,25 +115,136 @@ CPPWAMP_INLINE AuthorizationRequest::AuthorizationRequest(
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Authorizer::authorize(Topic t, AuthorizationRequest a)
+/** @details
+    This method makes it so that the `onAuthorize` handler will be posted
+    via the given executor. If no executor is set, the `onAuthorize` handler
+    is executed directly from the realm's execution strand. */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Authorizer::bindExecutor(AnyCompletionExecutor e)
+{
+    executor_ = std::move(e);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Authorizer::authorize(Topic t, AuthorizationRequest a,
+                                          AnyIoExecutor& ioExec)
+{
+    if (executor_ == nullptr)
+    {
+        onAuthorize(std::move(t), std::move(a));
+        return;
+    }
+
+    struct Posted
+    {
+        Ptr self;
+        Topic t;
+        AuthorizationRequest a;
+        void operator()() {self->onAuthorize(std::move(t), std::move(a));}
+    };
+
+    boost::asio::post(
+        ioExec,
+        boost::asio::bind_executor(
+            executor_,
+            Posted{shared_from_this(), std::move(t), std::move(a)}));
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Authorizer::authorize(Pub p, AuthorizationRequest a,
+                                          AnyIoExecutor& ioExec)
+{
+    if (executor_ == nullptr)
+    {
+        onAuthorize(std::move(p), std::move(a));
+        return;
+    }
+
+    struct Posted
+    {
+        Ptr self;
+        Pub p;
+        AuthorizationRequest a;
+        void operator()() {self->onAuthorize(std::move(p), std::move(a));}
+    };
+
+    boost::asio::post(
+        ioExec,
+        boost::asio::bind_executor(
+            executor_,
+            Posted{shared_from_this(), std::move(p), std::move(a)}));
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Authorizer::authorize(Procedure p, AuthorizationRequest a,
+                                          AnyIoExecutor& ioExec)
+{
+    if (executor_ == nullptr)
+    {
+        onAuthorize(std::move(p), std::move(a));
+        return;
+    }
+
+    struct Posted
+    {
+        Ptr self;
+        Procedure p;
+        AuthorizationRequest a;
+        void operator()() {self->onAuthorize(std::move(p), std::move(a));}
+    };
+
+    boost::asio::post(
+        ioExec,
+        boost::asio::bind_executor(
+            executor_,
+            Posted{shared_from_this(), std::move(p), std::move(a)}));
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Authorizer::authorize(Rpc r, AuthorizationRequest a,
+                                          AnyIoExecutor& ioExec)
+{
+    if (executor_ == nullptr)
+    {
+        onAuthorize(std::move(r), std::move(a));
+        return;
+    }
+
+    struct Posted
+    {
+        Ptr self;
+        Rpc r;
+        AuthorizationRequest a;
+        void operator()() {self->onAuthorize(std::move(r), std::move(a));}
+    };
+
+    boost::asio::post(
+        ioExec,
+        boost::asio::bind_executor(
+            executor_,
+            Posted{shared_from_this(), std::move(r), std::move(a)}));
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Authorizer::onAuthorize(Topic t, AuthorizationRequest a)
 {
     a.authorize(std::move(t), true);
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Authorizer::authorize(Pub p, AuthorizationRequest a)
+CPPWAMP_INLINE void Authorizer::onAuthorize(Pub p, AuthorizationRequest a)
 {
     a.authorize(std::move(p), true);
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Authorizer::authorize(Procedure p, AuthorizationRequest a)
+CPPWAMP_INLINE void Authorizer::onAuthorize(Procedure p, AuthorizationRequest a)
 {
     a.authorize(std::move(p), true);
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Authorizer::authorize(Rpc r, AuthorizationRequest a)
+CPPWAMP_INLINE void Authorizer::onAuthorize(Rpc r, AuthorizationRequest a)
 {
     a.authorize(std::move(r), true);
 }

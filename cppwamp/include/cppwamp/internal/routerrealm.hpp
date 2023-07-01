@@ -692,7 +692,8 @@ private:
         }
 
         AuthorizationRequest r{{}, RealmContext{shared_from_this()}, s};
-        authorizer->authorize(std::forward<C>(command), std::move(r));
+        authorizer->authorize(std::forward<C>(command), std::move(r),
+                              executor_);
     }
 
     template <typename C>
