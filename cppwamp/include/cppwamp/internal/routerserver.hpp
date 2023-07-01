@@ -129,11 +129,24 @@ public:
     using State = SessionState;
     using Index = uint64_t;
 
-    static Ptr create(IoStrand i, Transporting::Ptr t, AnyBufferCodec c,
-                      ServerContext s, ServerConfig::Ptr sc, Index sessionIndex)
+    ServerSession(AnyIoExecutor e, IoStrand i, Transporting::Ptr&& t,
+                  AnyBufferCodec&& c, ServerContext&& s, ServerConfig::Ptr sc,
+                  Index sessionIndex)
+        : Base(s.logger()),
+        executor_(std::move(e)),
+        strand_(std::move(i)),
+        peer_(std::make_shared<NetworkPeer>(true)),
+        transport_(t),
+        codec_(std::move(c)),
+        server_(std::move(s)),
+        serverConfig_(std::move(sc)),
+        uriValidator_(server_.uriValidator())
     {
-        return Ptr(new ServerSession(std::move(i), std::move(t), std::move(c),
-                                     std::move(s), std::move(sc), sessionIndex));
+        assert(serverConfig_ != nullptr);
+        auto info = t->connectionInfo();
+        info.setServer({}, serverConfig_->name(), sessionIndex);
+        Base::connect(std::move(info));
+        peer_->listen(this);
     }
 
     ~ServerSession() override = default;
@@ -151,24 +164,6 @@ public:
 
 private:
     using Base = RouterSession;
-
-    ServerSession(IoStrand i, Transporting::Ptr&& t, AnyBufferCodec&& c,
-                  ServerContext&& s, ServerConfig::Ptr sc, Index sessionIndex)
-        : Base(s.logger()),
-          strand_(std::move(i)),
-          peer_(std::make_shared<NetworkPeer>(true)),
-          transport_(t),
-          codec_(std::move(c)),
-          server_(std::move(s)),
-          serverConfig_(std::move(sc)),
-          uriValidator_(server_.uriValidator())
-    {
-        assert(serverConfig_ != nullptr);
-        auto info = t->connectionInfo();
-        info.setServer({}, serverConfig_->name(), sessionIndex);
-        Base::connect(std::move(info));
-        peer_->listen(this);
-    }
 
     void onRouterAbort(Reason&& r) override
     {
@@ -240,7 +235,7 @@ private:
 
         authExchange_ = AuthExchange::create({}, std::move(hello),
                                              shared_from_this());
-        serverConfig_->authenticator()->authenticate(authExchange_);
+        serverConfig_->authenticator()->authenticate(authExchange_, executor_);
     }
 
     void onPeerAbort(Reason&& r, bool) override
@@ -264,7 +259,7 @@ private:
         }
 
         authExchange_->setAuthentication({}, std::move(authentication));
-        serverConfig_->authenticator()->authenticate(authExchange_);
+        serverConfig_->authenticator()->authenticate(authExchange_, executor_);
     }
 
     void onPeerGoodbye(Reason&& reason, bool wasShuttingDown) override
@@ -473,6 +468,7 @@ private:
         dispatch(F{shared_from_this(), std::forward<Ts>(args)...});
     }
 
+    AnyIoExecutor executor_;
     IoStrand strand_;
     std::shared_ptr<NetworkPeer> peer_;
     Transporting::Ptr transport_;
@@ -588,10 +584,10 @@ private:
         ServerContext ctx{router_, self};
         if (++nextSessionIndex_ == 0u)
             nextSessionIndex_ = 1u;
-        auto s = ServerSession::create(boost::asio::make_strand(executor_),
-                                       std::move(transport),
-                                       std::move(codec), std::move(ctx),
-                                       config_, nextSessionIndex_);
+        auto s = std::make_shared<ServerSession>(
+            executor_, boost::asio::make_strand(executor_),
+            std::move(transport), std::move(codec), std::move(ctx),
+            config_, nextSessionIndex_);
         sessions_.insert(s);
         s->start();
         listen();

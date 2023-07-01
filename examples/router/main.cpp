@@ -24,7 +24,7 @@ public:
     TicketAuthenticator() = default;
 
 protected:
-    void authenticate(wamp::AuthExchange::Ptr ex) override
+    void onAuthenticate(wamp::AuthExchange::Ptr ex) override
     {
         if (ex->challengeCount() == 0)
         {

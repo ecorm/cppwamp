@@ -45,7 +45,7 @@ CPPWAMP_INLINE void AnonymousAuthenticator::setRandomIdGenerator(uint64_t seed)
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void AnonymousAuthenticator::authenticate(AuthExchange::Ptr ex)
+CPPWAMP_INLINE void AnonymousAuthenticator::onAuthenticate(AuthExchange::Ptr ex)
 {
     auto n = rng_();
     String authId;

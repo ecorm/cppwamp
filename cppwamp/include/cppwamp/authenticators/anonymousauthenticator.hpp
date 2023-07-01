@@ -41,7 +41,8 @@ public:
     /** Sets the seed to use with the default random `authid` generator. */
     void setRandomIdGenerator(uint64_t seed);
 
-    void authenticate(AuthExchange::Ptr ex) override;
+protected:
+    void onAuthenticate(AuthExchange::Ptr ex) override;
 
 private:
     AnonymousAuthenticator();

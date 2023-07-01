@@ -13,10 +13,11 @@
 //------------------------------------------------------------------------------
 
 #include <memory>
+#include "asiodefs.hpp"
 #include "any.hpp"
+#include "anyhandler.hpp"
 #include "api.hpp"
 #include "clientinfo.hpp"
-#include "sessioninfo.hpp"
 #include "internal/passkey.hpp"
 #include "internal/challenger.hpp"
 
@@ -84,14 +85,37 @@ public: // Internal use only
 //------------------------------------------------------------------------------
 /** Interface for user-defined authenticators. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Authenticator
+class CPPWAMP_API Authenticator : std::enable_shared_from_this<Authenticator>
 {
 public:
     using Ptr = std::shared_ptr<Authenticator>;
 
     virtual ~Authenticator() = default;
 
-    virtual void authenticate(AuthExchange::Ptr) = 0;
+    void authenticate(AuthExchange::Ptr exchange, AnyIoExecutor& exec)
+    {
+        if (executor_ == nullptr)
+        {
+            onAuthenticate(std::move(exchange));
+        }
+        else
+        {
+            auto self = shared_from_this();
+            boost::asio::post(
+                exec,
+                boost::asio::bind_executor(
+                    executor_,
+                    [this, self, exchange]() {onAuthenticate(exchange);} ));
+        }
+    }
+
+    void bindExecutor(AnyCompletionExecutor e) {executor_ = std::move(e);}
+
+protected:
+    virtual void onAuthenticate(AuthExchange::Ptr) = 0;
+
+private:
+    AnyCompletionExecutor executor_;
 };
 
 } // namespace wamp
