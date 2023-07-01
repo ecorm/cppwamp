@@ -104,11 +104,14 @@ TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
     auto client2 = internal::MockClient::create(ioctx, testPort);
     AccessActionInfo lastAction;
     auto guard = test::RouterFixture::instance().snoopAccessLog(
+        ioctx.get_executor(),
         [&lastAction](AccessLogEntry e) {lastAction = e.action;});
 
-    auto checkLastAction = [&lastAction](const std::string& hintKeyword)
+    auto checkLastAction = [&lastAction](const std::string& hintKeyword,
+                                         YieldContext yield)
     {
-        REQUIRE(lastAction.action == AccessAction::serverAbort);
+        while (lastAction.action != AccessAction::serverAbort)
+            suspendCoro(yield);
         auto found = lastAction.options.find("message");
         REQUIRE(found != lastAction.options.end());
         REQUIRE(found->second.is<String>());
@@ -147,7 +150,7 @@ TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
                 client->load({{testVector.json}});
                 client->connect(yield);
                 checkProtocolViolation(client, testVector.hintKeyword, yield);
-                checkLastAction(testVector.hintKeyword);
+                checkLastAction(testVector.hintKeyword, yield);
                 client->disconnect();
             }
         });
@@ -173,7 +176,7 @@ TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
         {
             client->connect(yield);
             checkProtocolViolation(client, "reinvoke", yield);
-            checkLastAction("reinvoke");
+            checkLastAction("reinvoke", yield);
             client->disconnect();
         });
 
@@ -197,7 +200,7 @@ TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
         {
             client->connect(yield);
             checkProtocolViolation(client, "reinvoke", yield);
-            checkLastAction("reinvoke");
+            checkLastAction("reinvoke", yield);
             client->disconnect();
         });
 
@@ -219,7 +222,7 @@ TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
         {
             client->connect(yield);
             checkProtocolViolation(client, "non-sequential", yield);
-            checkLastAction("non-sequential");
+            checkLastAction("non-sequential", yield);
             client->disconnect();
         });
 
@@ -265,7 +268,7 @@ TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
         {
             client->connect(yield);
             checkProtocolViolation(client, "non-sequential", yield);
-            checkLastAction("non-sequential");
+            checkLastAction("non-sequential", yield);
             client->disconnect();
         });
 
@@ -310,7 +313,7 @@ TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
         {
             client->connect(yield);
             checkProtocolViolation(client, "non-sequential", yield);
-            checkLastAction("non-sequential");
+            checkLastAction("non-sequential", yield);
             client->disconnect();
         });
 
@@ -331,7 +334,7 @@ TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
         {
             client->connect(yield);
             checkProtocolViolation(client, "non-sequential", yield);
-            checkLastAction("non-sequential");
+            checkLastAction("non-sequential", yield);
             client->disconnect();
         });
 
@@ -353,7 +356,7 @@ TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
         {
             client->connect(yield);
             checkProtocolViolation(client, "non-sequential", yield);
-            checkLastAction("non-sequential");
+            checkLastAction("non-sequential", yield);
             client->disconnect();
         });
 
@@ -398,7 +401,7 @@ TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
         {
             client->connect(yield);
             checkProtocolViolation(client, "non-sequential", yield);
-            checkLastAction("non-sequential");
+            checkLastAction("non-sequential", yield);
             client->disconnect();
         });
 

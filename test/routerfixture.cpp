@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iostream>
 #include <thread>
+#include <cppwamp/anyhandler.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/msgpack.hpp>
 #include <cppwamp/router.hpp>
@@ -26,7 +27,7 @@ public:
     TicketAuthenticator() = default;
 
 protected:
-    void authenticate(wamp::AuthExchange::Ptr ex) override
+    void onAuthenticate(wamp::AuthExchange::Ptr ex) override
     {
         if (ex->challengeCount() == 0)
         {
@@ -64,9 +65,11 @@ struct RouterFixture::Impl
           thread_([this](){run();})
     {}
 
-    AccessLogSnoopGuard snoopAccessLog(AccessLogHandler handler)
+    AccessLogSnoopGuard snoopAccessLog(wamp::AnyCompletionExecutor exec,
+                                       AccessLogHandler handler)
     {
-        accessLogHandler_ = std::move(handler);
+        accessLogHandler_ =
+            boost::asio::bind_executor(exec, std::move(handler));
         return AccessLogSnoopGuard{};
     }
 
@@ -82,6 +85,8 @@ struct RouterFixture::Impl
 
 private:
     using Logger = wamp::utils::LogSequencer;
+    using AccessLogHandlerWithExecutor =
+        wamp::AnyReusableHandler<void (wamp::AccessLogEntry)>;
 
     static wamp::RouterConfig routerConfig(Impl& self)
     {
@@ -141,14 +146,14 @@ private:
     void onAccessLogEntry(wamp::AccessLogEntry a)
     {
         if (accessLogHandler_)
-            accessLogHandler_(std::move(a));
+            wamp::postAny(ioctx_, accessLogHandler_, std::move(a));
     }
 
     wamp::IoContext ioctx_;
     Logger logger_;
     wamp::Router router_;
     std::thread thread_;
-    AccessLogHandler accessLogHandler_;
+    AccessLogHandlerWithExecutor accessLogHandler_;
 };
 
 //------------------------------------------------------------------------------
@@ -190,9 +195,10 @@ void RouterFixture::stop()
 
 //------------------------------------------------------------------------------
 RouterFixture::AccessLogSnoopGuard
-RouterFixture::snoopAccessLog(AccessLogHandler handler)
+RouterFixture::snoopAccessLog(wamp::AnyCompletionExecutor exec,
+                              AccessLogHandler handler)
 {
-    return impl_->snoopAccessLog(std::move(handler));
+    return impl_->snoopAccessLog(std::move(exec), std::move(handler));
 }
 
 //------------------------------------------------------------------------------

@@ -31,7 +31,8 @@ public:
 
     void start();
     void stop();
-    AccessLogSnoopGuard snoopAccessLog(AccessLogHandler handler);
+    AccessLogSnoopGuard snoopAccessLog(wamp::AnyCompletionExecutor exec,
+                                       AccessLogHandler handler);
     wamp::Router& router();
 
 private:
