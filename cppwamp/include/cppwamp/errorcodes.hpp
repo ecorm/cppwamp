@@ -35,7 +35,7 @@ CPPWAMP_API std::string detailedErrorCodeString(std::error_code ec);
 // WAMP Protocol Error Codes
 //******************************************************************************
 
-// TODO: Deprecate wamp.close.goodbye_and_out?
+// TODO: WAMP - Deprecate wamp.close.goodbye_and_out?
 // https://github.com/wamp-proto/wamp-proto/issues/484
 
 //------------------------------------------------------------------------------

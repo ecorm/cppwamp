@@ -234,7 +234,7 @@ public:
     Invocation makeInvocation(const RouterSession& caller, Rpc&& rpc,
                               bool calleeTimeoutEnabled) const
     {
-        // TODO: Propagate x_foo custom options?
+        // TODO: WAMP - Propagate x_foo custom options?
         // https://github.com/wamp-proto/wamp-proto/issues/345
 
         Object customOptions;
@@ -249,7 +249,7 @@ public:
         Variant timeout;
         if (calleeTimeoutEnabled)
         {
-            // TODO: Per-callee timeout forwarding
+            // TODO: WAMP - Per-callee timeout forwarding
             // https://github.com/wamp-proto/wamp-proto/issues/500
             auto found = rpc.options().find("timeout");
             if (found != rpc.options().end())
@@ -291,7 +291,7 @@ public:
 
     Invocation makeProgressiveInvocation(Rpc&& rpc)
     {
-        // TODO: Repeat caller ID information?
+        // TODO: WAMP - Repeat caller ID information?
         // https://github.com/wamp-proto/wamp-proto/issues/479
 
         assert(isProgressiveCall_);

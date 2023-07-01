@@ -49,7 +49,7 @@ public:
         Object customOptions;
         const bool publisherDisclosed = pub.discloseMe();
 
-        // TODO: Propagate x_foo custom options?
+        // TODO: WAMP - Propagate x_foo custom options?
         // https://github.com/wamp-proto/wamp-proto/issues/345
         auto found = pub.options().find("custom");
         if (found != pub.options().end() && found->second.is<Object>())

@@ -434,7 +434,7 @@ TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
 
     SECTION("Unregistering a non-owned registration")
     {
-        // TODO: Follow up on
+        // TODO: WAMP - Follow up on
         // https://github.com/wamp-proto/wamp-proto/discussions/496
         lastAction.action = {};
         client->load(
@@ -464,7 +464,7 @@ TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
 
     SECTION("Unsubscribing a non-owned subscription")
     {
-        // TODO: Follow up on
+        // TODO: WAMP - Follow up on
         // https://github.com/wamp-proto/wamp-proto/discussions/496
         lastAction.action = {};
         client->load(
