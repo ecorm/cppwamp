@@ -118,7 +118,7 @@ CPPWAMP_INLINE AuthorizationRequest::AuthorizationRequest(
 /** @details
     This method makes it so that the `onAuthorize` handler will be posted
     via the given executor. If no executor is set, the `onAuthorize` handler
-    is executed directly from the realm's execution strand. */
+    is invoked directly from the realm's execution strand. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Authorizer::bindExecutor(AnyCompletionExecutor e)
 {

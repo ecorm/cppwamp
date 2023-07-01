@@ -59,8 +59,8 @@ public:
 
         if (publisherDisclosed)
         {
-            // Disclosed properties are not in the spec, but there is
-            // a consensus here:
+            // TODO: WAMP - Disclosed properties are not in the spec, but there
+            // is a consensus here:
             // https://github.com/wamp-proto/wamp-proto/issues/57
             const auto& info = publisher->info();
             event_.withOption("publisher", info.sessionId());

@@ -134,16 +134,18 @@ CPPWAMP_INLINE bool Pub::excludeMe() const
     This sets the `PUBLISH.Options.disclose_me|bool` option. */
 CPPWAMP_INLINE Pub& Pub::withDiscloseMe(bool disclosed)
 {
+    disclosed_ = disclosed;
     return withOption("disclose_me", disclosed);
 }
 
 CPPWAMP_INLINE bool Pub::discloseMe() const
 {
-    return optionOr<bool>("disclose_me", false);
+    return disclosed_;
 }
 
 CPPWAMP_INLINE Pub::Pub(internal::PassKey, internal::Message&& msg)
-    : Base(std::move(msg))
+    : Base(std::move(msg)),
+      disclosed_(optionOr<bool>("disclose_me", false))
 {}
 
 CPPWAMP_INLINE void Pub::setDisclosed(internal::PassKey, bool disclosed)
@@ -211,6 +213,24 @@ CPPWAMP_INLINE AccessActionInfo Event::info(Uri topic) const
 CPPWAMP_INLINE ErrorOr<SessionId> Event::publisher() const
 {
     return toUnsignedInteger("publisher");
+}
+
+/** @details
+    This function returns the value of the
+    `EVENT.Details.publisher_authid|string` detail.
+    @returns The publisher authid, if available, or an error code. */
+CPPWAMP_INLINE ErrorOr<String> Event::publisherAuthId() const
+{
+    return optionAs<String>("publisher_authid");
+}
+
+/** @details
+    This function returns the value of the
+    `EVENT.Details.publisher_authrole|string` detail.
+    @returns The publisher authrole, if available, or an error code. */
+CPPWAMP_INLINE ErrorOr<String> Event::publisherAuthRole() const
+{
+    return optionAs<String>("publisher_authrole");
 }
 
 /** @details

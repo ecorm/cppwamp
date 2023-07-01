@@ -193,6 +193,12 @@ public:
 
     /** Obtains the publisher ID integer. */
     ErrorOr<SessionId> publisher() const;
+
+    /** Obtains the publisher authid string. */
+    ErrorOr<String> publisherAuthId() const;
+
+    /** Obtains the publisher authrole string. */
+    ErrorOr<String> publisherAuthRole() const;
     /// @}
 
     /** @name Publication Trust Levels

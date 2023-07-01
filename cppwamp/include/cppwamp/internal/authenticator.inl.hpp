@@ -90,7 +90,7 @@ CPPWAMP_INLINE AuthExchange::AuthExchange(Petition&& p, ChallengerPtr c)
 /** @details
     This method makes it so that the `onAuthenticate` handler will be posted
     via the given executor. If no executor is set, the `onAuthenticate` handler
-    is executed directly from the server's execution strand. */
+    is invoked directly from the server's execution strand. */
 CPPWAMP_INLINE void Authenticator::bindExecutor(AnyCompletionExecutor e)
 {
     executor_ = std::move(e);
