@@ -20,15 +20,9 @@ class RouterFixture
 public:
     using AccessLogHandler = std::function<void (wamp::AccessLogEntry)>;
 
-    struct AccessLogGuard
+    struct AccessLogSnoopGuard
     {
-        AccessLogGuard() :
-            guard_(nullptr,
-                     [](int*){RouterFixture::instance().detachFromAccessLog();})
-        {}
-
-    private:
-        std::shared_ptr<int> guard_;
+        ~AccessLogSnoopGuard() {RouterFixture::instance().unsnoopAccessLog();}
     };
 
     static RouterFixture& instance();
@@ -37,14 +31,15 @@ public:
 
     void start();
     void stop();
-    AccessLogGuard attachToAccessLog(AccessLogHandler handler);
-    void detachFromAccessLog();
+    AccessLogSnoopGuard snoopAccessLog(AccessLogHandler handler);
     wamp::Router& router();
 
 private:
     struct Impl;
 
     RouterFixture();
+
+    void unsnoopAccessLog();
 
     static std::shared_ptr<RouterFixture> theRouter_;
     static bool enabled_;

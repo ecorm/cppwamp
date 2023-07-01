@@ -103,7 +103,7 @@ TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
     auto client = internal::MockClient::create(ioctx, testPort);
     auto client2 = internal::MockClient::create(ioctx, testPort);
     AccessActionInfo lastAction;
-    auto guard = test::RouterFixture::instance().attachToAccessLog(
+    auto guard = test::RouterFixture::instance().snoopAccessLog(
         [&lastAction](AccessLogEntry e) {lastAction = e.action;});
 
     auto checkLastAction = [&lastAction](const std::string& hintKeyword)

@@ -160,6 +160,10 @@ public:
     /** Obtains the executor associated with this handler. */
     const Executor& get_executor() const {return executor_;}
 
+    /** Assigns the executor to be associated with this handler. */
+    template <typename E>
+    void set_executor(E&& exec) {executor_ = std::forward<E>(exec);}
+
     /** Invokes the handler with the given arguments. */
     template <typename... Ts>
     auto operator()(Ts&&... args) const

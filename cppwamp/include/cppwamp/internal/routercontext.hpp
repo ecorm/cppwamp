@@ -12,6 +12,7 @@
 #include <memory>
 #include "../accesslogging.hpp"
 #include "../anyhandler.hpp"
+#include "../asiodefs.hpp"
 #include "../clientinfo.hpp"
 #include "../logging.hpp"
 #include "../uri.hpp"
@@ -38,36 +39,45 @@ public:
     using LogHandler = AnyReusableHandler<void (LogEntry)>;
     using AccessLogHandler = AnyReusableHandler<void (AccessLogEntry)>;
 
-    static Ptr create(LogHandler lh, LogLevel lv, AccessLogHandler alh)
+    static Ptr create(AnyIoExecutor exec, LogHandler lh, LogLevel lv,
+                      AccessLogHandler alh)
     {
-        return Ptr(new RouterLogger(std::move(lh), lv, std::move(alh)));
+        return Ptr(new RouterLogger(std::move(exec), std::move(lh), lv,
+                                    std::move(alh)));
     }
 
     LogLevel level() const {return logLevel_.load();}
 
     void log(LogEntry entry)
     {
-        // TODO: FIXME: Dispatch via executor
         if (logHandler_ && entry.severity() >= level())
-            logHandler_(std::move(entry));
+            postAny(executor_, logHandler_, std::move(entry));
     }
 
     void log(AccessLogEntry entry)
     {
-        // TODO: FIXME: Dispatch via executor
         if (accessLogHandler_)
-            accessLogHandler_(std::move(entry));
+            postAny(executor_, accessLogHandler_, std::move(entry));
     }
 
 private:
-    RouterLogger(LogHandler&& lh, LogLevel lv, AccessLogHandler&& alh)
-        : logHandler_(std::move(lh)),
+    RouterLogger(AnyIoExecutor&& e, LogHandler&& lh, LogLevel lv,
+                 AccessLogHandler&& alh)
+        : executor_(std::move(e)),
+          logHandler_(std::move(lh)),
           accessLogHandler_(std::move(alh)),
           logLevel_(lv)
-    {}
+    {
+        if (logHandler_.get_executor() == nullptr)
+            logHandler_.set_executor(executor_);
+
+        if (accessLogHandler_.get_executor() == nullptr)
+            accessLogHandler_.set_executor(executor_);
+    }
 
     void setLevel(LogLevel level) {logLevel_.store(level);}
 
+    AnyIoExecutor executor_;
     LogHandler logHandler_;
     AccessLogHandler accessLogHandler_;
     std::atomic<LogLevel> logLevel_;

@@ -64,13 +64,13 @@ struct RouterFixture::Impl
           thread_([this](){run();})
     {}
 
-    AccessLogGuard attachToAccessLog(AccessLogHandler handler)
+    AccessLogSnoopGuard snoopAccessLog(AccessLogHandler handler)
     {
         accessLogHandler_ = std::move(handler);
-        return AccessLogGuard{};
+        return AccessLogSnoopGuard{};
     }
 
-    void detachFromAccessLog() {accessLogHandler_ = nullptr;}
+    void unsnoopAccessLog() {accessLogHandler_ = nullptr;}
 
     wamp::Router& router() {return router_;}
 
@@ -189,18 +189,19 @@ void RouterFixture::stop()
 }
 
 //------------------------------------------------------------------------------
-RouterFixture::AccessLogGuard RouterFixture::attachToAccessLog(AccessLogHandler handler)
+RouterFixture::AccessLogSnoopGuard
+RouterFixture::snoopAccessLog(AccessLogHandler handler)
 {
-    return impl_->attachToAccessLog(std::move(handler));
+    return impl_->snoopAccessLog(std::move(handler));
 }
-
-//------------------------------------------------------------------------------
-void RouterFixture::detachFromAccessLog() {impl_->detachFromAccessLog();}
 
 //------------------------------------------------------------------------------
 wamp::Router& RouterFixture::router() {return impl_->router();}
 
 //------------------------------------------------------------------------------
 RouterFixture::RouterFixture() {}
+
+//------------------------------------------------------------------------------
+void RouterFixture::unsnoopAccessLog() {impl_->unsnoopAccessLog();}
 
 } // namespace test
