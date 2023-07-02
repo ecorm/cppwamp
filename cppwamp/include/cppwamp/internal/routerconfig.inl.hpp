@@ -32,12 +32,10 @@ RealmConfig::withAuthorizer(Authorizer::Ptr a)
 //    return *this;
 //}
 
-/** @note DisclosureRule::preset is treated as DisclosureRule::originator. */
 CPPWAMP_INLINE RealmConfig&
-RealmConfig::withPublisherDisclosure(DisclosureRule d)
+RealmConfig::withCallTimeoutForwardingEnabled(bool enabled)
 {
-    publisherDisclosure_ =
-        (d == DisclosureRule::preset) ? DisclosureRule::originator : d;
+    callTimeoutForwardingEnabled_ = enabled;
     return *this;
 }
 
@@ -50,16 +48,18 @@ RealmConfig::withCallerDisclosure(DisclosureRule d)
     return *this;
 }
 
-CPPWAMP_INLINE RealmConfig& RealmConfig::withMetaApiEnabled(bool enabled)
+/** @note DisclosureRule::preset is treated as DisclosureRule::originator. */
+CPPWAMP_INLINE RealmConfig&
+RealmConfig::withPublisherDisclosure(DisclosureRule d)
 {
-    metaApiEnabled_ = enabled;
+    publisherDisclosure_ =
+        (d == DisclosureRule::preset) ? DisclosureRule::originator : d;
     return *this;
 }
 
-CPPWAMP_INLINE RealmConfig&
-RealmConfig::withCallTimeoutForwardingEnabled(bool enabled)
+CPPWAMP_INLINE RealmConfig& RealmConfig::withMetaApiEnabled(bool enabled)
 {
-    callTimeoutForwardingEnabled_ = enabled;
+    metaApiEnabled_ = enabled;
     return *this;
 }
 
@@ -75,24 +75,24 @@ CPPWAMP_INLINE Authorizer::Ptr RealmConfig::authorizer() const
 //    return authorizationCacheEnabled_;
 //}
 
-CPPWAMP_INLINE DisclosureRule RealmConfig::publisherDisclosure() const
-{
-    return publisherDisclosure_;
-}
-
 CPPWAMP_INLINE DisclosureRule RealmConfig::callerDisclosure() const
 {
     return callerDisclosure_;
 }
 
-CPPWAMP_INLINE bool RealmConfig::metaApiEnabled() const
+CPPWAMP_INLINE DisclosureRule RealmConfig::publisherDisclosure() const
 {
-    return metaApiEnabled_;
+    return publisherDisclosure_;
 }
 
 CPPWAMP_INLINE bool RealmConfig::callTimeoutForwardingEnabled() const
 {
     return callTimeoutForwardingEnabled_;
+}
+
+CPPWAMP_INLINE bool RealmConfig::metaApiEnabled() const
+{
+    return metaApiEnabled_;
 }
 
 

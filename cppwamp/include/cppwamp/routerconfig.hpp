@@ -45,13 +45,13 @@ public:
     // TODO: Progressive calls quota
     // TODO: Pending call quota
 
-    RealmConfig& withPublisherDisclosure(DisclosureRule d);
+    RealmConfig& withCallTimeoutForwardingEnabled(bool enabled = true);
 
     RealmConfig& withCallerDisclosure(DisclosureRule d);
 
-    RealmConfig& withMetaApiEnabled(bool enabled = true);
+    RealmConfig& withPublisherDisclosure(DisclosureRule d);
 
-    RealmConfig& withCallTimeoutForwardingEnabled(bool enabled = true);
+    RealmConfig& withMetaApiEnabled(bool enabled = true);
 
     const Uri& uri() const;
 
@@ -59,21 +59,21 @@ public:
 
     // bool authorizationCacheEnabled() const;
 
-    DisclosureRule publisherDisclosure() const;
-
     DisclosureRule callerDisclosure() const;
 
-    bool metaApiEnabled() const;
-
     bool callTimeoutForwardingEnabled() const;
+
+    DisclosureRule publisherDisclosure() const;
+
+    bool metaApiEnabled() const;
 
 private:
     Uri uri_;
     Authorizer::Ptr authorizer_;
-    DisclosureRule publisherDisclosure_ = DisclosureRule::originator;
     DisclosureRule callerDisclosure_ = DisclosureRule::originator;
-    bool metaApiEnabled_ = false;
+    DisclosureRule publisherDisclosure_ = DisclosureRule::originator;
     bool callTimeoutForwardingEnabled_ = false;
+    bool metaApiEnabled_ = false;
     // bool authorizationCacheEnabled_ = false;
 };
 
