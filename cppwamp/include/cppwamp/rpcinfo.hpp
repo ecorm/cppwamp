@@ -423,6 +423,12 @@ public:
 
     /** Obtains the session ID integer of the caller. */
     ErrorOr<SessionId> caller() const;
+
+    /** Obtains the authid string of the caller. */
+    ErrorOr<String> callerAuthId() const;
+
+    /** Obtains the authrole string of the caller. */
+    ErrorOr<String> callerAuthRole() const;
     /// @}
 
     /** @name Call Trust Levels
@@ -695,14 +701,12 @@ RpcLike<D>::dealerTimeout() const
 template <typename D>
 D& RpcLike<D>::withDiscloseMe(bool disclosed)
 {
+    disclosed_ = disclosed;
     return this->withOption("disclose_me", disclosed);
 }
 
 template <typename D>
-bool RpcLike<D>::discloseMe() const
-{
-    return this->template optionOr<bool>("disclose_me", false);
-}
+bool RpcLike<D>::discloseMe() const {return disclosed_;}
 
 template <typename D>
 D& RpcLike<D>::withCancelMode(CallCancelMode mode)
@@ -726,7 +730,10 @@ RpcLike<D>::RpcLike(Uri&& uri)
     : Base(in_place, 0, Object{}, std::move(uri), Array{}, Object{}) {}
 
 template <typename D>
-RpcLike<D>::RpcLike(internal::Message&& msg) : Base(std::move(msg)) {}
+RpcLike<D>::RpcLike(internal::Message&& msg)
+    : Base(std::move(msg)),
+      disclosed_(Base::template optionOr<bool>("disclose_me", false))
+{}
 
 template <typename D>
 CallCancellationSlot& RpcLike<D>::cancellationSlot(internal::PassKey)

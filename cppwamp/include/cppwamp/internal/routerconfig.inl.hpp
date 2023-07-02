@@ -82,7 +82,7 @@ CPPWAMP_INLINE DisclosureRule RealmConfig::publisherDisclosure() const
 
 CPPWAMP_INLINE DisclosureRule RealmConfig::callerDisclosure() const
 {
-    return publisherDisclosure_;
+    return callerDisclosure_;
 }
 
 CPPWAMP_INLINE bool RealmConfig::metaApiEnabled() const

@@ -371,6 +371,24 @@ CPPWAMP_INLINE ErrorOr<SessionId> Invocation::caller() const
 }
 
 /** @details
+    This function returns the value of the
+    `INVOCATION.Details.caller_authid|string` detail.
+    @returns The caller authid, if available, or an error code. */
+CPPWAMP_INLINE ErrorOr<String> Invocation::callerAuthId() const
+{
+    return optionAs<String>("caller_authid");
+}
+
+/** @details
+    This function returns the value of the
+    `INVOCATION.Details.caller_authrole|string` detail.
+    @returns The caller authrole, if available, or an error code. */
+CPPWAMP_INLINE ErrorOr<String> Invocation::callerAuthRole() const
+{
+    return optionAs<String>("caller_authrole");
+}
+
+/** @details
     This function returns the value of the `INVOCATION.Details.trustlevel|integer`
     detail.
     @returns An integer variant if the trust level is available. Otherwise,

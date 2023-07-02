@@ -123,6 +123,88 @@ void checkPublisherDisclosure(
     ioctx.restart();
 }
 
+//------------------------------------------------------------------------------
+void checkInvocationDisclosure(std::string info, Invocation& inv,
+                               const Welcome& welcome, bool expectedDisclosed,
+                               YieldContext yield)
+{
+    INFO(info);
+
+    while (inv.args().empty())
+        suspendCoro(yield);
+
+    if (expectedDisclosed)
+    {
+        CHECK(inv.caller() == welcome.sessionId());
+        CHECK(inv.callerAuthId() == welcome.authId());
+        CHECK(inv.callerAuthRole() == welcome.authRole());
+    }
+    else
+    {
+        CHECK_FALSE(inv.caller().has_value());
+        CHECK_FALSE(inv.callerAuthId().has_value());
+        CHECK_FALSE(inv.callerAuthRole().has_value());
+    }
+
+    inv = Invocation{};
+}
+
+//------------------------------------------------------------------------------
+void checkCallerDisclosure(
+    std::string info, IoContext& ioctx, DisclosureRule rule,
+    bool expectedDisclosedByDefault,
+    bool expectedDisclosedWhenOriginatorReveals,
+    bool expectedDisclosedWhenOriginatorConceals)
+{
+    INFO(info);
+
+    auto config = RealmConfig{testRealm}.withCallerDisclosure(rule);
+
+    wamp::Router& router = test::RouterFixture::instance().router();
+    ScopedRealm realm{router.openRealm(config).value()};
+    Session s{ioctx};
+    Invocation invocation;
+    auto onInvocation = [&invocation](Invocation i)
+    {
+        invocation = std::move(i);
+        return Result{};
+    };
+
+    spawn(ioctx, [&](YieldContext yield)
+    {
+        auto rpc = Rpc{"rpc"}.withArgs(42);
+        s.connect(withTcp, yield).value();
+        auto w = s.join(testRealm, yield).value();
+        s.enroll(Procedure{"rpc"}, onInvocation, yield).value();
+        s.call(rpc, yield).value();
+        checkInvocationDisclosure("disclose_me unset", invocation, w,
+                                  expectedDisclosedByDefault, yield);
+        bool isStrict = rule == DisclosureRule::strictConceal ||
+                        rule == DisclosureRule::strictReveal;
+        if (isStrict)
+        {
+            auto ack = s.call(rpc.withDiscloseMe(), yield);
+            CHECK(ack == makeUnexpectedError(WampErrc::discloseMeDisallowed));
+        }
+        else
+        {
+            s.call(rpc.withDiscloseMe(), yield).value();
+            checkInvocationDisclosure("disclose_me=true", invocation, w,
+                                      expectedDisclosedWhenOriginatorReveals,
+                                      yield);
+        }
+
+        s.call(rpc.withDiscloseMe(false), yield).value();
+        checkInvocationDisclosure("disclose_me=false", invocation, w,
+                                  expectedDisclosedWhenOriginatorConceals,
+                                  yield);
+        s.disconnect();
+    });
+
+    ioctx.run();
+    ioctx.restart();
+}
+
 } // anomymous namespace
 
 
@@ -147,6 +229,30 @@ TEST_CASE( "Router publisher disclosure config", "[WAMP][Router]" )
     checkPublisherDisclosure("conceal",       io, DR::conceal,       n, n, n);
     checkPublisherDisclosure("strictReveal",  io, DR::strictReveal,  y, y, y);
     checkPublisherDisclosure("strictConceal", io, DR::strictConceal, n, n, n);
+    io.stop();
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Router caller disclosure config", "[WAMP][Router]" )
+{
+    if (!test::RouterFixture::enabled())
+        return;
+
+    wamp::Router& router = test::RouterFixture::instance().router();
+    test::RouterLogLevelGuard logLevelGuard(router.logLevel());
+    router.setLogLevel(LogLevel::error);
+
+    IoContext io;
+    using DR = DisclosureRule;
+    static constexpr bool y = true;
+    static constexpr bool n = false;
+
+    checkCallerDisclosure("preset",        io, DR::preset,        n, y, n);
+    checkCallerDisclosure("originator",    io, DR::originator,    n, y, n);
+    checkCallerDisclosure("reveal",        io, DR::reveal,        y, y, y);
+    checkCallerDisclosure("conceal",       io, DR::conceal,       n, n, n);
+    checkCallerDisclosure("strictReveal",  io, DR::strictReveal,  y, y, y);
+    checkCallerDisclosure("strictConceal", io, DR::strictConceal, n, n, n);
     io.stop();
 }
 
