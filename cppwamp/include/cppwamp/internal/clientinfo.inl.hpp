@@ -453,21 +453,26 @@ CPPWAMP_INLINE void Challenge::setChallengee(internal::PassKey,
 
 CPPWAMP_INLINE const std::string& incidentKindLabel(IncidentKind k)
 {
-    static const std::array<std::string, 8> labels{
+    static constexpr auto count = static_cast<unsigned>(IncidentKind::count);
+
+    static const std::array<std::string, count> labels{
     {
-        "Transport connection dropped",
-        "Session killed by remote peer",
-        "Session aborted by remote peer",
-        "Transport failure or protocol error",
-        "Error reported by CHALLENGE handler",
-        "Error reported by EVENT handler",
-        "A non-fatal problem occurred",
-        "Message trace"
-        }};
+        /* transportDropped */ "Transport connection dropped",
+        /* closedByPeer */     "Session killed by remote peer",
+        /* abortedByPeer */    "Session aborted by remote peer",
+        /* commFailure */      "Transport failure or protocol error",
+        /* challengeFailure */ "Error reported by CHALLENGE handler",
+        /* eventError */       "Error reported by EVENT handler",
+        /* unknownErrorUri */  "An ERROR with unknown URI was received",
+        /* errorHasPayload */  "An ERROR with payload arguments was received",
+        /* trouble */          "A non-fatal problem occurred",
+        /* trace */            "Message trace"
+        }
+    };
 
     using T = std::underlying_type<IncidentKind>::type;
     auto n = static_cast<T>(k);
-    assert(n >=0);
+    assert(n >= 0);
     return labels.at(n);
 }
 
@@ -534,6 +539,11 @@ CPPWAMP_INLINE LogEntry Incident::toLogEntry() const
 
     case IncidentKind::trace:
         level = LogLevel::trace;
+        break;
+
+    case IncidentKind::unknownErrorUri:
+    case IncidentKind::errorHasPayload:
+        level = LogLevel::warning;
         break;
 
     default:

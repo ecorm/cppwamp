@@ -195,7 +195,6 @@ TEST_CASE( "Router call timeout forwarding config", "[WAMP][Router]" )
     if (!test::RouterFixture::enabled())
         return;
 
-    auto config = RealmConfig{testRealm}.withCallTimeoutForwardingEnabled(true);
     wamp::Router& router = test::RouterFixture::instance().router();
     test::RouterLogLevelGuard logLevelGuard(router.logLevel());
     router.setLogLevel(LogLevel::error);
@@ -217,6 +216,7 @@ TEST_CASE( "Router call timeout forwarding config", "[WAMP][Router]" )
         return deferment;
     };
 
+    auto config = RealmConfig{testRealm}.withCallTimeoutForwardingEnabled(true);
     test::ScopedRealm realm{router.openRealm(config).value()};
 
     spawn(ioctx, [&](YieldContext yield)

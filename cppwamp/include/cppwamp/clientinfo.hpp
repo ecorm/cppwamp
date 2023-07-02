@@ -374,8 +374,11 @@ enum class IncidentKind
     commFailure,      ///< A fatal transport or protocol error occurred.
     challengeFailure, ///< The challenge handler reported an error.
     eventError,       ///< A pub-sub event handler reported an error.
+    unknownErrorUri,  ///< An ERROR with unknown URI was received.
+    errorHasPayload,  ///< An ERROR with payload arguments was received.
     trouble,          ///< A non-fatal problem occurred.
     trace,            ///< A WAMP message was sent or received.
+    count
 };
 
 //------------------------------------------------------------------------------

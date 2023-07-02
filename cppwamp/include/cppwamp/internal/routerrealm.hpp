@@ -704,11 +704,11 @@ private:
             return true;
 
         auto ec = make_error_code(WampErrc::authorizationDenied);
-        const bool isKnownAuthError = true;
+        bool isKnownAuthError = true;
 
         if (auth.error())
         {
-            const bool isKnownAuthError =
+            isKnownAuthError =
                 auth.error() == WampErrc::authorizationDenied ||
                 auth.error() == WampErrc::authorizationFailed ||
                 auth.error() == WampErrc::authorizationRequired ||

@@ -19,6 +19,7 @@ namespace wamp
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Authorization::Authorization(bool allowed) : allowed_(allowed) {}
 
+//------------------------------------------------------------------------------
 /** If WampErrc::authorizationDenied, WampErrc::authorizationFailed, or
     WampErrc::discloseMeDisallowed is passed, their corresponding URI shall be
     used in the ERROR message returned to the client. Otherwise, the error
@@ -26,7 +27,15 @@ CPPWAMP_INLINE Authorization::Authorization(bool allowed) : allowed_(allowed) {}
     contain two positional arguments:
     - A string formatted as `<ec.category().name()>:<ec.value()`
     - A string containing `ec.message()` */
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE Authorization::Authorization(std::error_code ec) : error_(ec) {}
+
+//------------------------------------------------------------------------------
+/** @copydetails Authorization(std::error_code) */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Authorization::Authorization(WampErrc errc)
+    : Authorization(make_error_code(errc))
+{}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Authorization& Authorization::withDisclosure(DisclosureRule d)

@@ -66,6 +66,10 @@ public:
         authorization operation itself has failed. */
     Authorization(std::error_code ec);
 
+    /** Converting constructor taking a WampErrc enumerator indicating that the
+        authorization operation itself has failed. */
+    Authorization(WampErrc errc);
+
     // NOLINTEND(google-explicit-constructor)
 
     /** Sets the rule that governs how the caller/publisher is disclosed. */

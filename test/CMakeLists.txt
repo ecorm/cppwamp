@@ -29,6 +29,7 @@ set(SOURCES
     errortest.cpp
     flagstest.cpp
     payloadtest.cpp
+    routerauthorizertest.cpp
     routerconfigtest.cpp
     routerfixture.cpp
     routermanagementtest.cpp

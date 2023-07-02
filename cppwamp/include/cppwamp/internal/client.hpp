@@ -1394,7 +1394,16 @@ private:
         const WampErrc errc = error.errorCode();
 
         if (errorPtr != nullptr)
+        {
             *errorPtr = std::move(error);
+        }
+        else if (incidentSlot_)
+        {
+            if (errc == WampErrc::unknown)
+                report({IncidentKind::unknownErrorUri, error});
+            else if (error.hasArgs())
+                report({IncidentKind::errorHasPayload, error});
+        }
 
         dispatchHandler(handler, makeUnexpectedError(errc));
         return false;
