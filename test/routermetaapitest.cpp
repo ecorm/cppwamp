@@ -26,13 +26,6 @@ const unsigned short testPort = 12345;
 const auto withTcp = TcpHost("localhost", testPort).withFormat(json);
 
 //------------------------------------------------------------------------------
-void suspendCoro(YieldContext& yield)
-{
-    auto exec = boost::asio::get_associated_executor(yield);
-    boost::asio::post(exec, yield);
-}
-
-//------------------------------------------------------------------------------
 void checkJoinInfo(const SessionJoinInfo& info, const Welcome& w)
 {
     CHECK(info.authId       == w.authId());
@@ -93,13 +86,13 @@ TEST_CASE( "WAMP session meta events", "[WAMP][Router]" )
         auto w2 = s2.join(Petition(testRealm), yield).value();
 
         while (joinedInfo.sessionId == 0)
-            suspendCoro(yield);
+            test::suspendCoro(yield);
         checkJoinInfo(joinedInfo, w2);
 
         s2.leave(yield).value();
 
         while (leftInfo.sessionId == 0)
-            suspendCoro(yield);
+            test::suspendCoro(yield);
         CHECK(leftInfo.sessionId == w2.sessionId());
 
         // Crossbar only provides session ID
@@ -201,7 +194,7 @@ TEST_CASE( "WAMP session meta procedures", "[WAMP][Router]" )
                     yield).value();
 
             while (incidents.empty() || s2.state() == SessionState::established)
-                suspendCoro(yield);
+                test::suspendCoro(yield);
 
             CHECK((s2.state() == SessionState::closed ||
                    s2.state() == SessionState::failed));
@@ -242,7 +235,7 @@ TEST_CASE( "WAMP session meta procedures", "[WAMP][Router]" )
             CHECK_THAT(list, Matchers::Equals(SessionIdList{w2.sessionId()}));
 
             while (incidents.empty() || s2.state() == SessionState::established)
-                suspendCoro(yield);
+                test::suspendCoro(yield);
 
             CHECK((s2.state() == SessionState::closed ||
                    s2.state() == SessionState::failed));
@@ -283,7 +276,7 @@ TEST_CASE( "WAMP session meta procedures", "[WAMP][Router]" )
             CHECK(count == 1);
 
             while (incidents.empty() || s2.state() == SessionState::established)
-                suspendCoro(yield);
+                test::suspendCoro(yield);
 
             CHECK(s1.state() == SessionState::established);
             CHECK((s2.state() == SessionState::closed ||
@@ -318,7 +311,7 @@ TEST_CASE( "WAMP session meta procedures", "[WAMP][Router]" )
             CHECK(count == 1);
 
             while (incidents.empty() || s2.state() == SessionState::established)
-                suspendCoro(yield);
+                test::suspendCoro(yield);
 
             CHECK(s1.state() == SessionState::established);
             CHECK((s2.state() == SessionState::closed ||
@@ -411,7 +404,7 @@ TEST_CASE( "WAMP registration meta events", "[WAMP][Router]" )
         auto w2 = s2.join(Petition(testRealm), yield).value();
         auto reg = s2.enroll(Procedure{"rpc"}, rpc, yield).value();
         while (regInfo.id == 0 || registrationId == 0)
-            suspendCoro(yield);
+            test::suspendCoro(yield);
         CHECK(regCreatedSessionId == w2.sessionId());
         CHECK(regInfo.uri == "rpc");
         CHECK(regInfo.created > before);
@@ -424,7 +417,7 @@ TEST_CASE( "WAMP registration meta events", "[WAMP][Router]" )
 
         reg.unregister();
         while (unregisteredRegId == 0 || deletedRegistrationId == 0)
-            suspendCoro(yield);
+            test::suspendCoro(yield);
         CHECK(unregisteredSessionId == w2.sessionId());
         CHECK(unregisteredRegId == reg.id());
         CHECK(regDeletedSessionId == w2.sessionId());
@@ -435,7 +428,7 @@ TEST_CASE( "WAMP registration meta events", "[WAMP][Router]" )
         reg = s2.enroll(Procedure{"rpc"}, rpc, yield).value();
         s2.leave(yield).value();
         while (unregisteredRegId == 0 || deletedRegistrationId == 0)
-            suspendCoro(yield);
+            test::suspendCoro(yield);
         CHECK(unregisteredRegId == reg.id());
         CHECK(deletedRegistrationId == reg.id());
 
@@ -527,7 +520,7 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
         auto sub2 = s2.subscribe(Topic{"exact"}, [](Event) {}, yield).value();
 
         while (subInfo.id == 0 || subscriptionId == 0)
-            suspendCoro(yield);
+            test::suspendCoro(yield);
         CHECK(subCreatedSessionId == w2.sessionId());
         CHECK(subInfo.uri == "exact");
         CHECK(subInfo.created > before);
@@ -547,7 +540,7 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
             yield).value();
 
         while (subInfo.id == 0 || subscriptionId == 0)
-            suspendCoro(yield);
+            test::suspendCoro(yield);
         CHECK(subCreatedSessionId == welcome3.sessionId());
         CHECK(subInfo.created > before);
         CHECK(subInfo.created < after);
@@ -565,12 +558,12 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
             [](Event) {},
             yield).value();
 
-        while (subscriptionId == 0) suspendCoro(yield);
+        while (subscriptionId == 0) test::suspendCoro(yield);
         CHECK(subscribedSessionId == welcome4.sessionId());
         CHECK(subscriptionId == sub4.id());
 
         sub3.unsubscribe();
-        while (unsubscribedSubId == 0) {suspendCoro(yield);}
+        while (unsubscribedSubId == 0) {test::suspendCoro(yield);}
         CHECK(unsubscribedSubId == sub3.id());
         CHECK(deletedSubId == 0);
         CHECK(unsubscribedSessionId == welcome3.sessionId());
@@ -579,7 +572,7 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
         unsubscribedSubId = 0;
         sub4.unsubscribe();
         while (unsubscribedSubId == 0 || deletedSubId == 0)
-            suspendCoro(yield);
+            test::suspendCoro(yield);
         CHECK(unsubscribedSessionId == welcome4.sessionId());
         CHECK(unsubscribedSubId == sub4.id());
         CHECK(deletedSessionId == welcome4.sessionId());
@@ -589,7 +582,7 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
         deletedSubId = 0;
         s2.leave(yield).value();
         while (unsubscribedSubId == 0 || deletedSubId == 0)
-            suspendCoro(yield);
+            test::suspendCoro(yield);
         CHECK(unsubscribedSubId == sub2.id());
         CHECK(deletedSubId == sub2.id());
 

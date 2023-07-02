@@ -9,7 +9,9 @@
 
 #include <memory>
 #include <cppwamp/accesslogging.hpp>
+#include <cppwamp/realm.hpp>
 #include <cppwamp/router.hpp>
+#include <cppwamp/spawn.hpp>
 
 namespace test
 {
@@ -60,6 +62,25 @@ struct RouterLogLevelGuard
 private:
     wamp::LogLevel level_;
 };
+
+//------------------------------------------------------------------------------
+class ScopedRealm
+{
+public:
+    ScopedRealm(wamp::Realm realm) : realm_(std::move(realm)) {}
+
+    ~ScopedRealm() {realm_.close();}
+
+private:
+    wamp::Realm realm_;
+};
+
+//------------------------------------------------------------------------------
+inline void suspendCoro(wamp::YieldContext& yield)
+{
+    auto exec = boost::asio::get_associated_executor(yield);
+    boost::asio::post(exec, yield);
+}
 
 } // namespace test
 

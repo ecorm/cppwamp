@@ -28,13 +28,6 @@ const unsigned short testPort = 12345;
 const auto withTcp = TcpHost("localhost", testPort).withFormat(json);
 
 //------------------------------------------------------------------------------
-inline void suspendCoro(YieldContext& yield)
-{
-    auto exec = boost::asio::get_associated_executor(yield);
-    boost::asio::post(exec, yield);
-}
-
-//------------------------------------------------------------------------------
 struct TestRealmObserver : public RealmObserver
 {
     static std::shared_ptr<TestRealmObserver> create()
@@ -226,7 +219,7 @@ void checkSessionKilled(const std::string& info, Session& session,
 {
     INFO(info);
     while (incidents.empty() || session.state() == SessionState::established)
-        suspendCoro(yield);
+        test::suspendCoro(yield);
     CHECK(session.state() == SessionState::failed);
     CHECK(incidents.size() == 1);
     CHECK(incidents.front().kind() == IncidentKind::abortedByPeer);
@@ -519,7 +512,7 @@ TEST_CASE( "Router realm management", "[WAMP][Router]" )
             CHECK_FALSE(realm.close());
 
             while (realm.isOpen() || observer->realmClosedEvents.empty())
-                suspendCoro(yield);
+                test::suspendCoro(yield);
             CHECK_THAT(observer->realmClosedEvents,
                        Matchers::Equals(std::vector<Uri>({uri})));
             CHECK_FALSE(realm2.isOpen());
@@ -595,7 +588,7 @@ TEST_CASE( "Router realm session events", "[WAMP][Router]" )
                    observer2->joinEvents.empty() ||
                    observer3->joinEvents.empty())
             {
-                suspendCoro(yield);
+                test::suspendCoro(yield);
             }
 
             REQUIRE(observer1->joinEvents.size() == 1);
@@ -622,7 +615,7 @@ TEST_CASE( "Router realm session events", "[WAMP][Router]" )
             s.leave(yield).value();
 
             while (observer1->leaveEvents.empty())
-                suspendCoro(yield);
+                test::suspendCoro(yield);
 
             REQUIRE(observer1->leaveEvents.size() == 1);
             const auto& left = observer1->leaveEvents.front();
@@ -836,7 +829,7 @@ TEST_CASE( "Router realm registration queries and events", "[WAMP][Router]" )
             when = std::chrono::system_clock::now();
 
             while (observer->registerEvents.empty())
-                suspendCoro(yield);
+                test::suspendCoro(yield);
             REQUIRE(observer->registerEvents.size() == 1);
             const auto& ev = observer->registerEvents.front();
             checkSessionDetails(ev.first, welcome, testRealm);
@@ -855,7 +848,7 @@ TEST_CASE( "Router realm registration queries and events", "[WAMP][Router]" )
             s.unregister(reg, yield).value();
 
             while (observer->unregisterEvents.empty())
-                suspendCoro(yield);
+                test::suspendCoro(yield);
             REQUIRE(observer->unregisterEvents.size() == 1);
             const auto& ev = observer->unregisterEvents.front();
             checkSessionDetails(ev.first, welcome, testRealm);
@@ -872,7 +865,7 @@ TEST_CASE( "Router realm registration queries and events", "[WAMP][Router]" )
             s.leave(yield).value();
 
             while (observer->unregisterEvents.empty())
-                suspendCoro(yield);
+                test::suspendCoro(yield);
             REQUIRE(observer->unregisterEvents.size() == 1);
             const auto& ev = observer->unregisterEvents.front();
             checkSessionDetails(ev.first, welcome, testRealm);
@@ -922,7 +915,7 @@ TEST_CASE( "Router realm subscription queries and events", "[WAMP][Router]" )
             when = std::chrono::system_clock::now();
 
             while (observer->subscribeEvents.empty())
-                suspendCoro(yield);
+                test::suspendCoro(yield);
             REQUIRE(observer->subscribeEvents.size() == 1);
             const auto& ev = observer->subscribeEvents.front();
             checkSessionDetails(ev.first, w1, testRealm);
@@ -943,7 +936,7 @@ TEST_CASE( "Router realm subscription queries and events", "[WAMP][Router]" )
             when = std::chrono::system_clock::now();
 
             while (observer->subscribeEvents.empty())
-                suspendCoro(yield);
+                test::suspendCoro(yield);
             REQUIRE(observer->subscribeEvents.size() == 1);
             const auto& ev = observer->subscribeEvents.front();
             checkSessionDetails(ev.first, w2, testRealm);
@@ -958,7 +951,7 @@ TEST_CASE( "Router realm subscription queries and events", "[WAMP][Router]" )
             s1.leave(yield).value();
 
             while (observer->unsubscribeEvents.empty())
-                suspendCoro(yield);
+                test::suspendCoro(yield);
             REQUIRE(observer->unsubscribeEvents.size() == 1);
             const auto& ev = observer->unsubscribeEvents.front();
             checkSessionDetails(ev.first, w1, testRealm);
@@ -972,7 +965,7 @@ TEST_CASE( "Router realm subscription queries and events", "[WAMP][Router]" )
             s2.unsubscribe(sub2, yield).value();
 
             while (observer->unsubscribeEvents.empty())
-                suspendCoro(yield);
+                test::suspendCoro(yield);
             REQUIRE(observer->unsubscribeEvents.size() == 1);
             const auto& ev = observer->unsubscribeEvents.front();
             checkSessionDetails(ev.first, w2, testRealm);

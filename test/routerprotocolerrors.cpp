@@ -25,13 +25,6 @@ const std::string testRealm = "cppwamp.test";
 const unsigned short testPort = 12345;
 
 //------------------------------------------------------------------------------
-inline void suspendCoro(YieldContext& yield)
-{
-    auto exec = boost::asio::get_associated_executor(yield);
-    boost::asio::post(exec, yield);
-}
-
-//------------------------------------------------------------------------------
 template <typename C>
 C toCommand(wamp::internal::Message&& m)
 {
@@ -43,7 +36,7 @@ void checkProtocolViolation(MockClient::Ptr client,
                             const std::string& hintKeyword, YieldContext yield)
 {
     while (client->lastMessageKind() != MessageKind::abort)
-        suspendCoro(yield);
+        test::suspendCoro(yield);
 
     const auto& messages = client->messages();
     REQUIRE(!messages.empty());
@@ -65,7 +58,7 @@ void checkNormalOperation(MockClient::Ptr client,
                           YieldContext yield)
 {
     while (client->lastMessageKind() != lastExpectedMessageKind)
-        suspendCoro(yield);
+        test::suspendCoro(yield);
 
     const auto& messages = client->messages();
     REQUIRE(!messages.empty());
@@ -79,7 +72,7 @@ void checkErrorResponse(MockClient::Ptr client, TErrc expectedErrorCode,
                         YieldContext yield)
 {
     while (client->lastMessageKind() != MessageKind::error)
-        suspendCoro(yield);
+        test::suspendCoro(yield);
 
     const auto& messages = client->messages();
     REQUIRE(!messages.empty());
@@ -111,7 +104,7 @@ TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
                                          YieldContext yield)
     {
         while (lastAction.action != AccessAction::serverAbort)
-            suspendCoro(yield);
+            test::suspendCoro(yield);
         auto found = lastAction.options.find("message");
         REQUIRE(found != lastAction.options.end());
         REQUIRE(found->second.is<String>());

@@ -24,25 +24,6 @@ const unsigned short testPort = 12345;
 const auto withTcp = TcpHost("localhost", testPort).withFormat(json);
 
 //------------------------------------------------------------------------------
-class ScopedRealm
-{
-public:
-    ScopedRealm(Realm realm) : realm_(std::move(realm)) {}
-
-    ~ScopedRealm() {realm_.close();}
-
-private:
-    Realm realm_;
-};
-
-//------------------------------------------------------------------------------
-void suspendCoro(YieldContext& yield)
-{
-    auto exec = boost::asio::get_associated_executor(yield);
-    boost::asio::post(exec, yield);
-}
-
-//------------------------------------------------------------------------------
 void checkInvocationDisclosure(std::string info, Invocation& inv,
                                const Welcome& welcome, bool expectedDisclosed,
                                YieldContext yield)
@@ -50,7 +31,7 @@ void checkInvocationDisclosure(std::string info, Invocation& inv,
     INFO(info);
 
     while (inv.args().empty())
-        suspendCoro(yield);
+        test::suspendCoro(yield);
 
     if (expectedDisclosed)
     {
@@ -80,7 +61,7 @@ void checkCallerDisclosure(
     auto config = RealmConfig{testRealm}.withCallerDisclosure(rule);
 
     wamp::Router& router = test::RouterFixture::instance().router();
-    ScopedRealm realm{router.openRealm(config).value()};
+    test::ScopedRealm realm{router.openRealm(config).value()};
     Session s{ioctx};
     Invocation invocation;
     auto onInvocation = [&invocation](Invocation i)
@@ -132,7 +113,7 @@ void checkEventDisclosure(std::string info, Event& event,
     INFO(info);
 
     while (event.args().empty())
-        suspendCoro(yield);
+        test::suspendCoro(yield);
 
     if (expectedDisclosed)
     {
@@ -162,7 +143,7 @@ void checkPublisherDisclosure(
     auto config = RealmConfig{testRealm}.withPublisherDisclosure(rule);
 
     wamp::Router& router = test::RouterFixture::instance().router();
-    ScopedRealm realm{router.openRealm(config).value()};
+    test::ScopedRealm realm{router.openRealm(config).value()};
     Session s{ioctx};
     Event event;
     auto onEvent = [&event](Event e) { event = std::move(e); };
@@ -236,7 +217,7 @@ TEST_CASE( "Router call timeout forwarding config", "[WAMP][Router]" )
         return deferment;
     };
 
-    ScopedRealm realm{router.openRealm(config).value()};
+    test::ScopedRealm realm{router.openRealm(config).value()};
 
     spawn(ioctx, [&](YieldContext yield)
     {
@@ -318,7 +299,7 @@ TEST_CASE( "Router meta API enable config", "[WAMP][Router]" )
     SECTION("Meta API disabled)")
     {
         auto config = RealmConfig{testRealm}.withMetaApiEnabled(false);
-        ScopedRealm realm{router.openRealm(config).value()};
+        test::ScopedRealm realm{router.openRealm(config).value()};
 
         spawn(ioctx, [&](YieldContext yield)
         {
@@ -335,7 +316,7 @@ TEST_CASE( "Router meta API enable config", "[WAMP][Router]" )
     SECTION("Meta API enabled)")
     {
         auto config = RealmConfig{testRealm}.withMetaApiEnabled(true);
-        ScopedRealm realm{router.openRealm(config).value()};
+        test::ScopedRealm realm{router.openRealm(config).value()};
 
         spawn(ioctx, [&](YieldContext yield)
         {
