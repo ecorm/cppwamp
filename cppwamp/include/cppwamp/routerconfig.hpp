@@ -36,7 +36,6 @@ class CPPWAMP_API RealmConfig
 public:
     RealmConfig(Uri uri); // NOLINT(google-explicit-constructor)
 
-    // TODO: Test authorizer
     RealmConfig& withAuthorizer(Authorizer::Ptr a);
 
     // TODO: Authorization cache

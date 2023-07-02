@@ -87,7 +87,7 @@ struct TestAuthorizer : public Authorizer
 
 
 //------------------------------------------------------------------------------
-TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
+TEST_CASE( "Router dynamic authorizer", "[WAMP][Router][thisone]" )
 {
     if (!test::RouterFixture::enabled())
         return;
@@ -108,6 +108,13 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
     Event event;
     auto onEvent = [&event](Event e) {event = std::move(e);};
 
+    Invocation invocation;
+    auto onInvocation = [&invocation](Invocation i) -> Outcome
+    {
+        invocation = std::move(i);
+        return Result{};
+    };
+
     spawn(ioctx, [&](YieldContext yield)
     {
         Session s{ioctx};
@@ -115,7 +122,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         auto welcome = s.join(testRealm, yield).value();
 
         {
-            INFO("Subscribe authorized")
+            INFO("Subscribe authorized");
             auth->clear();
             auto sub = s.subscribe(Topic{"topic1"}, [](Event){}, yield);
             CHECK(auth->topic.uri() == "topic1");
@@ -124,7 +131,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         }
 
         {
-            INFO("Subscribe denied")
+            INFO("Subscribe denied");
             auth->clear();
             auth->canSubscribe = false;
             auto sub = s.subscribe(Topic{"topic2"}, [](Event){}, yield);
@@ -135,7 +142,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         }
 
         {
-            INFO("Subscribe authorization failed")
+            INFO("Subscribe authorization failed");
             auth->clear();
             auth->canSubscribe = WampErrc::authorizationFailed;
             auto sub = s.subscribe(Topic{"topic3"}, [](Event){}, yield);
@@ -146,7 +153,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         }
 
         {
-            INFO("Subscribe denied with custom error")
+            INFO("Subscribe denied with custom error");
             auth->clear();
             auth->canSubscribe = WampErrc::invalidUri;
             auto sub = s.subscribe(Topic{"topic4"}, [](Event){}, yield);
@@ -157,11 +164,10 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         }
 
         {
-            INFO("Publish authorized")
+            INFO("Publish authorized");
             auth->clear();
             event = {};
-            ScopedSubscription sub =
-                s.subscribe(Topic{"topic5"}, onEvent, yield).value();
+            s.subscribe(Topic{"topic5"}, onEvent, yield).value();
             auto ack = s.publish(Pub{"topic5"}.withArgs(42)
                                               .withExcludeMe(false), yield);
             CHECK(ack.has_value());
@@ -174,7 +180,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         }
 
         {
-            INFO("Publish denied")
+            INFO("Publish denied");
             auth->clear();
             auth->canPublish = false;
             auto ack = s.publish(Pub{"topic6"}.withArgs(42), yield);
@@ -183,13 +189,12 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         }
 
         {
-            INFO("Publish authorized with overriden disclosure rule")
+            INFO("Publish authorized with overriden disclosure rule");
             auth->clear();
             auth->canPublish =
                 Authorization().withDisclosure(DisclosureRule::reveal);
             event = {};
-            ScopedSubscription sub =
-                s.subscribe(Topic{"topic7"}, onEvent, yield).value();
+            s.subscribe(Topic{"topic7"}, onEvent, yield).value();
             auto ack = s.publish(Pub{"topic7"}.withArgs(42)
                                               .withExcludeMe(false), yield);
             CHECK(ack.has_value());
@@ -202,16 +207,101 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         }
 
         {
-            INFO("Publish failed due to overriden strict disclosure rule")
+            INFO("Publish failed due to overriden strict disclosure rule");
             auth->clear();
             auth->canPublish =
                 Authorization().withDisclosure(DisclosureRule::strictConceal);
-            event = {};
             auto ack = s.publish(Pub{"topic8"}.withArgs(42)
                                      .withExcludeMe(false)
                                      .withDiscloseMe(), yield);
             REQUIRE_FALSE(ack.has_value());
             CHECK(ack.error() == WampErrc::discloseMeDisallowed);
+        }
+
+        {
+            INFO("Register authorized");
+            auth->clear();
+            auto reg = s.enroll(Procedure{"rpc1"},
+                                [](Invocation) -> Outcome{return Result{};},
+                                yield);
+            CHECK(auth->proc.uri() == "rpc1");
+            CHECK(auth->info.sessionId() == welcome.sessionId());
+            CHECK(reg.has_value());
+        }
+
+        {
+            INFO("Register denied");
+            auth->clear();
+            auth->canRegister = false;
+            auto reg = s.enroll(Procedure{"rpc2"},
+                                [](Invocation) -> Outcome{return Result{};},
+                                yield);
+            CHECK(auth->proc.uri() == "rpc2");
+            CHECK(auth->info.sessionId() == welcome.sessionId());
+            REQUIRE_FALSE(reg.has_value());
+            CHECK(reg.error() == WampErrc::authorizationDenied);
+        }
+
+        {
+            INFO("Call authorized");
+            auth->clear();
+            invocation = {};
+            s.enroll(Procedure{"rpc3"}, onInvocation, yield).value();
+            auto result = s.call(Rpc{"rpc3"}.withArgs(42), yield);
+            CHECK(result.has_value());
+            CHECK(auth->rpc.uri() == "rpc3");
+            CHECK(auth->info.sessionId() == welcome.sessionId());
+
+            while (invocation.args().empty())
+                test::suspendCoro(yield);
+            REQUIRE(invocation.caller().has_value());
+            CHECK(invocation.caller().value() == welcome.sessionId());
+        }
+
+        {
+            INFO("Call denied");
+            auth->clear();
+            auth->canCall = false;
+            s.enroll(Procedure{"rpc4"},
+                     [](Invocation) -> Outcome {return Result{};},
+                     yield).value();
+            auto result = s.call(Rpc{"rpc4"}.withArgs(42), yield);
+            REQUIRE_FALSE(result.has_value());
+            CHECK(result.error() == WampErrc::authorizationDenied);
+            CHECK(auth->rpc.uri() == "rpc4");
+            CHECK(auth->info.sessionId() == welcome.sessionId());
+        }
+
+        {
+            INFO("Call authorized with overriden disclosure rule");
+            auth->clear();
+            auth->canCall =
+                Authorization().withDisclosure(DisclosureRule::conceal);
+            invocation = {};
+            s.enroll(Procedure{"rpc5"}, onInvocation, yield).value();
+            auto result = s.call(Rpc{"rpc5"}.withArgs(42).withDiscloseMe(),
+                                 yield);
+            CHECK(result.has_value());
+            CHECK(auth->rpc.uri() == "rpc5");
+            CHECK(auth->info.sessionId() == welcome.sessionId());
+
+            while (invocation.args().empty())
+                test::suspendCoro(yield);
+            CHECK_FALSE(invocation.caller().has_value());
+        }
+
+        {
+            INFO("Call failed due to overriden strict disclosure rule");
+            auth->clear();
+            auth->canCall =
+                Authorization().withDisclosure(DisclosureRule::strictConceal);
+            s.enroll(Procedure{"rpc6"}, onInvocation, yield).value();
+            auto result = s.call(Rpc{"rpc6"}.withArgs(42).withDiscloseMe(),
+                                 yield);
+            REQUIRE_FALSE(result.has_value());
+            CHECK(result.error() == WampErrc::discloseMeDisallowed);
+            CHECK(auth->rpc.uri() == "rpc6");
+            CHECK(auth->info.sessionId() == welcome.sessionId());
         }
 
         s.disconnect();
