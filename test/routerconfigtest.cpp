@@ -302,4 +302,53 @@ TEST_CASE( "Router publisher disclosure config", "[WAMP][Router]" )
     io.stop();
 }
 
+//------------------------------------------------------------------------------
+TEST_CASE( "Router meta API enable config", "[WAMP][Router]" )
+{
+    if (!test::RouterFixture::enabled())
+        return;
+
+    wamp::Router& router = test::RouterFixture::instance().router();
+    test::RouterLogLevelGuard logLevelGuard(router.logLevel());
+    router.setLogLevel(LogLevel::error);
+
+    IoContext ioctx;
+    Session s{ioctx};
+
+    SECTION("Meta API disabled)")
+    {
+        auto config = RealmConfig{testRealm}.withMetaApiEnabled(false);
+        ScopedRealm realm{router.openRealm(config).value()};
+
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            s.connect(withTcp, yield).value();
+            s.join(testRealm, yield).value();
+            auto result = s.call(Rpc{"wamp.session.count"}, yield);
+            CHECK(result == makeUnexpectedError(WampErrc::noSuchProcedure));
+            s.disconnect();
+        });
+        ioctx.run();
+        ioctx.restart();
+    }
+
+    SECTION("Meta API enabled)")
+    {
+        auto config = RealmConfig{testRealm}.withMetaApiEnabled(true);
+        ScopedRealm realm{router.openRealm(config).value()};
+
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            s.connect(withTcp, yield).value();
+            s.join(testRealm, yield).value();
+            auto result = s.call(Rpc{"wamp.session.count"}, yield);
+            REQUIRE(result.has_value());
+            REQUIRE(!result->args().empty());
+            CHECK(result->args().at(0) == 1);
+            s.disconnect();
+        });
+        ioctx.run();
+    }
+}
+
 #endif // defined(CPPWAMP_TEST_HAS_CORO)
