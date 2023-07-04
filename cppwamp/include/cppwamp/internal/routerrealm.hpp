@@ -449,6 +449,8 @@ private:
     {
         originator->report(topic.info());
 
+        // TODO: Prohibit publishing meta-topic
+
         if (topic.matchPolicy() == MatchPolicy::unknown)
         {
             auto error =
@@ -545,6 +547,8 @@ private:
     void send(RouterSession::Ptr originator, Procedure&& proc)
     {
         originator->report(proc.info());
+
+        // TODO: Prohibit registering meta-procedure
 
         if (proc.matchPolicy() != MatchPolicy::exact)
         {

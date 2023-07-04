@@ -100,7 +100,8 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router][thisone]" )
     auto auth = std::make_shared<TestAuthorizer>();
     auth->bindExecutor(ioctx.get_executor());
     auto config =
-        RealmConfig{testRealm}.withAuthorizer(auth)
+        RealmConfig{testRealm}.withMetaApiEnabled()
+                              .withAuthorizer(auth)
                               .withCallerDisclosure(DisclosureRule::reveal)
                               .withPublisherDisclosure(DisclosureRule::conceal);
     test::ScopedRealm realm{router.openRealm(config).value()};
@@ -161,6 +162,28 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router][thisone]" )
             CHECK(auth->info.sessionId() == welcome.sessionId());
             REQUIRE_FALSE(sub.has_value());
             CHECK(sub.error() == WampErrc::authorizationFailed);
+        }
+
+        {
+            INFO("Subscribe to meta-topic authorized");
+            auth->clear();
+            auto sub = s.subscribe(Topic{"wamp.session.on_join"},
+                                   [](Event){}, yield);
+            CHECK(auth->topic.uri() == "wamp.session.on_join");
+            CHECK(auth->info.sessionId() == welcome.sessionId());
+            CHECK(sub.has_value());
+        }
+
+        {
+            INFO("Subscribe to meta-topic denied");
+            auth->clear();
+            auth->canSubscribe = false;
+            auto sub = s.subscribe(Topic{"wamp.session.on_leave"},
+                                   [](Event){}, yield);
+            CHECK(auth->topic.uri() == "wamp.session.on_leave");
+            CHECK(auth->info.sessionId() == welcome.sessionId());
+            REQUIRE_FALSE(sub.has_value());
+            CHECK(sub.error() == WampErrc::authorizationDenied);
         }
 
         {
@@ -313,6 +336,29 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router][thisone]" )
             CHECK(result.error() == WampErrc::noSuchProcedure);
             CHECK(auth->rpc.uri() == "empty");
             CHECK(auth->info.sessionId() == 0);
+        }
+
+        {
+            INFO("Call meta-procedure authorized");
+            auth->clear();
+            invocation = {};
+            auto result = s.call(Rpc{"wamp.session.count"}, yield);
+            REQUIRE(result.has_value());
+            REQUIRE_FALSE(result.value().args().empty());
+            CHECK(result.value().args().at(0) == 1);
+            CHECK(auth->rpc.uri() == "wamp.session.count");
+            CHECK(auth->info.sessionId() == welcome.sessionId());
+        }
+
+        {
+            INFO("Call meta-procedure denied");
+            auth->clear();
+            auth->canCall = false;
+            auto result = s.call(Rpc{"wamp.session.count"}, yield);
+            REQUIRE_FALSE(result.has_value());
+            CHECK(result.error() == WampErrc::authorizationDenied);
+            CHECK(auth->rpc.uri() == "wamp.session.count");
+            CHECK(auth->info.sessionId() == welcome.sessionId());
         }
 
         s.disconnect();
