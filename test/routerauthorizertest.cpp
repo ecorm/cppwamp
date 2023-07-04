@@ -87,7 +87,7 @@ struct TestAuthorizer : public Authorizer
 
 
 //------------------------------------------------------------------------------
-TEST_CASE( "Router dynamic authorizer", "[WAMP][Router][thisone]" )
+TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
 {
     if (!test::RouterFixture::enabled())
         return;

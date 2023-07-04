@@ -51,6 +51,79 @@ void checkJoinInfo(const SessionJoinInfo& info, const Welcome& w)
     }
 }
 
+//------------------------------------------------------------------------------
+void checkRegisterMetaProcedure(bool metaApiEnabled,
+                                bool metaProcedureRegistrationAllowed,
+                                WampErrc expectedForKnown,
+                                WampErrc expectedForUnknown)
+{
+    auto& router = test::RouterFixture::instance().router();
+    test::RouterLogLevelGuard guard{router.logLevel()};
+    router.setLogLevel(LogLevel::error);
+
+    const String realmUri{"cppwamp.test-meta-procedure-registration"};
+    auto config =
+        RealmConfig{realmUri}
+            .withMetaApiEnabled(metaApiEnabled)
+            .withMetaProcedureRegistrationAllowed(
+                metaProcedureRegistrationAllowed);
+    test::ScopedRealm realm{router.openRealm(config).value()};
+
+    IoContext ioctx;
+
+    spawn(ioctx, [&](YieldContext yield)
+    {
+        Session s{ioctx};
+        s.connect(withTcp, yield).value();
+        s.join(Petition{config.uri()}, yield).value();
+
+        {
+            INFO( "Known meta procedure" );
+            auto reg = s.enroll(
+                Procedure{"wamp.session.count"},
+                [](Invocation) -> Outcome {return Result{42};},
+                yield);
+            if (expectedForKnown == WampErrc::success)
+            {
+                auto count = s.call(Rpc{"wamp.session.count"}, yield);
+                REQUIRE(count.has_value());
+                REQUIRE(!count.value().args().empty());
+                CHECK(count.value().args().at(0) == 42);
+            }
+            else
+            {
+                REQUIRE_FALSE(reg.has_value());
+                CHECK(reg.error() == expectedForKnown);
+            }
+        }
+
+        {
+            INFO( "Unknown meta procedure" );
+            auto reg = s.enroll(
+                Procedure{"wamp.foo"},
+                [](Invocation) -> Outcome {return Result{123};},
+                yield);
+            if (expectedForUnknown == WampErrc::success)
+            {
+                auto count = s.call(Rpc{"wamp.foo"}, yield);
+                REQUIRE(count.has_value());
+                REQUIRE(!count.value().args().empty());
+                CHECK(count.value().args().at(0) == 123);
+            }
+            else
+            {
+                REQUIRE_FALSE(reg.has_value());
+                CHECK(reg.error() == expectedForUnknown);
+            }
+        }
+
+        s.disconnect();
+    });
+
+    ioctx.run();
+    realm->close();
+}
+
 } // anomymous namespace
 
 
@@ -330,6 +403,34 @@ TEST_CASE( "WAMP session meta procedures", "[WAMP][Router]" )
     });
 
     ioctx.run();
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Attempting to register meta procedures", "[WAMP][Router]" )
+{
+    SECTION("Meta API disabled and registrations not allowed")
+    {
+        checkRegisterMetaProcedure(
+            false, false, WampErrc::invalidUri, WampErrc::invalidUri);
+    }
+
+    SECTION("Meta API disabled and registrations allowed")
+    {
+        checkRegisterMetaProcedure(
+            false, true, WampErrc::success, WampErrc::success);
+    }
+
+    SECTION("Meta API enabled and registrations not allowed")
+    {
+        checkRegisterMetaProcedure(
+            true, false, WampErrc::invalidUri, WampErrc::invalidUri);
+    }
+
+    SECTION("Meta API enabled and registrations allowed")
+    {
+        checkRegisterMetaProcedure(
+            true, true, WampErrc::procedureAlreadyExists, WampErrc::success);
+    }
 }
 
 //------------------------------------------------------------------------------

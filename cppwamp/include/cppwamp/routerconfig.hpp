@@ -52,6 +52,10 @@ public:
 
     RealmConfig& withMetaApiEnabled(bool enabled = true);
 
+    RealmConfig& withMetaProcedureRegistrationAllowed(bool allowed = true);
+
+    RealmConfig& withMetaTopicPublicationAllowed(bool allowed = true);
+
     const Uri& uri() const;
 
     Authorizer::Ptr authorizer() const;
@@ -66,6 +70,10 @@ public:
 
     bool metaApiEnabled() const;
 
+    bool metaProcedureRegistrationAllowed() const;
+
+    bool metaTopicPublicationAllowed() const;
+
 private:
     Uri uri_;
     Authorizer::Ptr authorizer_;
@@ -73,6 +81,8 @@ private:
     DisclosureRule publisherDisclosure_ = DisclosureRule::originator;
     bool callTimeoutForwardingEnabled_ = false;
     bool metaApiEnabled_ = false;
+    bool metaProcedureRegistrationAllowed_ = false;
+    bool metaTopicPublicationAllowed_ = false;
     // bool authorizationCacheEnabled_ = false;
 };
 

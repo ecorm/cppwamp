@@ -548,7 +548,8 @@ private:
     {
         originator->report(proc.info());
 
-        // TODO: Prohibit registering meta-procedure
+        if (!checkMetaProcedureRegistrationAttempt(*originator, proc))
+            return;
 
         if (proc.matchPolicy() != MatchPolicy::exact)
         {
@@ -562,6 +563,36 @@ private:
             return originator->abort({WampErrc::invalidUri});
 
         authorize(std::move(originator), std::move(proc));
+    }
+
+    bool checkMetaProcedureRegistrationAttempt(RouterSession& originator,
+                                               const Procedure& proc)
+    {
+        if (config_.metaProcedureRegistrationAllowed())
+        {
+            if (metaProcedures_ == nullptr)
+                return true;
+            if (metaProcedures_->hasProcedure(proc.uri()))
+            {
+                originator.sendRouterCommand(
+                    Error::fromRequest({}, proc,
+                                       WampErrc::procedureAlreadyExists),
+                    true);
+                return false;
+            }
+        }
+        else
+        {
+            if (proc.uri().rfind("wamp.", 0) == 0)
+            {
+                originator.sendRouterCommand(
+                    Error::fromRequest({}, proc, WampErrc::invalidUri),
+                    true);
+                return false;
+            }
+        }
+
+        return true;
     }
 
     void onAuthorized(const RouterSession::Ptr& originator, Procedure&& proc,

@@ -63,6 +63,21 @@ CPPWAMP_INLINE RealmConfig& RealmConfig::withMetaApiEnabled(bool enabled)
     return *this;
 }
 
+CPPWAMP_INLINE RealmConfig&
+RealmConfig::withMetaProcedureRegistrationAllowed(bool allowed)
+{
+    metaProcedureRegistrationAllowed_ = allowed;
+    return *this;
+}
+
+CPPWAMP_INLINE RealmConfig&
+RealmConfig::withMetaTopicPublicationAllowed(bool allowed)
+{
+    metaTopicPublicationAllowed_ = allowed;
+    return *this;
+}
+
+
 CPPWAMP_INLINE const Uri& RealmConfig::uri() const {return uri_;}
 
 CPPWAMP_INLINE Authorizer::Ptr RealmConfig::authorizer() const
@@ -93,6 +108,16 @@ CPPWAMP_INLINE bool RealmConfig::callTimeoutForwardingEnabled() const
 CPPWAMP_INLINE bool RealmConfig::metaApiEnabled() const
 {
     return metaApiEnabled_;
+}
+
+CPPWAMP_INLINE bool RealmConfig::metaProcedureRegistrationAllowed() const
+{
+    return metaProcedureRegistrationAllowed_;
+}
+
+CPPWAMP_INLINE bool RealmConfig::metaTopicPublicationAllowed() const
+{
+    return metaTopicPublicationAllowed_;
 }
 
 

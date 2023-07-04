@@ -69,6 +69,10 @@ class ScopedRealm
 public:
     ScopedRealm(wamp::Realm realm) : realm_(std::move(realm)) {}
 
+    wamp::Realm* operator->() {return &realm_;}
+
+    const wamp::Realm* operator->() const {return &realm_;}
+
     ~ScopedRealm() {realm_.close();}
 
 private:
