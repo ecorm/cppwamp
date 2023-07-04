@@ -45,10 +45,7 @@ CPPWAMP_INLINE Authorization& Authorization::withDisclosure(DisclosureRule d)
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Authorization::operator bool() const
-{
-    return !error_ && allowed_;
-}
+CPPWAMP_INLINE bool Authorization::good() const {return !error_ && allowed_;}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE std::error_code Authorization::error() const {return error_;}

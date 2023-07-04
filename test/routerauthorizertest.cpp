@@ -304,6 +304,17 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router][thisone]" )
             CHECK(auth->info.sessionId() == welcome.sessionId());
         }
 
+        {
+            INFO("Call denied but procedure doesn't exist");
+            auth->clear();
+            auth->canCall = false;
+            auto result = s.call(Rpc{"rpc7"}.withArgs(42), yield);
+            REQUIRE_FALSE(result.has_value());
+            CHECK(result.error() == WampErrc::noSuchProcedure);
+            CHECK(auth->rpc.uri() == "empty");
+            CHECK(auth->info.sessionId() == 0);
+        }
+
         s.disconnect();
     });
 

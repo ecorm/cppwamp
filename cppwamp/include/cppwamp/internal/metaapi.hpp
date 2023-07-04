@@ -60,6 +60,12 @@ public:
         context_(realm)
     {}
 
+    bool hasProcedure(const Uri& uri) const
+    {
+        auto iter = std::lower_bound(handlers_.cbegin(), handlers_.cend(), uri);
+        return (iter != handlers_.cend() && (iter->uri == uri));
+    }
+
     bool call(RouterSession& caller, Rpc&& rpc)
     {
         auto iter = std::lower_bound(handlers_.cbegin(), handlers_.cend(),

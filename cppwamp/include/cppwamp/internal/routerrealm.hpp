@@ -606,7 +606,29 @@ private:
         if (!uriValidator_->checkProcedure(rpc.uri(), false))
             return originator->abort({WampErrc::invalidUri});
 
+        if (!checkProcedureExistsBeforeAuthorizing(*originator, rpc))
+            return;
+
         authorize(std::move(originator), std::move(rpc));
+    }
+
+    bool checkProcedureExistsBeforeAuthorizing(RouterSession& originator,
+                                               const Rpc& rpc)
+    {
+        if (!config_.authorizer())
+            return true;
+
+        bool found = dealer_.hasProcedure(rpc.uri());
+        if (!found && (metaProcedures_ != nullptr))
+            found = metaProcedures_->hasProcedure(rpc.uri());
+
+        if (!found)
+        {
+            originator.sendRouterCommand(
+                Error::fromRequest({}, rpc, WampErrc::noSuchProcedure), true);
+        }
+
+        return found;
     }
 
     void onAuthorized(const RouterSession::Ptr& originator, Rpc&& rpc,
@@ -700,7 +722,7 @@ private:
     bool checkAuthorization(RouterSession& originator, const C& command,
                             Authorization auth)
     {
-        if (auth)
+        if (auth.good())
             return true;
 
         auto ec = make_error_code(WampErrc::authorizationDenied);

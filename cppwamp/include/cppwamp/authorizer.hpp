@@ -77,7 +77,7 @@ public:
 
     /** Returns true if the authorization succeeded and the operations
         is allowed. */
-    explicit operator bool() const;
+    bool good() const;
 
     /** Obtains the error code indicating if the authorization operation itself
         has failed. */

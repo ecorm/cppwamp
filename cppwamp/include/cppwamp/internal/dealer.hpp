@@ -129,7 +129,7 @@ public:
         return uri;
     }
 
-    DealerRegistration* find(const Uri& procedure)
+    DealerRegistration* find(const Uri& procedure) const
     {
         auto found = byUri_.find(procedure);
         if (found == byUri_.end())
@@ -652,6 +652,11 @@ public:
         // appears to be to allow them to continue.
         // https://github.com/wamp-proto/wamp-proto/issues/283#issuecomment-429542748
         return registry_.erase(*callee, rid, *metaTopics_);
+    }
+
+    bool hasProcedure(const Uri& uri) const
+    {
+        return registry_.find(uri) != nullptr;
     }
 
     ErrorOrDone call(const RouterSession::Ptr& caller, Rpc& rpc)
