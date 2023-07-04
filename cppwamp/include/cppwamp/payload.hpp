@@ -168,6 +168,11 @@ private:
 
     CPPWAMP_HIDDEN void normalize();
 
+    CPPWAMP_HIDDEN void setArgs();
+
+    template <typename... Ts>
+    void setArgs(Ts&&... args);
+
 public:
     // Internal use only
     Array& args(internal::PassKey);
@@ -188,9 +193,8 @@ template <typename D, internal::MessageKind K>
 template <typename... Ts>
 D& Payload<D,K>::withArgs(Ts&&... args)
 {
-    Array array;
-    bundle(array, std::forward<Ts>(args)...);
-    return withArgList(std::move(array));
+    setArgs(std::forward<Ts>(args)...);
+    return static_cast<D&>(*this);
 }
 
 //------------------------------------------------------------------------------
@@ -592,6 +596,20 @@ void Payload<D,K>::normalize()
         f.emplace_back(Array{});
     if (f.size() <= kwargsPos_)
         f.emplace_back(Object{});
+}
+
+//------------------------------------------------------------------------------
+template <typename D, internal::MessageKind K>
+void Payload<D,K>::setArgs() {}
+
+//------------------------------------------------------------------------------
+template <typename D, internal::MessageKind K>
+template <typename... Ts>
+void Payload<D,K>::setArgs(Ts&&... args)
+{
+    Array array;
+    bundle(array, std::forward<Ts>(args)...);
+    withArgList(std::move(array));
 }
 
 //------------------------------------------------------------------------------

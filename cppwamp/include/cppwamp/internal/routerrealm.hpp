@@ -274,6 +274,15 @@ private:
     using MutexGuard = std::lock_guard<std::mutex>;
     using RealmProceduresPtr = std::unique_ptr<RealmProcedures>;
 
+    template <typename C, typename... Ts>
+    static void sendCommandErrorToOriginator(
+        RouterSession& originator, const C& cmd, WampErrc errc, Ts&&... args)
+    {
+        auto error = Error::fromRequest({}, cmd, errc)
+                         .withArgs(std::forward<Ts>(args)...);
+        originator.sendRouterCommand(std::move(error), true);
+    }
+
     RouterRealm(Executor&& e, RealmConfig&& c, const RouterConfig& rcfg,
                 RouterContext&& rctx, RandomNumberGenerator64&& rng)
         : executor_(std::move(e)),
@@ -451,10 +460,9 @@ private:
 
         if (topic.matchPolicy() == MatchPolicy::unknown)
         {
-            auto error =
-                Error::fromRequest({}, topic, WampErrc::optionNotAllowed)
-                    .withArgs("unknown match option");
-            return originator->sendRouterCommand(std::move(error), true);
+            return sendCommandErrorToOriginator(*originator, topic,
+                                         WampErrc::optionNotAllowed,
+                                         "unknown match option");
         }
 
         const bool isPattern = topic.matchPolicy() != MatchPolicy::exact;
@@ -522,21 +530,14 @@ private:
                                           const Pub& pub)
     {
         if (config_.metaTopicPublicationAllowed())
-        {
             return true;
-        }
-        else
-        {
-            if (pub.uri().rfind("wamp.", 0) == 0)
-            {
-                originator.sendRouterCommand(
-                    Error::fromRequest({}, pub, WampErrc::invalidUri),
-                    true);
-                return false;
-            }
-        }
 
-        return true;
+        const bool beginsWith = pub.uri().rfind("wamp.", 0) == 0;
+        if (!beginsWith)
+            return true;
+
+        sendCommandErrorToOriginator(originator, pub, WampErrc::invalidUri);
+        return false;
     }
 
     void onAuthorized(const RouterSession::Ptr& originator, Pub&& pub,
@@ -575,10 +576,9 @@ private:
 
         if (proc.matchPolicy() != MatchPolicy::exact)
         {
-            auto error =
-                Error::fromRequest({}, proc, WampErrc::optionNotAllowed)
-                    .withArgs("pattern-based registrations not supported");
-            return originator->sendRouterCommand(std::move(error), true);
+            return sendCommandErrorToOriginator(
+                *originator, proc, WampErrc::optionNotAllowed,
+                "pattern-based registrations not supported");
         }
 
         if (!uriValidator_->checkTopic(proc.uri(), false))
@@ -596,18 +596,15 @@ private:
                 return true;
             if (metaProcedures_->hasProcedure(proc.uri()))
             {
-                originator.sendRouterCommand(
-                    Error::fromRequest({}, proc,
-                                       WampErrc::procedureAlreadyExists),
-                    true);
+                sendCommandErrorToOriginator(originator, proc,
+                                             WampErrc::procedureAlreadyExists);
                 return false;
             }
         }
         else if (proc.uri().rfind("wamp.", 0) == 0)
         {
-            originator.sendRouterCommand(
-                Error::fromRequest({}, proc, WampErrc::invalidUri),
-                true);
+            sendCommandErrorToOriginator(originator, proc,
+                                         WampErrc::invalidUri);
             return false;
         }
 
@@ -678,8 +675,8 @@ private:
 
         if (!found)
         {
-            originator.sendRouterCommand(
-                Error::fromRequest({}, rpc, WampErrc::noSuchProcedure), true);
+            sendCommandErrorToOriginator(originator, rpc,
+                                         WampErrc::noSuchProcedure);
         }
 
         return found;
@@ -821,10 +818,11 @@ private:
 
         if (disclosed && isStrict)
         {
-            auto error = Error::fromRequest(
-                {}, command, make_error_code(WampErrc::discloseMeDisallowed));
             if (wantsAck)
-                originator.sendRouterCommand(std::move(error), true);
+            {
+                sendCommandErrorToOriginator(originator, command,
+                                             WampErrc::discloseMeDisallowed);
+            }
             return false;
         }
 
