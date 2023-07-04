@@ -52,30 +52,17 @@ void checkJoinInfo(const SessionJoinInfo& info, const Welcome& w)
 }
 
 //------------------------------------------------------------------------------
-void checkRegisterMetaProcedure(bool metaApiEnabled,
-                                bool metaProcedureRegistrationAllowed,
-                                WampErrc expectedForKnown,
-                                WampErrc expectedForUnknown)
+void doCheckRegisterMetaProcedure(const Uri& realmUri,
+                                  WampErrc expectedForKnown,
+                                  WampErrc expectedForUnknown)
 {
-    auto& router = test::RouterFixture::instance().router();
-    test::RouterLogLevelGuard guard{router.logLevel()};
-    router.setLogLevel(LogLevel::error);
-
-    const String realmUri{"cppwamp.test-meta-procedure-registration"};
-    auto config =
-        RealmConfig{realmUri}
-            .withMetaApiEnabled(metaApiEnabled)
-            .withMetaProcedureRegistrationAllowed(
-                metaProcedureRegistrationAllowed);
-    test::ScopedRealm realm{router.openRealm(config).value()};
-
     IoContext ioctx;
 
     spawn(ioctx, [&](YieldContext yield)
     {
         Session s{ioctx};
         s.connect(withTcp, yield).value();
-        s.join(Petition{config.uri()}, yield).value();
+        s.join(Petition{realmUri}, yield).value();
 
         {
             INFO( "Known meta procedure" );
@@ -100,12 +87,12 @@ void checkRegisterMetaProcedure(bool metaApiEnabled,
         {
             INFO( "Unknown meta procedure" );
             auto reg = s.enroll(
-                Procedure{"wamp.foo"},
+                Procedure{"wamp.bogus"},
                 [](Invocation) -> Outcome {return Result{123};},
                 yield);
             if (expectedForUnknown == WampErrc::success)
             {
-                auto count = s.call(Rpc{"wamp.foo"}, yield);
+                auto count = s.call(Rpc{"wamp.bogus"}, yield);
                 REQUIRE(count.has_value());
                 REQUIRE(!count.value().args().empty());
                 CHECK(count.value().args().at(0) == 123);
@@ -121,6 +108,107 @@ void checkRegisterMetaProcedure(bool metaApiEnabled,
     });
 
     ioctx.run();
+}
+
+//------------------------------------------------------------------------------
+void checkRegisterMetaProcedure(bool metaApiEnabled,
+                                bool metaProcedureRegistrationAllowed,
+                                WampErrc expectedForKnown,
+                                WampErrc expectedForUnknown)
+{
+    auto& router = test::RouterFixture::instance().router();
+    test::RouterLogLevelGuard guard{router.logLevel()};
+    router.setLogLevel(LogLevel::error);
+
+    const String realmUri{"cppwamp.test-meta-procedure-registration"};
+    auto config =
+        RealmConfig{realmUri}
+            .withMetaApiEnabled(metaApiEnabled)
+            .withMetaProcedureRegistrationAllowed(
+                metaProcedureRegistrationAllowed);
+    test::ScopedRealm realm{router.openRealm(config).value()};
+
+    doCheckRegisterMetaProcedure(realmUri, expectedForKnown,
+                                 expectedForUnknown);
+    realm->close();
+}
+
+//------------------------------------------------------------------------------
+void doCheckPublishMetaTopic(const Uri& realmUri, WampErrc expected)
+{
+    IoContext ioctx;
+    Event knownEvent;
+    Event unknownEvent;
+    auto onKnownEvent = [&](Event e) {knownEvent = std::move(e);};
+    auto onUnknownEvent = [&](Event e) {unknownEvent = std::move(e);};
+
+    spawn(ioctx, [&](YieldContext yield)
+    {
+        Session s1{ioctx};
+        s1.connect(withTcp, yield).value();
+        s1.join(Petition{realmUri}, yield).value();
+        s1.subscribe(Topic{"wamp.session.on_join"}, onKnownEvent,
+                     yield).value();
+        s1.subscribe(Topic{"wamp.bogus"}, onUnknownEvent, yield).value();
+
+        Session s2{ioctx};
+        s2.connect(withTcp, yield).value();
+        s2.join(Petition{realmUri}, yield).value();
+
+        {
+            INFO( "Known meta topic" );
+            auto pub = s2.publish(
+                Pub{"wamp.session.on_join"}.withArgs(42),
+                yield);
+            if (expected == WampErrc::success)
+            {
+                while (knownEvent.args().empty())
+                    test::suspendCoro(yield);
+                CHECK(knownEvent.args().at(0) == 42);
+            }
+            else
+            {
+                REQUIRE_FALSE(pub.has_value());
+                CHECK(pub.error() == expected);
+            }
+        }
+
+        {
+            INFO( "Unknown meta topic" );
+            auto pub = s2.publish(Pub{"wamp.bogus"}.withArgs(123), yield);
+            if (expected == WampErrc::success)
+            {
+                while (unknownEvent.args().empty())
+                    test::suspendCoro(yield);
+                CHECK(unknownEvent.args().at(0) == 123);
+            }
+            else
+            {
+                REQUIRE_FALSE(pub.has_value());
+                CHECK(pub.error() == expected);
+            }
+        }
+
+        s2.disconnect();
+        s1.disconnect();
+    });
+
+    ioctx.run();
+}
+
+//------------------------------------------------------------------------------
+void checkPublishMetaTopic(bool allowed, WampErrc expected)
+{
+    auto& router = test::RouterFixture::instance().router();
+    test::RouterLogLevelGuard guard{router.logLevel()};
+    router.setLogLevel(LogLevel::error);
+
+    const String realmUri{"cppwamp.test-meta-topic-publication"};
+    auto config =
+        RealmConfig{realmUri}.withMetaTopicPublicationAllowed(allowed);
+    test::ScopedRealm realm{router.openRealm(config).value()};
+
+    doCheckPublishMetaTopic(realmUri, expected);
     realm->close();
 }
 
@@ -410,24 +498,31 @@ TEST_CASE( "Attempting to register meta procedures", "[WAMP][Router]" )
 {
     SECTION("Meta API disabled and registrations not allowed")
     {
+        if (!test::RouterFixture::enabled())
+            return;
         checkRegisterMetaProcedure(
             false, false, WampErrc::invalidUri, WampErrc::invalidUri);
     }
 
     SECTION("Meta API disabled and registrations allowed")
     {
+        if (!test::RouterFixture::enabled())
+            return;
         checkRegisterMetaProcedure(
             false, true, WampErrc::success, WampErrc::success);
     }
 
+    // This is the behavior for Crossbar
     SECTION("Meta API enabled and registrations not allowed")
     {
-        checkRegisterMetaProcedure(
-            true, false, WampErrc::invalidUri, WampErrc::invalidUri);
+        doCheckRegisterMetaProcedure(testRealm, WampErrc::invalidUri,
+                                     WampErrc::invalidUri);
     }
 
     SECTION("Meta API enabled and registrations allowed")
     {
+        if (!test::RouterFixture::enabled())
+            return;
         checkRegisterMetaProcedure(
             true, true, WampErrc::procedureAlreadyExists, WampErrc::success);
     }
@@ -703,6 +798,23 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
     });
 
     ioctx.run();
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Attempting to publish meta topics", "[WAMP][Router]" )
+{
+    // This is the behavior for Crossbar
+    SECTION("publications not allowed")
+    {
+        doCheckPublishMetaTopic(testRealm, WampErrc::invalidUri);
+    }
+
+    SECTION("publications allowed")
+    {
+        if (!test::RouterFixture::enabled())
+            return;
+        checkPublishMetaTopic(true, WampErrc::success);
+    }
 }
 
 #endif // defined(CPPWAMP_TEST_HAS_CORO)

@@ -449,8 +449,6 @@ private:
     {
         originator->report(topic.info());
 
-        // TODO: Prohibit publishing meta-topic
-
         if (topic.matchPolicy() == MatchPolicy::unknown)
         {
             auto error =
@@ -511,10 +509,34 @@ private:
     {
         originator->report(pub.info());
 
+        if (!checkMetaTopicPublicationAttempt(*originator, pub))
+            return;
+
         if (!uriValidator_->checkTopic(pub.uri(), false))
             return originator->abort({WampErrc::invalidUri});
 
         authorize(std::move(originator), std::move(pub));
+    }
+
+    bool checkMetaTopicPublicationAttempt(RouterSession& originator,
+                                          const Pub& pub)
+    {
+        if (config_.metaTopicPublicationAllowed())
+        {
+            return true;
+        }
+        else
+        {
+            if (pub.uri().rfind("wamp.", 0) == 0)
+            {
+                originator.sendRouterCommand(
+                    Error::fromRequest({}, pub, WampErrc::invalidUri),
+                    true);
+                return false;
+            }
+        }
+
+        return true;
     }
 
     void onAuthorized(const RouterSession::Ptr& originator, Pub&& pub,
@@ -581,15 +603,12 @@ private:
                 return false;
             }
         }
-        else
+        else if (proc.uri().rfind("wamp.", 0) == 0)
         {
-            if (proc.uri().rfind("wamp.", 0) == 0)
-            {
-                originator.sendRouterCommand(
-                    Error::fromRequest({}, proc, WampErrc::invalidUri),
-                    true);
-                return false;
-            }
+            originator.sendRouterCommand(
+                Error::fromRequest({}, proc, WampErrc::invalidUri),
+                true);
+            return false;
         }
 
         return true;
