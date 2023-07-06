@@ -6,7 +6,6 @@
 
 #include "../authorizer.hpp"
 #include "../api.hpp"
-#include "routercontext.hpp"
 #include "routersession.hpp"
 
 namespace wamp
@@ -28,7 +27,7 @@ CPPWAMP_INLINE Authorization::Authorization(bool allowed) : allowed_(allowed) {}
     - A string formatted as `<ec.category().name()>:<ec.value()`
     - A string containing `ec.message()` */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Authorization::Authorization(std::error_code ec) : error_(ec) {}
+CPPWAMP_INLINE Authorization::Authorization(std::error_code ec) : errorCode_(ec) {}
 
 //------------------------------------------------------------------------------
 /** @copydetails Authorization(std::error_code) */
@@ -45,10 +44,10 @@ CPPWAMP_INLINE Authorization& Authorization::withDisclosure(DisclosureRule d)
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE bool Authorization::good() const {return !error_ && allowed_;}
+CPPWAMP_INLINE bool Authorization::good() const {return !errorCode_ && allowed_;}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE std::error_code Authorization::error() const {return error_;}
+CPPWAMP_INLINE std::error_code Authorization::error() const {return errorCode_;}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE bool Authorization::allowed() const {return allowed_;}
@@ -73,46 +72,130 @@ CPPWAMP_INLINE const SessionInfo& AuthorizationRequest::info() const
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void AuthorizationRequest::authorize(Topic t, Authorization a)
 {
-    send(std::move(t), a);
+    doAuthorize(std::move(t), a);
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void AuthorizationRequest::authorize(Pub p, Authorization a)
 {
-    send(std::move(p), a);
+    doAuthorize(std::move(p), a);
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void AuthorizationRequest::authorize(Procedure p,
                                                     Authorization a)
 {
-    send(std::move(p), a);
+    doAuthorize(std::move(p), a);
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void AuthorizationRequest::authorize(Rpc r, Authorization a)
 {
-    send(std::move(r), a);
+    doAuthorize(std::move(r), a);
 }
 
 //------------------------------------------------------------------------------
 template <typename C>
-void AuthorizationRequest::send(C&& command, Authorization a)
+void AuthorizationRequest::doAuthorize(C&& command, Authorization auth)
 {
     auto originator = originator_.lock();
     if (!originator)
         return;
-    realm_.processAuthorization(std::move(originator),
-                                std::forward<C>(command), a);
+    auto listener = listener_.lock();
+    if (!listener)
+        return;
+
+    if (auth.good())
+    {
+        if (setDisclosed(command, *originator, auth.disclosure()))
+            listener->onAuthorized(originator, std::forward<C>(command));
+        return;
+    }
+
+    auto ec = make_error_code(WampErrc::authorizationDenied);
+    auto authEc = auth.error();
+    bool isKnownAuthError = true;
+
+    if (authEc)
+    {
+        isKnownAuthError =
+            authEc == WampErrc::authorizationDenied ||
+            authEc == WampErrc::authorizationFailed ||
+            authEc == WampErrc::authorizationRequired ||
+            authEc == WampErrc::discloseMeDisallowed;
+
+        ec = isKnownAuthError ?
+                 authEc :
+                 make_error_code(WampErrc::authorizationFailed);
+    }
+
+    auto error = Error::fromRequest({}, command, ec);
+    if (!isKnownAuthError)
+        error.withArgs(briefErrorCodeString(authEc), authEc.message());
+
+    originator->sendRouterCommand(std::move(error), true);
+}
+
+//------------------------------------------------------------------------------
+template <typename C>
+bool AuthorizationRequest::setDisclosed(
+    C& command, internal::RouterSession& originator, DisclosureRule authRule)
+{
+    return true;
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE bool AuthorizationRequest::setDisclosed(
+    Pub& p, internal::RouterSession& s, DisclosureRule d)
+{
+    return doSetDisclosed(p, s, d);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE bool AuthorizationRequest::setDisclosed(
+    Rpc& r, internal::RouterSession& s, DisclosureRule d)
+{
+    return doSetDisclosed(r, s, d);
+}
+
+//------------------------------------------------------------------------------
+template <typename C>
+bool AuthorizationRequest::doSetDisclosed(
+    C& command, internal::RouterSession& originator, DisclosureRule authRule)
+{
+    using DR = DisclosureRule;
+    auto rule = (authRule == DR::preset) ? realmDisclosure_ : authRule;
+    bool disclosed = command.discloseMe();
+    const bool isStrict = rule == DR::strictConceal ||
+                          rule == DR::strictReveal;
+
+    if (disclosed && isStrict)
+    {
+        if (command.wantsAck({}))
+        {
+            originator.sendRouterCommandError(command,
+                                              WampErrc::discloseMeDisallowed);
+        }
+        return false;
+    }
+
+    if (rule == DR::conceal || rule == DR::strictConceal)
+        disclosed = false;
+    if (rule == DR::reveal || rule == DR::strictReveal)
+        disclosed = true;
+    command.setDisclosed({}, disclosed);
+    return true;
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AuthorizationRequest::AuthorizationRequest(
-    internal::PassKey, internal::RealmContext r,
-    const std::shared_ptr<internal::RouterSession>& s)
-    : realm_(std::move(r)),
-      originator_(s),
-      info_(s->sharedInfo())
+    internal::PassKey, ListenerPtr listener,
+    const std::shared_ptr<internal::RouterSession>& originator,
+    DisclosureRule realmDisclosure)
+    : listener_(std::move(listener)),
+      originator_(originator),
+      info_(originator->sharedInfo()),
+      realmDisclosure_(realmDisclosure)
 {}
 
 

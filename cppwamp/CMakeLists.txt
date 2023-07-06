@@ -73,6 +73,7 @@ set(HEADERS
     include/cppwamp/authenticators/anonymousauthenticator.hpp
     include/cppwamp/bundled/tessil_htrie/htrie_map.h
     include/cppwamp/bundled/sevmeyer_prng.hpp
+    include/cppwamp/internal/authorizationlistener.hpp
     include/cppwamp/internal/base64.hpp
     include/cppwamp/internal/broker.hpp
     include/cppwamp/internal/challenger.hpp

@@ -11,6 +11,7 @@
 #include <chrono>
 #include <set>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <utility>
 #include "../errorcodes.hpp"
@@ -19,6 +20,8 @@
 #include "../traits.hpp"
 #include "../utils/triemap.hpp"
 #include "../utils/wildcarduri.hpp"
+#include "authorizationlistener.hpp"
+#include "commandinfo.hpp"
 #include "metaapi.hpp"
 #include "random.hpp"
 #include "routersession.hpp"
@@ -608,30 +611,19 @@ public:
 };
 
 //------------------------------------------------------------------------------
-class Broker
+class BrokerImpl
 {
 public:
-    Broker(RandomNumberGenerator64 prng, MetaTopics::Ptr metaTopics)
+    BrokerImpl(RandomNumberGenerator64 prng, MetaTopics::Ptr metaTopics)
         : pubIdGenerator_(std::move(prng)),
           metaTopics_(std::move(metaTopics))
     {}
 
-    ErrorOr<SubscriptionId> subscribe(const RouterSession::Ptr& subscriber,
-                                      Topic&& t)
+    void subscribe(const RouterSession::Ptr& subscriber, Topic&& t)
     {
-        auto reqId = t.requestId({});
+        RequestId reqId = t.requestId({});
         BrokerSubscribeRequest req{std::move(t), subscriber, subscriptions_,
                                    subIdGenerator_};
-        if (req.policy() == Policy::unknown)
-        {
-            auto unex = makeUnexpectedError(WampErrc::optionNotAllowed);
-            auto error = Error{PassKey{}, Topic::messageKind({}), reqId,
-                               unex.value()}
-                             .withArgs("Unknown match policy");
-            subscriber->sendRouterCommand(std::move(error), true);
-            return unex;
-        }
-
         BrokerSubscription* sub = nullptr;
 
         {
@@ -646,50 +638,61 @@ public:
             }
         }
 
+        subscriber->sendRouterCommand(Subscribed{reqId, sub->info().id},
+                                      sub->info().uri);
+
         if (metaTopics_->enabled() && !isMetaTopic(sub->info().uri))
         {
             metaTopics_->onSubscribe(subscriber->sharedInfo(),
                                      sub->info(false));
         }
-
-        return sub->info().id;
     }
 
-    ErrorOr<Uri> unsubscribe(const RouterSession::Ptr& subscriber,
-                             SubscriptionId subId)
+    void unsubscribe(const RouterSession::Ptr& subscriber,
+                     const Unsubscribe& cmd)
     {
-        auto found = subscriptions_.find(subId);
-        if (found == subscriptions_.end())
-            return makeUnexpectedError(WampErrc::noSuchSubscription);
+        Uri uri;
+        auto kv = subscriptions_.find(cmd.subscriptionId());
+        bool found = kv != subscriptions_.end();
 
-        BrokerSubscription& record = found->second;
-        const auto& uri = record.info().uri;
-        auto policy = record.info().matchPolicy;
-
+        if (found)
         {
-            const MutexGuard guard{queryMutex_};
-            const bool subscriberRemoved =
-                record.removeSubscriber(subscriber->sharedInfo(), *metaTopics_);
+            BrokerSubscription& record = kv->second;
+            uri = record.info().uri;
+            auto policy = record.info().matchPolicy;
 
-            if (record.empty())
-                eraseTopic(uri, policy, found);
-
-            if (!subscriberRemoved)
-                return makeUnexpectedError(WampErrc::noSuchSubscription);
+            {
+                const MutexGuard guard{queryMutex_};
+                found = record.removeSubscriber(subscriber->sharedInfo(),
+                                                *metaTopics_);
+                if (record.empty())
+                    eraseTopic(uri, policy, kv);
+            }
         }
 
-        return uri;
+        if (found)
+        {
+            subscriber->sendRouterCommand(Unsubscribed{cmd.requestId({})}, uri);
+        }
+        else
+        {
+            subscriber->sendRouterCommandError(cmd,
+                                               WampErrc::noSuchSubscription);
+        }
     }
 
-    std::pair<PublicationId, std::size_t>
-    publish(const RouterSession::Ptr& publisher, Pub&& pub)
+    void publish(const RouterSession::Ptr& publisher, Pub&& pub)
     {
-        BrokerPublication info(std::move(pub), pubIdGenerator_(), publisher);
+        const auto reqId = pub.requestId({});
+        const bool wantsAck = pub.optionOr<bool>("acknowledge", false);
+        BrokerPublication info{std::move(pub), pub.requestId({}), publisher};
         std::size_t count = 0;
         count += byExact_.publish(info);
         count += byPrefix_.publish(info);
         count += byWildcard_.publish(info);
-        return std::make_pair(info.publicationId(), count);
+        if (wantsAck)
+            publisher->sendRouterCommand(Published{reqId, info.publicationId()},
+                                         info.topicUri(), count);
     }
 
     void publishMetaEvent(Pub&& pub, SessionId inhibitedSessionId)
@@ -834,6 +837,163 @@ private:
     BrokerSubscriptionIdGenerator subIdGenerator_;
     RandomEphemeralIdGenerator pubIdGenerator_;
     MetaTopics::Ptr metaTopics_;
+};
+
+//------------------------------------------------------------------------------
+class Broker : public std::enable_shared_from_this<Broker>,
+               public AuthorizationListener
+{
+public:
+    using Ptr = std::shared_ptr<Broker>;
+
+    Broker(AnyIoExecutor exec, IoStrand strand, RandomNumberGenerator64 prng,
+           MetaTopics::Ptr metaTopics, const RealmConfig& config)
+        : impl_(std::move(prng), std::move(metaTopics)),
+          executor_(std::move(exec)),
+          strand_(std::move(strand)),
+          authorizer_(config.authorizer()),
+          publisherDisclosure_(config.publisherDisclosure()),
+          metaTopicPublicationAllowed_(config.metaTopicPublicationAllowed())
+    {}
+
+    template <typename C>
+    void dispatchCommand(RouterSession::Ptr originator, C&& command)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            RouterSession::Ptr o;
+            C c;
+            void operator()() {self->processCommand(o, std::move(c));}
+        };
+
+        boost::asio::dispatch(
+            strand_,
+            Dispatched{shared_from_this(), std::move(originator),
+                       std::forward<C>(command)});
+    }
+
+    void processCommand(const RouterSession::Ptr& subscriber, Topic&& subscribe)
+    {
+        if (subscribe.matchPolicy() == MatchPolicy::unknown)
+        {
+            subscriber->sendRouterCommandError(
+                subscribe, WampErrc::optionNotAllowed, "Unknown match policy");
+        }
+
+        authorize(subscriber, subscribe);
+    }
+
+    void processCommand(const RouterSession::Ptr& subscriber,
+                        const Unsubscribe& cmd)
+    {
+        impl_.unsubscribe(subscriber, cmd);
+    }
+
+    void processCommand(const RouterSession::Ptr& publisher, Pub&& pub)
+    {
+        if (!checkMetaTopicPublicationAttempt(*publisher, pub))
+            return;
+        authorize(publisher, pub);
+    }
+
+    void publishMetaEvent(Pub&& pub, SessionId inhibitedSessionId)
+    {
+        impl_.publishMetaEvent(std::move(pub), inhibitedSessionId);
+    }
+
+    void removeSubscriber(const SessionInfo& subscriberInfo)
+    {
+        impl_.removeSubscriber(subscriberInfo);
+    }
+
+    ErrorOr<SubscriptionInfo> getSubscription(SubscriptionId sid,
+                                              bool listSubscribers) const
+    {
+        return impl_.getSubscription(sid, listSubscribers);
+    }
+
+    ErrorOr<SubscriptionInfo> lookupSubscription(
+        const Uri& uri, MatchPolicy p, bool listSubscribers) const
+    {
+        return impl_.lookupSubscription(uri, p, listSubscribers);
+    }
+
+    template <typename F>
+    std::size_t forEachSubscription(MatchPolicy p, F&& functor) const
+    {
+        return impl_.forEachSubscription(p, std::forward<F>(functor));
+    }
+
+    template <typename F>
+    std::size_t forEachMatch(const Uri& uri, F&& functor) const
+    {
+        return impl_.forEachMatch(uri, std::forward<F>(functor));
+    }
+
+private:
+    template <typename C, typename... Ts>
+    static void sendCommandErrorToOriginator(
+        RouterSession& originator, const C& cmd, WampErrc errc, Ts&&... args)
+    {
+        auto error = Error::fromRequest({}, cmd, errc)
+                         .withArgs(std::forward<Ts>(args)...);
+        originator.sendRouterCommand(std::move(error), true);
+    }
+
+    template <typename C>
+    void authorize(const RouterSession::Ptr& originator, C& command)
+    {
+        if (!authorizer_)
+            return bypassAuthorization(originator, std::move(command));
+
+        AuthorizationRequest r{{}, shared_from_this(), originator,
+                               publisherDisclosure_};
+        authorizer_->authorize(std::forward<C>(command), std::move(r),
+                               executor_);
+    }
+
+    void bypassAuthorization(const RouterSession::Ptr& subscriber, Topic&& t)
+    {
+        impl_.subscribe(subscriber, std::move(t));
+    }
+
+    void bypassAuthorization(const RouterSession::Ptr& publisher, Pub&& p)
+    {
+        impl_.publish(publisher, std::move(p));
+    }
+
+    void onAuthorized(const RouterSession::Ptr& subscriber,
+                      Topic&& topic) override
+    {
+        impl_.subscribe(subscriber, std::move(topic));
+    };
+
+    void onAuthorized(const RouterSession::Ptr& publisher, Pub&& pub) override
+    {
+        impl_.publish(publisher, std::move(pub));
+    };
+
+    bool checkMetaTopicPublicationAttempt(RouterSession& publisher,
+                                          const Pub& pub)
+    {
+        if (metaTopicPublicationAllowed_)
+            return true;
+
+        const bool beginsWith = pub.uri().rfind("wamp.", 0) == 0;
+        if (!beginsWith)
+            return true;
+
+        sendCommandErrorToOriginator(publisher, pub, WampErrc::invalidUri);
+        return false;
+    }
+
+    BrokerImpl impl_;
+    AnyIoExecutor executor_;
+    IoStrand strand_;
+    Authorizer::Ptr authorizer_;
+    DisclosureRule publisherDisclosure_;
+    bool metaTopicPublicationAllowed_ = false;
 };
 
 } // namespace internal

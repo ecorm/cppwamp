@@ -218,49 +218,49 @@ public:
     ErrorOr<RegistrationInfo> getRegistration(RegistrationId rid,
                                               bool listCallees = false)
     {
-        return dealer_.getRegistration(rid, listCallees);
+        return dealer_->getRegistration(rid, listCallees);
     }
 
     ErrorOr<RegistrationInfo> lookupRegistration(const Uri& uri, MatchPolicy p,
                                                  bool listCallees = false)
     {
-        return dealer_.lookupRegistration(uri, p, listCallees);
+        return dealer_->lookupRegistration(uri, p, listCallees);
     }
 
     ErrorOr<RegistrationInfo> bestRegistrationMatch(const Uri& uri,
                                                     bool listCallees = false)
     {
-        return dealer_.bestRegistrationMatch(uri, listCallees);
+        return dealer_->bestRegistrationMatch(uri, listCallees);
     }
 
     template <typename F>
     std::size_t forEachRegistration(MatchPolicy p, F&& functor) const
     {
-        return dealer_.forEachRegistration(p, std::forward<F>(functor));
+        return dealer_->forEachRegistration(p, std::forward<F>(functor));
     }
 
     ErrorOr<SubscriptionInfo> getSubscription(SubscriptionId sid,
                                               bool listSubscribers = false)
     {
-        return broker_.getSubscription(sid, listSubscribers);
+        return broker_->getSubscription(sid, listSubscribers);
     }
 
     ErrorOr<SubscriptionInfo> lookupSubscription(const Uri& uri, MatchPolicy p,
                                                  bool listSubscribers = false)
     {
-        return broker_.lookupSubscription(uri, p, listSubscribers);
+        return broker_->lookupSubscription(uri, p, listSubscribers);
     }
 
     template <typename F>
     std::size_t forEachSubscription(MatchPolicy p, F&& functor) const
     {
-        return broker_.forEachSubscription(p, std::forward<F>(functor));
+        return broker_->forEachSubscription(p, std::forward<F>(functor));
     }
 
     template <typename F>
     std::size_t forEachMatchingSubscription(const Uri& uri, F&& functor) const
     {
-        return broker_.forEachMatch(uri, std::forward<F>(functor));
+        return broker_->forEachMatch(uri, std::forward<F>(functor));
     }
 
     RouterRealm(const RouterRealm&) = delete;
@@ -270,9 +270,9 @@ public:
 
 private:
     using SessionMap = std::map<SessionId, RouterSession::Ptr>;
-    using RealmProcedures = MetaProcedures<RouterRealm>;
+    using RealmProcedures = RealmMetaProcedures<RouterRealm>;
+    using RealmProceduresPtr = RealmMetaProcedures<RouterRealm>::Ptr;
     using MutexGuard = std::lock_guard<std::mutex>;
-    using RealmProceduresPtr = std::unique_ptr<RealmProcedures>;
 
     template <typename C, typename... Ts>
     static void sendCommandErrorToOriginator(
@@ -288,18 +288,20 @@ private:
         : executor_(std::move(e)),
           strand_(boost::asio::make_strand(executor_)),
           config_(std::move(c)),
+          logSuffix_(" (Realm " + config_.uri() + ")"),
           router_(std::move(rctx)),
           metaTopics_(std::make_shared<MetaTopics>(this, executor_, strand_,
                                                    config_.metaApiEnabled())),
-          broker_(std::move(rng), metaTopics_),
-          dealer_(strand_, metaTopics_, config_),
-          logSuffix_(" (Realm " + config_.uri() + ")"),
+          broker_(std::make_shared<Broker>(executor_, strand_, std::move(rng),
+                                           metaTopics_, config_)),
+          dealer_(std::make_shared<Dealer>(executor_, strand_, metaProcedures_,
+                                           metaTopics_, config_)),
           logger_(router_.logger()),
           uriValidator_(rcfg.uriValidator()),
           isOpen_(true)
     {
         if (config_.metaApiEnabled())
-            metaProcedures_ = RealmProceduresPtr(new RealmProcedures(this));
+            metaProcedures_ = std::make_shared<RealmProcedures>(this);
     }
 
     RouterLogger::Ptr logger() const {return logger_;}
@@ -332,8 +334,8 @@ private:
         }
 
         metaTopics_->inhibitSession(sid);
-        broker_.removeSubscriber(info);
-        dealer_.removeSession(info);
+        broker_->removeSubscriber(info);
+        dealer_->removeSession(info);
         if (metaTopics_->enabled())
             metaTopics_->onLeave(info);
         metaTopics_->clearSessionInhibitions();
@@ -432,425 +434,76 @@ private:
         safelyDispatch<Dispatched>(session->sharedInfo());
     }
 
-    template <typename C>
-    void processAuthorization(RouterSession::Ptr originator, C&& command,
-                              Authorization auth)
+    void send(RouterSession::Ptr originator, Topic&& subscribe)
     {
-        struct Dispatched
-        {
-            Ptr self;
-            RouterSession::Ptr s;
-            C command;
-            Authorization a;
+        originator->report(subscribe.info());
 
-            void operator()()
-            {
-                self->onAuthorized(std::move(s), std::move(command), a);
-            }
-        };
-
-        boost::asio::dispatch(
-            strand(), Dispatched{shared_from_this(), std::move(originator),
-                       std::forward<C>(command), auth});
-    }
-
-    void send(RouterSession::Ptr originator, Topic&& topic)
-    {
-        originator->report(topic.info());
-
-        if (topic.matchPolicy() == MatchPolicy::unknown)
-        {
-            return sendCommandErrorToOriginator(*originator, topic,
-                                         WampErrc::optionNotAllowed,
-                                         "unknown match option");
-        }
-
-        const bool isPattern = topic.matchPolicy() != MatchPolicy::exact;
-        if (!uriValidator_->checkTopic(topic.uri(), isPattern))
+        const bool isPattern = subscribe.matchPolicy() != MatchPolicy::exact;
+        if (!uriValidator_->checkTopic(subscribe.uri(), isPattern))
             return originator->abort({WampErrc::invalidUri});
 
-        authorize(std::move(originator), std::move(topic));
-    }
-
-    void onAuthorized(const RouterSession::Ptr& originator, Topic&& topic,
-                      Authorization auth)
-    {
-        if (!checkAuthorization(*originator, topic, auth))
-            return;
-
-        auto rid = topic.requestId({});
-        auto uri = topic.uri();
-
-        auto subId = broker_.subscribe(originator, std::move(topic));
-        if (!subId)
-            return;
-
-        Subscribed ack{rid, *subId};
-        originator->sendRouterCommand(std::move(ack), std::move(uri));
+        broker_->dispatchCommand(originator, std::move(subscribe));
     }
 
     void send(RouterSession::Ptr originator, Unsubscribe&& cmd)
     {
-        struct Dispatched
-        {
-            Ptr self;
-            RouterSession::Ptr s;
-            Unsubscribe u;
-
-            void operator()()
-            {
-                auto& me = *self;
-                auto rid = u.requestId({});
-                auto topic = me.broker_.unsubscribe(s, u.subscriptionId());
-                if (!me.checkResult<Unsubscribe>(topic, *s, rid))
-                    return;
-                Unsubscribed ack{rid};
-                s->sendRouterCommand(std::move(ack), std::move(*topic));
-            }
-        };
-
         originator->report(cmd.info());
-        safelyDispatch<Dispatched>(std::move(originator), std::move(cmd));
+        broker_->dispatchCommand(originator, std::move(cmd));
     }
 
-    void send(RouterSession::Ptr originator, Pub&& pub)
+    void send(RouterSession::Ptr originator, Pub&& publish)
     {
-        originator->report(pub.info());
+        originator->report(publish.info());
 
-        if (!checkMetaTopicPublicationAttempt(*originator, pub))
-            return;
-
-        if (!uriValidator_->checkTopic(pub.uri(), false))
+        if (!uriValidator_->checkTopic(publish.uri(), false))
             return originator->abort({WampErrc::invalidUri});
 
-        authorize(std::move(originator), std::move(pub));
+        broker_->dispatchCommand(originator, std::move(publish));
     }
 
-    bool checkMetaTopicPublicationAttempt(RouterSession& originator,
-                                          const Pub& pub)
+    void send(RouterSession::Ptr originator, Procedure&& enroll)
     {
-        if (config_.metaTopicPublicationAllowed())
-            return true;
+        originator->report(enroll.info());
 
-        const bool beginsWith = pub.uri().rfind("wamp.", 0) == 0;
-        if (!beginsWith)
-            return true;
-
-        sendCommandErrorToOriginator(originator, pub, WampErrc::invalidUri);
-        return false;
-    }
-
-    void onAuthorized(const RouterSession::Ptr& originator, Pub&& pub,
-                      Authorization auth)
-    {
-        auto uri = pub.uri();
-        const auto rid = pub.requestId({});
-        const bool wantsAck = pub.optionOr<bool>("acknowledge", false);
-
-        if (!checkAuthorization(*originator, pub, auth))
-            return;
-        auto realmRule = config_.publisherDisclosure();
-        if (!setDisclosed(*originator, pub, auth, realmRule, wantsAck))
-            return;
-
-        auto pubIdAndCount = broker_.publish(originator, std::move(pub));
-
-        Published ack{rid, pubIdAndCount.first};
-        if (wantsAck)
-        {
-            originator->sendRouterCommand(std::move(ack), std::move(uri),
-                                          pubIdAndCount.second);
-        }
-        else
-        {
-            originator->report(ack.info(std::move(uri), pubIdAndCount.second));
-        }
-    }
-
-    void send(RouterSession::Ptr originator, Procedure&& proc)
-    {
-        originator->report(proc.info());
-
-        if (!checkMetaProcedureRegistrationAttempt(*originator, proc))
-            return;
-
-        if (proc.matchPolicy() != MatchPolicy::exact)
-        {
-            return sendCommandErrorToOriginator(
-                *originator, proc, WampErrc::optionNotAllowed,
-                "pattern-based registrations not supported");
-        }
-
-        if (!uriValidator_->checkTopic(proc.uri(), false))
-            return originator->abort({WampErrc::invalidUri});
-
-        authorize(std::move(originator), std::move(proc));
-    }
-
-    bool checkMetaProcedureRegistrationAttempt(RouterSession& originator,
-                                               const Procedure& proc)
-    {
-        if (config_.metaProcedureRegistrationAllowed())
-        {
-            if (metaProcedures_ == nullptr)
-                return true;
-            if (metaProcedures_->hasProcedure(proc.uri()))
-            {
-                sendCommandErrorToOriginator(originator, proc,
-                                             WampErrc::procedureAlreadyExists);
-                return false;
-            }
-        }
-        else if (proc.uri().rfind("wamp.", 0) == 0)
-        {
-            sendCommandErrorToOriginator(originator, proc,
-                                         WampErrc::invalidUri);
-            return false;
-        }
-
-        return true;
-    }
-
-    void onAuthorized(const RouterSession::Ptr& originator, Procedure&& proc,
-                      Authorization auth)
-    {
-        if (!checkAuthorization(*originator, proc, auth))
-            return;
-
-        auto rid = proc.requestId({});
-        auto uri = proc.uri();
-        auto regId = dealer_.enroll(originator, std::move(proc));
-        if (!checkResult<Procedure>(regId, *originator, rid))
-            return;
-        Registered ack{rid, *regId};
-        originator->sendRouterCommand(std::move(ack), std::move(uri));
+        dealer_->dispatchCommand(originator, std::move(enroll));
     }
 
     void send(RouterSession::Ptr originator, Unregister&& cmd)
     {
-        struct Dispatched
-        {
-            Ptr self;
-            RouterSession::Ptr s;
-            Unregister u;
-
-            void operator()()
-            {
-                auto& me = *self;
-                auto rid = u.requestId({});
-                auto uri = me.dealer_.unregister(s, u.registrationId());
-                if (!me.checkResult<Unregister>(uri, *s, rid))
-                    return;
-                Unregistered ack{rid};
-                s->sendRouterCommand(std::move(ack), std::move(*uri));
-            }
-        };
-
         originator->report(cmd.info());
-        safelyDispatch<Dispatched>(std::move(originator), cmd);
+        dealer_->dispatchCommand(originator, std::move(cmd));
     }
 
-    void send(RouterSession::Ptr originator, Rpc&& rpc)
+    void send(RouterSession::Ptr originator, Rpc&& call)
     {
-        originator->report(rpc.info());
+        originator->report(call.info());
 
-        if (!uriValidator_->checkProcedure(rpc.uri(), false))
+        if (!uriValidator_->checkProcedure(call.uri(), false))
             return originator->abort({WampErrc::invalidUri});
 
-        if (!checkProcedureExistsBeforeAuthorizing(*originator, rpc))
-            return;
-
-        authorize(std::move(originator), std::move(rpc));
-    }
-
-    bool checkProcedureExistsBeforeAuthorizing(RouterSession& originator,
-                                               const Rpc& rpc)
-    {
-        if (!config_.authorizer())
-            return true;
-
-        bool found = dealer_.hasProcedure(rpc.uri());
-        if (!found && (metaProcedures_ != nullptr))
-            found = metaProcedures_->hasProcedure(rpc.uri());
-
-        if (!found)
-        {
-            sendCommandErrorToOriginator(originator, rpc,
-                                         WampErrc::noSuchProcedure);
-        }
-
-        return found;
-    }
-
-    void onAuthorized(const RouterSession::Ptr& originator, Rpc&& rpc,
-                      Authorization auth)
-    {
-        if (!checkAuthorization(*originator, rpc, auth))
-            return;
-        if (!setDisclosed(*originator, rpc, auth, config_.callerDisclosure()))
-            return;
-        auto done = dealer_.call(originator, rpc);
-
-        bool isMetaProcedure = false;
-        auto unex = makeUnexpectedError(WampErrc::noSuchProcedure);
-        auto rid = rpc.requestId({});
-        if (metaProcedures_ && (done == unex))
-            isMetaProcedure = metaProcedures_->call(*originator, std::move(rpc));
-
-        // A result or error would have already been sent to the caller
-        // if it was a valid meta-procedure.
-        if (!isMetaProcedure)
-            checkResult<Rpc>(done, *originator, rid);
+        dealer_->dispatchCommand(originator, std::move(call));
     }
 
     void send(RouterSession::Ptr originator, CallCancellation&& cancel)
     {
-        struct Dispatched
-        {
-            Ptr self;
-            RouterSession::Ptr s;
-            CallCancellation c;
-
-            void operator()()
-            {
-                auto rid = c.requestId({});
-                auto done = self->dealer_.cancelCall(s, std::move(c));
-                self->checkResult<CallCancellation>(done, *s, rid);
-            }
-        };
-
         originator->report(cancel.info());
-        safelyDispatch<Dispatched>(std::move(originator), std::move(cancel));
+        dealer_->dispatchCommand(originator, std::move(cancel));
     }
 
-    void send(RouterSession::Ptr originator, Result&& result)
+    void send(RouterSession::Ptr originator, Result&& yielded)
     {
-        struct Dispatched
-        {
-            Ptr self;
-            RouterSession::Ptr s;
-            Result r;
-            void operator()() {self->dealer_.yieldResult(s, std::move(r));}
-        };
-
-        originator->report(result.info(false));
-        safelyDispatch<Dispatched>(std::move(originator), std::move(result));
+        originator->report(yielded.info(false));
+        dealer_->dispatchCommand(originator, std::move(yielded));
     }
 
-    void send(RouterSession::Ptr originator, Error&& error)
+    void send(RouterSession::Ptr originator, Error&& yielded)
     {
-        struct Dispatched
-        {
-            Ptr self;
-            RouterSession::Ptr s;
-            Error e;
-            void operator()() {self->dealer_.yieldError(s, std::move(e));}
-        };
+        originator->report(yielded.info(false));
 
-        originator->report(error.info(false));
-
-        if (!uriValidator_->checkError(error.uri()))
+        if (!uriValidator_->checkError(yielded.uri()))
             return originator->abort({WampErrc::invalidUri});
 
-        safelyDispatch<Dispatched>(std::move(originator), std::move(error));
-    }
-
-    template <typename C>
-    void authorize(RouterSession::Ptr s, C&& command)
-    {
-        const auto& authorizer = config_.authorizer();
-        if (!authorizer)
-        {
-            return onAuthorized(std::move(s), std::forward<C>(command), true);
-        }
-
-        AuthorizationRequest r{{}, RealmContext{shared_from_this()}, s};
-        authorizer->authorize(std::forward<C>(command), std::move(r),
-                              executor_);
-    }
-
-    template <typename C>
-    bool checkAuthorization(RouterSession& originator, const C& command,
-                            Authorization auth)
-    {
-        if (auth.good())
-            return true;
-
-        auto ec = make_error_code(WampErrc::authorizationDenied);
-        bool isKnownAuthError = true;
-
-        if (auth.error())
-        {
-            isKnownAuthError =
-                auth.error() == WampErrc::authorizationDenied ||
-                auth.error() == WampErrc::authorizationFailed ||
-                auth.error() == WampErrc::authorizationRequired ||
-                auth.error() == WampErrc::discloseMeDisallowed;
-
-            ec = isKnownAuthError ?
-                     auth.error() :
-                     make_error_code(WampErrc::authorizationFailed);
-        }
-
-        auto error = Error::fromRequest({}, command, ec);
-        if (!isKnownAuthError)
-        {
-            error.withArgs(briefErrorCodeString(auth.error()),
-                           auth.error().message());
-        }
-
-        originator.sendRouterCommand(std::move(error), true);
-        return false;
-    }
-
-    template <typename C>
-    bool setDisclosed(RouterSession& originator, C& command,
-                      const Authorization& auth, DisclosureRule realmRule,
-                      bool wantsAck = true)
-    {
-        using DR = DisclosureRule;
-
-        auto authRule = auth.disclosure();
-        auto rule = (authRule == DR::preset) ? realmRule : authRule;
-        bool disclosed = command.discloseMe();
-        const bool isStrict = rule == DR::strictConceal ||
-                              rule == DR::strictReveal;
-
-        if (disclosed && isStrict)
-        {
-            if (wantsAck)
-            {
-                sendCommandErrorToOriginator(originator, command,
-                                             WampErrc::discloseMeDisallowed);
-            }
-            return false;
-        }
-
-        if (rule == DR::conceal || rule == DR::strictConceal)
-            disclosed = false;
-        if (rule == DR::reveal || rule == DR::strictReveal)
-            disclosed = true;
-        command.setDisclosed({}, disclosed);
-        return true;
-    }
-
-    template <typename TCommand, typename T>
-    bool checkResult(const ErrorOr<T>& result, RouterSession& originator,
-                     RequestId reqId, bool logOnly = false)
-    {
-        if (result)
-            return true;
-
-        if (result == makeUnexpectedError(WampErrc::protocolViolation))
-            return false; // ABORT should already have been sent to originator
-
-        Error error{PassKey{}, TCommand::messageKind({}), reqId,
-                    result.error()};
-        if (logOnly)
-            originator.report(error.info(true));
-        else
-            originator.sendRouterCommand(std::move(error), true);
-        return false;
+        dealer_->dispatchCommand(originator, std::move(yielded));
     }
 
     void log(LogEntry&& e)
@@ -868,19 +521,19 @@ private:
 
     void publishMetaEvent(Pub&& pub, SessionId inhibitedSessionId) override
     {
-        broker_.publishMetaEvent(std::move(pub), inhibitedSessionId);
+        broker_->publishMetaEvent(std::move(pub), inhibitedSessionId);
     }
 
     mutable std::mutex sessionQueryMutex_;
     AnyIoExecutor executor_;
     IoStrand strand_;
     RealmConfig config_;
-    RouterContext router_;
     SessionMap sessions_;
-    MetaTopics::Ptr metaTopics_;
-    Broker broker_;
-    Dealer dealer_;
     std::string logSuffix_;
+    RouterContext router_;
+    MetaTopics::Ptr metaTopics_;
+    Broker::Ptr broker_;
+    Dealer::Ptr dealer_;
     RouterLogger::Ptr logger_;
     UriValidator::Ptr uriValidator_;
     RealmProceduresPtr metaProcedures_;
@@ -888,7 +541,7 @@ private:
 
     friend class DirectPeer;
     friend class RealmContext;
-    template <typename> friend class MetaProcedures;
+    template <typename> friend class RealmMetaProcedures;
 };
 
 
@@ -938,18 +591,6 @@ bool RealmContext::send(RouterSessionPtr originator, C&& command)
     if (!r)
         return false;
     r->send(std::move(originator), std::forward<C>(command));
-    return true;
-}
-
-template <typename C>
-bool RealmContext::processAuthorization(RouterSessionPtr originator,
-                                        C&& command, Authorization auth)
-{
-    auto r = realm_.lock();
-    if (!r)
-        return false;
-    r->processAuthorization(std::move(originator), std::forward<C>(command),
-                            auth);
     return true;
 }
 

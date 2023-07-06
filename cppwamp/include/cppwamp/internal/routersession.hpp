@@ -89,6 +89,14 @@ public:
         onRouterMessage(std::move(command.message({})));
     }
 
+    template <typename C, typename E, typename... Ts>
+    void sendRouterCommandError(const C& command, E errorCodeLike, Ts&&... args)
+    {
+        auto error = Error::fromRequest({}, command, errorCodeLike)
+                         .withArgs(std::forward<Ts>(args)...);
+        sendRouterCommand(std::move(error), true);
+    }
+
     void sendEvent(const Event& e)
     {
         // server-event actions are not logged due to the potential large

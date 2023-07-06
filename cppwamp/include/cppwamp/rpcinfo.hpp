@@ -206,6 +206,7 @@ public:
     Error* error(internal::PassKey);
     void setDisclosed(internal::PassKey, bool disclosed);
     void setTrustLevel(internal::PassKey, TrustLevel trustLevel);
+    bool wantsAck(internal::PassKey) const;
     bool disclosed(internal::PassKey) const;
     bool hasTrustLevel(internal::PassKey) const;
     TrustLevel trustLevel(internal::PassKey) const;
@@ -756,6 +757,9 @@ void RpcLike<D>::setTrustLevel(internal::PassKey, TrustLevel trustLevel)
     trustLevel_ = trustLevel;
     hasTrustLevel_ = true;
 }
+
+template <typename D>
+CPPWAMP_INLINE bool RpcLike<D>::wantsAck(internal::PassKey) const {return true;}
 
 template <typename D>
 bool RpcLike<D>::disclosed(internal::PassKey) const {return disclosed_;}

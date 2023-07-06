@@ -23,11 +23,12 @@
 #include <utility>
 #include "anyhandler.hpp"
 #include "api.hpp"
+#include "asiodefs.hpp"
 #include "pubsubinfo.hpp"
 #include "rpcinfo.hpp"
 #include "sessioninfo.hpp"
+#include "internal/authorizationlistener.hpp"
 #include "internal/passkey.hpp"
-#include "internal/routercontext.hpp"
 
 namespace wamp
 {
@@ -90,7 +91,7 @@ public:
     DisclosureRule disclosure() const;
 
 private:
-    std::error_code error_;
+    std::error_code errorCode_;
     DisclosureRule disclosure_ = DisclosureRule::preset;
     bool allowed_ = false;
 };
@@ -117,17 +118,35 @@ public:
     void authorize(Rpc r, Authorization a);
 
 private:
-    template <typename C>
-    void send(C&& command, Authorization a);
+    using ListenerPtr = internal::AuthorizationListener::WeakPtr;
 
-    internal::RealmContext realm_;
+    template <typename C>
+    void doAuthorize(C&& command, Authorization auth);
+
+    template <typename C>
+    bool setDisclosed(C& command, internal::RouterSession& originator,
+                      DisclosureRule authRule);
+
+    bool setDisclosed(Pub& p, internal::RouterSession& s, DisclosureRule d);
+
+    bool setDisclosed(Rpc& r, internal::RouterSession& s, DisclosureRule d);
+
+    template <typename C>
+    bool doSetDisclosed(C& command, internal::RouterSession& originator,
+                        DisclosureRule authRule);
+
+    ListenerPtr listener_;
     std::weak_ptr<internal::RouterSession> originator_;
     SessionInfo info_;
+    DisclosureRule realmDisclosure_ = DisclosureRule::preset;
 
 public:
     // Internal use only
-    AuthorizationRequest(internal::PassKey, internal::RealmContext r,
-                         const std::shared_ptr<internal::RouterSession>& s);
+    AuthorizationRequest(
+        internal::PassKey,
+        ListenerPtr listener,
+        const std::shared_ptr<internal::RouterSession>& originator,
+        DisclosureRule realmDisclosure);
 };
 
 //------------------------------------------------------------------------------

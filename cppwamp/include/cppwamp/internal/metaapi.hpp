@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <array>
 #include <map>
+#include <memory>
 #include <set>
 #include <sstream>
 #include <utility>
@@ -28,13 +29,27 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-template <typename TContext>
 class MetaProcedures
 {
 public:
-    using Context = TContext;
+    using Ptr = std::shared_ptr<MetaProcedures>;
 
-    explicit MetaProcedures(Context* realm) :
+    virtual ~MetaProcedures() = default;
+
+    virtual bool hasProcedure(const Uri& uri) const = 0;
+
+    virtual bool call(RouterSession& caller, Rpc&& rpc) = 0;
+};
+
+//------------------------------------------------------------------------------
+template <typename TContext>
+class RealmMetaProcedures : public MetaProcedures
+{
+public:
+    using Context = TContext;
+    using Ptr = std::shared_ptr<RealmMetaProcedures>;
+
+    explicit RealmMetaProcedures(Context* realm) :
         handlers_(
         {{
             {"wamp.registration.count_callees",     &Self::countRegistrationCallees},
@@ -60,13 +75,13 @@ public:
         context_(realm)
     {}
 
-    bool hasProcedure(const Uri& uri) const
+    bool hasProcedure(const Uri& uri) const override
     {
         auto iter = std::lower_bound(handlers_.cbegin(), handlers_.cend(), uri);
         return (iter != handlers_.cend() && (iter->uri == uri));
     }
 
-    bool call(RouterSession& caller, Rpc&& rpc)
+    bool call(RouterSession& caller, Rpc&& rpc) override
     {
         auto iter = std::lower_bound(handlers_.cbegin(), handlers_.cend(),
                                      rpc.uri());
@@ -108,8 +123,8 @@ public:
     }
 
 private:
-    using Self = MetaProcedures;
-    using Handler = Outcome (MetaProcedures::*)(RouterSession&, Rpc&);
+    using Self = RealmMetaProcedures;
+    using Handler = Outcome (RealmMetaProcedures::*)(RouterSession&, Rpc&);
 
     struct Entry
     {

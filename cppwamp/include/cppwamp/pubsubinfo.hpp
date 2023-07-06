@@ -155,6 +155,7 @@ public:
     Pub(internal::PassKey, internal::Message&& msg);
     void setDisclosed(internal::PassKey, bool disclosed);
     void setTrustLevel(internal::PassKey, TrustLevel trustLevel);
+    bool wantsAck(internal::PassKey) const;
     bool disclosed(internal::PassKey) const;
     bool hasTrustLevel(internal::PassKey) const;
     TrustLevel trustLevel(internal::PassKey) const;

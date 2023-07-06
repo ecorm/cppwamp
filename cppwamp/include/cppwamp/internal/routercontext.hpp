@@ -15,6 +15,7 @@
 #include "../asiodefs.hpp"
 #include "../clientinfo.hpp"
 #include "../logging.hpp"
+#include "../rpcinfo.hpp"
 #include "../uri.hpp"
 #include "random.hpp"
 
@@ -107,10 +108,6 @@ public:
 
     template <typename C>
     bool send(RouterSessionPtr originator, C&& command);
-
-    template <typename C>
-    bool processAuthorization(RouterSessionPtr originator, C&& command,
-                              Authorization auth);
 
 private:
     std::weak_ptr<RouterRealm> realm_;

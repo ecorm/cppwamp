@@ -159,6 +159,11 @@ CPPWAMP_INLINE void Pub::setTrustLevel(internal::PassKey, TrustLevel trustLevel)
     hasTrustLevel_ = true;
 }
 
+CPPWAMP_INLINE bool Pub::wantsAck(internal::PassKey) const
+{
+    return optionOr<bool>("acknowledge", false);
+}
+
 CPPWAMP_INLINE bool Pub::disclosed(internal::PassKey) const {return disclosed_;}
 
 CPPWAMP_INLINE bool Pub::hasTrustLevel(internal::PassKey) const

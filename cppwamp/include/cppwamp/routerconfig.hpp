@@ -38,11 +38,7 @@ public:
 
     RealmConfig& withAuthorizer(Authorizer::Ptr a);
 
-    // TODO: Authorization cache
-    // RealmConfig& withAuthorizationCacheEnabled(bool enabled = true);
-
-    // TODO: Progressive calls quota
-    // TODO: Pending call quota
+    RealmConfig& withAuthorizationCacheEnabled(bool enabled = true);
 
     RealmConfig& withCallTimeoutForwardingEnabled(bool enabled = true);
 
@@ -56,11 +52,14 @@ public:
 
     RealmConfig& withMetaTopicPublicationAllowed(bool allowed = true);
 
+    // TODO: Progressive calls quota
+    // TODO: Pending call quota
+
     const Uri& uri() const;
 
     Authorizer::Ptr authorizer() const;
 
-    // bool authorizationCacheEnabled() const;
+    bool authorizationCacheEnabled() const;
 
     DisclosureRule callerDisclosure() const;
 
@@ -83,7 +82,7 @@ private:
     bool metaApiEnabled_ = false;
     bool metaProcedureRegistrationAllowed_ = false;
     bool metaTopicPublicationAllowed_ = false;
-    // bool authorizationCacheEnabled_ = false;
+    bool authorizationCacheEnabled_ = false;
 };
 
 namespace internal { class Challenger; } // Forward declaration
