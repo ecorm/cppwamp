@@ -6,6 +6,7 @@
 
 #include "../authorizer.hpp"
 #include "../api.hpp"
+#include "disclosuresetter.hpp"
 #include "routersession.hpp"
 
 namespace wamp
@@ -107,8 +108,11 @@ void AuthorizationRequest::doAuthorize(C&& command, Authorization auth)
 
     if (auth.good())
     {
-        if (setDisclosed(command, *originator, auth.disclosure()))
+        if (internal::DisclosureSetter::applyToCommand(
+                command, *originator, realmDisclosure_, auth.disclosure()))
+        {
             listener->onAuthorized(originator, std::forward<C>(command));
+        }
         return;
     }
 
@@ -134,57 +138,6 @@ void AuthorizationRequest::doAuthorize(C&& command, Authorization auth)
         error.withArgs(briefErrorCodeString(authEc), authEc.message());
 
     originator->sendRouterCommand(std::move(error), true);
-}
-
-//------------------------------------------------------------------------------
-template <typename C>
-bool AuthorizationRequest::setDisclosed(
-    C& command, internal::RouterSession& originator, DisclosureRule authRule)
-{
-    return true;
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE bool AuthorizationRequest::setDisclosed(
-    Pub& p, internal::RouterSession& s, DisclosureRule d)
-{
-    return doSetDisclosed(p, s, d);
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE bool AuthorizationRequest::setDisclosed(
-    Rpc& r, internal::RouterSession& s, DisclosureRule d)
-{
-    return doSetDisclosed(r, s, d);
-}
-
-//------------------------------------------------------------------------------
-template <typename C>
-bool AuthorizationRequest::doSetDisclosed(
-    C& command, internal::RouterSession& originator, DisclosureRule authRule)
-{
-    using DR = DisclosureRule;
-    auto rule = (authRule == DR::preset) ? realmDisclosure_ : authRule;
-    bool disclosed = command.discloseMe();
-    const bool isStrict = rule == DR::strictConceal ||
-                          rule == DR::strictReveal;
-
-    if (disclosed && isStrict)
-    {
-        if (command.wantsAck({}))
-        {
-            originator.sendRouterCommandError(command,
-                                              WampErrc::discloseMeDisallowed);
-        }
-        return false;
-    }
-
-    if (rule == DR::conceal || rule == DR::strictConceal)
-        disclosed = false;
-    if (rule == DR::reveal || rule == DR::strictReveal)
-        disclosed = true;
-    command.setDisclosed({}, disclosed);
-    return true;
 }
 
 //------------------------------------------------------------------------------

@@ -18,7 +18,6 @@
 #include <utility>
 #include <vector>
 #include "../anyhandler.hpp"
-#include "../authorizer.hpp"
 #include "../realmobserver.hpp"
 #include "../routerconfig.hpp"
 #include "broker.hpp"
@@ -48,18 +47,34 @@ public:
     using SessionPredicate = std::function<bool (const SessionInfo&)>;
     using SessionIdSet     = std::set<SessionId>;
 
-    static Ptr create(Executor e, RealmConfig c, const RouterConfig& rcfg,
-                      RouterContext rctx, RandomNumberGenerator64 rng)
-    {
-        return Ptr(new RouterRealm(std::move(e), std::move(c), rcfg,
-                                   std::move(rctx), std::move(rng)));
-    }
+    RouterRealm(Executor e, RealmConfig&& c, const RouterConfig& rcfg,
+                RouterContext&& rctx, RandomNumberGenerator64&& rng)
+        : executor_(std::move(e)),
+          strand_(std::make_shared<IoStrand>(
+              boost::asio::make_strand(executor_))),
+          config_(std::move(c)),
+          logSuffix_(" (Realm " + config_.uri() + ")"),
+          router_(std::move(rctx)),
+          metaTopics_(std::make_shared<MetaTopics>(this, executor_, strand_,
+                                                   config_.metaApiEnabled())),
+          metaProcedures_(
+              config_.metaApiEnabled() ?
+                  std::make_shared<RealmProcedures>(this) : nullptr),
+          broker_(std::make_shared<Broker>(executor_, strand_, std::move(rng),
+                                           metaTopics_, rcfg.uriValidator(),
+                                           config_)),
+          dealer_(std::make_shared<Dealer>(executor_, strand_, metaProcedures_,
+                                           metaTopics_, rcfg.uriValidator(),
+                                           config_)),
+          logger_(router_.logger()),
+          isOpen_(true)
+    {}
 
     ~RouterRealm() override = default;
 
     const Executor& executor() const {return executor_;}
 
-    const IoStrand& strand() const {return strand_;}
+    const IoStrand& strand() const {return *strand_;}
 
     const std::string& uri() const {return config_.uri();}
 
@@ -283,27 +298,6 @@ private:
         originator.sendRouterCommand(std::move(error), true);
     }
 
-    RouterRealm(Executor&& e, RealmConfig&& c, const RouterConfig& rcfg,
-                RouterContext&& rctx, RandomNumberGenerator64&& rng)
-        : executor_(std::move(e)),
-          strand_(boost::asio::make_strand(executor_)),
-          config_(std::move(c)),
-          logSuffix_(" (Realm " + config_.uri() + ")"),
-          router_(std::move(rctx)),
-          metaTopics_(std::make_shared<MetaTopics>(this, executor_, strand_,
-                                                   config_.metaApiEnabled())),
-          broker_(std::make_shared<Broker>(executor_, strand_, std::move(rng),
-                                           metaTopics_, config_)),
-          dealer_(std::make_shared<Dealer>(executor_, strand_, metaProcedures_,
-                                           metaTopics_, config_)),
-          logger_(router_.logger()),
-          uriValidator_(rcfg.uriValidator()),
-          isOpen_(true)
-    {
-        if (config_.metaApiEnabled())
-            metaProcedures_ = std::make_shared<RealmProcedures>(this);
-    }
-
     RouterLogger::Ptr logger() const {return logger_;}
 
     void joinSession(const RouterSession::Ptr& session)
@@ -434,75 +428,57 @@ private:
         safelyDispatch<Dispatched>(session->sharedInfo());
     }
 
-    void send(RouterSession::Ptr originator, Topic&& subscribe)
+    void send(const RouterSession::Ptr& originator, Topic&& subscribe)
     {
         originator->report(subscribe.info());
-
-        const bool isPattern = subscribe.matchPolicy() != MatchPolicy::exact;
-        if (!uriValidator_->checkTopic(subscribe.uri(), isPattern))
-            return originator->abort({WampErrc::invalidUri});
-
         broker_->dispatchCommand(originator, std::move(subscribe));
     }
 
-    void send(RouterSession::Ptr originator, Unsubscribe&& cmd)
+    void send(const RouterSession::Ptr& originator, Unsubscribe&& cmd)
     {
         originator->report(cmd.info());
         broker_->dispatchCommand(originator, std::move(cmd));
     }
 
-    void send(RouterSession::Ptr originator, Pub&& publish)
+    void send(const RouterSession::Ptr& originator, Pub&& publish)
     {
         originator->report(publish.info());
-
-        if (!uriValidator_->checkTopic(publish.uri(), false))
-            return originator->abort({WampErrc::invalidUri});
-
         broker_->dispatchCommand(originator, std::move(publish));
     }
 
-    void send(RouterSession::Ptr originator, Procedure&& enroll)
+    void send(const RouterSession::Ptr& originator, Procedure&& enroll)
     {
         originator->report(enroll.info());
-
         dealer_->dispatchCommand(originator, std::move(enroll));
     }
 
-    void send(RouterSession::Ptr originator, Unregister&& cmd)
+    void send(const RouterSession::Ptr& originator, Unregister&& cmd)
     {
         originator->report(cmd.info());
         dealer_->dispatchCommand(originator, std::move(cmd));
     }
 
-    void send(RouterSession::Ptr originator, Rpc&& call)
+    void send(const RouterSession::Ptr& originator, Rpc&& call)
     {
         originator->report(call.info());
-
-        if (!uriValidator_->checkProcedure(call.uri(), false))
-            return originator->abort({WampErrc::invalidUri});
-
         dealer_->dispatchCommand(originator, std::move(call));
     }
 
-    void send(RouterSession::Ptr originator, CallCancellation&& cancel)
+    void send(const RouterSession::Ptr& originator, CallCancellation&& cancel)
     {
         originator->report(cancel.info());
         dealer_->dispatchCommand(originator, std::move(cancel));
     }
 
-    void send(RouterSession::Ptr originator, Result&& yielded)
+    void send(const RouterSession::Ptr& originator, Result&& yielded)
     {
         originator->report(yielded.info(false));
         dealer_->dispatchCommand(originator, std::move(yielded));
     }
 
-    void send(RouterSession::Ptr originator, Error&& yielded)
+    void send(const RouterSession::Ptr& originator, Error&& yielded)
     {
         originator->report(yielded.info(false));
-
-        if (!uriValidator_->checkError(yielded.uri()))
-            return originator->abort({WampErrc::invalidUri});
-
         dealer_->dispatchCommand(originator, std::move(yielded));
     }
 
@@ -526,17 +502,16 @@ private:
 
     mutable std::mutex sessionQueryMutex_;
     AnyIoExecutor executor_;
-    IoStrand strand_;
+    std::shared_ptr<IoStrand> strand_;
     RealmConfig config_;
     SessionMap sessions_;
     std::string logSuffix_;
     RouterContext router_;
     MetaTopics::Ptr metaTopics_;
+    RealmProceduresPtr metaProcedures_;
     Broker::Ptr broker_;
     Dealer::Ptr dealer_;
     RouterLogger::Ptr logger_;
-    UriValidator::Ptr uriValidator_;
-    RealmProceduresPtr metaProcedures_;
     std::atomic<bool> isOpen_;
 
     friend class DirectPeer;

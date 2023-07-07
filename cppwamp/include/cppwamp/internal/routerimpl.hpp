@@ -51,12 +51,9 @@ public:
             const MutexGuard guard(realmsMutex_);
             if (realms_.find(uri) == realms_.end())
             {
-                realm = RouterRealm::create(
-                    boost::asio::make_strand(executor_),
-                    std::move(c),
-                    config_,
-                    RouterContext{shared_from_this()},
-                    config_.rngFactory()());
+                realm = std::make_shared<RouterRealm>(
+                    executor_, std::move(c), config_,
+                    RouterContext{shared_from_this()}, config_.rngFactory()());
                 realms_.emplace(uri, realm);
             }
         }

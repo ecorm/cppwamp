@@ -18,10 +18,12 @@
 #include "../erroror.hpp"
 #include "../routerconfig.hpp"
 #include "../traits.hpp"
+#include "../uri.hpp"
 #include "../utils/triemap.hpp"
 #include "../utils/wildcarduri.hpp"
 #include "authorizationlistener.hpp"
 #include "commandinfo.hpp"
+#include "disclosuresetter.hpp"
 #include "metaapi.hpp"
 #include "random.hpp"
 #include "routersession.hpp"
@@ -621,7 +623,7 @@ public:
 
     void subscribe(const RouterSession::Ptr& subscriber, Topic&& t)
     {
-        RequestId reqId = t.requestId({});
+        const RequestId reqId = t.requestId({});
         BrokerSubscribeRequest req{std::move(t), subscriber, subscriptions_,
                                    subIdGenerator_};
         BrokerSubscription* sub = nullptr;
@@ -684,15 +686,17 @@ public:
     void publish(const RouterSession::Ptr& publisher, Pub&& pub)
     {
         const auto reqId = pub.requestId({});
-        const bool wantsAck = pub.optionOr<bool>("acknowledge", false);
+        const bool wantsAck = pub.wantsAck({});
         BrokerPublication info{std::move(pub), pub.requestId({}), publisher};
         std::size_t count = 0;
         count += byExact_.publish(info);
         count += byPrefix_.publish(info);
         count += byWildcard_.publish(info);
         if (wantsAck)
+        {
             publisher->sendRouterCommand(Published{reqId, info.publicationId()},
                                          info.topicUri(), count);
+        }
     }
 
     void publishMetaEvent(Pub&& pub, SessionId inhibitedSessionId)
@@ -845,12 +849,15 @@ class Broker : public std::enable_shared_from_this<Broker>,
 {
 public:
     using Ptr = std::shared_ptr<Broker>;
+    using SharedStrand = std::shared_ptr<IoStrand>;
 
-    Broker(AnyIoExecutor exec, IoStrand strand, RandomNumberGenerator64 prng,
-           MetaTopics::Ptr metaTopics, const RealmConfig& config)
+    Broker(AnyIoExecutor exec, SharedStrand strand, RandomNumberGenerator64 prng,
+           MetaTopics::Ptr metaTopics, UriValidator::Ptr uriValidator,
+           const RealmConfig& config)
         : impl_(std::move(prng), std::move(metaTopics)),
           executor_(std::move(exec)),
           strand_(std::move(strand)),
+          uriValidator_(std::move(uriValidator)),
           authorizer_(config.authorizer()),
           publisherDisclosure_(config.publisherDisclosure()),
           metaTopicPublicationAllowed_(config.metaTopicPublicationAllowed())
@@ -868,33 +875,9 @@ public:
         };
 
         boost::asio::dispatch(
-            strand_,
+            *strand_,
             Dispatched{shared_from_this(), std::move(originator),
                        std::forward<C>(command)});
-    }
-
-    void processCommand(const RouterSession::Ptr& subscriber, Topic&& subscribe)
-    {
-        if (subscribe.matchPolicy() == MatchPolicy::unknown)
-        {
-            subscriber->sendRouterCommandError(
-                subscribe, WampErrc::optionNotAllowed, "Unknown match policy");
-        }
-
-        authorize(subscriber, subscribe);
-    }
-
-    void processCommand(const RouterSession::Ptr& subscriber,
-                        const Unsubscribe& cmd)
-    {
-        impl_.unsubscribe(subscriber, cmd);
-    }
-
-    void processCommand(const RouterSession::Ptr& publisher, Pub&& pub)
-    {
-        if (!checkMetaTopicPublicationAttempt(*publisher, pub))
-            return;
-        authorize(publisher, pub);
     }
 
     void publishMetaEvent(Pub&& pub, SessionId inhibitedSessionId)
@@ -953,6 +936,37 @@ private:
                                executor_);
     }
 
+    void processCommand(const RouterSession::Ptr& subscriber, Topic&& subscribe)
+    {
+        if (subscribe.matchPolicy() == MatchPolicy::unknown)
+        {
+            subscriber->sendRouterCommandError(
+                subscribe, WampErrc::optionNotAllowed, "Unknown match policy");
+            return;
+        }
+
+        const bool isPattern = subscribe.matchPolicy() != MatchPolicy::exact;
+        if (!uriValidator_->checkTopic(subscribe.uri(), isPattern))
+            return subscriber->abort({WampErrc::invalidUri});
+
+        authorize(subscriber, subscribe);
+    }
+
+    void processCommand(const RouterSession::Ptr& subscriber,
+                        const Unsubscribe& cmd)
+    {
+        impl_.unsubscribe(subscriber, cmd);
+    }
+
+    void processCommand(const RouterSession::Ptr& publisher, Pub&& publish)
+    {
+        if (!uriValidator_->checkTopic(publish.uri(), false))
+            return publisher->abort({WampErrc::invalidUri});
+        if (!checkMetaTopicPublicationAttempt(*publisher, publish))
+            return;
+        authorize(publisher, publish);
+    }
+
     void bypassAuthorization(const RouterSession::Ptr& subscriber, Topic&& t)
     {
         impl_.subscribe(subscriber, std::move(t));
@@ -960,18 +974,43 @@ private:
 
     void bypassAuthorization(const RouterSession::Ptr& publisher, Pub&& p)
     {
+        DisclosureSetter::applyToCommand(p, *publisher, publisherDisclosure_);
         impl_.publish(publisher, std::move(p));
     }
 
     void onAuthorized(const RouterSession::Ptr& subscriber,
                       Topic&& topic) override
     {
-        impl_.subscribe(subscriber, std::move(topic));
+        struct Dispatched
+        {
+            Ptr self;
+            RouterSession::Ptr subscriber;
+            Topic topic;
+
+            void operator()()
+            {
+                self->impl_.subscribe(subscriber, std::move(topic));
+            }
+        };
+
+        boost::asio::dispatch(
+            *strand_,
+            Dispatched{shared_from_this(), subscriber, std::move(topic)});
     };
 
     void onAuthorized(const RouterSession::Ptr& publisher, Pub&& pub) override
     {
-        impl_.publish(publisher, std::move(pub));
+        struct Dispatched
+        {
+            Ptr self;
+            RouterSession::Ptr publisher;
+            Pub pub;
+            void operator()() {self->impl_.publish(publisher, std::move(pub));}
+        };
+
+        boost::asio::dispatch(
+            *strand_,
+            Dispatched{shared_from_this(), publisher, std::move(pub)});
     };
 
     bool checkMetaTopicPublicationAttempt(RouterSession& publisher,
@@ -990,7 +1029,8 @@ private:
 
     BrokerImpl impl_;
     AnyIoExecutor executor_;
-    IoStrand strand_;
+    SharedStrand strand_;
+    UriValidator::Ptr uriValidator_;
     Authorizer::Ptr authorizer_;
     DisclosureRule publisherDisclosure_;
     bool metaTopicPublicationAllowed_ = false;

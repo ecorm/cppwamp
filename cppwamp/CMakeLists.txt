@@ -26,6 +26,7 @@ set(HEADERS
     include/cppwamp/conversionaccess.hpp
     include/cppwamp/corounpacker.hpp
     include/cppwamp/directsession.hpp
+    include/cppwamp/disclosurerule.hpp
     include/cppwamp/errorcodes.hpp
     include/cppwamp/erroror.hpp
     include/cppwamp/errorinfo.hpp
@@ -82,6 +83,7 @@ set(HEADERS
     include/cppwamp/internal/commandinfo.hpp
     include/cppwamp/internal/connectioninfoimpl.hpp
     include/cppwamp/internal/dealer.hpp
+    include/cppwamp/internal/disclosuresetter.hpp
     include/cppwamp/internal/directpeer.hpp
     include/cppwamp/internal/endian.hpp
     include/cppwamp/internal/jsonencoding.hpp

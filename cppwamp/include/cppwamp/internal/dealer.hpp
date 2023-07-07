@@ -21,9 +21,11 @@
 #include "../erroror.hpp"
 #include "../routerconfig.hpp"
 #include "../rpcinfo.hpp"
+#include "../uri.hpp"
 #include "../utils/triemap.hpp"
 #include "authorizationlistener.hpp"
 #include "commandinfo.hpp"
+#include "disclosuresetter.hpp"
 #include "metaapi.hpp"
 #include "routersession.hpp"
 #include "timeoutscheduler.hpp"
@@ -629,12 +631,23 @@ private:
 class DealerImpl
 {
 public:
-    DealerImpl(IoStrand strand, MetaTopics::Ptr metaTopics,
-               const RealmConfig& cfg)
+    DealerImpl(IoStrand strand, MetaProcedures::Ptr metaProcedures,
+               MetaTopics::Ptr metaTopics, const RealmConfig& cfg)
         : jobs_(std::move(strand)),
+          metaProcedures_(std::move(metaProcedures)),
           metaTopics_(std::move(metaTopics)),
           callTimeoutForwardingEnabled_(cfg.callTimeoutForwardingEnabled())
     {}
+
+    bool metaProceduresAreEnabled() const
+    {
+        return metaProcedures_ != nullptr;
+    }
+
+    bool hasMetaProcedure(const Uri& uri) const
+    {
+        return metaProcedures_ && metaProcedures_->hasProcedure(uri);
+    }
 
     bool hasProcedure(const Uri& uri) const
     {
@@ -769,7 +782,13 @@ private:
     {
         auto* reg = registry_.find(rpc.uri());
         if (reg == nullptr)
-            return makeUnexpectedError(WampErrc::noSuchProcedure);
+        {
+            auto found = metaProcedures_ &&
+                         metaProcedures_->call(*caller, std::move(rpc));
+            if (!found)
+                return makeUnexpectedError(WampErrc::noSuchProcedure);
+            return true;
+        }
 
         auto callee = reg->callee().lock();
         if (!callee)
@@ -839,6 +858,7 @@ private:
     DealerRegistry registry_;
     DealerJobMap jobs_;
     RegistrationId nextRegistrationId_ = nullId();
+    MetaProcedures::Ptr metaProcedures_;
     MetaTopics::Ptr metaTopics_;
     bool callTimeoutForwardingEnabled_ = false;
 };
@@ -849,14 +869,15 @@ class Dealer : public std::enable_shared_from_this<Dealer>,
 {
 public:
     using Ptr = std::shared_ptr<Dealer>;
+    using SharedStrand = std::shared_ptr<IoStrand>;
 
-    Dealer(AnyIoExecutor executor, IoStrand strand,
+    Dealer(AnyIoExecutor executor, SharedStrand strand,
            MetaProcedures::Ptr metaProcedures, MetaTopics::Ptr metaTopics,
-           const RealmConfig& cfg)
-        : impl_(strand, std::move(metaTopics), cfg),
+           UriValidator::Ptr uriValidator, const RealmConfig& cfg)
+        : impl_(*strand, std::move(metaProcedures), std::move(metaTopics), cfg),
           executor_(std::move(executor)),
           strand_(std::move(strand)),
-          metaProcedures_(std::move(metaProcedures)),
+          uriValidator_(std::move(uriValidator)),
           authorizer_(cfg.authorizer()),
           callerDisclosure_(cfg.callerDisclosure()),
           metaProcedureRegistrationAllowed_(
@@ -875,58 +896,9 @@ public:
         };
 
         boost::asio::dispatch(
-            strand_,
+            *strand_,
             Dispatched{shared_from_this(), std::move(originator),
                        std::forward<C>(command)});
-    }
-
-    void processCommand(const RouterSession::Ptr& callee, Procedure&& enroll)
-    {
-        if (enroll.matchPolicy() != MatchPolicy::exact)
-        {
-            callee->sendRouterCommandError(
-                enroll, WampErrc::optionNotAllowed,
-                "pattern-based registrations are not supported");
-            return;
-        }
-
-        auto errc = checkMetaProcedureRegistrationAttempt(enroll.uri());
-        if (errc != WampErrc::success)
-            return callee->sendRouterCommandError(enroll, errc);
-
-        authorize(callee, enroll);
-    }
-
-    void processCommand(const RouterSession::Ptr& callee, const Unregister& cmd)
-    {
-        impl_.unregister(callee, cmd);
-    }
-
-    void processCommand(const RouterSession::Ptr& caller, Rpc&& call)
-    {
-        if (!checkProcedureExistsBeforeAuthorizing(call.uri()))
-        {
-            return caller->sendRouterCommandError(call,
-                                                  WampErrc::noSuchProcedure);
-        }
-
-        authorize(caller, call);
-    }
-
-    void processCommand(const RouterSession::Ptr& caller,
-                        CallCancellation&& cmd)
-    {
-        impl_.cancelCall(caller, std::move(cmd));
-    }
-
-    void processCommand(const RouterSession::Ptr& callee, Result&& yielded)
-    {
-        return impl_.yieldResult(callee, std::move(yielded));
-    }
-
-    void processCommand(const RouterSession::Ptr& callee, Error&& yielded)
-    {
-        return impl_.yieldError(callee, std::move(yielded));
     }
 
     void removeSession(const SessionInfo& info) {impl_.removeSession(info);}
@@ -968,6 +940,60 @@ private:
                                executor_);
     }
 
+    void processCommand(const RouterSession::Ptr& callee, Procedure&& enroll)
+    {
+        if (enroll.matchPolicy() != MatchPolicy::exact)
+        {
+            callee->sendRouterCommandError(
+                enroll, WampErrc::optionNotAllowed,
+                "pattern-based registrations are not supported");
+            return;
+        }
+
+        if (!uriValidator_->checkProcedure(enroll.uri(), false))
+            return callee->abort({WampErrc::invalidUri});
+
+        auto errc = checkMetaProcedureRegistrationAttempt(enroll.uri());
+        if (errc != WampErrc::success)
+            return callee->sendRouterCommandError(enroll, errc);
+
+        authorize(callee, enroll);
+    }
+
+    void processCommand(const RouterSession::Ptr& callee, const Unregister& cmd)
+    {
+        impl_.unregister(callee, cmd);
+    }
+
+    void processCommand(const RouterSession::Ptr& caller, Rpc&& call)
+    {
+        if (!uriValidator_->checkProcedure(call.uri(), false))
+            return caller->abort({WampErrc::invalidUri});
+
+        if (!checkProcedureExistsBeforeAuthorizing(caller, call))
+            return;
+
+        authorize(caller, call);
+    }
+
+    void processCommand(const RouterSession::Ptr& caller,
+                        CallCancellation&& cmd)
+    {
+        impl_.cancelCall(caller, std::move(cmd));
+    }
+
+    void processCommand(const RouterSession::Ptr& callee, Result&& yielded)
+    {
+        return impl_.yieldResult(callee, std::move(yielded));
+    }
+
+    void processCommand(const RouterSession::Ptr& callee, Error&& yielded)
+    {
+        if (!uriValidator_->checkError(yielded.uri()))
+            return callee->abort({WampErrc::invalidUri});
+        return impl_.yieldError(callee, std::move(yielded));
+    }
+
     void bypassAuthorization(const RouterSession::Ptr& callee, Procedure&& p)
     {
         impl_.enroll(callee, std::move(p));
@@ -975,6 +1001,7 @@ private:
 
     void bypassAuthorization(const RouterSession::Ptr& callee, Rpc&& r)
     {
+        DisclosureSetter::applyToCommand(r, *callee, callerDisclosure_);
         impl_.call(callee, std::move(r));
     }
 
@@ -982,9 +1009,9 @@ private:
     {
         if (metaProcedureRegistrationAllowed_)
         {
-            if (metaProcedures_ == nullptr)
+            if (!impl_.metaProceduresAreEnabled())
                 return WampErrc::success;
-            if (metaProcedures_->hasProcedure(uri))
+            if (impl_.hasMetaProcedure(uri))
                 return WampErrc::procedureAlreadyExists;
         }
         else if (uri.rfind("wamp.", 0) == 0)
@@ -1007,18 +1034,18 @@ private:
         };
 
         boost::asio::dispatch(
-            strand_, Dispatched{shared_from_this(), callee, std::move(proc)});
+            *strand_, Dispatched{shared_from_this(), callee, std::move(proc)});
     };
 
-    bool checkProcedureExistsBeforeAuthorizing(const Uri& uri)
+    bool checkProcedureExistsBeforeAuthorizing(const RouterSession::Ptr& caller,
+                                               const Rpc& call)
     {
-        if (!authorizer_)
-            return true;
-
-        bool found = impl_.hasProcedure(uri);
-        if (!found && (metaProcedures_ != nullptr))
-            found = metaProcedures_->hasProcedure(uri);
-        return found;
+        const bool ok = !authorizer_ ||
+                        impl_.hasProcedure(call.uri()) ||
+                        impl_.hasMetaProcedure(call.uri());
+        if (!ok)
+            caller->sendRouterCommandError(call, WampErrc::noSuchProcedure);
+        return ok;
     }
 
     void onAuthorized(const RouterSession::Ptr& caller, Rpc&& rpc) override
@@ -1036,13 +1063,13 @@ private:
         };
 
         boost::asio::dispatch(
-            strand_, Dispatched{shared_from_this(), caller, std::move(rpc)});
+            *strand_, Dispatched{shared_from_this(), caller, std::move(rpc)});
     };
 
     DealerImpl impl_;
     AnyIoExecutor executor_;
-    IoStrand strand_;
-    MetaProcedures::Ptr metaProcedures_;
+    SharedStrand strand_;
+    UriValidator::Ptr uriValidator_;
     Authorizer::Ptr authorizer_;
     DisclosureRule callerDisclosure_;
     bool metaProcedureRegistrationAllowed_ = false;

@@ -505,9 +505,10 @@ public:
     using WeakPtr = std::weak_ptr<MetaTopics>;
     using Executor = AnyIoExecutor;
     using FallbackExecutor = AnyCompletionExecutor;
+    using SharedStrand = std::shared_ptr<IoStrand>;
     using ObserverId = uint64_t;
 
-    MetaTopics(MetaPublisher* realm, Executor executor, IoStrand strand,
+    MetaTopics(MetaPublisher* realm, Executor executor, SharedStrand strand,
                bool metaApiEnabled)
         : executor_(std::move(executor)),
           strand_(std::move(strand)),
@@ -735,7 +736,7 @@ private:
     void onDetach(ObserverId id) override
     {
         auto self = std::static_pointer_cast<MetaTopics>(shared_from_this());
-        boost::asio::dispatch(strand_,
+        boost::asio::dispatch(*strand_,
                               [id, self]() {self->observers_.erase(id);});
     }
 
@@ -760,7 +761,7 @@ private:
     }
 
     Executor executor_;
-    IoStrand strand_;
+    SharedStrand strand_;
     std::map<ObserverId, RealmObserver::WeakPtr> observers_;
     MetaPublisher* context_ = nullptr;
     ObserverId nextObserverId_ = 0;
