@@ -29,7 +29,7 @@ public:
         C& command, internal::RouterSession& originator, Rule realmRule,
         Rule authRule = Rule::preset)
     {
-        setDisclosed(command, originator, authRule, realmRule);
+        return setDisclosed(command, originator, authRule, realmRule);
     }
 
 private:

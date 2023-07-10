@@ -974,8 +974,10 @@ private:
 
     void bypassAuthorization(const RouterSession::Ptr& publisher, Pub&& p)
     {
-        DisclosureSetter::applyToCommand(p, *publisher, publisherDisclosure_);
-        impl_.publish(publisher, std::move(p));
+        bool ok = DisclosureSetter::applyToCommand(p, *publisher,
+                                                   publisherDisclosure_);
+        if (ok)
+            impl_.publish(publisher, std::move(p));
     }
 
     void onAuthorized(const RouterSession::Ptr& subscriber,
