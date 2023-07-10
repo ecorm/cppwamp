@@ -1417,9 +1417,11 @@ private:
 
     void failProtocol(std::string why)
     {
-        peer_->abort(Reason(WampErrc::protocolViolation).withHint(why));
-        auto ec = make_error_code(WampErrc::protocolViolation);
-        report({IncidentKind::commFailure, ec, std::move(why)});
+        static constexpr auto errc = WampErrc::protocolViolation;
+        abandonPending(errc);
+        peer_->abort(Reason(errc).withHint(why));
+        report({IncidentKind::commFailure, make_error_code(errc),
+                std::move(why)});
     }
 
     template <typename S, typename... Ts>
