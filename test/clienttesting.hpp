@@ -36,7 +36,7 @@ const auto withTcp = TcpHost("localhost", validPort).withFormat(json);
 const auto invalidTcp = TcpHost("localhost", invalidPort).withFormat(json);
 
 //------------------------------------------------------------------------------
-inline void suspendCoro(YieldContext& yield)
+inline void suspendCoro(YieldContext yield)
 {
     auto exec = boost::asio::get_associated_executor(yield);
     boost::asio::post(exec, yield);

@@ -26,12 +26,6 @@ const std::string testRealm = "cppwamp.test";
 const short testPort = 12345;
 const auto withTcp = TcpHost("localhost", testPort).withFormat(json);
 
-void suspendCoro(YieldContext& yield)
-{
-    auto exec = boost::asio::get_associated_executor(yield);
-    boost::asio::post(exec, yield);
-}
-
 //------------------------------------------------------------------------------
 struct PubSubFixture
 {
@@ -99,7 +93,7 @@ GIVEN( "a publisher and a subscriber" )
 
             f.publisher.publish(Pub("onEvent").withDiscloseMe(), yield).value();
             while (eventCount == 0)
-                suspendCoro(yield);
+                test::suspendCoro(yield);
             CHECK( disclosedId == f.publisherId );
             f.disconnect();
         });
@@ -153,21 +147,21 @@ GIVEN( "a publisher and a subscriber" )
 
             f.publisher.publish(Pub("com.myapp.foo"), yield).value();
             while (prefixMatchCount < 1)
-                suspendCoro(yield);
+                test::suspendCoro(yield);
             CHECK( prefixMatchCount == 1 );
             CHECK_THAT( prefixTopic, Equals("com.myapp.foo") );
             CHECK( wildcardMatchCount == 0 );
 
             f.publisher.publish(Pub("com.foo.onEvent"), yield).value();
             while (wildcardMatchCount < 1)
-                suspendCoro(yield);
+                test::suspendCoro(yield);
             CHECK( prefixMatchCount == 1 );
             CHECK( wildcardMatchCount == 1 );
             CHECK_THAT( wildcardTopic, Equals("com.foo.onEvent") );
 
             f.publisher.publish(Pub("com.myapp.onEvent"), yield).value();
             while ((prefixMatchCount < 2) || (wildcardMatchCount < 2))
-                suspendCoro(yield);
+                test::suspendCoro(yield);
             CHECK( prefixMatchCount == 2 );
             CHECK( wildcardMatchCount == 2 );
             CHECK_THAT( prefixTopic, Equals("com.myapp.onEvent") );
@@ -202,7 +196,7 @@ GIVEN( "a publisher and a subscriber" )
             f.publisher.publish(Pub("onEvent").withExcludeMe(false),
                                  yield).value();
             while ((subscriberEventCount < 1) || (publisherEventCount < 1))
-                suspendCoro(yield);
+                test::suspendCoro(yield);
             CHECK( subscriberEventCount == 1 );
             CHECK( publisherEventCount == 1 );
             f.disconnect();
@@ -242,7 +236,7 @@ GIVEN( "a publisher and a subscriber" )
                                      .withExcludedSessions({subscriber2Id}),
                                  yield).value();
             while (eventCount1 < 1)
-                suspendCoro(yield);
+                test::suspendCoro(yield);
             CHECK( eventCount1 == 1 );
             CHECK( eventCount2 == 0 );
 
@@ -251,7 +245,7 @@ GIVEN( "a publisher and a subscriber" )
                                      .withEligibleSessions({subscriber2Id}),
                                  yield).value();
             while (eventCount2 < 1)
-                suspendCoro(yield);
+                test::suspendCoro(yield);
             CHECK( eventCount1 == 1 );
             CHECK( eventCount2 == 1 );
 

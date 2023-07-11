@@ -14,22 +14,14 @@
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
+#include "clienttesting.hpp"
 
 using namespace wamp;
+using namespace test;
 using namespace Catch::Matchers;
 
 namespace
 {
-
-const std::string testRealm = "cppwamp.test";
-const short testPort = 12345;
-const auto withTcp = TcpHost("localhost", testPort).withFormat(json);
-
-void suspendCoro(YieldContext& yield)
-{
-    auto exec = boost::asio::get_associated_executor(yield);
-    boost::asio::post(exec, yield);
-}
 
 //------------------------------------------------------------------------------
 struct RpcFixture

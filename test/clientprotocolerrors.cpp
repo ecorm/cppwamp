@@ -11,6 +11,7 @@
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
+#include "clienttesting.hpp"
 #include "mockserver.hpp"
 
 using namespace wamp;
@@ -25,13 +26,6 @@ const unsigned short testPort = 54321;
 const auto withTcp = TcpHost("localhost", testPort).withFormat(json);
 
 //------------------------------------------------------------------------------
-inline void suspendCoro(YieldContext& yield)
-{
-    auto exec = boost::asio::get_associated_executor(yield);
-    boost::asio::post(exec, yield);
-}
-
-//------------------------------------------------------------------------------
 template <typename C>
 C toCommand(wamp::internal::Message&& m)
 {
@@ -43,7 +37,7 @@ void checkProtocolViolation(const Session& session, MockServer& server,
                             const std::string& hintKeyword, YieldContext yield)
 {
     while (server.lastMessageKind() != MessageKind::abort)
-        suspendCoro(yield);
+        test::suspendCoro(yield);
 
     CHECK(session.state() == SessionState::failed);
 
@@ -66,7 +60,7 @@ void checkInvocationError(const Session& session, MockServer& server,
                           const std::string& hintKeyword, YieldContext yield)
 {
     while (server.lastMessageKind() != MessageKind::error)
-        suspendCoro(yield);
+        test::suspendCoro(yield);
 
     CHECK(session.state() == SessionState::established);
 
