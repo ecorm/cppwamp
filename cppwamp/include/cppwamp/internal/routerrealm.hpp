@@ -431,55 +431,55 @@ private:
     void send(const RouterSession::Ptr& originator, Topic&& subscribe)
     {
         originator->report(subscribe.info());
-        broker_->dispatchCommand(originator, std::move(subscribe));
+        broker_->subscribe(originator, std::move(subscribe));
     }
 
     void send(const RouterSession::Ptr& originator, Unsubscribe&& cmd)
     {
         originator->report(cmd.info());
-        broker_->dispatchCommand(originator, std::move(cmd));
+        broker_->unsubscribe(originator, std::move(cmd));
     }
 
     void send(const RouterSession::Ptr& originator, Pub&& publish)
     {
         originator->report(publish.info());
-        broker_->dispatchCommand(originator, std::move(publish));
+        broker_->publish(originator, std::move(publish));
     }
 
     void send(const RouterSession::Ptr& originator, Procedure&& enroll)
     {
         originator->report(enroll.info());
-        dealer_->dispatchCommand(originator, std::move(enroll));
+        dealer_->enroll(originator, std::move(enroll));
     }
 
     void send(const RouterSession::Ptr& originator, Unregister&& cmd)
     {
         originator->report(cmd.info());
-        dealer_->dispatchCommand(originator, std::move(cmd));
+        dealer_->unregister(originator, std::move(cmd));
     }
 
     void send(const RouterSession::Ptr& originator, Rpc&& call)
     {
         originator->report(call.info());
-        dealer_->dispatchCommand(originator, std::move(call));
+        dealer_->call(originator, std::move(call));
     }
 
     void send(const RouterSession::Ptr& originator, CallCancellation&& cancel)
     {
         originator->report(cancel.info());
-        dealer_->dispatchCommand(originator, std::move(cancel));
+        dealer_->cancelCall(originator, std::move(cancel));
     }
 
     void send(const RouterSession::Ptr& originator, Result&& yielded)
     {
         originator->report(yielded.info(false));
-        dealer_->dispatchCommand(originator, std::move(yielded));
+        dealer_->yieldResult(originator, std::move(yielded));
     }
 
     void send(const RouterSession::Ptr& originator, Error&& yielded)
     {
         originator->report(yielded.info(false));
-        dealer_->dispatchCommand(originator, std::move(yielded));
+        dealer_->yieldError(originator, std::move(yielded));
     }
 
     void log(LogEntry&& e)

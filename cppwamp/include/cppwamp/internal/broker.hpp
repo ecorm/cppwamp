@@ -863,21 +863,20 @@ public:
           metaTopicPublicationAllowed_(config.metaTopicPublicationAllowed())
     {}
 
-    template <typename C>
-    void dispatchCommand(RouterSession::Ptr originator, C&& command)
+    void subscribe(const RouterSession::Ptr& subscriber, Topic&& topic)
     {
-        struct Dispatched
-        {
-            Ptr self;
-            RouterSession::Ptr o;
-            C c;
-            void operator()() {self->processCommand(o, std::move(c));}
-        };
+        dispatchCommand(subscriber, std::move(topic));
+    }
 
-        boost::asio::dispatch(
-            *strand_,
-            Dispatched{shared_from_this(), std::move(originator),
-                       std::forward<C>(command)});
+    void unsubscribe(const RouterSession::Ptr& subscriber,
+                     const Unsubscribe& cmd)
+    {
+        dispatchCommand(subscriber, std::move(cmd));
+    }
+
+    void publish(const RouterSession::Ptr& publisher, Pub&& publish)
+    {
+        dispatchCommand(publisher, std::move(publish));
     }
 
     void publishMetaEvent(Pub&& pub, SessionId inhibitedSessionId)
@@ -925,15 +924,20 @@ private:
     }
 
     template <typename C>
-    void authorize(const RouterSession::Ptr& originator, C& command)
+    void dispatchCommand(RouterSession::Ptr originator, C&& command)
     {
-        if (!authorizer_)
-            return bypassAuthorization(originator, std::move(command));
+        struct Dispatched
+        {
+            Ptr self;
+            RouterSession::Ptr o;
+            C c;
+            void operator()() {self->processCommand(o, std::move(c));}
+        };
 
-        AuthorizationRequest r{{}, shared_from_this(), originator,
-                               publisherDisclosure_};
-        authorizer_->authorize(std::forward<C>(command), std::move(r),
-                               executor_);
+        boost::asio::dispatch(
+            *strand_,
+            Dispatched{shared_from_this(), std::move(originator),
+                       std::forward<C>(command)});
     }
 
     void processCommand(const RouterSession::Ptr& subscriber, Topic&& subscribe)
@@ -965,6 +969,18 @@ private:
         if (!checkMetaTopicPublicationAttempt(*publisher, publish))
             return;
         authorize(publisher, publish);
+    }
+
+    template <typename C>
+    void authorize(const RouterSession::Ptr& originator, C& command)
+    {
+        if (!authorizer_)
+            return bypassAuthorization(originator, std::move(command));
+
+        AuthorizationRequest r{{}, shared_from_this(), originator,
+                               publisherDisclosure_};
+        authorizer_->authorize(std::forward<C>(command), std::move(r),
+                               executor_);
     }
 
     void bypassAuthorization(const RouterSession::Ptr& subscriber, Topic&& t)

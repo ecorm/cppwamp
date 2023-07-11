@@ -908,21 +908,34 @@ public:
               cfg.metaProcedureRegistrationAllowed())
     {}
 
-    template <typename C>
-    void dispatchCommand(RouterSession::Ptr originator, C&& command)
+    void enroll(RouterSession::Ptr callee, Procedure&& procedure)
     {
-        struct Dispatched
-        {
-            Ptr self;
-            RouterSession::Ptr o;
-            C c;
-            void operator()() {self->processCommand(o, std::move(c));}
-        };
+        dispatchCommand(std::move(callee), std::move(procedure));
+    }
 
-        boost::asio::dispatch(
-            *strand_,
-            Dispatched{shared_from_this(), std::move(originator),
-                       std::forward<C>(command)});
+    void unregister(RouterSession::Ptr callee, Unregister&& cmd)
+    {
+        dispatchCommand(std::move(callee), std::move(cmd));
+    }
+
+    void call(RouterSession::Ptr caller, Rpc&& call)
+    {
+        dispatchCommand(std::move(caller), std::move(call));
+    }
+
+    void cancelCall(RouterSession::Ptr caller, CallCancellation&& cancel)
+    {
+        dispatchCommand(std::move(caller), std::move(cancel));
+    }
+
+    void yieldResult(RouterSession::Ptr callee, Result&& result)
+    {
+        dispatchCommand(std::move(callee), std::move(result));
+    }
+
+    void yieldError(RouterSession::Ptr callee, Error&& error)
+    {
+        dispatchCommand(std::move(callee), std::move(error));
     }
 
     void removeSession(const SessionInfo& info) {impl_.removeSession(info);}
@@ -953,15 +966,20 @@ public:
 
 private:
     template <typename C>
-    void authorize(const RouterSession::Ptr& originator, C& command)
+    void dispatchCommand(RouterSession::Ptr originator, C&& command)
     {
-        if (!authorizer_)
-            return bypassAuthorization(originator, std::move(command));
+        struct Dispatched
+        {
+            Ptr self;
+            RouterSession::Ptr o;
+            C c;
+            void operator()() {self->processCommand(o, std::move(c));}
+        };
 
-        AuthorizationRequest r{{}, shared_from_this(), originator,
-                               callerDisclosure_};
-        authorizer_->authorize(std::forward<C>(command), std::move(r),
-                               executor_);
+        boost::asio::dispatch(
+            *strand_,
+            Dispatched{shared_from_this(), std::move(originator),
+                       std::forward<C>(command)});
     }
 
     void processCommand(const RouterSession::Ptr& callee, Procedure&& enroll)
@@ -1016,6 +1034,18 @@ private:
         if (!uriValidator_->checkError(yielded.uri()))
             return callee->abort({WampErrc::invalidUri});
         return impl_.yieldError(callee, std::move(yielded));
+    }
+
+    template <typename C>
+    void authorize(const RouterSession::Ptr& originator, C& command)
+    {
+        if (!authorizer_)
+            return bypassAuthorization(originator, std::move(command));
+
+        AuthorizationRequest r{{}, shared_from_this(), originator,
+                               callerDisclosure_};
+        authorizer_->authorize(std::forward<C>(command), std::move(r),
+                               executor_);
     }
 
     void bypassAuthorization(const RouterSession::Ptr& callee, Procedure&& p)
