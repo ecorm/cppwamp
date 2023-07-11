@@ -712,9 +712,9 @@ TEST_CASE( "SurrogateAny Swap", "[SurrogateAny]" )
 {
     int small = 42;
     int small2 = 24;
-    std::array<char, 2*sizeof(SurrogateAny)> large;
+    std::array<char, 2*sizeof(SurrogateAny)> large = {};
     std::iota(large.begin(), large.end(), 0);
-    std::array<char, 2*sizeof(SurrogateAny)> large2;
+    std::array<char, 2*sizeof(SurrogateAny)> large2 = {};
     std::iota(large.begin(), large.end(), 1);
 
     SECTION( "empty lhs" )
