@@ -104,6 +104,7 @@ public:
         assert(emplaced.second);
         DealerRegistration* ptr = &(emplaced.first->second);
         byUri_.emplace(ptr->info().uri, ptr);
+        assert(byUri_.size() == byKey_.size());
         return &(emplaced.first->second);
     }
 
@@ -130,6 +131,7 @@ public:
         auto erased = byUri_.erase(uri);
         assert(erased == 1);
         byKey_.erase(found);
+        assert(byUri_.size() == byKey_.size());
 
         return uri;
     }
@@ -660,6 +662,7 @@ public:
         {
             callee->sendRouterCommandError(proc,
                                            WampErrc::procedureAlreadyExists);
+            return;
         }
 
         auto reqId = proc.requestId({});
