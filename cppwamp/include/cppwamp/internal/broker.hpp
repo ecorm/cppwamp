@@ -974,8 +974,8 @@ private:
 
     void bypassAuthorization(const RouterSession::Ptr& publisher, Pub&& p)
     {
-        bool ok = DisclosureSetter::applyToCommand(p, *publisher,
-                                                   publisherDisclosure_);
+        const bool ok = DisclosureSetter::applyToCommand(p, *publisher,
+                                                         publisherDisclosure_);
         if (ok)
             impl_.publish(publisher, std::move(p));
     }
@@ -1016,7 +1016,7 @@ private:
     };
 
     bool checkMetaTopicPublicationAttempt(RouterSession& publisher,
-                                          const Pub& pub)
+                                          const Pub& pub) const
     {
         if (metaTopicPublicationAllowed_)
             return true;

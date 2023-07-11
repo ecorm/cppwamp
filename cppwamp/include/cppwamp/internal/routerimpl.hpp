@@ -203,8 +203,8 @@ private:
 
     RouterImpl(Executor e, RouterConfig c)
         : config_(std::move(c)),
-          executor_(std::move(e)),
-          logger_(RouterLogger::create(executor_,
+          executor_(e),
+          logger_(RouterLogger::create(std::move(e),
                                        config_.logHandler(),
                                        config_.logLevel(),
                                        config_.accessLogHandler())),

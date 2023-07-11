@@ -54,7 +54,7 @@ CPPWAMP_INLINE bool Realm::close(Reason r)
 {
     if (!isAttached())
         return false;
-    bool closed = impl_->closeViaRouter(std::move(r));
+    const bool closed = impl_->closeViaRouter(std::move(r));
     impl_.reset();
     return closed;
 }
