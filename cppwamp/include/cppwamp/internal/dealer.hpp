@@ -97,14 +97,14 @@ public:
 
     bool contains(const Uri& uri) {return byUri_.count(uri) != 0;}
 
-    DealerRegistration& insert(Key key, DealerRegistration&& reg)
+    DealerRegistration* insert(Key key, DealerRegistration&& reg)
     {
         reg.setRegistrationId(key);
         auto emplaced = byKey_.emplace(key, std::move(reg));
         assert(emplaced.second);
         DealerRegistration* ptr = &(emplaced.first->second);
         byUri_.emplace(ptr->info().uri, ptr);
-        return emplaced.first->second;
+        return &(emplaced.first->second);
     }
 
     ErrorOr<Uri> erase(RouterSession& callee, Key key,
@@ -665,11 +665,20 @@ public:
         auto reqId = proc.requestId({});
         DealerRegistration reg{std::move(proc), callee};
         auto regId = nextRegistrationId();
-        const auto& inserted = registry_.insert(regId, std::move(reg));
+        DealerRegistration* inserted = nullptr;
+
+        {
+            const MutexGuard guard{queryMutex_};
+            inserted = registry_.insert(regId, std::move(reg));
+        }
+
         callee->sendRouterCommand(Registered{reqId, regId},
-                                  inserted.info().uri);
+                                  inserted->info().uri);
         if (metaTopics_->enabled())
-            metaTopics_->onRegister(callee->sharedInfo(), inserted.info(false));
+        {
+            metaTopics_->onRegister(callee->sharedInfo(),
+                                    inserted->info(false));
+        }
     }
 
     void unregister(const RouterSession::Ptr& callee, const Unregister& cmd)
@@ -677,7 +686,14 @@ public:
         // Consensus on what to do with pending invocations upon unregister
         // appears to be to allow them to continue.
         // https://github.com/wamp-proto/wamp-proto/issues/283#issuecomment-429542748
-        auto uri = registry_.erase(*callee, cmd.registrationId(), *metaTopics_);
+
+        ErrorOr<Uri> uri;
+
+        {
+            const MutexGuard guard{queryMutex_};
+            uri = registry_.erase(*callee, cmd.registrationId(), *metaTopics_);
+        }
+
         if (uri.has_value())
             callee->sendRouterCommand(Unregistered{cmd.requestId({})}, *uri);
         else
@@ -743,19 +759,25 @@ public:
 
     void removeSession(const SessionInfo& info)
     {
-        registry_.removeCallee(info, *metaTopics_);
+        {
+            const MutexGuard guard{queryMutex_};
+            registry_.removeCallee(info, *metaTopics_);
+        }
+
         jobs_.removeSession(info.sessionId());
     }
 
     ErrorOr<RegistrationInfo> getRegistration(RegistrationId rid,
                                               bool listCallees) const
     {
+        const MutexGuard guard{queryMutex_};
         return registry_.at(rid, listCallees);
     }
 
     ErrorOr<RegistrationInfo> lookupRegistration(
         const Uri& uri, MatchPolicy p, bool listCallees) const
     {
+        const MutexGuard guard{queryMutex_};
         if (p != MatchPolicy::exact)
             return makeUnexpectedError(WampErrc::noSuchRegistration);
         return registry_.lookup(uri, listCallees);
@@ -764,12 +786,14 @@ public:
     ErrorOr<RegistrationInfo> bestRegistrationMatch(const Uri& uri,
                                                     bool listCallees) const
     {
+        const MutexGuard guard{queryMutex_};
         return registry_.lookup(uri, listCallees);
     }
 
     template <typename F>
     std::size_t forEachRegistration(MatchPolicy p, F&& functor) const
     {
+        const MutexGuard guard{queryMutex_};
         if (p != MatchPolicy::exact)
             return 0;
         return registry_.forEachRegistration(std::forward<F>(functor));
