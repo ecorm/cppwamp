@@ -17,6 +17,7 @@ namespace
 //------------------------------------------------------------------------------
 void checkInvalidConnect(Session& session, YieldContext yield)
 {
+    INFO("connect");
     auto index = session.connect(withTcp, yield);
     REQUIRE_FALSE( index.has_value() );
     CHECK( index.error() == MiscErrc::invalidState );
@@ -26,6 +27,7 @@ void checkInvalidConnect(Session& session, YieldContext yield)
 //------------------------------------------------------------------------------
 void checkInvalidJoin(Session& session, YieldContext yield)
 {
+    INFO("join");
     auto welcome = session.join(Petition(testRealm), yield);
     REQUIRE_FALSE( welcome.has_value() );
     CHECK( welcome.error() == MiscErrc::invalidState );
@@ -36,6 +38,7 @@ void checkInvalidJoin(Session& session, YieldContext yield)
 //------------------------------------------------------------------------------
 void checkInvalidLeave(Session& session, YieldContext yield)
 {
+    INFO("leave");
     auto reason = session.leave(yield);
     REQUIRE_FALSE( reason.has_value() );
     CHECK( reason.error() == MiscErrc::invalidState );
@@ -43,39 +46,57 @@ void checkInvalidLeave(Session& session, YieldContext yield)
 }
 
 //------------------------------------------------------------------------------
-inline void checkInvalidOps(Session& session, YieldContext yield)
+void checkInvalidPublish(Session& session, YieldContext yield)
 {
-    auto unex = makeUnexpected(MiscErrc::invalidState);
-
+    INFO("publish");
     CHECK_NOTHROW( session.publish(Pub("topic")) );
     CHECK_NOTHROW( session.publish(Pub("topic").withArgs(42)) );
     auto pub = session.publish(Pub("topic"), yield);
-    CHECK( pub == unex );
+    REQUIRE_FALSE( pub );
+    CHECK( pub.error() == MiscErrc::invalidState );
     CHECK_THROWS_AS( pub.value(), error::Failure );
-    pub = session.publish(Pub("topic").withArgs(42), yield);
-    CHECK( pub == unex );
-    CHECK_THROWS_AS( pub.value(), error::Failure );
+}
 
-    auto reason = session.leave(yield);
-    CHECK( reason == unex );
-    CHECK_THROWS_AS( reason.value(), error::Failure );
-
+//------------------------------------------------------------------------------
+void checkInvalidSubscribe(Session& session, YieldContext yield)
+{
+    INFO("subscribe");
     auto sub = session.subscribe(Topic("topic"), [](Event){}, yield);
-    CHECK( sub == unex );
+    REQUIRE_FALSE( sub );
+    CHECK( sub.error() == MiscErrc::invalidState );
     CHECK_THROWS_AS( sub.value(), error::Failure );
+}
 
+//------------------------------------------------------------------------------
+void checkInvalidEnroll(Session& session, YieldContext yield)
+{
+    INFO("enroll");
     auto reg = session.enroll(Procedure("rpc"),
-        [](Invocation)->Outcome{return {};},
+        [](Invocation)->Outcome {return {};},
         yield);
-    CHECK( reg == unex );
+    REQUIRE_FALSE( reg );
+    CHECK( reg.error() == MiscErrc::invalidState );
     CHECK_THROWS_AS( reg.value(), error::Failure );
+}
 
+//------------------------------------------------------------------------------
+void checkInvalidCall(Session& session, YieldContext yield)
+{
+    INFO("call");
     auto result = session.call(Rpc("rpc"), yield);
-    CHECK( result == unex );
+    REQUIRE_FALSE( result );
+    CHECK( result.error() == MiscErrc::invalidState );
     CHECK_THROWS_AS( result.value(), error::Failure );
-    result = session.call(Rpc("rpc").withArgs(42), yield);
-    CHECK( result == unex );
-    CHECK_THROWS_AS( result.value(), error::Failure );
+}
+
+//------------------------------------------------------------------------------
+inline void checkInvalidOps(Session& session, YieldContext yield)
+{
+    checkInvalidLeave(session, yield);
+    checkInvalidPublish(session, yield);
+    checkInvalidSubscribe(session, yield);
+    checkInvalidEnroll(session, yield);
+    checkInvalidCall(session, yield);
 }
 
 } // anonymous namespace
@@ -154,47 +175,40 @@ GIVEN( "an IO service and a TCP connector" )
     WHEN( "using invalid operations while establishing" )
     {
         Session session(ioctx);
+
+        auto reestablish = [&](YieldContext yield)
+        {
+            session.disconnect();
+            session.connect(where, yield).value();
+            session.join(Petition(testRealm), [](ErrorOr<Welcome>){});
+            while (session.state() != SessionState::establishing)
+                suspendCoro(yield);
+        };
+
         spawn(ioctx, [&](YieldContext yield)
         {
-            {
-                INFO("connecting while establishing");
-                session.connect(where, yield).value();
-                session.join(Petition(testRealm), [](ErrorOr<Welcome>){});
-                while (session.state() != SessionState::establishing)
-                    suspendCoro(yield);
-                checkInvalidConnect(session, yield);
-                session.disconnect();
-            }
+            reestablish(yield);
+            checkInvalidConnect(session, yield);
 
-            {
-                INFO("joining while establishing");
-                session.connect(where, yield).value();
-                session.join(Petition(testRealm), [](ErrorOr<Welcome>){});
-                while (session.state() != SessionState::establishing)
-                    suspendCoro(yield);
-                checkInvalidJoin(session, yield);
-                session.disconnect();
-            }
+            reestablish(yield);
+            checkInvalidJoin(session, yield);
 
-            {
-                INFO("leaving while establishing");
-                session.connect(where, yield).value();
-                session.join(Petition(testRealm), [](ErrorOr<Welcome>){});
-                while (session.state() != SessionState::establishing)
-                    suspendCoro(yield);
-                checkInvalidLeave(session, yield);
-                session.disconnect();
-            }
+            reestablish(yield);
+            checkInvalidLeave(session, yield);
 
-            {
-                INFO("other operations while establishing");
-                session.connect(where, yield).value();
-                session.join(Petition(testRealm), [](ErrorOr<Welcome>){});
-                while (session.state() != SessionState::establishing)
-                    suspendCoro(yield);
-                checkInvalidOps(session, yield);
-                session.disconnect();
-            }
+            reestablish(yield);
+            checkInvalidPublish(session, yield);
+
+            reestablish(yield);
+            checkInvalidSubscribe(session, yield);
+
+            reestablish(yield);
+            checkInvalidEnroll(session, yield);
+
+            reestablish(yield);
+            checkInvalidCall(session, yield);
+
+            session.disconnect();
         });
         ioctx.run();
     }
