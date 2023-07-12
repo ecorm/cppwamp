@@ -18,24 +18,27 @@ namespace
 void checkInvalidConnect(Session& session, YieldContext yield)
 {
     auto index = session.connect(withTcp, yield);
-    CHECK( index == makeUnexpected(MiscErrc::invalidState) );
+    REQUIRE_FALSE( index.has_value() );
+    CHECK( index.error() == MiscErrc::invalidState );
     CHECK_THROWS_AS( index.value(), error::Failure );
 }
 
 //------------------------------------------------------------------------------
 void checkInvalidJoin(Session& session, YieldContext yield)
 {
-    auto info = session.join(Petition(testRealm), yield);
-    CHECK( info == makeUnexpected(MiscErrc::invalidState) );
+    auto welcome = session.join(Petition(testRealm), yield);
+    REQUIRE_FALSE( welcome.has_value() );
+    CHECK( welcome.error() == MiscErrc::invalidState );
     CHECK_THROWS_AS( session.join(Petition(testRealm), yield).value(),
-                    error::Failure );
+                     error::Failure );
 }
 
 //------------------------------------------------------------------------------
 void checkInvalidLeave(Session& session, YieldContext yield)
 {
     auto reason = session.leave(yield);
-    CHECK( reason == makeUnexpected(MiscErrc::invalidState) );
+    REQUIRE_FALSE( reason.has_value() );
+    CHECK( reason.error() == MiscErrc::invalidState );
     CHECK_THROWS_AS( reason.value(), error::Failure );
 }
 
@@ -153,23 +156,45 @@ GIVEN( "an IO service and a TCP connector" )
         Session session(ioctx);
         spawn(ioctx, [&](YieldContext yield)
         {
-            session.connect(where, yield).value();
-            session.join(Petition(testRealm), [](ErrorOr<Welcome>){});
-            while (session.state() != SessionState::establishing)
-                suspendCoro(yield);
-            checkInvalidConnect(session, yield);
-            checkInvalidJoin(session, yield);
-            checkInvalidLeave(session, yield);
-            session.disconnect();
+            {
+                INFO("connecting while establishing");
+                session.connect(where, yield).value();
+                session.join(Petition(testRealm), [](ErrorOr<Welcome>){});
+                while (session.state() != SessionState::establishing)
+                    suspendCoro(yield);
+                checkInvalidConnect(session, yield);
+                session.disconnect();
+            }
 
-            // Start over again for checkInvalidOps. Otherwise, the the session
-            // has time to establish itself.
-            session.connect(where, yield).value();
-            session.join(Petition(testRealm), [](ErrorOr<Welcome>){});
-            while (session.state() != SessionState::establishing)
-                suspendCoro(yield);
-            checkInvalidOps(session, yield);
-            session.disconnect();
+            {
+                INFO("joining while establishing");
+                session.connect(where, yield).value();
+                session.join(Petition(testRealm), [](ErrorOr<Welcome>){});
+                while (session.state() != SessionState::establishing)
+                    suspendCoro(yield);
+                checkInvalidJoin(session, yield);
+                session.disconnect();
+            }
+
+            {
+                INFO("leaving while establishing");
+                session.connect(where, yield).value();
+                session.join(Petition(testRealm), [](ErrorOr<Welcome>){});
+                while (session.state() != SessionState::establishing)
+                    suspendCoro(yield);
+                checkInvalidLeave(session, yield);
+                session.disconnect();
+            }
+
+            {
+                INFO("other operations while establishing");
+                session.connect(where, yield).value();
+                session.join(Petition(testRealm), [](ErrorOr<Welcome>){});
+                while (session.state() != SessionState::establishing)
+                    suspendCoro(yield);
+                checkInvalidOps(session, yield);
+                session.disconnect();
+            }
         });
         ioctx.run();
     }
