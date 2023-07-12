@@ -868,8 +868,7 @@ public:
         dispatchCommand(subscriber, std::move(topic));
     }
 
-    void unsubscribe(const RouterSession::Ptr& subscriber,
-                     const Unsubscribe& cmd)
+    void unsubscribe(const RouterSession::Ptr& subscriber, Unsubscribe&& cmd)
     {
         dispatchCommand(subscriber, std::move(cmd));
     }
@@ -930,7 +929,7 @@ private:
         {
             Ptr self;
             RouterSession::Ptr o;
-            C c;
+            ValueTypeOf<C> c;
             void operator()() {self->processCommand(o, std::move(c));}
         };
 
@@ -956,8 +955,7 @@ private:
         authorize(subscriber, subscribe);
     }
 
-    void processCommand(const RouterSession::Ptr& subscriber,
-                        const Unsubscribe& cmd)
+    void processCommand(const RouterSession::Ptr& subscriber, Unsubscribe&& cmd)
     {
         impl_.unsubscribe(subscriber, cmd);
     }

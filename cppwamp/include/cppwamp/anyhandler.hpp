@@ -161,8 +161,7 @@ public:
     const Executor& get_executor() const {return executor_;}
 
     /** Assigns the executor to be associated with this handler. */
-    template <typename E>
-    void set_executor(E&& exec) {executor_ = std::forward<E>(exec);}
+    void set_executor(Executor exec) {executor_ = std::move(exec);}
 
     /** Invokes the handler with the given arguments. */
     template <typename... Ts>

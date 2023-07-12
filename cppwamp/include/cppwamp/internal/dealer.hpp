@@ -975,7 +975,7 @@ private:
         {
             Ptr self;
             RouterSession::Ptr o;
-            C c;
+            ValueTypeOf<C> c;
             void operator()() {self->processCommand(o, std::move(c));}
         };
 
@@ -1005,7 +1005,7 @@ private:
         authorize(callee, enroll);
     }
 
-    void processCommand(const RouterSession::Ptr& callee, const Unregister& cmd)
+    void processCommand(const RouterSession::Ptr& callee, Unregister&& cmd)
     {
         impl_.unregister(callee, cmd);
     }
