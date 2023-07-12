@@ -190,7 +190,7 @@ void checkPublisherDisclosure(
 
 
 //------------------------------------------------------------------------------
-TEST_CASE( "Router call timeout forwarding config", "[WAMP][Router]" )
+TEST_CASE( "Router call timeout forwarding config", "[WAMP][Router][Timeout]" )
 {
     if (!test::RouterFixture::enabled())
         return;

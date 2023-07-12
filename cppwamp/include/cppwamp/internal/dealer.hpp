@@ -609,6 +609,7 @@ private:
         if (iter != byCallee_.end())
         {
             auto& job = iter->second->second;
+            const RequestId reqId = job.callerKey().second;
             bool eraseNow = false;
             auto done = job.cancel(CallCancelMode::killNoWait,
                                    WampErrc::timeout, eraseNow);
@@ -617,8 +618,7 @@ private:
                 byCalleeErase(iter);
             if (caller && !done)
             {
-                Error e{PassKey{}, MessageKind::call, job.callerKey().second,
-                        done.error()};
+                Error e{PassKey{}, MessageKind::call, reqId, done.error()};
                 caller->sendRouterCommand(std::move(e), true);
             }
         }

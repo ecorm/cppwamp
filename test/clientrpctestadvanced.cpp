@@ -547,7 +547,7 @@ GIVEN( "a caller and a callee" )
 }}
 
 //------------------------------------------------------------------------------
-SCENARIO( "Call timeouts", "[WAMP][Advanced]" )
+SCENARIO( "Call timeouts", "[WAMP][Advanced][Timeout]" )
 {
 GIVEN( "a caller and a callee" )
 {
