@@ -17,8 +17,10 @@
 // TODO: Provide authorizer which blocks WAMP meta API
 // https://github.com/wamp-proto/wamp-proto/discussions/489
 
+#include <array>
 #include <cassert>
 #include <functional>
+#include <map>
 #include <memory>
 #include <utility>
 #include "anyhandler.hpp"
@@ -26,8 +28,10 @@
 #include "asiodefs.hpp"
 #include "disclosurerule.hpp"
 #include "pubsubinfo.hpp"
+#include "realmobserver.hpp"
 #include "rpcinfo.hpp"
 #include "sessioninfo.hpp"
+#include "utils/triemap.hpp"
 #include "internal/authorizationlistener.hpp"
 #include "internal/passkey.hpp"
 
@@ -141,18 +145,42 @@ public:
     void bindExecutor(AnyCompletionExecutor e);
 
     /** Authorizes a subscribe request. */
-    void authorize(Topic t, AuthorizationRequest a, AnyIoExecutor& ioExec);
+    virtual void authorize(Topic t, AuthorizationRequest a, AnyIoExecutor& e);
 
     /** Authorizes a publish request. */
-    void authorize(Pub p, AuthorizationRequest a, AnyIoExecutor& ioExec);
+    virtual void authorize(Pub p, AuthorizationRequest a, AnyIoExecutor& e);
 
     /** Authorizes a registration request. */
-    void authorize(Procedure p, AuthorizationRequest a, AnyIoExecutor& ioExec);
+    virtual void authorize(Procedure p, AuthorizationRequest a,
+                           AnyIoExecutor& e);
 
     /** Authorizes a call request. */
-    void authorize(Rpc r, AuthorizationRequest a, AnyIoExecutor& ioExec);
+    virtual void authorize(Rpc r, AuthorizationRequest a, AnyIoExecutor& e);
+
+    /** Caches a subscribe authorization. */
+    virtual void cache(const Topic& t, SessionId s, Authorization a);
+
+    /** Caches a publish authorization. */
+    virtual void cache(const Pub& p, SessionId s, Authorization a);
+
+    /** Caches a register authorization. */
+    virtual void cache(const Procedure& p, SessionId s, Authorization a);
+
+    /** Caches a call authorization. */
+    virtual void cache(const Rpc& r, SessionId s, Authorization a);
+
+    /** Called when a session leaves or is kicked from the realm. */
+    virtual void uncacheSession(const SessionInfo&);
+
+    /** Called when an RPC registration is removed. */
+    virtual void uncacheProcedure(const RegistrationInfo&);
+
+    /** Called when a subscription is removed. */
+    virtual void uncacheTopic(const SubscriptionInfo&);
 
 protected:
+    Authorizer();
+
     /** Can be overridden to conditionally authorize a subscribe request. */
     virtual void onAuthorize(Topic t, AuthorizationRequest a);
 
@@ -165,8 +193,139 @@ protected:
     /** Can be overridden to conditionally authorize a call request. */
     virtual void onAuthorize(Rpc r, AuthorizationRequest a);
 
+    /** Accesses the bound executor. */
+    AnyCompletionExecutor& executor();
+
 private:
+    template <typename C>
+    void doAuthorize(C&& command, AuthorizationRequest&& a,
+                     AnyIoExecutor& ioExec);
+
     AnyCompletionExecutor executor_;
+};
+
+//------------------------------------------------------------------------------
+/** User-defined caching authorizer. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API CachingAuthorizer : public Authorizer
+{
+protected:
+    CachingAuthorizer() = default;
+
+    void authorize(Topic t, AuthorizationRequest a, AnyIoExecutor& e) override
+    {
+        const Cache& cache = subscribeCacheForPolicy(t.matchPolicy());
+        doAuthorize(cache, t, a, e);
+    }
+
+    void authorize(Pub p, AuthorizationRequest a, AnyIoExecutor& e) override
+    {
+        doAuthorize(publishCache_, p, a, e);
+    }
+
+    void authorize(Procedure p, AuthorizationRequest a,
+                   AnyIoExecutor& e) override
+    {
+        doAuthorize(registerCache_, p, a, e);
+    }
+
+    void authorize(Rpc r, AuthorizationRequest a, AnyIoExecutor& e) override
+    {
+        doAuthorize(callCache_, r, a, e);
+    }
+
+    using Authorizer::onAuthorize;
+
+private:
+    using Base = Authorizer;
+    using AuthMap = std::map<SessionId, Authorization>; // TODO: Flat map
+    using Cache = utils::TrieMap<AuthMap>;
+
+    Cache& subscribeCacheForPolicy(MatchPolicy p)
+    {
+        assert(p != MatchPolicy::unknown);
+        const unsigned index = static_cast<unsigned>(p) -
+                               static_cast<unsigned>(MatchPolicy::exact);
+        return subscribeCaches_.at(index);
+    }
+
+    const Cache& subscribeCacheForPolicy(MatchPolicy p) const
+    {
+        assert(p != MatchPolicy::unknown);
+        const unsigned index = static_cast<unsigned>(p) -
+                               static_cast<unsigned>(MatchPolicy::exact);
+        return subscribeCaches_.at(index);
+    }
+
+    template <typename C>
+    void doAuthorize(const Cache& cache, C& command,
+                     AuthorizationRequest& req, AnyIoExecutor& exec)
+    {
+        const auto kv = cache.find(command.uri());
+        if (kv == cache.end())
+            return Base::authorize(std::move(command), std::move(req), exec);
+
+        const AuthMap& authMap = kv.value();
+        const auto iter = authMap.find(req.info().sessionId());
+        if (iter == authMap.end())
+            return Base::authorize(std::move(command), std::move(req), exec);
+
+        const Authorization& auth = iter->second;
+        req.authorize(std::move(command), auth);
+    }
+
+    void cache(const Topic& t, SessionId s, Authorization a) final
+    {
+        Cache& cache = subscribeCacheForPolicy(t.matchPolicy());
+        cache[t.uri()][s] = a;
+    }
+
+    void cache(const Pub& p, SessionId s, Authorization a) final
+    {
+        publishCache_[p.uri()][s] = a;
+    }
+
+    void cache(const Procedure& p, SessionId s, Authorization a) final
+    {
+        publishCache_[p.uri()][s] = a;
+    }
+
+    void cache(const Rpc& r, SessionId s, Authorization a) final
+    {
+        publishCache_[r.uri()][s] = a;
+    }
+
+    void uncacheSession(const SessionInfo& info) final
+    {
+        const auto sid = info.sessionId();
+        for (auto& cache: subscribeCaches_)
+            eraseSessionFromCache(cache, sid);
+        eraseSessionFromCache(publishCache_, sid);
+        eraseSessionFromCache(registerCache_, sid);
+        eraseSessionFromCache(callCache_, sid);
+    }
+
+    static void eraseSessionFromCache(Cache& cache, SessionId sid)
+    {
+        for (auto& authMap: cache)
+            authMap.erase(sid);
+    }
+
+    void uncacheTopic(const SubscriptionInfo& info) final
+    {
+        Cache& cache = subscribeCacheForPolicy(info.matchPolicy);
+        cache.erase(info.uri);
+    }
+
+    void uncacheProcedure(const RegistrationInfo& info) final
+    {
+        callCache_.erase(info.uri);
+    }
+
+    std::array<Cache, 3> subscribeCaches_;
+    Cache publishCache_;
+    Cache registerCache_;
+    Cache callCache_;
 };
 
 } // namespace wamp

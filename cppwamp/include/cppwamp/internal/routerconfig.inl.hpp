@@ -25,13 +25,6 @@ RealmConfig::withAuthorizer(Authorizer::Ptr a)
     return *this;
 }
 
-//CPPWAMP_INLINE RealmConfig&
-//RealmConfig::withAuthorizationCacheEnabled(bool enabled)
-//{
-//    authorizationCacheEnabled_ = enabled;
-//    return *this;
-//}
-
 CPPWAMP_INLINE RealmConfig&
 RealmConfig::withCallTimeoutForwardingEnabled(bool enabled)
 {
@@ -84,11 +77,6 @@ CPPWAMP_INLINE Authorizer::Ptr RealmConfig::authorizer() const
 {
     return authorizer_;
 }
-
-//CPPWAMP_INLINE bool RealmConfig::authorizationCacheEnabled() const
-//{
-//    return authorizationCacheEnabled_;
-//}
 
 CPPWAMP_INLINE DisclosureRule RealmConfig::callerDisclosure() const
 {

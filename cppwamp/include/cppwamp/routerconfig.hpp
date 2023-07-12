@@ -38,8 +38,6 @@ public:
 
     RealmConfig& withAuthorizer(Authorizer::Ptr a);
 
-    RealmConfig& withAuthorizationCacheEnabled(bool enabled = true);
-
     RealmConfig& withCallTimeoutForwardingEnabled(bool enabled = true);
 
     RealmConfig& withCallerDisclosure(DisclosureRule d);
@@ -58,8 +56,6 @@ public:
     const Uri& uri() const;
 
     Authorizer::Ptr authorizer() const;
-
-    bool authorizationCacheEnabled() const;
 
     DisclosureRule callerDisclosure() const;
 
@@ -82,7 +78,6 @@ private:
     bool metaApiEnabled_ = false;
     bool metaProcedureRegistrationAllowed_ = false;
     bool metaTopicPublicationAllowed_ = false;
-    bool authorizationCacheEnabled_ = false;
 };
 
 namespace internal { class Challenger; } // Forward declaration

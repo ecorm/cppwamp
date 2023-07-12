@@ -6,6 +6,7 @@
 
 #include "../authorizer.hpp"
 #include "../api.hpp"
+#include "../traits.hpp"
 #include "disclosuresetter.hpp"
 #include "routersession.hpp"
 
@@ -169,103 +170,63 @@ CPPWAMP_INLINE void Authorizer::bindExecutor(AnyCompletionExecutor e)
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Authorizer::authorize(Topic t, AuthorizationRequest a,
-                                          AnyIoExecutor& ioExec)
+                                          AnyIoExecutor& e)
 {
-    if (executor_ == nullptr)
-    {
-        onAuthorize(std::move(t), std::move(a));
-        return;
-    }
-
-    struct Posted
-    {
-        Ptr self;
-        Topic t;
-        AuthorizationRequest a;
-        void operator()() {self->onAuthorize(std::move(t), std::move(a));}
-    };
-
-    boost::asio::post(
-        ioExec,
-        boost::asio::bind_executor(
-            executor_,
-            Posted{shared_from_this(), std::move(t), std::move(a)}));
+    doAuthorize(std::move(t), std::move(a), e);
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Authorizer::authorize(Pub p, AuthorizationRequest a,
-                                          AnyIoExecutor& ioExec)
+                                          AnyIoExecutor& e)
 {
-    if (executor_ == nullptr)
-    {
-        onAuthorize(std::move(p), std::move(a));
-        return;
-    }
-
-    struct Posted
-    {
-        Ptr self;
-        Pub p;
-        AuthorizationRequest a;
-        void operator()() {self->onAuthorize(std::move(p), std::move(a));}
-    };
-
-    boost::asio::post(
-        ioExec,
-        boost::asio::bind_executor(
-            executor_,
-            Posted{shared_from_this(), std::move(p), std::move(a)}));
+    doAuthorize(std::move(p), std::move(a), e);
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Authorizer::authorize(Procedure p, AuthorizationRequest a,
-                                          AnyIoExecutor& ioExec)
+                                          AnyIoExecutor& e)
 {
-    if (executor_ == nullptr)
-    {
-        onAuthorize(std::move(p), std::move(a));
-        return;
-    }
-
-    struct Posted
-    {
-        Ptr self;
-        Procedure p;
-        AuthorizationRequest a;
-        void operator()() {self->onAuthorize(std::move(p), std::move(a));}
-    };
-
-    boost::asio::post(
-        ioExec,
-        boost::asio::bind_executor(
-            executor_,
-            Posted{shared_from_this(), std::move(p), std::move(a)}));
+    doAuthorize(std::move(p), std::move(a), e);
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Authorizer::authorize(Rpc r, AuthorizationRequest a,
-                                          AnyIoExecutor& ioExec)
+                                          AnyIoExecutor& e)
 {
-    if (executor_ == nullptr)
-    {
-        onAuthorize(std::move(r), std::move(a));
-        return;
-    }
-
-    struct Posted
-    {
-        Ptr self;
-        Rpc r;
-        AuthorizationRequest a;
-        void operator()() {self->onAuthorize(std::move(r), std::move(a));}
-    };
-
-    boost::asio::post(
-        ioExec,
-        boost::asio::bind_executor(
-            executor_,
-            Posted{shared_from_this(), std::move(r), std::move(a)}));
+    doAuthorize(std::move(r), std::move(a), e);
 }
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Authorizer::cache(const Topic& t, SessionId s,
+                                      Authorization a)
+{}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Authorizer::cache(const Pub& p, SessionId s,
+                                      Authorization a)
+{}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Authorizer::cache(const Procedure& p, SessionId s,
+                                      Authorization a)
+{}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Authorizer::cache(const Rpc& r, SessionId s,
+                                      Authorization a)
+{}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Authorizer::uncacheSession(const SessionInfo&) {}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Authorizer::uncacheProcedure(const RegistrationInfo&) {}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Authorizer::uncacheTopic(const SubscriptionInfo&) {}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Authorizer::Authorizer() = default;
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Authorizer::onAuthorize(Topic t, AuthorizationRequest a)
@@ -289,6 +250,38 @@ CPPWAMP_INLINE void Authorizer::onAuthorize(Procedure p, AuthorizationRequest a)
 CPPWAMP_INLINE void Authorizer::onAuthorize(Rpc r, AuthorizationRequest a)
 {
     a.authorize(std::move(r), true);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE AnyCompletionExecutor& Authorizer::executor() {return executor_;}
+
+//------------------------------------------------------------------------------
+template <typename C>
+void Authorizer::doAuthorize(C&& command, AuthorizationRequest&& a,
+                             AnyIoExecutor& ioExec)
+{
+    using Command = ValueTypeOf<C>;
+
+    if (executor_ == nullptr)
+    {
+        onAuthorize(std::forward<C>(command), std::move(a));
+        return;
+    }
+
+    struct Posted
+    {
+        Ptr self;
+        Command c;
+        AuthorizationRequest a;
+        void operator()() {self->onAuthorize(std::move(c), std::move(a));}
+    };
+
+    boost::asio::post(
+        ioExec,
+        boost::asio::bind_executor(
+            executor_,
+            Posted{shared_from_this(), std::forward<C>(command),
+                   std::move(a)}));
 }
 
 } // namespace wamp
