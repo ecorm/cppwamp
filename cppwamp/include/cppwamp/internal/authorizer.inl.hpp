@@ -197,22 +197,22 @@ CPPWAMP_INLINE void Authorizer::authorize(Rpc r, AuthorizationRequest a,
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Authorizer::cache(const Topic& t, SessionId s,
+CPPWAMP_INLINE void Authorizer::cache(const Topic& t, const SessionInfo& s,
                                       Authorization a)
 {}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Authorizer::cache(const Pub& p, SessionId s,
+CPPWAMP_INLINE void Authorizer::cache(const Pub& p, const SessionInfo& s,
                                       Authorization a)
 {}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Authorizer::cache(const Procedure& p, SessionId s,
+CPPWAMP_INLINE void Authorizer::cache(const Procedure& p, const SessionInfo& s,
                                       Authorization a)
 {}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Authorizer::cache(const Rpc& r, SessionId s,
+CPPWAMP_INLINE void Authorizer::cache(const Rpc& r, const SessionInfo& s,
                                       Authorization a)
 {}
 
@@ -282,6 +282,243 @@ void Authorizer::doAuthorize(C&& command, AuthorizationRequest&& a,
             executor_,
             Posted{shared_from_this(), std::forward<C>(command),
                    std::move(a)}));
+}
+
+
+//******************************************************************************
+// CachingAuthorizer
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void CachingAuthorizer::clearAll()
+{
+    const MutexGuard guard{mutex_};
+
+    for (auto& cache: subscribeCaches_)
+        cache.clear();
+    publishCache_.clear();
+    registerCache_.clear();
+    callCache_.clear();
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void CachingAuthorizer::clearBySessionId(SessionId sid)
+{
+    const MutexGuard guard{mutex_};
+
+    for (auto& cache: subscribeCaches_)
+        eraseSessionFromCache(cache, sid);
+    eraseSessionFromCache(publishCache_, sid);
+    eraseSessionFromCache(registerCache_, sid);
+    eraseSessionFromCache(callCache_, sid);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void CachingAuthorizer::clearByAuthId(const String& authId)
+{
+    doClearIf(
+        [&authId](const SessionInfo& info) -> bool
+        {
+            return info.auth().id() == authId;
+        });
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void CachingAuthorizer::clearByAuthRole(const String& authRole)
+{
+    doClearIf(
+        [&authRole](const SessionInfo& info) -> bool
+        {
+            return info.auth().role() == authRole;
+        });
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void CachingAuthorizer::clearIf(const Predicate& pred)
+{
+    doClearIf(pred);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE CachingAuthorizer::CachingAuthorizer() = default;
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void CachingAuthorizer::authorize(
+    Topic t, AuthorizationRequest a, AnyIoExecutor& e)
+{
+    const CacheByUri& cache = subscribeCacheForPolicy(t.matchPolicy());
+    doAuthorize(cache, t, a, e);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void CachingAuthorizer::authorize(Pub p, AuthorizationRequest a,
+                                                 AnyIoExecutor& e)
+{
+    doAuthorize(publishCache_, p, a, e);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void CachingAuthorizer::authorize(
+    Procedure p, AuthorizationRequest a, AnyIoExecutor& e)
+{
+    doAuthorize(registerCache_, p, a, e);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void CachingAuthorizer::authorize(Rpc r, AuthorizationRequest a,
+                                                 AnyIoExecutor& e)
+{
+    doAuthorize(callCache_, r, a, e);
+}
+
+//------------------------------------------------------------------------------
+template <typename P>
+void CachingAuthorizer::eraseFromCacheIf(CacheByUri& cache, const P& pred)
+{
+    for (auto& recordMap: cache)
+    {
+        auto iter = recordMap.begin();
+        auto end = recordMap.cend();
+        while (iter != end)
+        {
+            if (pred(iter->second.info))
+                iter = recordMap.erase(iter);
+            else
+                ++iter;
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void CachingAuthorizer::eraseSessionFromCache(CacheByUri& cache,
+                                                             SessionId sid)
+{
+    for (auto& recordMap: cache)
+        recordMap.erase(sid);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE CachingAuthorizer::CacheByUri&
+CachingAuthorizer::subscribeCacheForPolicy(MatchPolicy p)
+{
+    assert(p != MatchPolicy::unknown);
+    const unsigned index = static_cast<unsigned>(p) -
+                           static_cast<unsigned>(MatchPolicy::exact);
+    return subscribeCaches_.at(index);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE const CachingAuthorizer::CacheByUri&
+CachingAuthorizer::subscribeCacheForPolicy(MatchPolicy p) const
+{
+    assert(p != MatchPolicy::unknown);
+    const unsigned index = static_cast<unsigned>(p) -
+                           static_cast<unsigned>(MatchPolicy::exact);
+    return subscribeCaches_.at(index);
+}
+
+//------------------------------------------------------------------------------
+template <typename C>
+void CachingAuthorizer::doAuthorize(const CacheByUri& cache, C& command,
+                                    AuthorizationRequest& req,
+                                    AnyIoExecutor& exec)
+{
+    const Authorization* auth = nullptr;
+
+    {
+        const MutexGuard guard{mutex_};
+
+        const auto kv = cache.find(command.uri());
+        if (kv != cache.end())
+        {
+            const RecordsBySessionId& authMap = kv.value();
+            const auto iter = authMap.find(req.info().sessionId());
+            if (iter != authMap.end())
+                auth = &(iter->second.auth);
+        }
+    }
+
+    if (auth == nullptr)
+        Base::authorize(std::move(command), std::move(req), exec);
+    else
+        req.authorize(std::move(command), auth);
+}
+
+//------------------------------------------------------------------------------
+template <typename P>
+void CachingAuthorizer::doClearIf(const P& pred)
+{
+    const MutexGuard guard{mutex_};
+
+    for (auto& cache: subscribeCaches_)
+        eraseFromCacheIf(cache, pred);
+    eraseFromCacheIf(publishCache_, pred);
+    eraseFromCacheIf(registerCache_, pred);
+    eraseFromCacheIf(callCache_, pred);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void CachingAuthorizer::cache(
+    const Topic& t, const SessionInfo& s, Authorization a)
+{
+    const MutexGuard guard{mutex_};
+    CacheByUri& cache = subscribeCacheForPolicy(t.matchPolicy());
+    cache[t.uri()][s.sessionId()] = Record{s, a};
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void CachingAuthorizer::cache(const Pub& p, const SessionInfo& s,
+                                             Authorization a)
+{
+    const MutexGuard guard{mutex_};
+    publishCache_[p.uri()][s.sessionId()] = Record{s, a};
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void CachingAuthorizer::cache(
+    const Procedure& p, const SessionInfo& s, Authorization a)
+{
+    const MutexGuard guard{mutex_};
+    publishCache_[p.uri()][s.sessionId()] = Record{s, a};
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void CachingAuthorizer::cache(const Rpc& r, const SessionInfo& s,
+                                             Authorization a)
+{
+    const MutexGuard guard{mutex_};
+    publishCache_[r.uri()][s.sessionId()] = Record{s, a};
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void
+CachingAuthorizer::uncacheSession(const SessionInfo& info)
+{
+    const MutexGuard guard{mutex_};
+
+    const auto sid = info.sessionId();
+    for (auto& cache: subscribeCaches_)
+        eraseSessionFromCache(cache, sid);
+    eraseSessionFromCache(publishCache_, sid);
+    eraseSessionFromCache(registerCache_, sid);
+    eraseSessionFromCache(callCache_, sid);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void
+CachingAuthorizer::uncacheTopic(const SubscriptionInfo& info)
+{
+    const MutexGuard guard{mutex_};
+    CacheByUri& cache = subscribeCacheForPolicy(info.matchPolicy);
+    cache.erase(info.uri);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void
+CachingAuthorizer::uncacheProcedure(const RegistrationInfo& info)
+{
+    const MutexGuard guard{mutex_};
+    callCache_.erase(info.uri);
 }
 
 } // namespace wamp
