@@ -18,7 +18,20 @@ namespace wamp
 //******************************************************************************
 
 //------------------------------------------------------------------------------
+/** @note Implicit conversions from bool are not enabled to avoid accidental
+          conversions from other types convertible to bool.
+    @see Authorization::Authorization(AuthorizationGranted)
+    @see Authorization::Authorization(AuthorizationDenied) */
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE Authorization::Authorization(bool allowed) : allowed_(allowed) {}
+
+CPPWAMP_INLINE Authorization::Authorization(AuthorizationGranted)
+    : Authorization(true)
+{}
+
+CPPWAMP_INLINE Authorization::Authorization(AuthorizationDenied)
+    : Authorization(false)
+{}
 
 //------------------------------------------------------------------------------
 /** If WampErrc::authorizationDenied, WampErrc::authorizationFailed, or
@@ -72,33 +85,37 @@ CPPWAMP_INLINE const SessionInfo& AuthorizationRequest::info() const
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void AuthorizationRequest::authorize(Topic t, Authorization a)
+CPPWAMP_INLINE void AuthorizationRequest::authorize(
+    Topic t, Authorization a, bool cache)
 {
-    doAuthorize(std::move(t), a);
+    doAuthorize(std::move(t), a, cache);
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void AuthorizationRequest::authorize(Pub p, Authorization a)
+CPPWAMP_INLINE void AuthorizationRequest::authorize(
+    Pub p, Authorization a, bool cache)
 {
-    doAuthorize(std::move(p), a);
+    doAuthorize(std::move(p), a, cache);
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void AuthorizationRequest::authorize(Procedure p,
-                                                    Authorization a)
+CPPWAMP_INLINE void AuthorizationRequest::authorize(
+    Procedure p, Authorization a, bool cache)
 {
-    doAuthorize(std::move(p), a);
+    doAuthorize(std::move(p), a, cache);
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void AuthorizationRequest::authorize(Rpc r, Authorization a)
+CPPWAMP_INLINE void AuthorizationRequest::authorize(
+    Rpc r, Authorization a, bool cache)
 {
-    doAuthorize(std::move(r), a);
+    doAuthorize(std::move(r), a, cache);
 }
 
 //------------------------------------------------------------------------------
 template <typename C>
-void AuthorizationRequest::doAuthorize(C&& command, Authorization auth)
+void AuthorizationRequest::doAuthorize(C&& command, Authorization auth,
+                                       bool cache)
 {
     auto originator = originator_.lock();
     if (!originator)
@@ -106,6 +123,10 @@ void AuthorizationRequest::doAuthorize(C&& command, Authorization auth)
     auto listener = listener_.lock();
     if (!listener)
         return;
+
+    auto authorizer = authorizer_.lock();
+    if (authorizer)
+        authorizer->cache(command, originator->sharedInfo(), auth);
 
     if (auth.good())
     {
@@ -145,9 +166,11 @@ void AuthorizationRequest::doAuthorize(C&& command, Authorization auth)
 CPPWAMP_INLINE AuthorizationRequest::AuthorizationRequest(
     internal::PassKey, ListenerPtr listener,
     const std::shared_ptr<internal::RouterSession>& originator,
+    const std::shared_ptr<Authorizer>& authorizer,
     DisclosureRule realmDisclosure)
     : listener_(std::move(listener)),
       originator_(originator),
+      authorizer_(authorizer),
       info_(originator->sharedInfo()),
       realmDisclosure_(realmDisclosure)
 {}
@@ -231,25 +254,25 @@ CPPWAMP_INLINE Authorizer::Authorizer() = default;
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Authorizer::onAuthorize(Topic t, AuthorizationRequest a)
 {
-    a.authorize(std::move(t), true);
+    a.authorize(std::move(t), granted);
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Authorizer::onAuthorize(Pub p, AuthorizationRequest a)
 {
-    a.authorize(std::move(p), true);
+    a.authorize(std::move(p), granted);
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Authorizer::onAuthorize(Procedure p, AuthorizationRequest a)
 {
-    a.authorize(std::move(p), true);
+    a.authorize(std::move(p), granted);
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Authorizer::onAuthorize(Rpc r, AuthorizationRequest a)
 {
-    a.authorize(std::move(r), true);
+    a.authorize(std::move(r), granted);
 }
 
 //------------------------------------------------------------------------------
@@ -431,7 +454,7 @@ void CachingAuthorizer::doAuthorize(const CacheByUri& cache, C& command,
         const auto kv = cache.find(command.uri());
         if (kv != cache.end())
         {
-            const RecordsBySessionId& authMap = kv.value();
+            const EntriesBySessionId& authMap = kv.value();
             const auto iter = authMap.find(req.info().sessionId());
             if (iter != authMap.end())
                 auth = &(iter->second.auth);
@@ -441,7 +464,7 @@ void CachingAuthorizer::doAuthorize(const CacheByUri& cache, C& command,
     if (auth == nullptr)
         Base::authorize(std::move(command), std::move(req), exec);
     else
-        req.authorize(std::move(command), auth);
+        req.authorize(std::move(command), *auth);
 }
 
 //------------------------------------------------------------------------------
@@ -463,7 +486,7 @@ CPPWAMP_INLINE void CachingAuthorizer::cache(
 {
     const MutexGuard guard{mutex_};
     CacheByUri& cache = subscribeCacheForPolicy(t.matchPolicy());
-    cache[t.uri()][s.sessionId()] = Record{s, a};
+    cache[t.uri()][s.sessionId()] = CacheEntry{s, a};
 }
 
 //------------------------------------------------------------------------------
@@ -471,7 +494,7 @@ CPPWAMP_INLINE void CachingAuthorizer::cache(const Pub& p, const SessionInfo& s,
                                              Authorization a)
 {
     const MutexGuard guard{mutex_};
-    publishCache_[p.uri()][s.sessionId()] = Record{s, a};
+    publishCache_[p.uri()][s.sessionId()] = CacheEntry{s, a};
 }
 
 //------------------------------------------------------------------------------
@@ -479,7 +502,7 @@ CPPWAMP_INLINE void CachingAuthorizer::cache(
     const Procedure& p, const SessionInfo& s, Authorization a)
 {
     const MutexGuard guard{mutex_};
-    publishCache_[p.uri()][s.sessionId()] = Record{s, a};
+    registerCache_[p.uri()][s.sessionId()] = CacheEntry{s, a};
 }
 
 //------------------------------------------------------------------------------
@@ -487,7 +510,7 @@ CPPWAMP_INLINE void CachingAuthorizer::cache(const Rpc& r, const SessionInfo& s,
                                              Authorization a)
 {
     const MutexGuard guard{mutex_};
-    publishCache_[r.uri()][s.sessionId()] = Record{s, a};
+    callCache_[r.uri()][s.sessionId()] = CacheEntry{s, a};
 }
 
 //------------------------------------------------------------------------------

@@ -109,7 +109,8 @@ public:
     }
 
     ErrorOr<Uri> erase(RouterSession& callee, Key key,
-                       MetaTopics& metaTopics)
+                       MetaTopics& metaTopics,
+                       const Authorizer::Ptr& authorizer)
     {
         auto found = byKey_.find(key);
         if (found == byKey_.end())
@@ -120,6 +121,9 @@ public:
             return makeUnexpectedError(WampErrc::noSuchRegistration);
 
         Uri uri{registration.procedureUri()};
+
+        if (authorizer)
+            authorizer->uncacheProcedure(registration.info());
 
         if (metaTopics.enabled())
         {
@@ -638,6 +642,7 @@ public:
         : jobs_(std::move(strand)),
           metaProcedures_(std::move(metaProcedures)),
           metaTopics_(std::move(metaTopics)),
+          authorizer_(cfg.authorizer()),
           callTimeoutForwardingEnabled_(cfg.callTimeoutForwardingEnabled())
     {}
 
@@ -655,6 +660,8 @@ public:
     {
         return registry_.find(uri) != nullptr;
     }
+
+    const Authorizer::Ptr& authorizer() const {return authorizer_;}
 
     void enroll(const RouterSession::Ptr& callee, Procedure&& proc)
     {
@@ -694,7 +701,8 @@ public:
 
         {
             const MutexGuard guard{queryMutex_};
-            uri = registry_.erase(*callee, cmd.registrationId(), *metaTopics_);
+            uri = registry_.erase(*callee, cmd.registrationId(), *metaTopics_,
+                                  authorizer_);
         }
 
         if (uri.has_value())
@@ -887,6 +895,7 @@ private:
     RegistrationId nextRegistrationId_ = nullId();
     MetaProcedures::Ptr metaProcedures_;
     MetaTopics::Ptr metaTopics_;
+    Authorizer::Ptr authorizer_;
     bool callTimeoutForwardingEnabled_ = false;
 };
 
@@ -905,7 +914,6 @@ public:
           executor_(std::move(executor)),
           strand_(std::move(strand)),
           uriValidator_(std::move(uriValidator)),
-          authorizer_(cfg.authorizer()),
           callerDisclosure_(cfg.callerDisclosure()),
           metaProcedureRegistrationAllowed_(
               cfg.metaProcedureRegistrationAllowed())
@@ -1042,13 +1050,14 @@ private:
     template <typename C>
     void authorize(const RouterSession::Ptr& originator, C& command)
     {
-        if (!authorizer_)
+        const auto& authorizer = impl_.authorizer();
+        if (!authorizer)
             return bypassAuthorization(originator, std::move(command));
 
         AuthorizationRequest r{{}, shared_from_this(), originator,
-                               callerDisclosure_};
-        authorizer_->authorize(std::forward<C>(command), std::move(r),
-                               executor_);
+                               authorizer, callerDisclosure_};
+        authorizer->authorize(std::forward<C>(command), std::move(r),
+                              executor_);
     }
 
     void bypassAuthorization(const RouterSession::Ptr& callee, Procedure&& p)
@@ -1097,7 +1106,7 @@ private:
     bool checkProcedureExistsBeforeAuthorizing(const RouterSession::Ptr& caller,
                                                const Rpc& call)
     {
-        const bool ok = !authorizer_ ||
+        const bool ok = !impl_.authorizer() ||
                         impl_.hasProcedure(call.uri()) ||
                         impl_.hasMetaProcedure(call.uri());
         if (!ok)
@@ -1127,7 +1136,6 @@ private:
     AnyIoExecutor executor_;
     SharedStrand strand_;
     UriValidator::Ptr uriValidator_;
-    Authorizer::Ptr authorizer_;
     DisclosureRule callerDisclosure_;
     bool metaProcedureRegistrationAllowed_ = false;
 };

@@ -23,9 +23,10 @@ const unsigned short testPort = 12345;
 const auto withTcp = TcpHost("localhost", testPort).withFormat(json);
 
 //------------------------------------------------------------------------------
-struct TestAuthorizer : public Authorizer
+template <typename TBase>
+struct BasicTestAuthorizer : public TBase
 {
-    TestAuthorizer()
+    BasicTestAuthorizer()
         : topic("empty"), pub("empty"), proc("empty"), rpc("empty")
     {}
 
@@ -33,36 +34,36 @@ struct TestAuthorizer : public Authorizer
     {
         topic = t;
         info = a.info();
-        a.authorize(std::move(t), canSubscribe);
+        a.authorize(std::move(t), canSubscribe, cacheEnabled);
     }
 
     void onAuthorize(Pub p, AuthorizationRequest a) override
     {
         pub = p;
         info = a.info();
-        a.authorize(std::move(p), canPublish);
+        a.authorize(std::move(p), canPublish, cacheEnabled);
     }
 
     void onAuthorize(Procedure p, AuthorizationRequest a) override
     {
         proc = p;
         info = a.info();
-        a.authorize(std::move(p), canRegister);
+        a.authorize(std::move(p), canRegister, cacheEnabled);
     }
 
     void onAuthorize(Rpc r, AuthorizationRequest a) override
     {
         rpc = r;
         info = a.info();
-        a.authorize(std::move(r), canCall);
+        a.authorize(std::move(r), canCall, cacheEnabled);
     }
 
-    void clear()
+    void clear(bool enableCache = false)
     {
-        canSubscribe = true;
-        canPublish = true;
-        canRegister = true;
-        canCall = true;
+        canSubscribe = granted;
+        canPublish = granted;
+        canRegister = granted;
+        canCall = granted;
 
         topic = Topic{"empty"};
         pub = Pub{"empty"};
@@ -70,6 +71,7 @@ struct TestAuthorizer : public Authorizer
         rpc = Rpc{"empty"};
 
         info = {};
+        cacheEnabled = enableCache;
     }
 
     Authorization canSubscribe;
@@ -81,7 +83,11 @@ struct TestAuthorizer : public Authorizer
     Procedure proc;
     Rpc rpc;
     SessionInfo info;
+    bool cacheEnabled = false;
 };
+
+using TestAuthorizer = BasicTestAuthorizer<Authorizer>;
+using CachingTestAuthorizer = BasicTestAuthorizer<CachingAuthorizer>;
 
 } // anomymous namespace
 
@@ -134,7 +140,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Subscribe denied");
             auth->clear();
-            auth->canSubscribe = false;
+            auth->canSubscribe = denied;
             auto sub = s.subscribe(Topic{"topic2"}, [](Event){}, yield);
             CHECK(auth->topic.uri() == "topic2");
             CHECK(auth->info.sessionId() == welcome.sessionId());
@@ -177,7 +183,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Subscribe to meta-topic denied");
             auth->clear();
-            auth->canSubscribe = false;
+            auth->canSubscribe = denied;
             auto sub = s.subscribe(Topic{"wamp.session.on_leave"},
                                    [](Event){}, yield);
             CHECK(auth->topic.uri() == "wamp.session.on_leave");
@@ -205,7 +211,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Publish denied");
             auth->clear();
-            auth->canPublish = false;
+            auth->canPublish = denied;
             auto ack = s.publish(Pub{"topic6"}.withArgs(42), yield);
             REQUIRE_FALSE(ack.has_value());
             CHECK(ack.error() == WampErrc::authorizationDenied);
@@ -255,7 +261,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Register denied");
             auth->clear();
-            auth->canRegister = false;
+            auth->canRegister = denied;
             auto reg = s.enroll(Procedure{"rpc2"},
                                 [](Invocation) -> Outcome{return Result{};},
                                 yield);
@@ -284,7 +290,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Call denied");
             auth->clear();
-            auth->canCall = false;
+            auth->canCall = denied;
             s.enroll(Procedure{"rpc4"},
                      [](Invocation) -> Outcome {return Result{};},
                      yield).value();
@@ -330,7 +336,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Call denied but procedure doesn't exist");
             auth->clear();
-            auth->canCall = false;
+            auth->canCall = denied;
             auto result = s.call(Rpc{"rpc7"}.withArgs(42), yield);
             REQUIRE_FALSE(result.has_value());
             CHECK(result.error() == WampErrc::noSuchProcedure);
@@ -353,7 +359,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Call meta-procedure denied");
             auth->clear();
-            auth->canCall = false;
+            auth->canCall = denied;
             auto result = s.call(Rpc{"wamp.session.count"}, yield);
             REQUIRE_FALSE(result.has_value());
             CHECK(result.error() == WampErrc::authorizationDenied);
@@ -362,6 +368,328 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         }
 
         s.disconnect();
+    });
+
+    ioctx.run();
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Router caching dynamic authorizer", "[WAMP][Router]" )
+{
+    if (!test::RouterFixture::enabled())
+        return;
+
+    wamp::Router& router = test::RouterFixture::instance().router();
+    test::RouterLogLevelGuard logLevelGuard(router.logLevel());
+    router.setLogLevel(LogLevel::error);
+
+    IoContext ioctx;
+    auto auth = std::make_shared<CachingTestAuthorizer>();
+    auth->bindExecutor(ioctx.get_executor());
+    auto config =
+        RealmConfig{testRealm}.withMetaApiEnabled()
+                              .withAuthorizer(auth)
+                              .withCallerDisclosure(DisclosureRule::reveal)
+                              .withPublisherDisclosure(DisclosureRule::conceal);
+    test::ScopedRealm realm{router.openRealm(config).value()};
+
+    Event event;
+    auto onEvent = [&event](Event e) {event = std::move(e);};
+
+    Invocation invocation;
+    auto onInvocation = [&invocation](Invocation i) -> Outcome
+    {
+        invocation = std::move(i);
+        return Result{};
+    };
+
+    spawn(ioctx, [&](YieldContext yield)
+    {
+        Session s1{ioctx};
+        Session s2{ioctx};
+        s1.connect(withTcp, yield).value();
+        auto welcome = s1.join(testRealm, yield).value();
+        s2.connect(withTcp, yield).value();
+        s2.join(testRealm, yield).value();
+
+        {
+            INFO("Subscribe authorized");
+
+            // First subscription to topic generates cache entry.
+            auth->clear(true);
+            auto sub1 = s1.subscribe(Topic{"topic1"}, [](Event){}, yield);
+            CHECK(auth->topic.uri() == "topic1"); // Not already cached
+            CHECK(auth->info.sessionId() == welcome.sessionId());
+            CHECK(sub1.has_value());
+
+            // Make s1 unsubscribe and re-subscribe to same topic.
+            // But first add subscription to same topic from another session
+            // so that cache entry is not removed while s1 unsubscribes.
+            auto sub2 = s2.subscribe(Topic{"topic1"},
+                                     [](Event){}, yield).value();
+            s1.unsubscribe(*sub1, yield).value();
+            auth->clear(true);
+            sub1 = s1.subscribe(Topic{"topic1"}, [](Event){}, yield);
+            CHECK(auth->topic.uri() == "empty"); // Already cached
+            CHECK(auth->info.sessionId() == 0);
+            CHECK(sub1.has_value());
+
+            // Removing all subscriptions to topic should remove that topic
+            // from the cache.
+            s1.unsubscribe(*sub1, yield).value();
+            s2.unsubscribe(sub2, yield).value();
+            auth->clear(true);
+            sub1 = s1.subscribe(Topic{"topic1"}, [](Event){}, yield);
+            CHECK(auth->topic.uri() == "topic1"); // Not already cached
+            CHECK(auth->info.sessionId() == welcome.sessionId());
+            CHECK(sub1.has_value());
+        }
+
+        {
+            INFO("Subscribe denied");
+
+            // First subscription to topic generates cache entry.
+            auth->clear(true);
+            auth->canSubscribe = denied;
+            auto sub = s1.subscribe(Topic{"topic2"}, [](Event){}, yield);
+            CHECK(auth->topic.uri() == "topic2");
+            CHECK(auth->info.sessionId() == welcome.sessionId());
+            REQUIRE_FALSE(sub.has_value());
+            CHECK(sub.error() == WampErrc::authorizationDenied);
+
+            // Second subscription attempt should be already cached
+            auth->clear(true);
+            auth->canSubscribe = denied;
+            sub = s1.subscribe(Topic{"topic2"}, [](Event){}, yield);
+            CHECK(auth->topic.uri() == "empty"); // Already cached
+            CHECK(auth->info.sessionId() == 0);
+            REQUIRE_FALSE(sub.has_value());
+            CHECK(sub.error() == WampErrc::authorizationDenied);
+        }
+
+        {
+            INFO("Subscribe authorization failed");
+
+            // First subscription to topic generates cache entry.
+            auth->clear(true);
+            auth->canSubscribe = WampErrc::authorizationFailed;
+            auto sub = s1.subscribe(Topic{"topic3"}, [](Event){}, yield);
+            CHECK(auth->topic.uri() == "topic3");
+            CHECK(auth->info.sessionId() == welcome.sessionId());
+            REQUIRE_FALSE(sub.has_value());
+            CHECK(sub.error() == WampErrc::authorizationFailed);
+
+            // Second subscription attempt should be already cached
+            auth->clear(true);
+            auth->canSubscribe = WampErrc::authorizationFailed;
+            sub = s1.subscribe(Topic{"topic3"}, [](Event){}, yield);
+            CHECK(auth->topic.uri() == "empty"); // Already cached
+            CHECK(auth->info.sessionId() == 0);
+            REQUIRE_FALSE(sub.has_value());
+            CHECK(sub.error() == WampErrc::authorizationFailed);
+        }
+
+        {
+            INFO("Subscribe to meta-topic authorized");
+
+            // First subscription to topic generates cache entry.
+            auth->clear(true);
+            auto sub1 = s1.subscribe(Topic{"wamp.session.on_join"},
+                                     [](Event){}, yield);
+            CHECK(auth->topic.uri() == "wamp.session.on_join");
+            CHECK(auth->info.sessionId() == welcome.sessionId());
+            CHECK(sub1.has_value());
+
+            // Make s1 unsubscribe and re-subscribe to same meta-topic.
+            // But first add subscription to same topic from another session
+            // so that cache entry is not removed while s1 unsubscribes.
+            auto sub2 = s2.subscribe(Topic{"wamp.session.on_join"},
+                                     [](Event){}, yield).value();
+            s1.unsubscribe(*sub1, yield).value();
+            auth->clear(true);
+            sub1 = s1.subscribe(Topic{"wamp.session.on_join"},
+                                [](Event){}, yield);
+            CHECK(auth->topic.uri() == "empty"); // Already cached
+            CHECK(auth->info.sessionId() == 0);
+            CHECK(sub1.has_value());
+
+            // Removing all subscriptions to meta-topic should remove that
+            // topic from the cache.
+            s1.unsubscribe(*sub1, yield).value();
+            s2.unsubscribe(sub2, yield).value();
+            auth->clear(true);
+            sub1 = s1.subscribe(Topic{"wamp.session.on_join"},
+                                [](Event){}, yield);
+            CHECK(auth->topic.uri() == "wamp.session.on_join"); // Not cached
+            CHECK(auth->info.sessionId() == welcome.sessionId());
+            CHECK(sub1.has_value());
+        }
+
+        {
+            INFO("Publish authorized");
+
+            // First publish generates cache entry
+            auth->clear(true);
+            event = {};
+            s1.subscribe(Topic{"topic5"}, onEvent, yield).value();
+            auto ack = s1.publish(Pub{"topic5"}.withArgs(42)
+                                               .withExcludeMe(false), yield);
+            CHECK(ack.has_value());
+            CHECK(auth->pub.uri() == "topic5");
+            CHECK(auth->info.sessionId() == welcome.sessionId());
+            while (event.args().empty())
+                test::suspendCoro(yield);
+            CHECK_FALSE(event.publisher().has_value());
+
+            // Second publish authorization should already be cached
+            auth->clear(true);
+            event = {};
+            s1.subscribe(Topic{"topic5"}, onEvent, yield).value();
+            ack = s1.publish(Pub{"topic5"}.withArgs(43)
+                                          .withExcludeMe(false), yield);
+            CHECK(ack.has_value());
+            CHECK(auth->pub.uri() == "empty"); // Already cached
+            CHECK(auth->info.sessionId() == 0);
+            while (event.args().empty())
+                test::suspendCoro(yield);
+            CHECK_FALSE(event.publisher().has_value());
+        }
+
+        {
+            INFO("Publish authorized with overriden disclosure rule");
+
+            // First publish generates cache entry
+            auth->clear(true);
+            auth->canPublish =
+                Authorization().withDisclosure(DisclosureRule::reveal);
+            event = {};
+            s1.subscribe(Topic{"topic7"}, onEvent, yield).value();
+            auto ack = s1.publish(Pub{"topic7"}.withArgs(42)
+                                               .withExcludeMe(false), yield);
+            CHECK(ack.has_value());
+            CHECK(auth->pub.uri() == "topic7");
+            CHECK(auth->info.sessionId() == welcome.sessionId());
+
+            while (event.args().empty())
+                test::suspendCoro(yield);
+            CHECK(event.publisher() == welcome.sessionId());
+
+            // Second publish authorization should already be cached
+            auth->clear(true);
+            auth->canPublish =
+                Authorization().withDisclosure(DisclosureRule::reveal);
+            event = {};
+            s1.subscribe(Topic{"topic7"}, onEvent, yield).value();
+            ack = s1.publish(Pub{"topic7"}.withArgs(42)
+                                          .withExcludeMe(false), yield);
+            CHECK(ack.has_value());
+            CHECK(auth->pub.uri() == "empty"); // Already cached
+            CHECK(auth->info.sessionId() == 0);
+
+            while (event.args().empty())
+                test::suspendCoro(yield);
+            CHECK(event.publisher() == welcome.sessionId());
+        }
+
+        {
+            INFO("Register authorized");
+
+            // First registration generates cache entry.
+            auth->clear(true);
+            auto reg = s1.enroll(Procedure{"rpc1"},
+                                [](Invocation) -> Outcome{return Result{};},
+                                yield);
+            CHECK(auth->proc.uri() == "rpc1");
+            CHECK(auth->info.sessionId() == welcome.sessionId());
+            CHECK(reg.has_value());
+
+            // Second registration authorization should be already cached
+            s1.unregister(*reg, yield).value();
+            auth->clear(true);
+            reg = s1.enroll(Procedure{"rpc1"},
+                [](Invocation) -> Outcome{return Result{};},
+                yield);
+            CHECK(auth->proc.uri() == "empty"); // Already cached
+            CHECK(auth->info.sessionId() == 0);
+            CHECK(reg.has_value());
+        }
+
+        {
+            INFO("Call authorized");
+
+            // First call generates cache entry.
+            auth->clear(true);
+            invocation = {};
+            auto reg = s1.enroll(Procedure{"rpc3"}, onInvocation,
+                                 yield).value();
+            auto result = s1.call(Rpc{"rpc3"}.withArgs(42), yield);
+            CHECK(result.has_value());
+            CHECK(auth->rpc.uri() == "rpc3");
+            CHECK(auth->info.sessionId() == welcome.sessionId());
+            while (invocation.args().empty())
+                test::suspendCoro(yield);
+            REQUIRE(invocation.caller().has_value());
+            CHECK(invocation.caller().value() == welcome.sessionId());
+
+            // Second call authorization should be already cached
+            auth->clear(true);
+            invocation = {};
+            result = s1.call(Rpc{"rpc3"}.withArgs(43), yield);
+            CHECK(result.has_value());
+            CHECK(auth->rpc.uri() == "empty"); // Already cached
+            CHECK(auth->info.sessionId() == 0);
+            while (invocation.args().empty())
+                test::suspendCoro(yield);
+            REQUIRE(invocation.caller().has_value());
+            CHECK(invocation.caller().value() == welcome.sessionId());
+
+            // Unregistering should clear the URI cache entry
+            s1.unregister(reg, yield).value();
+            s1.enroll(Procedure{"rpc3"}, onInvocation, yield).value();
+            result = s1.call(Rpc{"rpc3"}.withArgs(42), yield);
+            CHECK(result.has_value());
+            CHECK(auth->rpc.uri() == "rpc3"); // Not cached
+            CHECK(auth->info.sessionId() == welcome.sessionId());
+            while (invocation.args().empty())
+                test::suspendCoro(yield);
+            REQUIRE(invocation.caller().has_value());
+            CHECK(invocation.caller().value() == welcome.sessionId());
+        }
+
+        {
+            INFO("Call meta-procedure authorized");
+
+            // First call generates cache entry.
+            auth->clear(true);
+            invocation = {};
+            auto result = s1.call(Rpc{"wamp.session.count"}, yield);
+            REQUIRE(result.has_value());
+            REQUIRE_FALSE(result.value().args().empty());
+            CHECK(result.value().args().at(0) == 2);
+            CHECK(auth->rpc.uri() == "wamp.session.count");
+            CHECK(auth->info.sessionId() == welcome.sessionId());
+\
+            // Second call authorization should be already cached
+            auth->clear(true);
+            invocation = {};
+            result = s1.call(Rpc{"wamp.session.count"}, yield);
+            REQUIRE(result.has_value());
+            REQUIRE_FALSE(result.value().args().empty());
+            CHECK(result.value().args().at(0) == 2);
+            CHECK(auth->rpc.uri() == "empty"); // Already cached
+            CHECK(auth->info.sessionId() == 0);
+        }
+
+        {
+            INFO("Session leaving");
+
+            // Use every cachable operation
+            auth->clear(true);
+
+            // Leave session and check cache was cleared
+        }
+
+        s1.disconnect();
     });
 
     ioctx.run();

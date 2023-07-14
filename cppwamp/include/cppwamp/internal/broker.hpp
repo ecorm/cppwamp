@@ -236,12 +236,14 @@ public:
         info_.subscriberCount = info_.subscribers.size();
     }
 
-    bool removeSubscriber(const SessionInfo& subscriberInfo, MetaTopics& metaTopics)
+    bool removeSubscriber(const SessionInfo& subscriberInfo,
+                          MetaTopics& metaTopics)
     {
         auto sid = subscriberInfo.sessionId();
         auto wasRemoved = subscribers_.erase(sid) != 0;
         info_.subscribers.erase(sid);
-        info_.subscriberCount = info_.subscribers.size();
+        auto subscriberCount = info_.subscribers.size();
+        info_.subscriberCount = subscriberCount;
         if (wasRemoved && metaTopics.enabled())
             metaTopics.onUnsubscribe(subscriberInfo, info(false));
         return wasRemoved;
@@ -616,10 +618,14 @@ public:
 class BrokerImpl
 {
 public:
-    BrokerImpl(RandomNumberGenerator64 prng, MetaTopics::Ptr metaTopics)
+    BrokerImpl(RandomNumberGenerator64 prng, MetaTopics::Ptr metaTopics,
+               Authorizer::Ptr authorizer)
         : pubIdGenerator_(std::move(prng)),
-          metaTopics_(std::move(metaTopics))
+          metaTopics_(std::move(metaTopics)),
+          authorizer_(std::move(authorizer))
     {}
+
+    const Authorizer::Ptr authorizer() const {return authorizer_;}
 
     void subscribe(const RouterSession::Ptr& subscriber, Topic&& t)
     {
@@ -668,7 +674,11 @@ public:
                 found = record.removeSubscriber(subscriber->sharedInfo(),
                                                 *metaTopics_);
                 if (record.empty())
+                {
+                    if (authorizer_)
+                        authorizer_->uncacheTopic(record.info());
                     eraseTopic(uri, policy, kv);
+                }
             }
         }
 
@@ -841,6 +851,7 @@ private:
     BrokerSubscriptionIdGenerator subIdGenerator_;
     RandomEphemeralIdGenerator pubIdGenerator_;
     MetaTopics::Ptr metaTopics_;
+    Authorizer::Ptr authorizer_;
 };
 
 //------------------------------------------------------------------------------
@@ -854,11 +865,10 @@ public:
     Broker(AnyIoExecutor exec, SharedStrand strand, RandomNumberGenerator64 prng,
            MetaTopics::Ptr metaTopics, UriValidator::Ptr uriValidator,
            const RealmConfig& config)
-        : impl_(std::move(prng), std::move(metaTopics)),
+        : impl_(std::move(prng), std::move(metaTopics), config.authorizer()),
           executor_(std::move(exec)),
           strand_(std::move(strand)),
           uriValidator_(std::move(uriValidator)),
-          authorizer_(config.authorizer()),
           publisherDisclosure_(config.publisherDisclosure()),
           metaTopicPublicationAllowed_(config.metaTopicPublicationAllowed())
     {}
@@ -972,13 +982,14 @@ private:
     template <typename C>
     void authorize(const RouterSession::Ptr& originator, C& command)
     {
-        if (!authorizer_)
+        const auto& authorizer = impl_.authorizer();
+        if (!authorizer)
             return bypassAuthorization(originator, std::move(command));
 
         AuthorizationRequest r{{}, shared_from_this(), originator,
-                               publisherDisclosure_};
-        authorizer_->authorize(std::forward<C>(command), std::move(r),
-                               executor_);
+                               authorizer, publisherDisclosure_};
+        authorizer->authorize(std::forward<C>(command), std::move(r),
+                              executor_);
     }
 
     void bypassAuthorization(const RouterSession::Ptr& subscriber, Topic&& t)
@@ -1047,7 +1058,6 @@ private:
     AnyIoExecutor executor_;
     SharedStrand strand_;
     UriValidator::Ptr uriValidator_;
-    Authorizer::Ptr authorizer_;
     DisclosureRule publisherDisclosure_;
     bool metaTopicPublicationAllowed_ = false;
 };

@@ -12,8 +12,6 @@
     @brief Contains facilities for dynamic authorization. */
 //------------------------------------------------------------------------------
 
-// TODO: Authorization cache
-
 // TODO: Provide authorizer which blocks WAMP meta API
 // https://github.com/wamp-proto/wamp-proto/discussions/489
 
@@ -45,16 +43,52 @@ class RouterSession;
 }
 
 //------------------------------------------------------------------------------
+/** Type that can be implicitly converted to an Authorization, indicating
+    that the operation is allowed.
+    @see wamp::granted */
+//------------------------------------------------------------------------------
+struct AuthorizationGranted
+{
+    constexpr AuthorizationGranted() noexcept = default;
+};
+
+/** Convenient AuthorizationGranted instance that can be passed to a function
+    expecting an Authorization. */
+static constexpr AuthorizationGranted granted;
+
+
+//------------------------------------------------------------------------------
+/** Type that can be implicitly converted to an Authorization, indicating
+    that the operation is rejected.
+    @see wamp::denied */
+//------------------------------------------------------------------------------
+struct AuthorizationDenied
+{
+    constexpr AuthorizationDenied() noexcept = default;
+};
+
+/** Convenient AuthorizationGranted instance that can be passed to a function
+    expecting an Authorization. */
+static constexpr AuthorizationDenied denied;
+
+
+//------------------------------------------------------------------------------
 /** Contains authorization information on a operation. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API Authorization
 {
 public:
+    /** Constructor taking a boolean indicating if the operation
+        is allowed. */
+    explicit Authorization(bool allowed = true);
+
     // NOLINTBEGIN(google-explicit-constructor)
 
-    /** Converting constructor taking a boolean indicating if the operation
-        is allowed. */
-    Authorization(bool allowed = true);
+    /** Converting constructor taking an AuthorizationGranted tag type. */
+    Authorization(AuthorizationGranted);
+
+    /** Converting constructor taking an AuthorizationDenied tag type. */
+    Authorization(AuthorizationDenied);
 
     /** Converting constructor taking an error code indicating that the
         authorization operation itself has failed. */
@@ -89,6 +123,8 @@ private:
     bool allowed_ = false;
 };
 
+class Authorizer;
+
 //------------------------------------------------------------------------------
 /** Contains information on an operation that is requesting authorization. */
 //------------------------------------------------------------------------------
@@ -99,34 +135,35 @@ public:
     const SessionInfo& info() const;
 
     /** Authorizes a subscribe operation. */
-    void authorize(Topic t, Authorization a);
+    void authorize(Topic t, Authorization a, bool cache = false);
 
     /** Authorizes a publish operation. */
-    void authorize(Pub p, Authorization a);
+    void authorize(Pub p, Authorization a, bool cache = false);
 
     /** Authorizes a register operation. */
-    void authorize(Procedure p, Authorization a);
+    void authorize(Procedure p, Authorization a, bool cache = false);
 
     /** Authorizes a call operation. */
-    void authorize(Rpc r, Authorization a);
+    void authorize(Rpc r, Authorization a, bool cache = false);
 
 private:
     using ListenerPtr = internal::AuthorizationListener::WeakPtr;
     using Originator = internal::RouterSession;
 
     template <typename C>
-    void doAuthorize(C&& command, Authorization auth);
+    void doAuthorize(C&& command, Authorization auth, bool cache);
 
     ListenerPtr listener_;
     std::weak_ptr<internal::RouterSession> originator_;
+    std::weak_ptr<Authorizer> authorizer_;
     SessionInfo info_;
     DisclosureRule realmDisclosure_ = DisclosureRule::preset;
 
 public: // Internal use only
-    AuthorizationRequest(
-        internal::PassKey,
+    AuthorizationRequest(internal::PassKey,
         ListenerPtr listener,
         const std::shared_ptr<internal::RouterSession>& originator,
+        const std::shared_ptr<Authorizer>& authorizer,
         DisclosureRule realmDisclosure);
 };
 
@@ -239,15 +276,15 @@ protected:
     using Authorizer::onAuthorize;
 
 private:
-    struct Record
+    struct CacheEntry
     {
         SessionInfo info;
         Authorization auth;
     };
 
     using Base = Authorizer;
-    using RecordsBySessionId = std::map<SessionId, Record>;
-    using CacheByUri = utils::TrieMap<RecordsBySessionId>;
+    using EntriesBySessionId = std::map<SessionId, CacheEntry>;
+    using CacheByUri = utils::TrieMap<EntriesBySessionId>;
     using MutexGuard = std::lock_guard<std::mutex>;
 
     template <typename P>

@@ -330,6 +330,8 @@ private:
         metaTopics_->inhibitSession(sid);
         broker_->removeSubscriber(info);
         dealer_->removeSession(info);
+        if (config_.authorizer())
+            config_.authorizer()->uncacheSession(info);
         if (metaTopics_->enabled())
             metaTopics_->onLeave(info);
         metaTopics_->clearSessionInhibitions();
