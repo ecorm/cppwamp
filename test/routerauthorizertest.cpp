@@ -14,6 +14,7 @@
 #include "routerfixture.hpp"
 
 using namespace wamp;
+using namespace wamp::internal;
 
 namespace
 {
@@ -21,6 +22,12 @@ namespace
 const std::string testRealm = "cppwamp.test-authorizer";
 const unsigned short testPort = 12345;
 const auto withTcp = TcpHost("localhost", testPort).withFormat(json);
+
+//------------------------------------------------------------------------------
+struct CachingTestAuthorizerBase : public CachingAuthorizer
+{
+    CachingTestAuthorizerBase() : CachingAuthorizer(1000) {}
+};
 
 //------------------------------------------------------------------------------
 template <typename TBase>
@@ -87,7 +94,7 @@ struct BasicTestAuthorizer : public TBase
 };
 
 using TestAuthorizer = BasicTestAuthorizer<Authorizer>;
-using CachingTestAuthorizer = BasicTestAuthorizer<CachingAuthorizer>;
+using CachingTestAuthorizer = BasicTestAuthorizer<CachingTestAuthorizerBase>;
 
 } // anomymous namespace
 
@@ -371,6 +378,94 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
     });
 
     ioctx.run();
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "LRU Cache", "[LruCache]" )
+{
+    LruCache<std::string, std::shared_ptr<int>> cache{3};
+
+    auto n1 = std::make_shared<int>(1);
+    auto n2 = std::make_shared<int>(2);
+    auto n3 = std::make_shared<int>(3);
+    auto n4 = std::make_shared<int>(4);
+
+    SECTION("Empty cache")
+    {
+        CHECK(cache.empty());
+        CHECK(cache.size() == 0);
+        CHECK(cache.capacity() == 3);
+    }
+
+    SECTION("Lookups, insertions, and clearing")
+    {
+        CHECK(cache.lookup("a") == nullptr);
+
+        cache.upsert("a", n1);
+        CHECK(cache.size() == 1);
+        CHECK_FALSE(cache.empty());
+
+        auto* result = cache.lookup("a");
+        REQUIRE(result != nullptr);
+        CHECK(**result == 1);
+        CHECK(n1.use_count() == 2);
+
+        cache.upsert("b", n2);
+        CHECK(cache.size() == 2);
+        CHECK_FALSE(cache.empty());
+
+        result = cache.lookup("b");
+        REQUIRE(result != nullptr);
+        CHECK(**result == 2);
+        CHECK(n2.use_count() == 2);
+
+        cache.upsert("c", n3);
+        CHECK(cache.size() == 3);
+        CHECK_FALSE(cache.empty());
+
+        result = cache.lookup("c");
+        REQUIRE(result != nullptr);
+        CHECK(**result == 3);
+        CHECK(n3.use_count() == 2);
+
+        // This next insertion will evict {"a", n1}
+        cache.upsert("d", n4);
+        CHECK(cache.size() == 3);
+        CHECK_FALSE(cache.empty());
+        CHECK(n1.use_count() == 1);
+        CHECK(cache.lookup("a") == nullptr);
+
+        result = cache.lookup("d");
+        REQUIRE(result != nullptr);
+        CHECK(**result == 4);
+        CHECK(n4.use_count() == 2);
+
+        cache.clear();
+        CHECK(cache.empty());
+        CHECK(cache.size() == 0);
+        CHECK(n1.use_count() == 1);
+        CHECK(n2.use_count() == 1);
+        CHECK(n3.use_count() == 1);
+        CHECK(n4.use_count() == 1);
+    }
+
+    SECTION("conditional eviction")
+    {
+        cache.upsert("a", n1);
+        cache.upsert("b", n2);
+        cache.upsert("c", n3);
+
+        cache.evictIf(
+            [](const std::string& key, std::shared_ptr<int> value) -> bool
+            {
+                return (key == "b") && (*value == 2);
+            });
+
+        CHECK(cache.size() == 2);
+        CHECK(n1.use_count() == 2);
+        CHECK(n2.use_count() == 1);
+        CHECK(n3.use_count() == 2);
+    }
 }
 
 //------------------------------------------------------------------------------

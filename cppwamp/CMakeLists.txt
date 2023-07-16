@@ -87,6 +87,8 @@ set(HEADERS
     include/cppwamp/internal/directpeer.hpp
     include/cppwamp/internal/endian.hpp
     include/cppwamp/internal/jsonencoding.hpp
+    include/cppwamp/internal/hashcombine.hpp
+    include/cppwamp/internal/lrucache.hpp
     include/cppwamp/internal/matchpolicyoption.hpp
     include/cppwamp/internal/message.hpp
     include/cppwamp/internal/messagetraits.hpp

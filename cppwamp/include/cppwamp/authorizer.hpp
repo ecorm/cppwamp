@@ -32,6 +32,7 @@
 #include "sessioninfo.hpp"
 #include "utils/triemap.hpp"
 #include "internal/authorizationlistener.hpp"
+#include "internal/lrucache.hpp"
 #include "internal/passkey.hpp"
 
 namespace wamp
@@ -250,19 +251,46 @@ class CPPWAMP_API CachingAuthorizer : public Authorizer
 {
 public:
     using Predicate = std::function<bool (SessionInfo)>;
+    using Size = std::size_t;
 
-    void clearAll();
+    /** Determines if the cache is empty. */
+    bool empty() const;
 
-    void clearBySessionId(SessionId sid);
+    /** Obtains the number of entries in the cache. */
+    Size size() const;
 
-    void clearByAuthId(const String& authId);
+    /** Obtains the maximum allowable number of entries in the cache. */
+    Size capacity() const;
 
-    void clearByAuthRole(const String& authRole);
+    /** Obtains the current number of elements per bucket of the
+        underlying unordered map. */
+    float loadFactor() const;
 
-    void clearIf(const Predicate& pred);
+    /** Obtains the current maximum load factor of the underlying
+        unordered map. */
+    float maxLoadFactor() const;
+
+    /** Sets the maximum load factor of the underlying unordered map. */
+    void setMaxLoadFactor(float mlf);
+
+    /** Clears all entries from the cache. */
+    void clear();
+
+    /** Removes all cache entries having the given session ID. */
+    void evictBySessionId(SessionId sid);
+
+    /** Removes all cache entries having the given authId. */
+    void evictByAuthId(const String& authId);
+
+    /** Removes all cache entries having the given authRole. */
+    void evictByAuthRole(const String& authRole);
+
+    /** Removes all cache entries meeting the criteria of the given
+        predicate function. */
+    void evictIf(const Predicate& pred);
 
 protected:
-    CachingAuthorizer();
+    explicit CachingAuthorizer(std::size_t capacity);
 
     void authorize(Topic t, AuthorizationRequest a, AnyIoExecutor& e) override;
 
@@ -276,6 +304,33 @@ protected:
     using Authorizer::onAuthorize;
 
 private:
+    enum Action
+    {
+        subscribe,
+        publish,
+        enroll,
+        call
+    };
+
+    class CacheKey
+    {
+    public:
+        explicit CacheKey(const Topic& subscribe);
+        explicit CacheKey(const Pub& publish);
+        explicit CacheKey(const Procedure& enroll);
+        explicit CacheKey(const Rpc& call);
+        bool operator==(const CacheKey& key) const;
+
+        Uri uri;
+        MatchPolicy policy = MatchPolicy::unknown;
+        Action action;
+    };
+
+    struct CacheKeyHash
+    {
+        std::size_t operator()(const CacheKey& key) const;
+    };
+
     struct CacheEntry
     {
         SessionInfo info;
@@ -287,21 +342,9 @@ private:
     using CacheByUri = utils::TrieMap<EntriesBySessionId>;
     using MutexGuard = std::lock_guard<std::mutex>;
 
-    template <typename P>
-    static void eraseFromCacheIf(CacheByUri& cache, const P& pred);
-
-    static void eraseSessionFromCache(CacheByUri& cache, SessionId sid);
-
-    CacheByUri& subscribeCacheForPolicy(MatchPolicy p);
-
-    const CacheByUri& subscribeCacheForPolicy(MatchPolicy p) const;
-
     template <typename C>
-    void doAuthorize(const CacheByUri& cache, C& command,
-                     AuthorizationRequest& req, AnyIoExecutor& exec);
-
-    template <typename P>
-    void doClearIf(const P& pred);
+    void doAuthorize(C& command, AuthorizationRequest& req,
+                     AnyIoExecutor& exec);
 
     void cache(const Topic& t, const SessionInfo& s, Authorization a) final;
 
@@ -318,10 +361,7 @@ private:
     void uncacheProcedure(const RegistrationInfo& info) final;
 
     std::mutex mutex_;
-    std::array<CacheByUri, 3> subscribeCaches_;
-    CacheByUri publishCache_;
-    CacheByUri registerCache_;
-    CacheByUri callCache_;
+    internal::LruCache<CacheKey, CacheEntry, CacheKeyHash> cache_;
 };
 
 } // namespace wamp
