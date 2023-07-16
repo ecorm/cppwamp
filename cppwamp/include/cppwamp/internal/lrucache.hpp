@@ -132,7 +132,7 @@ private:
     }
 
     std::unordered_map<Key, Entry, H, E> map_;
-    List lruList_;
+    List lruList_; // Front is MRU, back is LRU
     Size capacity_ = 0;
 };
 

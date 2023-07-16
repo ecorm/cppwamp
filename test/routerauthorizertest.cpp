@@ -7,6 +7,7 @@
 #if defined(CPPWAMP_TEST_HAS_CORO)
 
 #include <catch2/catch.hpp>
+#include <cppwamp/cachingauthorizer.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>

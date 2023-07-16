@@ -16,6 +16,7 @@
 #include <cppwamp/internal/authorizer.inl.hpp>
 #include <cppwamp/internal/authenticator.inl.hpp>
 #include <cppwamp/internal/blob.inl.hpp>
+#include <cppwamp/internal/cachingauthorizer.inl.hpp>
 #include <cppwamp/internal/calleestreaming.inl.hpp>
 #include <cppwamp/internal/callerstreaming.inl.hpp>
 #include <cppwamp/internal/cancellation.inl.hpp>

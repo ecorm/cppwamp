@@ -14,6 +14,7 @@ set(HEADERS
     include/cppwamp/authorizer.hpp
     include/cppwamp/authenticator.hpp
     include/cppwamp/blob.hpp
+    include/cppwamp/cachingauthorizer.hpp
     include/cppwamp/calleestreaming.hpp
     include/cppwamp/callerstreaming.hpp
     include/cppwamp/cancellation.hpp
@@ -156,6 +157,7 @@ set(INLINES
     include/cppwamp/internal/authenticator.inl.hpp
     include/cppwamp/internal/authorizer.inl.hpp
     include/cppwamp/internal/blob.inl.hpp
+    include/cppwamp/internal/cachingauthorizer.inl.hpp
     include/cppwamp/internal/calleestreaming.inl.hpp
     include/cppwamp/internal/callerstreaming.inl.hpp
     include/cppwamp/internal/cancellation.inl.hpp
