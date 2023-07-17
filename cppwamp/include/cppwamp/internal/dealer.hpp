@@ -1056,8 +1056,7 @@ private:
 
         AuthorizationRequest r{{}, shared_from_this(), originator,
                                authorizer, callerDisclosure_};
-        authorizer->authorize(std::forward<C>(command), std::move(r),
-                              executor_);
+        authorizer->authorize(std::forward<C>(command), std::move(r));
     }
 
     void bypassAuthorization(const RouterSession::Ptr& callee, Procedure&& p)

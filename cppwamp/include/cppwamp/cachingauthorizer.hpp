@@ -26,8 +26,17 @@ namespace wamp
 class CPPWAMP_API CachingAuthorizer : public Authorizer
 {
 public:
+    /// Shared pointer type.
+    using Ptr = std::shared_ptr<CachingAuthorizer>;
+
+    /// Preducate type used by CachingAuthorizer::evictIf.
     using Predicate = std::function<bool (SessionInfo)>;
+
+    /// Cache size type.
     using Size = std::size_t;
+
+    /** Creates a CachingAuthorizer instance. */
+    static Ptr create(Authorizer::Ptr chained, Size capacity);
 
     /** Determines if the cache is empty. */
     bool empty() const;
@@ -65,19 +74,13 @@ public:
         predicate function. */
     void evictIf(const Predicate& pred);
 
-protected:
-    explicit CachingAuthorizer(std::size_t capacity);
+    void authorize(Topic t, AuthorizationRequest a) override;
 
-    void authorize(Topic t, AuthorizationRequest a, AnyIoExecutor& e) override;
+    void authorize(Pub p, AuthorizationRequest a) override;
 
-    void authorize(Pub p, AuthorizationRequest a, AnyIoExecutor& e) override;
+    void authorize(Procedure p, AuthorizationRequest a) override;
 
-    void authorize(Procedure p, AuthorizationRequest a,
-                   AnyIoExecutor& e) override;
-
-    void authorize(Rpc r, AuthorizationRequest a, AnyIoExecutor& e) override;
-
-    using Authorizer::onAuthorize;
+    void authorize(Rpc r, AuthorizationRequest a) override;
 
 private:
     using Base = Authorizer;
@@ -116,9 +119,10 @@ private:
         Authorization auth;
     };
 
+    CachingAuthorizer(Authorizer::Ptr chained, std::size_t capacity);
+
     template <typename C>
-    void doAuthorize(C& command, AuthorizationRequest& req,
-                     AnyIoExecutor& exec);
+    void cachedAuthorize(C& command, AuthorizationRequest& req);
 
     void cache(const Topic& t, const SessionInfo& s, Authorization a) final;
 

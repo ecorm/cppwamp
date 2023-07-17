@@ -625,7 +625,7 @@ public:
           authorizer_(std::move(authorizer))
     {}
 
-    const Authorizer::Ptr authorizer() const {return authorizer_;}
+    const Authorizer::Ptr& authorizer() const {return authorizer_;}
 
     void subscribe(const RouterSession::Ptr& subscriber, Topic&& t)
     {
@@ -988,8 +988,7 @@ private:
 
         AuthorizationRequest r{{}, shared_from_this(), originator,
                                authorizer, publisherDisclosure_};
-        authorizer->authorize(std::forward<C>(command), std::move(r),
-                              executor_);
+        authorizer->authorize(std::forward<C>(command), std::move(r));
     }
 
     void bypassAuthorization(const RouterSession::Ptr& subscriber, Topic&& t)

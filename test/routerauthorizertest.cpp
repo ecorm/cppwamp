@@ -25,41 +25,34 @@ const unsigned short testPort = 12345;
 const auto withTcp = TcpHost("localhost", testPort).withFormat(json);
 
 //------------------------------------------------------------------------------
-struct CachingTestAuthorizerBase : public CachingAuthorizer
+struct TestAuthorizer : public Authorizer
 {
-    CachingTestAuthorizerBase() : CachingAuthorizer(1000) {}
-};
-
-//------------------------------------------------------------------------------
-template <typename TBase>
-struct BasicTestAuthorizer : public TBase
-{
-    BasicTestAuthorizer()
+    TestAuthorizer()
         : topic("empty"), pub("empty"), proc("empty"), rpc("empty")
     {}
 
-    void onAuthorize(Topic t, AuthorizationRequest a) override
+    void authorize(Topic t, AuthorizationRequest a) override
     {
         topic = t;
         info = a.info();
         a.authorize(std::move(t), canSubscribe, cacheEnabled);
     }
 
-    void onAuthorize(Pub p, AuthorizationRequest a) override
+    void authorize(Pub p, AuthorizationRequest a) override
     {
         pub = p;
         info = a.info();
         a.authorize(std::move(p), canPublish, cacheEnabled);
     }
 
-    void onAuthorize(Procedure p, AuthorizationRequest a) override
+    void authorize(Procedure p, AuthorizationRequest a) override
     {
         proc = p;
         info = a.info();
         a.authorize(std::move(p), canRegister, cacheEnabled);
     }
 
-    void onAuthorize(Rpc r, AuthorizationRequest a) override
+    void authorize(Rpc r, AuthorizationRequest a) override
     {
         rpc = r;
         info = a.info();
@@ -94,9 +87,6 @@ struct BasicTestAuthorizer : public TBase
     bool cacheEnabled = false;
 };
 
-using TestAuthorizer = BasicTestAuthorizer<Authorizer>;
-using CachingTestAuthorizer = BasicTestAuthorizer<CachingTestAuthorizerBase>;
-
 } // anomymous namespace
 
 
@@ -112,10 +102,10 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
 
     IoContext ioctx;
     auto auth = std::make_shared<TestAuthorizer>();
-    auth->bindExecutor(ioctx.get_executor());
+    auto postingAuth = PostingAuthorizer::create(auth, ioctx.get_executor());
     auto config =
         RealmConfig{testRealm}.withMetaApiEnabled()
-                              .withAuthorizer(auth)
+                              .withAuthorizer(postingAuth)
                               .withCallerDisclosure(DisclosureRule::reveal)
                               .withPublisherDisclosure(DisclosureRule::conceal);
     test::ScopedRealm realm{router.openRealm(config).value()};
@@ -480,11 +470,12 @@ TEST_CASE( "Router caching dynamic authorizer", "[WAMP][Router]" )
     router.setLogLevel(LogLevel::error);
 
     IoContext ioctx;
-    auto auth = std::make_shared<CachingTestAuthorizer>();
-    auth->bindExecutor(ioctx.get_executor());
+    auto auth = std::make_shared<TestAuthorizer>();
+    auto postingAuth = PostingAuthorizer::create(auth, ioctx.get_executor());
+    auto cachingAuth = CachingAuthorizer::create(postingAuth, 1000);
     auto config =
         RealmConfig{testRealm}.withMetaApiEnabled()
-                              .withAuthorizer(auth)
+                              .withAuthorizer(cachingAuth)
                               .withCallerDisclosure(DisclosureRule::reveal)
                               .withPublisherDisclosure(DisclosureRule::conceal);
     test::ScopedRealm realm{router.openRealm(config).value()};

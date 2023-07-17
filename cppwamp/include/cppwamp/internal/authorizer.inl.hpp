@@ -185,130 +185,198 @@ CPPWAMP_INLINE AuthorizationRequest::AuthorizationRequest(
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-/** @details
-    This method makes it so that the `onAuthorize` handler will be posted
-    via the given executor. If no executor is set, the `onAuthorize` handler
-    is invoked directly from the realm's execution strand. */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Authorizer::bindExecutor(AnyCompletionExecutor e)
+CPPWAMP_INLINE void Authorizer::setIoExecutor(AnyIoExecutor exec)
 {
-    executor_ = std::move(e);
+    ioExecutor_ = std::move(exec);
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Authorizer::authorize(Topic t, AuthorizationRequest a,
-                                          AnyIoExecutor& e)
+CPPWAMP_INLINE void Authorizer::authorize(Topic t, AuthorizationRequest a)
 {
-    doAuthorize(std::move(t), std::move(a), e);
+    if (chained_)
+        chained_->authorize(std::move(t), std::move(a));
+    else
+        a.authorize(std::move(t), granted);
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Authorizer::authorize(Pub p, AuthorizationRequest a,
-                                          AnyIoExecutor& e)
+CPPWAMP_INLINE void Authorizer::authorize(Pub p, AuthorizationRequest a)
 {
-    doAuthorize(std::move(p), std::move(a), e);
+    if (chained_)
+        chained_->authorize(std::move(p), std::move(a));
+    else
+        a.authorize(std::move(p), granted);
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Authorizer::authorize(Procedure p, AuthorizationRequest a,
-                                          AnyIoExecutor& e)
+CPPWAMP_INLINE void Authorizer::authorize(Procedure p, AuthorizationRequest a)
 {
-    doAuthorize(std::move(p), std::move(a), e);
+    if (chained_)
+        chained_->authorize(std::move(p), std::move(a));
+    else
+        a.authorize(std::move(p), granted);
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Authorizer::authorize(Rpc r, AuthorizationRequest a,
-                                          AnyIoExecutor& e)
+CPPWAMP_INLINE void Authorizer::authorize(Rpc r, AuthorizationRequest a)
 {
-    doAuthorize(std::move(r), std::move(a), e);
+    if (chained_)
+        chained_->authorize(std::move(r), std::move(a));
+    else
+        a.authorize(std::move(r), granted);
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Authorizer::cache(const Topic& t, const SessionInfo& s,
                                       Authorization a)
-{}
+{
+    if (chained_)
+        chained_->cache(t, s, a);
+}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Authorizer::cache(const Pub& p, const SessionInfo& s,
                                       Authorization a)
-{}
+{
+    if (chained_)
+        chained_->cache(p, s, a);
+}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Authorizer::cache(const Procedure& p, const SessionInfo& s,
                                       Authorization a)
-{}
+{
+    if (chained_)
+        chained_->cache(p, s, a);
+}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Authorizer::cache(const Rpc& r, const SessionInfo& s,
                                       Authorization a)
+{
+    if (chained_)
+        chained_->cache(r, s, a);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Authorizer::uncacheSession(const SessionInfo& s)
+{
+    if (chained_)
+        chained_->uncacheSession(s);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Authorizer::uncacheProcedure(const RegistrationInfo& r)
+{
+    if (chained_)
+        chained_->uncacheProcedure(r);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Authorizer::uncacheTopic(const SubscriptionInfo& s)
+{
+    if (chained_)
+        chained_->uncacheTopic(s);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Authorizer::Authorizer(Ptr chained)
+    : chained_(std::move(chained))
 {}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Authorizer::uncacheSession(const SessionInfo&) {}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Authorizer::uncacheProcedure(const RegistrationInfo&) {}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Authorizer::uncacheTopic(const SubscriptionInfo&) {}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE Authorizer::Authorizer() = default;
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Authorizer::onAuthorize(Topic t, AuthorizationRequest a)
+CPPWAMP_INLINE void Authorizer::bind(Ptr chained)
 {
-    a.authorize(std::move(t), granted);
+    chained_ = std::move(chained);
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Authorizer::onAuthorize(Pub p, AuthorizationRequest a)
+CPPWAMP_INLINE AnyIoExecutor& Authorizer::ioExecutor() {return ioExecutor_;}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE const Authorizer::Ptr& Authorizer::chained() const
 {
-    a.authorize(std::move(p), granted);
+    return chained_;
+}
+
+
+//******************************************************************************
+// PostingAuthorizer
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE PostingAuthorizer::Ptr
+PostingAuthorizer::create(Authorizer::Ptr chained, Executor e)
+{
+    return Ptr{new PostingAuthorizer(std::move(chained), std::move(e))};
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Authorizer::onAuthorize(Procedure p, AuthorizationRequest a)
+CPPWAMP_INLINE const PostingAuthorizer::Executor&
+PostingAuthorizer::executor() const
 {
-    a.authorize(std::move(p), granted);
+    return executor_;
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Authorizer::onAuthorize(Rpc r, AuthorizationRequest a)
+CPPWAMP_INLINE void PostingAuthorizer::authorize(Topic t,
+                                                 AuthorizationRequest a)
 {
-    a.authorize(std::move(r), granted);
+    postAuthorization(t, a);
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE AnyCompletionExecutor& Authorizer::executor() {return executor_;}
+CPPWAMP_INLINE void PostingAuthorizer::authorize(Pub p, AuthorizationRequest a)
+{
+    postAuthorization(p, a);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void PostingAuthorizer::authorize(Procedure p,
+                                                 AuthorizationRequest a)
+{
+    postAuthorization(p, a);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void PostingAuthorizer::authorize(Rpc r, AuthorizationRequest a)
+{
+    postAuthorization(r, a);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE PostingAuthorizer::PostingAuthorizer(Authorizer::Ptr chained,
+                                                    AnyCompletionExecutor e)
+    : Base(std::move(chained)),
+      executor_(std::move(e))
+{}
 
 //------------------------------------------------------------------------------
 template <typename C>
-void Authorizer::doAuthorize(C&& command, AuthorizationRequest&& a,
-                             AnyIoExecutor& ioExec)
+void PostingAuthorizer::postAuthorization(C& command, AuthorizationRequest& req)
 {
     using Command = ValueTypeOf<C>;
-
-    if (executor_ == nullptr)
-    {
-        onAuthorize(std::forward<C>(command), std::move(a));
-        return;
-    }
 
     struct Posted
     {
         Ptr self;
         Command c;
-        AuthorizationRequest a;
-        void operator()() {self->onAuthorize(std::move(c), std::move(a));}
+        AuthorizationRequest r;
+
+        void operator()()
+        {
+            self->chained()->authorize(std::move(c), std::move(r));
+        }
     };
 
+    auto self =
+        std::dynamic_pointer_cast<PostingAuthorizer>(shared_from_this());
+
     boost::asio::post(
-        ioExec,
+        Base::ioExecutor(),
         boost::asio::bind_executor(
             executor_,
-            Posted{shared_from_this(), std::forward<C>(command),
-                   std::move(a)}));
+            Posted{self, std::move(command), std::move(req)}));
 }
 
 } // namespace wamp

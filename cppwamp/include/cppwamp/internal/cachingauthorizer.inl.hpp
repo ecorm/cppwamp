@@ -71,6 +71,13 @@ CachingAuthorizer::CacheKeyHash::operator()(const CacheKey& key) const
 //******************************************************************************
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE CachingAuthorizer::Ptr
+CachingAuthorizer::create(Authorizer::Ptr chained, Size capacity)
+{
+    return Ptr{new CachingAuthorizer(std::move(chained), capacity)};
+}
+
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE bool CachingAuthorizer::empty() const {return cache_.empty();}
 
 //------------------------------------------------------------------------------
@@ -155,42 +162,41 @@ CPPWAMP_INLINE void CachingAuthorizer::evictIf(const Predicate& pred)
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE CachingAuthorizer::CachingAuthorizer(std::size_t capacity)
-    : cache_(capacity)
+CPPWAMP_INLINE void CachingAuthorizer::authorize(Topic t,
+                                                 AuthorizationRequest a)
+{
+    cachedAuthorize(t, a);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void CachingAuthorizer::authorize(Pub p, AuthorizationRequest a)
+{
+    cachedAuthorize(p, a);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void CachingAuthorizer::authorize(Procedure p,
+                                                 AuthorizationRequest a)
+{
+    cachedAuthorize(p, a);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void CachingAuthorizer::authorize(Rpc r, AuthorizationRequest a)
+{
+    cachedAuthorize(r, a);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE CachingAuthorizer::CachingAuthorizer(Authorizer::Ptr chained,
+                                                    std::size_t capacity)
+    : Base(std::move(chained)),
+      cache_(capacity)
 {}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void CachingAuthorizer::authorize(
-    Topic t, AuthorizationRequest a, AnyIoExecutor& e)
-{
-    doAuthorize(t, a, e);
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void CachingAuthorizer::authorize(Pub p, AuthorizationRequest a,
-                                                 AnyIoExecutor& e)
-{
-    doAuthorize(p, a, e);
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void CachingAuthorizer::authorize(
-    Procedure p, AuthorizationRequest a, AnyIoExecutor& e)
-{
-    doAuthorize(p, a, e);
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void CachingAuthorizer::authorize(Rpc r, AuthorizationRequest a,
-                                                 AnyIoExecutor& e)
-{
-    doAuthorize(r, a, e);
-}
-
-//------------------------------------------------------------------------------
 template <typename C>
-void CachingAuthorizer::doAuthorize(C& command, AuthorizationRequest& req,
-                                    AnyIoExecutor& exec)
+void CachingAuthorizer::cachedAuthorize(C& command, AuthorizationRequest& req)
 {
     const Authorization* auth = nullptr;
 
@@ -202,7 +208,7 @@ void CachingAuthorizer::doAuthorize(C& command, AuthorizationRequest& req,
     }
 
     if (auth == nullptr)
-        Base::authorize(std::move(command), std::move(req), exec);
+        Base::chained()->authorize(std::move(command), std::move(req));
     else
         req.authorize(std::move(command), *auth);
 }

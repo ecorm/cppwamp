@@ -68,7 +68,10 @@ public:
                                            config_)),
           logger_(router_.logger()),
           isOpen_(true)
-    {}
+    {
+        if (config_.authorizer())
+            config_.authorizer()->setIoExecutor(executor_);
+    }
 
     ~RouterRealm() override = default;
 

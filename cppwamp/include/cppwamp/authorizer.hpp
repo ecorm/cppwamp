@@ -173,21 +173,21 @@ public:
     /** Destructor. */
     virtual ~Authorizer() = default;
 
-    /** Binds an executor via which to post an authorization handler. */
-    void bindExecutor(AnyCompletionExecutor e);
+    /** Called by the router implementation to set the IO executor via
+        which operations can be dispatched/posted. */
+    void setIoExecutor(AnyIoExecutor exec);
 
     /** Authorizes a subscribe request. */
-    virtual void authorize(Topic t, AuthorizationRequest a, AnyIoExecutor& e);
+    virtual void authorize(Topic t, AuthorizationRequest a);
 
     /** Authorizes a publish request. */
-    virtual void authorize(Pub p, AuthorizationRequest a, AnyIoExecutor& e);
+    virtual void authorize(Pub p, AuthorizationRequest a);
 
     /** Authorizes a registration request. */
-    virtual void authorize(Procedure p, AuthorizationRequest a,
-                           AnyIoExecutor& e);
+    virtual void authorize(Procedure p, AuthorizationRequest a);
 
     /** Authorizes a call request. */
-    virtual void authorize(Rpc r, AuthorizationRequest a, AnyIoExecutor& e);
+    virtual void authorize(Rpc r, AuthorizationRequest a);
 
     /** Caches a subscribe authorization. */
     virtual void cache(const Topic& t, const SessionInfo& s, Authorization a);
@@ -212,27 +212,58 @@ public:
     virtual void uncacheTopic(const SubscriptionInfo&);
 
 protected:
-    Authorizer();
+    /** Constructor taking an optional chained authorizer. */
+    explicit Authorizer(Ptr chained = nullptr);
 
-    /** Can be overridden to conditionally authorize a subscribe request. */
-    virtual void onAuthorize(Topic t, AuthorizationRequest a);
+    /** Binds the given chained authorizer. */
+    void bind(Ptr chained);
 
-    /** Can be overridden to conditionally authorize a publish request. */
-    virtual void onAuthorize(Pub p, AuthorizationRequest a);
+    /** Obtains the IO executor via which operations can be
+        dispatched/posted. */
+    AnyIoExecutor& ioExecutor();
 
-    /** Can be overridden to conditionally authorize a registration request. */
-    virtual void onAuthorize(Procedure p, AuthorizationRequest a);
-
-    /** Can be overridden to conditionally authorize a call request. */
-    virtual void onAuthorize(Rpc r, AuthorizationRequest a);
-
-    /** Accesses the bound executor. */
-    AnyCompletionExecutor& executor();
+    /** Obtains the optional chained authorizer. */
+    const Ptr& chained() const;
 
 private:
+    AnyIoExecutor ioExecutor_;
+    Ptr chained_;
+};
+
+//------------------------------------------------------------------------------
+/** Posts authorization operations via en executor. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API PostingAuthorizer : public Authorizer
+{
+public:
+    /// Executor via which to post the authorize operations.
+    using Executor = AnyCompletionExecutor;
+
+    /// Shared pointer type.
+    using Ptr = std::shared_ptr<PostingAuthorizer>;
+
+    /** Creates an PostingAuthorizer instance. */
+    static Ptr create(Authorizer::Ptr chained, Executor e);
+
+    /** Obtains the executor via which authorize operations are to be posted */
+    const Executor& executor() const;
+
+    void authorize(Topic t, AuthorizationRequest a) override;
+
+    void authorize(Pub p, AuthorizationRequest a) override;
+
+    void authorize(Procedure p, AuthorizationRequest a) override;
+
+    void authorize(Rpc r, AuthorizationRequest a) override;
+
+private:
+    using Base = Authorizer;
+
+    explicit PostingAuthorizer(Authorizer::Ptr chained,
+                               AnyCompletionExecutor e);
+
     template <typename C>
-    void doAuthorize(C&& command, AuthorizationRequest&& a,
-                     AnyIoExecutor& ioExec);
+    void postAuthorization(C& command, AuthorizationRequest& req);
 
     AnyCompletionExecutor executor_;
 };
