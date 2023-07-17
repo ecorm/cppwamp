@@ -118,6 +118,8 @@ public:
 
     const Uri& topicUri() const {return topicUri_;}
 
+    bool isMeta() const {return topicUri_.rfind("wamp.", 0) == 0;}
+
     PublicationId publicationId() const {return publicationId_;}
 
 private:
@@ -483,6 +485,9 @@ public:
         if (trie().empty())
             return 0;
 
+        if (info.isMeta())
+            return publishMeta(info, inhibitedSessionId);
+
         using Iter = utils::TrieMap<BrokerSubscription*>::const_iterator;
         std::size_t count = 0;
         info.enableTopicDetail();
@@ -506,7 +511,11 @@ public:
         trie().for_each_prefix_of(uri, visitor);
         return visitor.count();
     }
+
 private:
+    using Base = BrokerTopicMapBase<utils::TrieMap<BrokerSubscription*>,
+                                    BrokerPrefixTopicMap>;
+
     template <typename TFunctor>
     class PrefixVisitor
     {
@@ -534,8 +543,26 @@ private:
         bool more_ = true;
     };
 
-    using Base = BrokerTopicMapBase<utils::TrieMap<BrokerSubscription*>,
-                                    BrokerPrefixTopicMap>;
+    std::size_t publishMeta(BrokerPublication& info,
+                            SessionId inhibitedSessionId)
+    {
+        static constexpr auto minPrefixSize = sizeof("wamp.") - sizeof('\0');
+
+        using Iter = utils::TrieMap<BrokerSubscription*>::const_iterator;
+        std::size_t count = 0;
+        info.enableTopicDetail();
+        trie().for_each_prefix_of(
+            info.topicUri(),
+            [&count, &info, &inhibitedSessionId] (Iter iter)
+            {
+                // As a security measure, don't publish if subscription URI
+                // does not fully contain the "wamp." prefix.
+                const BrokerSubscription* record = iter.value();
+                if (record->info().uri.size() >= minPrefixSize)
+                    count += record->publish(info, inhibitedSessionId);
+            });
+        return count;
+    }
 
     static constexpr std::size_t burstThreshold_ = 1024;
 };
@@ -558,6 +585,9 @@ public:
         if (trie().empty())
             return 0;
 
+        if (info.isMeta())
+            return publishMeta(info, inhibitedSessionId);
+
         auto matches = wildcardMatches(trie(), info.topicUri());
         if (matches.done())
             return 0;
@@ -571,24 +601,6 @@ public:
             matches.next();
         }
         return count;
-    }
-
-    void collectMatches(const Uri& uri,
-                        std::vector<SubscriptionId>& subIds) const
-    {
-        if (trie().empty())
-            return;
-
-        auto matches = wildcardMatches(trie(), uri);
-        if (matches.done())
-            return;
-
-        while (!matches.done())
-        {
-            const BrokerSubscription* record = matches.value();
-            subIds.push_back(record->info().id);
-            matches.next();
-        }
     }
 
     template <typename F>
@@ -608,6 +620,30 @@ public:
             if (!functor(record->info()))
                 break;
             ++count;
+            matches.next();
+        }
+        return count;
+    }
+
+private:
+    std::size_t publishMeta(BrokerPublication& info,
+                            SessionId inhibitedSessionId)
+    {
+        auto matches = wildcardMatches(trie(), info.topicUri());
+        if (matches.done())
+            return 0;
+
+        std::size_t count = 0;
+        info.enableTopicDetail();
+        while (!matches.done())
+        {
+            // As a security measure, don't publish to subscriptions
+            // where the first token is a wildcard.
+            if (!matches.key().empty() && !matches.key().front().empty())
+            {
+                const BrokerSubscription* record = matches.value();
+                count += record->publish(info, inhibitedSessionId);
+            }
             matches.next();
         }
         return count;

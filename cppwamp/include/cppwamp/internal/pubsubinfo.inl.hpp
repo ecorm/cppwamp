@@ -71,6 +71,11 @@ CPPWAMP_INLINE const Uri& Pub::uri() const
     return message().as<String>(uriPos_);
 }
 
+CPPWAMP_INLINE bool Pub::isMeta() const
+{
+    return uri().rfind("wamp.", 0) == 0;
+}
+
 CPPWAMP_INLINE AccessActionInfo Pub::info() const
 {
     return {AccessAction::clientPublish, requestId(), uri(), options()};

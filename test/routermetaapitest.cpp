@@ -817,4 +817,87 @@ TEST_CASE( "Attempting to publish meta topics", "[WAMP][Router]" )
     }
 }
 
+//------------------------------------------------------------------------------
+TEST_CASE( "Insecure WAMP meta events subscriptions", "[WAMP][Router]" )
+{
+    IoContext ioctx;
+    Session s1{ioctx};
+    Session s2{ioctx};
+    int neverFiredEventCount = 0;
+    int prefixEventCount = 0;
+    int wildcardEventCount = 0;
+    int registerEventCount = 0;
+
+    auto onNeverFiredEvent =
+        [&neverFiredEventCount](Event) {++neverFiredEventCount;};
+
+    auto onPrefixEvent =
+        [&prefixEventCount](Event ev)
+        {
+            auto topic = ev.topic().value_or("");
+            if (topic.rfind("wamp.subscription", 0) != 0)
+                ++prefixEventCount;
+        };
+
+    auto onWildcardEvent =
+        [&wildcardEventCount](Event ev)
+        {
+            auto topic = ev.topic().value_or("");
+            if (topic.rfind("wamp.subscription", 0) != 0)
+                ++wildcardEventCount;
+        };
+
+    auto onRegisterEvent = [&registerEventCount](Event) {++registerEventCount;};
+
+    spawn(ioctx, [&](YieldContext yield)
+    {
+        s1.connect(withTcp, yield).value();
+        auto w1 = s1.join(Petition(testRealm), yield).value();
+        REQUIRE(w1.features().broker()
+                    .all_of(BrokerFeatures::sessionMetaApi));
+
+        s1.subscribe(Topic{"wamp.registration.on_register"},
+                     onRegisterEvent, yield).value();
+
+        using MP = MatchPolicy;
+        s1.subscribe(Topic{"wamp."}.withMatchPolicy(MP::prefix),
+                     onPrefixEvent, yield).value();
+        s1.subscribe(Topic{"wamp"}.withMatchPolicy(MP::prefix),
+                     onNeverFiredEvent, yield).value();
+        s1.subscribe(Topic{"w"}.withMatchPolicy(MP::prefix),
+                     onNeverFiredEvent, yield).value();
+
+        s1.subscribe(Topic{"wamp.."}.withMatchPolicy(MP::wildcard),
+                     onWildcardEvent, yield).value();
+        s1.subscribe(Topic{".."}.withMatchPolicy(MP::wildcard),
+                     onNeverFiredEvent, yield).value();
+        s1.subscribe(Topic{".session."}.withMatchPolicy(MP::wildcard),
+                     onNeverFiredEvent, yield).value();
+        s1.subscribe(Topic{"..on_join"}.withMatchPolicy(MP::wildcard),
+                     onNeverFiredEvent, yield).value();
+        s1.subscribe(Topic{".session.on_join"}.withMatchPolicy(MP::wildcard),
+                     onNeverFiredEvent, yield).value();
+
+        s2.connect(withTcp, yield).value();
+        auto w2 = s2.join(Petition(testRealm), yield).value();
+
+        // Cause a registration meta event to stop the waiting loop below.
+        s2.enroll(Procedure{"rpc"},
+                  [](Invocation) -> Outcome {return Result{};},
+                  yield).value();
+
+        while (registerEventCount == 0)
+            test::suspendCoro(yield);
+
+        CHECK(neverFiredEventCount == 0);
+        CHECK(prefixEventCount == 2); // registration created + session join
+        CHECK(wildcardEventCount == 2);
+
+        s2.disconnect();
+        s1.disconnect();
+    });
+
+    ioctx.run();
+}
+
 #endif // defined(CPPWAMP_TEST_HAS_CORO)
