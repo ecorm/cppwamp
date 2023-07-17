@@ -185,12 +185,6 @@ CPPWAMP_INLINE AuthorizationRequest::AuthorizationRequest(
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Authorizer::setIoExecutor(AnyIoExecutor exec)
-{
-    ioExecutor_ = std::move(exec);
-}
-
-//------------------------------------------------------------------------------
 CPPWAMP_INLINE void Authorizer::authorize(Topic t, AuthorizationRequest a)
 {
     if (chained_)
@@ -280,6 +274,14 @@ CPPWAMP_INLINE void Authorizer::uncacheTopic(const SubscriptionInfo& s)
 }
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE void Authorizer::setIoExecutor(const AnyIoExecutor& exec)
+{
+    if (chained_)
+        chained_->setIoExecutor(exec);
+}
+
+
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE Authorizer::Authorizer(Ptr chained)
     : chained_(std::move(chained))
 {}
@@ -289,9 +291,6 @@ CPPWAMP_INLINE void Authorizer::bind(Ptr chained)
 {
     chained_ = std::move(chained);
 }
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE AnyIoExecutor& Authorizer::ioExecutor() {return ioExecutor_;}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE const Authorizer::Ptr& Authorizer::chained() const
@@ -373,10 +372,17 @@ void PostingAuthorizer::postAuthorization(C& command, AuthorizationRequest& req)
         std::dynamic_pointer_cast<PostingAuthorizer>(shared_from_this());
 
     boost::asio::post(
-        Base::ioExecutor(),
+        ioExecutor_,
         boost::asio::bind_executor(
             executor_,
             Posted{self, std::move(command), std::move(req)}));
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void PostingAuthorizer::setIoExecutor(const AnyIoExecutor& exec)
+{
+    ioExecutor_ = exec;
+    Base::chained()->setIoExecutor(exec);
 }
 
 } // namespace wamp

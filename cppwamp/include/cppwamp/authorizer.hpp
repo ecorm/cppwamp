@@ -173,10 +173,6 @@ public:
     /** Destructor. */
     virtual ~Authorizer() = default;
 
-    /** Called by the router implementation to set the IO executor via
-        which operations can be dispatched/posted. */
-    void setIoExecutor(AnyIoExecutor exec);
-
     /** Authorizes a subscribe request. */
     virtual void authorize(Topic t, AuthorizationRequest a);
 
@@ -211,6 +207,10 @@ public:
     /** Called when a subscription is removed. */
     virtual void uncacheTopic(const SubscriptionInfo&);
 
+    /** Called by the router implementation to set the IO executor via
+        which operations can be dispatched/posted. */
+    virtual void setIoExecutor(const AnyIoExecutor& exec);
+
 protected:
     /** Constructor taking an optional chained authorizer. */
     explicit Authorizer(Ptr chained = nullptr);
@@ -218,15 +218,10 @@ protected:
     /** Binds the given chained authorizer. */
     void bind(Ptr chained);
 
-    /** Obtains the IO executor via which operations can be
-        dispatched/posted. */
-    AnyIoExecutor& ioExecutor();
-
     /** Obtains the optional chained authorizer. */
     const Ptr& chained() const;
 
 private:
-    AnyIoExecutor ioExecutor_;
     Ptr chained_;
 };
 
@@ -265,7 +260,10 @@ private:
     template <typename C>
     void postAuthorization(C& command, AuthorizationRequest& req);
 
+    void setIoExecutor(const AnyIoExecutor& exec) final;
+
     AnyCompletionExecutor executor_;
+    AnyIoExecutor ioExecutor_;
 };
 
 } // namespace wamp
