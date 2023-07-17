@@ -26,6 +26,11 @@ CPPWAMP_INLINE const Uri& Topic::uri() const
     return message().as<String>(uriPos_);
 }
 
+CPPWAMP_INLINE bool Topic::isMeta() const
+{
+    return uri().rfind("wamp.", 0) == 0;
+}
+
 CPPWAMP_INLINE AccessActionInfo Topic::info() const
 {
     return {AccessAction::clientSubscribe, requestId(), uri(), options()};

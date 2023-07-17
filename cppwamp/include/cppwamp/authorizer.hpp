@@ -12,9 +12,6 @@
     @brief Contains facilities for dynamic authorization. */
 //------------------------------------------------------------------------------
 
-// TODO: Provide authorizer which blocks WAMP meta API
-// https://github.com/wamp-proto/wamp-proto/discussions/489
-
 #include <memory>
 #include "anyhandler.hpp"
 #include "api.hpp"

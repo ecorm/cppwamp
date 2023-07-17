@@ -47,6 +47,9 @@ public:
     /** Obtains the procedure URI. */
     const Uri& uri() const;
 
+    /** Determines if the procedure belongs to the meta API. */
+    bool isMeta() const;
+
     /** Obtains information for the access log. */
     AccessActionInfo info() const;
 
@@ -120,6 +123,9 @@ public:
 
     /** Obtains the procedure URI. */
     const Uri& uri() const;
+
+    /** Determines if the procedure belongs to the meta API. */
+    bool isMeta() const;
 
     /** Obtains information for the access log. */
     AccessActionInfo info() const;
@@ -594,6 +600,12 @@ const Uri& ProcedureLike<D>::uri() const
 }
 
 template <typename D>
+CPPWAMP_INLINE bool ProcedureLike<D>::isMeta() const
+{
+    return uri().rfind("wamp.", 0) == 0;
+}
+
+template <typename D>
 AccessActionInfo ProcedureLike<D>::info() const
 {
     return {AccessAction::clientRegister, this->requestId(), uri(),
@@ -653,6 +665,12 @@ template <typename D>
 const Uri& RpcLike<D>::uri() const
 {
     return this->message().template as<String>(uriPos_);
+}
+
+template <typename D>
+bool RpcLike<D>::isMeta() const
+{
+    return uri().rfind("wamp.", 0) == 0;
 }
 
 template <typename D>

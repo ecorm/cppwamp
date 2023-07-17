@@ -1078,11 +1078,7 @@ private:
     bool checkMetaTopicPublicationAttempt(RouterSession& publisher,
                                           const Pub& pub) const
     {
-        if (metaTopicPublicationAllowed_)
-            return true;
-
-        const bool beginsWith = pub.uri().rfind("wamp.", 0) == 0;
-        if (!beginsWith)
+        if (metaTopicPublicationAllowed_ || !pub.isMeta())
             return true;
 
         sendCommandErrorToOriginator(publisher, pub, WampErrc::invalidUri);

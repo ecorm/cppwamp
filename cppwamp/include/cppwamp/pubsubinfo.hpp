@@ -41,6 +41,9 @@ public:
     /** Obtains the topic URI. */
     const Uri& uri() const;
 
+    /** Determines if the topic belongs to the meta API. */
+    bool isMeta() const;
+
     /** Obtains information for the access log. */
     AccessActionInfo info() const;
 

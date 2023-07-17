@@ -1006,7 +1006,7 @@ private:
         if (!uriValidator_->checkProcedure(enroll.uri(), false))
             return callee->abort({WampErrc::invalidUri});
 
-        auto errc = checkMetaProcedureRegistrationAttempt(enroll.uri());
+        auto errc = checkMetaProcedureRegistrationAttempt(enroll);
         if (errc != WampErrc::success)
             return callee->sendRouterCommandError(enroll, errc);
 
@@ -1070,16 +1070,16 @@ private:
         impl_.call(callee, std::move(r));
     }
 
-    WampErrc checkMetaProcedureRegistrationAttempt(const Uri& uri)
+    WampErrc checkMetaProcedureRegistrationAttempt(const Procedure& enroll)
     {
         if (metaProcedureRegistrationAllowed_)
         {
             if (!impl_.metaProceduresAreEnabled())
                 return WampErrc::success;
-            if (impl_.hasMetaProcedure(uri))
+            if (impl_.hasMetaProcedure(enroll.uri()))
                 return WampErrc::procedureAlreadyExists;
         }
-        else if (uri.rfind("wamp.", 0) == 0)
+        else if (enroll.isMeta())
         {
             return WampErrc::invalidUri;
         }
