@@ -1303,6 +1303,18 @@ TEST_CASE( "UriTrie Erase", "[Uri]" )
         CHECK(trie.erase("d.e"));
         CHECK(trie.empty());
     }
+
+    SECTION( "erasing a sibling with non-element lineage" )
+    {
+        Trie trie({ {"a.b.c", 1}, {"a.b.d", 2} });
+
+        auto iter = trie.erase(trie.begin());
+        CHECK(iter->first == "a.b.d");
+        CHECK(iter->second == 2);
+
+        iter = trie.erase(iter);
+        CHECK(iter == trie.end());
+    }
 }
 
 //------------------------------------------------------------------------------

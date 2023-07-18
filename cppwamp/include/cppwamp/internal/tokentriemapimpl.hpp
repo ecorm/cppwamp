@@ -260,9 +260,14 @@ public:
         {
             // Erase the value node, then all obsolete links up the chain
             // until we hit another value node or the sentinel.
-            while (!cursor.has_element() && !cursor.at_end())
+            while (!cursor.at_end() && !cursor.has_element())
             {
                 cursor.parent_->children_.erase(cursor.target_);
+
+                // Stop if there are siblings remaining
+                if (!cursor.parent_->children_.empty())
+                    break;
+
                 cursor.target_ = cursor.parent_->position_;
                 cursor.parent_ = cursor.parent_->parent_;
             }
