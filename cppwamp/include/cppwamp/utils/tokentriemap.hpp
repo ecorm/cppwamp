@@ -16,6 +16,8 @@
 #include <initializer_list>
 #include <limits>
 #include <memory>
+#include <ostream>
+#include <stack>
 #include <utility>
 #include "tokentriemapiterator.hpp"
 #include "tokentriemapnode.hpp"
@@ -538,6 +540,73 @@ private:
 
     internal::TokenTrieMapImpl<K, T, C, A> impl_;
 };
+
+//------------------------------------------------------------------------------
+/** Utility diagnostic function that dumps a TokenTrieMap's internal structure
+    to an output stream.
+    The trie's nodes are output in a depth-first manner.
+    @relates TokenTrieMap */
+//------------------------------------------------------------------------------
+template <typename K, typename T, typename C, typename A>
+std::ostream& dumpTokenTrieMap(
+    std::ostream& out, const TokenTrieMap<K,T,C,A> trie, unsigned indent = 4)
+{
+    using Cursor = typename TokenTrieMap<K,T,C,A>::const_cursor;
+    using TreeViewType = typename Cursor::const_tree_view_type;
+    using Iterator = typename TreeViewType::const_iterator;
+
+    struct Context
+    {
+        TreeViewType subTree;
+        Iterator iterator;
+    };
+
+    if (trie.empty())
+    {
+        out << "<empty>\n";
+        return out;
+    }
+
+    std::stack<Context> stack;
+    auto root = trie.croot().children();
+    stack.emplace(Context{root, root.cbegin()});
+
+    while (!stack.empty())
+    {
+        auto& context = stack.top();
+        if (context.iterator == context.subTree.end())
+        {
+            stack.pop();
+            if (!stack.empty())
+                ++stack.top().iterator;
+            continue;
+        }
+
+        const auto& token = context.iterator->first;
+        const auto& node = context.iterator->second;
+
+        auto level = stack.size() - 1;
+        out << std::string(level*indent, ' ') << "{'" << token << "', ";
+        if (node.has_element())
+            out << node.value();
+        else
+            out << "<null>";
+        out << "}\n";
+
+        if (node.is_leaf())
+        {
+            ++context.iterator;
+        }
+        else
+        {
+            auto children = node.children();
+            stack.emplace(Context{children, children.begin()});
+        }
+    }
+
+    return out;
+}
+
 
 } // namespace utils
 
