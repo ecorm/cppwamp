@@ -31,6 +31,19 @@ namespace wamp
 namespace internal { class RouterServer; } // Forward declaration
 
 //------------------------------------------------------------------------------
+/** Determines how call timeouts are forwarded to callees. */
+//------------------------------------------------------------------------------
+enum class CallTimeoutForwardingRule
+{
+    perRegistration, /**< Forward if and only if the `forward_timeouts` option
+                          was set during procedure registration (default). */
+    perFeature,      /**< Forward if and only if the callee announced support
+                          for call timeouts under the `callee` role. */
+    never            /**< Never forward call timeouts to callees and always
+                          process them on the router. */
+};
+
+//------------------------------------------------------------------------------
 class CPPWAMP_API RealmConfig
 {
 public:
@@ -38,7 +51,7 @@ public:
 
     RealmConfig& withAuthorizer(Authorizer::Ptr a);
 
-    RealmConfig& withCallTimeoutForwardingEnabled(bool enabled = true);
+    RealmConfig& withCallTimeoutForwardingRule(CallTimeoutForwardingRule rule);
 
     RealmConfig& withCallerDisclosure(DisclosureRule d);
 
@@ -59,7 +72,7 @@ public:
 
     DisclosureRule callerDisclosure() const;
 
-    bool callTimeoutForwardingEnabled() const;
+    CallTimeoutForwardingRule callTimeoutForwardingRule() const;
 
     DisclosureRule publisherDisclosure() const;
 
@@ -74,7 +87,8 @@ private:
     Authorizer::Ptr authorizer_;
     DisclosureRule callerDisclosure_ = DisclosureRule::originator;
     DisclosureRule publisherDisclosure_ = DisclosureRule::originator;
-    bool callTimeoutForwardingEnabled_ = false;
+    CallTimeoutForwardingRule callTimeoutForwardingRule_ =
+        CallTimeoutForwardingRule::perRegistration;
     bool metaApiEnabled_ = false;
     bool metaProcedureRegistrationAllowed_ = false;
     bool metaTopicPublicationAllowed_ = false;

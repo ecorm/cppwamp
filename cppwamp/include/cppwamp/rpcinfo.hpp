@@ -65,6 +65,18 @@ public:
     MatchPolicy matchPolicy() const;
     /// @}
 
+    /** @name Call Timeouts
+        See [Call Timeouts in the WAMP Specification]
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-call-timeouts)
+        @{ */
+
+    /** Makes the dealer bypass call timeout logic and forward the timeout
+        option to the callee. */
+    TDerived& withForwardTimeout(bool enabled = true);
+
+    bool forwardTimeoutEnabled() const;
+    /// @}
+
 protected:
     explicit ProcedureLike(String&& uri);
 
@@ -625,6 +637,18 @@ template <typename D>
 MatchPolicy ProcedureLike<D>::matchPolicy() const
 {
     return internal::getMatchPolicyOption(this->options());
+}
+
+template <typename D>
+D& ProcedureLike<D>::withForwardTimeout(bool enabled)
+{
+    return this->withOption("forward_timeout", enabled);
+}
+
+template <typename D>
+bool ProcedureLike<D>::forwardTimeoutEnabled() const
+{
+    return this->template optionOr<bool>("forward_timeout", false);
 }
 
 template <typename D>

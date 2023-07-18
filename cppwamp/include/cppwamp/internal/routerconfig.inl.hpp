@@ -26,9 +26,9 @@ RealmConfig::withAuthorizer(Authorizer::Ptr a)
 }
 
 CPPWAMP_INLINE RealmConfig&
-RealmConfig::withCallTimeoutForwardingEnabled(bool enabled)
+RealmConfig::withCallTimeoutForwardingRule(CallTimeoutForwardingRule rule)
 {
-    callTimeoutForwardingEnabled_ = enabled;
+    callTimeoutForwardingRule_ = rule;
     return *this;
 }
 
@@ -88,9 +88,10 @@ CPPWAMP_INLINE DisclosureRule RealmConfig::publisherDisclosure() const
     return publisherDisclosure_;
 }
 
-CPPWAMP_INLINE bool RealmConfig::callTimeoutForwardingEnabled() const
+CPPWAMP_INLINE CallTimeoutForwardingRule
+RealmConfig::callTimeoutForwardingRule() const
 {
-    return callTimeoutForwardingEnabled_;
+    return callTimeoutForwardingRule_;
 }
 
 CPPWAMP_INLINE bool RealmConfig::metaApiEnabled() const

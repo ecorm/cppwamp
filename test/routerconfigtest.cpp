@@ -6,8 +6,8 @@
 
 #if defined(CPPWAMP_TEST_HAS_CORO)
 
-#include <boost/asio/steady_timer.hpp>
 #include <catch2/catch.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
@@ -200,39 +200,88 @@ TEST_CASE( "Router call timeout forwarding config", "[WAMP][Router][Timeout]" )
     router.setLogLevel(LogLevel::error);
 
     IoContext ioctx;
-    Session s{ioctx};
     boost::asio::steady_timer timer{ioctx};
+    Session s{ioctx};
 
-    auto rpc = [&timer](Invocation inv) -> Outcome
+    auto onCall = [&timer](Invocation inv) -> Outcome
     {
         auto timeout =
             inv.timeout().value_or(Invocation::CalleeTimeoutDuration{});
-        timer.expires_from_now(std::chrono::milliseconds(10));
+
+        if (timeout.count() != 0)
+            return Result{timeout.count()};
+
+        timer.expires_after(std::chrono::milliseconds(20));
         timer.async_wait(
-            [inv, timeout](boost::system::error_code) mutable
+            [inv](boost::system::error_code) mutable
             {
-                inv.yield(Result{timeout.count()});
+                inv.yield(Result{null});
             });
         return deferment;
     };
 
-    auto config = RealmConfig{testRealm}.withCallTimeoutForwardingEnabled(true);
-    test::ScopedRealm realm{router.openRealm(config).value()};
-
-    spawn(ioctx, [&](YieldContext yield)
+    auto runTest = [&](CallTimeoutForwardingRule rule,
+                       bool expectedForwardedWhenAsked,
+                       bool expectedForwardedWhenNotAsked)
     {
-        std::chrono::milliseconds timeout{1};
-        s.connect(withTcp, yield).value();
-        s.join(testRealm, yield).value();
-        s.enroll(Procedure{"rpc"}, rpc, yield).value();
-        auto result =
-            s.call(Rpc{"rpc"}.withDealerTimeout(timeout), yield).value();
-        REQUIRE(result.args().size() == 1);
-        CHECK(result[0] == timeout.count());
-        s.disconnect();
-    });
+        auto config = RealmConfig{testRealm}
+                          .withCallTimeoutForwardingRule(rule);
+        test::ScopedRealm realm{router.openRealm(config).value()};
 
-    ioctx.run();
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            std::chrono::milliseconds timeout{10};
+            s.connect(withTcp, yield).value();
+            s.join(testRealm, yield).value();
+            s.enroll(Procedure{"rpc1"}.withForwardTimeout(),
+                     onCall, yield).value();
+            auto result = s.call(Rpc{"rpc1"}.withDealerTimeout(timeout), yield);
+            if (expectedForwardedWhenAsked)
+            {
+                REQUIRE(result.has_value());
+                REQUIRE(result->args().size() == 1);
+                CHECK(result->args().at(0) == timeout.count());
+            }
+            else
+            {
+                REQUIRE_FALSE(result.has_value());
+                CHECK(result.error() == WampErrc::cancelled);
+            }
+
+            s.enroll(Procedure{"rpc2"}, onCall, yield).value();
+            result = s.call(Rpc{"rpc2"}.withDealerTimeout(timeout), yield);
+            if (expectedForwardedWhenNotAsked)
+            {
+                REQUIRE(result.has_value());
+                REQUIRE(result->args().size() == 1);
+                CHECK(result->args().at(0) == timeout.count());
+            }
+            else
+            {
+                REQUIRE_FALSE(result.has_value());
+                CHECK(result.error() == WampErrc::cancelled);
+            }
+
+            s.disconnect();
+        });
+
+        ioctx.run();
+    };
+
+    SECTION("CallTimeoutForwardingRule::perRegistration")
+    {
+        runTest(CallTimeoutForwardingRule::perRegistration, true, false);
+    }
+
+    SECTION("CallTimeoutForwardingRule::perFeature")
+    {
+        runTest(CallTimeoutForwardingRule::perFeature, true, true);
+    }
+
+    SECTION("CallTimeoutForwardingRule::never")
+    {
+        runTest(CallTimeoutForwardingRule::never, false, false);
+    }
 }
 
 //------------------------------------------------------------------------------

@@ -21,6 +21,7 @@
 #include "anyhandler.hpp"
 #include "api.hpp"
 #include "pubsubinfo.hpp"
+#include "rpcinfo.hpp"
 #include "sessioninfo.hpp"
 
 namespace wamp
@@ -66,10 +67,12 @@ struct CPPWAMP_API RegistrationInfo
 
     RegistrationInfo();
 
-    RegistrationInfo(Uri uri, MatchPolicy mp, InvocationPolicy ip,
-                     RegistrationId id, TimePoint created);
+    RegistrationInfo(RegistrationId id, Procedure& procedure,
+                     TimePoint created);
 
     bool matches(const Uri& procedure) const;
+
+    RegistrationInfo withoutCallees() const;
 
     SessionIdSet callees;
     Uri uri;
@@ -78,6 +81,7 @@ struct CPPWAMP_API RegistrationInfo
     size_t calleeCount = 0;
     MatchPolicy matchPolicy = MatchPolicy::unknown;
     InvocationPolicy invocationPolicy = InvocationPolicy::unknown;
+    bool forwardTimeoutEnabled = false;
 };
 
 CPPWAMP_API void convertFrom(FromVariantConverter& conv, RegistrationInfo& r);

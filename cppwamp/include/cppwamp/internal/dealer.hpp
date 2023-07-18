@@ -41,8 +41,7 @@ class DealerRegistration
 {
 public:
     DealerRegistration(Procedure&& procedure, const RouterSession::Ptr& callee)
-        : info_(std::move(procedure).uri({}), MatchPolicy::exact,
-                InvocationPolicy::single, 0, std::chrono::system_clock::now()),
+        : info_(0, procedure, std::chrono::system_clock::now()),
           callee_(callee),
           calleeId_(callee->wampId())
     {
@@ -69,17 +68,6 @@ public:
     SessionId calleeId() const {return calleeId_;}
 
     const RegistrationInfo& info() const {return info_;}
-
-    RegistrationInfo info(bool listCallees) const
-    {
-        if (listCallees)
-            return info_;
-
-        RegistrationInfo r{info_.uri, info_.matchPolicy, info_.invocationPolicy,
-                           info_.id, info_.created};
-        r.calleeCount = info_.calleeCount;
-        return r;
-    }
 
 private:
     RegistrationInfo info_;
@@ -129,7 +117,7 @@ public:
         {
             registration.resetCallee();
             metaTopics.onUnregister(callee.sharedInfo(),
-                                    registration.info(false));
+                                    registration.info().withoutCallees());
         }
 
         auto erased = byUri_.erase(uri);
@@ -172,7 +160,8 @@ public:
                 if (metaTopics.enabled())
                 {
                     reg.resetCallee();
-                    metaTopics.onUnregister(calleeInfo, reg.info(false));
+                    metaTopics.onUnregister(calleeInfo,
+                                            reg.info().withoutCallees());
                 }
                 iter2 = byKey_.erase(iter2);
             }
@@ -190,7 +179,10 @@ public:
         auto found = byKey_.find(rid);
         if (found == byKey_.end())
             return makeUnexpectedError(WampErrc::noSuchRegistration);
-        return found->second.info(listCallees);
+        const auto& info = found->second.info();
+        if (listCallees)
+            return info;
+        return info.withoutCallees();
     }
 
     ErrorOr<RegistrationInfo> lookup(const Uri& uri, bool listCallees) const
@@ -198,7 +190,10 @@ public:
         auto found = byUri_.find(uri);
         if (found == byUri_.end())
             return makeUnexpectedError(WampErrc::noSuchRegistration);
-        return found.value()->info(listCallees);
+        const auto& info = found.value()->info();
+        if (listCallees)
+            return info;
+        return info.withoutCallees();
     }
 
     template <typename F>
@@ -231,10 +226,10 @@ public:
     static ErrorOr<DealerJob> create(
         const RouterSession::Ptr& caller, const RouterSession::Ptr& callee,
         const Rpc& rpc, const DealerRegistration& reg,
-        bool calleeTimeoutEnabled)
+        bool calleeTimeoutArmed)
     {
         WampErrc errc = WampErrc::success;
-        DealerJob job{caller, callee, rpc, reg, errc, calleeTimeoutEnabled};
+        DealerJob job{caller, callee, rpc, reg, errc, calleeTimeoutArmed};
         if (errc != WampErrc::success)
             return makeUnexpectedError(errc);
         return job;
@@ -243,29 +238,19 @@ public:
     DealerJob() = default;
 
     Invocation makeInvocation(const RouterSession& caller, Rpc&& rpc,
-                              bool calleeTimeoutEnabled) const
+                              bool calleeTimeoutArmed) const
     {
         // TODO: WAMP - Propagate x_foo custom options?
         // https://github.com/wamp-proto/wamp-proto/issues/345
 
-        Object customOptions;
         const auto trustLevel = rpc.trustLevel({});
         const bool callerDisclosed = rpc.discloseMe();
         const bool hasTrustLevel = rpc.hasTrustLevel({});
-
-        auto found = rpc.options().find("custom");
-        if (found != rpc.options().end() && found->second.is<Object>())
-            customOptions = std::move(found->second.as<Object>());
+        ErrorOr<Object> customOptions = rpc.optionAs<Object>("custom");
 
         Variant timeout;
-        if (calleeTimeoutEnabled)
-        {
-            // TODO: WAMP - Per-callee timeout forwarding
-            // https://github.com/wamp-proto/wamp-proto/issues/500
-            auto found = rpc.options().find("timeout");
-            if (found != rpc.options().end())
-                timeout = std::move(found->second);
-        }
+        if (calleeTimeoutArmed)
+            timeout = rpc.optionByKey("timeout");
 
         Invocation inv{{}, std::move(rpc), registrationId_};
 
@@ -291,8 +276,8 @@ public:
         if (hasTrustLevel)
             inv.withOption("trust_level", trustLevel);
 
-        if (!customOptions.empty())
-            inv.withOption("custom", std::move(customOptions));
+        if (customOptions.has_value())
+            inv.withOption("custom", *std::move(customOptions));
 
         if (!timeout.is<Null>())
             inv.withOption("timeout", std::move(timeout));
@@ -450,14 +435,14 @@ private:
     DealerJob(const RouterSession::Ptr& caller,
               const RouterSession::Ptr& callee, const Rpc& rpc,
               const DealerRegistration& reg, WampErrc& errc,
-              bool calleeTimeoutEnabled)
+              bool calleeTimeoutArmed)
         : caller_(caller),
           callee_(callee),
           callerKey_(caller->wampId(), rpc.requestId({})),
           calleeKey_(callee->wampId(), nullId()),
           registrationId_(reg.info().id)
     {
-        if (!calleeTimeoutEnabled)
+        if (!calleeTimeoutArmed)
         {
             auto timeout = rpc.dealerTimeout();
             hasTimeout_ = timeout.has_value() && (*timeout != Timeout{0});
@@ -643,7 +628,7 @@ public:
           metaProcedures_(std::move(metaProcedures)),
           metaTopics_(std::move(metaTopics)),
           authorizer_(cfg.authorizer()),
-          callTimeoutForwardingEnabled_(cfg.callTimeoutForwardingEnabled())
+          callTimeoutForwardingRule_(cfg.callTimeoutForwardingRule())
     {}
 
     bool metaProceduresAreEnabled() const
@@ -687,7 +672,7 @@ public:
         if (metaTopics_->enabled())
         {
             metaTopics_->onRegister(callee->sharedInfo(),
-                                    inserted->info(false));
+                                    inserted->info().withoutCallees());
         }
     }
 
@@ -843,22 +828,44 @@ private:
                         const RouterSession::Ptr& callee,
                         Rpc&& rpc, const DealerRegistration& reg)
     {
-        const auto calleeFeatures = callee->info().features().callee();
-        const bool calleeTimeoutEnabled =
-            callTimeoutForwardingEnabled_ &&
-            calleeFeatures.any_of(CalleeFeatures::callTimeout);
+        const bool calleeTimeoutArmed = computeCalleeTimeoutArmed(*callee, reg);
 
         auto uri = rpc.uri();
         auto job = DealerJob::create(caller, callee, rpc, reg,
-                                     calleeTimeoutEnabled);
+                                     calleeTimeoutArmed);
         if (!job)
             return makeUnexpected(job.error());
         caller->setLastInsertedCallRequestId(rpc.requestId({}));
         auto inv = job->makeInvocation(*caller, std::move(rpc),
-                                       calleeTimeoutEnabled);
+                                       calleeTimeoutArmed);
         auto reqId = callee->sendInvocation(std::move(inv), std::move(uri));
         jobs_.insert(std::move(*job), reqId);
         return true;
+    }
+
+    bool computeCalleeTimeoutArmed(const RouterSession& callee,
+                                   const DealerRegistration& reg)
+    {
+        using Rule = CallTimeoutForwardingRule;
+
+        switch (callTimeoutForwardingRule_)
+        {
+        case Rule::perRegistration:
+            return reg.info().forwardTimeoutEnabled;
+
+        case Rule::perFeature:
+            return callee.info().features().callee().any_of(
+                CalleeFeatures::callTimeout);
+
+        case Rule::never:
+            return false;
+
+        default:
+            assert(false && "Unexpected CallTimeoutForwardingRule enumerator");
+            break;
+        }
+
+        return false;
     }
 
     ErrorOrDone continueCall(RouterSession& caller, RouterSession& callee,
@@ -896,7 +903,7 @@ private:
     MetaProcedures::Ptr metaProcedures_;
     MetaTopics::Ptr metaTopics_;
     Authorizer::Ptr authorizer_;
-    bool callTimeoutForwardingEnabled_ = false;
+    CallTimeoutForwardingRule callTimeoutForwardingRule_ = {};
 };
 
 //------------------------------------------------------------------------------

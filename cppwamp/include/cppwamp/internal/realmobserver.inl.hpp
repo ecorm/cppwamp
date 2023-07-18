@@ -54,17 +54,28 @@ CPPWAMP_INLINE SessionLeftInfo parseSessionLeftInfo(const Event& event)
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE RegistrationInfo::RegistrationInfo() = default;
 
-CPPWAMP_INLINE RegistrationInfo::RegistrationInfo(
-    Uri uri, MatchPolicy mp, InvocationPolicy ip, RegistrationId id,
-    TimePoint created)
-    : uri(std::move(uri)), created(created), id(id), matchPolicy(mp),
-    invocationPolicy(ip)
+CPPWAMP_INLINE RegistrationInfo::RegistrationInfo(RegistrationId id,
+                                                  Procedure& procedure,
+                                                  TimePoint created)
+    : uri(std::move(procedure).uri()),
+      created(created),
+      id(id),
+      matchPolicy(MatchPolicy::exact),
+      invocationPolicy(InvocationPolicy::single),
+      forwardTimeoutEnabled(procedure.forwardTimeoutEnabled())
 {}
 
 CPPWAMP_INLINE bool RegistrationInfo::matches(const Uri& procedure) const
 {
     // TODO: Pattern-based registrations
     return procedure == uri;
+}
+
+CPPWAMP_INLINE RegistrationInfo RegistrationInfo::withoutCallees() const
+{
+    RegistrationInfo info{*this};
+    info.callees.clear();
+    return info;
 }
 
 CPPWAMP_INLINE void convertFrom(FromVariantConverter& conv,
