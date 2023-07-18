@@ -185,6 +185,7 @@ CPPWAMP_INLINE AuthorizationRequest::AuthorizationRequest(
 //******************************************************************************
 
 //------------------------------------------------------------------------------
+// NOLINTNEXTLINE(misc-no-recursion)
 CPPWAMP_INLINE void Authorizer::authorize(Topic t, AuthorizationRequest a)
 {
     if (chained_)
@@ -194,6 +195,7 @@ CPPWAMP_INLINE void Authorizer::authorize(Topic t, AuthorizationRequest a)
 }
 
 //------------------------------------------------------------------------------
+// NOLINTNEXTLINE(misc-no-recursion)
 CPPWAMP_INLINE void Authorizer::authorize(Pub p, AuthorizationRequest a)
 {
     if (chained_)
@@ -203,6 +205,7 @@ CPPWAMP_INLINE void Authorizer::authorize(Pub p, AuthorizationRequest a)
 }
 
 //------------------------------------------------------------------------------
+// NOLINTNEXTLINE(misc-no-recursion)
 CPPWAMP_INLINE void Authorizer::authorize(Procedure p, AuthorizationRequest a)
 {
     if (chained_)
@@ -212,6 +215,7 @@ CPPWAMP_INLINE void Authorizer::authorize(Procedure p, AuthorizationRequest a)
 }
 
 //------------------------------------------------------------------------------
+// NOLINTNEXTLINE(misc-no-recursion)
 CPPWAMP_INLINE void Authorizer::authorize(Rpc r, AuthorizationRequest a)
 {
     if (chained_)
@@ -221,6 +225,7 @@ CPPWAMP_INLINE void Authorizer::authorize(Rpc r, AuthorizationRequest a)
 }
 
 //------------------------------------------------------------------------------
+// NOLINTNEXTLINE(misc-no-recursion)
 CPPWAMP_INLINE void Authorizer::cache(const Topic& t, const SessionInfo& s,
                                       Authorization a)
 {
@@ -229,6 +234,7 @@ CPPWAMP_INLINE void Authorizer::cache(const Topic& t, const SessionInfo& s,
 }
 
 //------------------------------------------------------------------------------
+// NOLINTNEXTLINE(misc-no-recursion)
 CPPWAMP_INLINE void Authorizer::cache(const Pub& p, const SessionInfo& s,
                                       Authorization a)
 {
@@ -237,6 +243,7 @@ CPPWAMP_INLINE void Authorizer::cache(const Pub& p, const SessionInfo& s,
 }
 
 //------------------------------------------------------------------------------
+// NOLINTNEXTLINE(misc-no-recursion)
 CPPWAMP_INLINE void Authorizer::cache(const Procedure& p, const SessionInfo& s,
                                       Authorization a)
 {
@@ -245,6 +252,7 @@ CPPWAMP_INLINE void Authorizer::cache(const Procedure& p, const SessionInfo& s,
 }
 
 //------------------------------------------------------------------------------
+// NOLINTNEXTLINE(misc-no-recursion)
 CPPWAMP_INLINE void Authorizer::cache(const Rpc& r, const SessionInfo& s,
                                       Authorization a)
 {
@@ -253,6 +261,7 @@ CPPWAMP_INLINE void Authorizer::cache(const Rpc& r, const SessionInfo& s,
 }
 
 //------------------------------------------------------------------------------
+// NOLINTNEXTLINE(misc-no-recursion)
 CPPWAMP_INLINE void Authorizer::uncacheSession(const SessionInfo& s)
 {
     if (chained_)
@@ -260,6 +269,7 @@ CPPWAMP_INLINE void Authorizer::uncacheSession(const SessionInfo& s)
 }
 
 //------------------------------------------------------------------------------
+// NOLINTNEXTLINE(misc-no-recursion)
 CPPWAMP_INLINE void Authorizer::uncacheProcedure(const RegistrationInfo& r)
 {
     if (chained_)
@@ -267,6 +277,7 @@ CPPWAMP_INLINE void Authorizer::uncacheProcedure(const RegistrationInfo& r)
 }
 
 //------------------------------------------------------------------------------
+// NOLINTNEXTLINE(misc-no-recursion)
 CPPWAMP_INLINE void Authorizer::uncacheTopic(const SubscriptionInfo& s)
 {
     if (chained_)
@@ -274,12 +285,12 @@ CPPWAMP_INLINE void Authorizer::uncacheTopic(const SubscriptionInfo& s)
 }
 
 //------------------------------------------------------------------------------
+// NOLINTNEXTLINE(misc-no-recursion)
 CPPWAMP_INLINE void Authorizer::setIoExecutor(const AnyIoExecutor& exec)
 {
     if (chained_)
         chained_->setIoExecutor(exec);
 }
-
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Authorizer::Authorizer(Ptr chained)
