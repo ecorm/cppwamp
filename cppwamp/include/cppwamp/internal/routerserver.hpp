@@ -223,7 +223,6 @@ private:
     void onPeerHello(Petition&& hello) override
     {
         Base::report(hello.info());
-        Base::open(hello);
 
         realm_ = server_.realmAt(hello.uri());
         if (realm_.expired())

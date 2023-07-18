@@ -368,7 +368,6 @@ inline Object DirectRouterSession::open(Petition&& hello)
     else if (authInfo_.id().empty())
         authInfo_.setId({}, hello.authId().value_or(""));
 
-    Base::open(hello);
     auto info = internal::SessionInfoImpl::create(authInfo_);
     info->setAgent(Version::agentString(), ClientFeatures::provided());
     auto welcomeDetails = info->join(hello.uri());

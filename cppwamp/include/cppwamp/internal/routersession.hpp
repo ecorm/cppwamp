@@ -166,11 +166,6 @@ protected:
         connectionInfo_ = std::move(info);
     }
 
-    void open(const Petition& hello)
-    {
-        // TODO: Remove
-    }
-
     void join(SessionInfoImpl::Ptr info)
     {
         info->setConnection(connectionInfo_);
