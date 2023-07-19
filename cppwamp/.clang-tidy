@@ -23,6 +23,7 @@ Checks: >
   -hicpp-invalid-access-moved,
   -hicpp-member-init,
   -hicpp-named-parameter,
+  -hicpp-no-array-decay,
   -hicpp-special-member-functions,
   -hicpp-signed-bitwise,
   -hicpp-uppercase-literal-suffix,
@@ -36,7 +37,7 @@ Checks: >
   -readability-named-parameter,
   -readability-uppercase-literal-suffix
 WarningsAsErrors: ''
-HeaderFilterRegex: ''
+HeaderFilterRegex: 'include/cppwamp/'
 AnalyzeTemporaryDtors: false
 FormatStyle: none
 CheckOptions:

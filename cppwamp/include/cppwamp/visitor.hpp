@@ -75,8 +75,9 @@ CPPWAMP_API ResultTypeOf<TVisitor> apply(TVisitor&& v, TLeftVariant&& x,
     @relates Variant */
 //------------------------------------------------------------------------------
 template <typename TVisitor, typename TVariant, typename TOperand>
-CPPWAMP_API ResultTypeOf<TVisitor> applyWithOperand(TVisitor&& v, TVariant&& x,
-                                                    TOperand&& o);
+CPPWAMP_API ResultTypeOf<TVisitor>
+applyWithOperand(  // NOLINT(misc-no-recursion)
+    TVisitor&& v, TVariant&& x, TOperand&& o);
 
 /// @}
 
@@ -87,7 +88,7 @@ CPPWAMP_API ResultTypeOf<TVisitor> applyWithOperand(TVisitor&& v, TVariant&& x,
 
 //------------------------------------------------------------------------------
 template <typename V, typename X>
-ResultTypeOf<V> apply(V&& v, X&& x)
+ResultTypeOf<V> apply(V&& v, X&& x) // NOLINT(misc-no-recursion)
 {
     using A = internal::VariantUncheckedAccess;
     using I = decltype(x.typeId());
@@ -112,7 +113,7 @@ ResultTypeOf<V> apply(V&& v, X&& x)
 
 //------------------------------------------------------------------------------
 template <typename V, typename X, typename Y>
-ResultTypeOf<V> apply(V&& v, X&& x, Y&& y)
+ResultTypeOf<V> apply(V&& v, X&& x, Y&& y) // NOLINT(misc-no-recursion)
 {
     using A = internal::VariantUncheckedAccess;
     using I = decltype(x.typeId());

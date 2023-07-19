@@ -103,8 +103,8 @@ public:
         // by the timer.
 
         Record rec{key, timeout};
-        bool wasIdle = deadlines_.empty();
-        bool preemptsCurrentDeadline =
+        const bool wasIdle = deadlines_.empty();
+        const bool preemptsCurrentDeadline =
             !wasIdle && (rec < *deadlines_.begin());
 
         auto inserted = deadlines_.insert(std::move(rec));
@@ -171,9 +171,9 @@ private:
 
     void processNextDeadline()
     {
-        auto deadline = deadlines_.begin()->deadline;
+        const auto deadline = deadlines_.begin()->deadline;
         timer_.expires_at(deadline);
-        WeakPtr self(this->shared_from_this());
+        const WeakPtr self(this->shared_from_this());
         timer_.async_wait([self](boost::system::error_code ec)
         {
             auto ptr = self.lock();

@@ -42,6 +42,8 @@ namespace internal { class TcpOpener; } // Forward declaration
 class CPPWAMP_API TcpOptions
 {
 public:
+    // NOLINTBEGIN(readability-inconsistent-declaration-parameter-name)
+
     /** Adds the SO_BROADCAST socket option. */
     TcpOptions& withBroadcast(bool enabled = true);
 
@@ -84,6 +86,8 @@ public:
     /** Adds the TCP_NODELAY socket option.
         This option is for disabling the Nagle algorithm. */
     TcpOptions& withNoDelay(bool enabled = true);
+
+    // NOLINTEND(readability-inconsistent-declaration-parameter-name)
 
 private:
     template <typename TOption, typename... TArgs>

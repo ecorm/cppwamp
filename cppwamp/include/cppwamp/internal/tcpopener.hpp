@@ -57,8 +57,8 @@ public:
         };
 
         // RawsockConnector will keep this object alive until completion.
-        boost::asio::ip::tcp::resolver::query query{settings_.hostName(),
-                                                    settings_.serviceName()};
+        using Query = boost::asio::ip::tcp::resolver::query;
+        const Query query{settings_.hostName(), settings_.serviceName()};
         resolver_.async_resolve(
             query, Resolved{this, std::forward<F>(callback)});
     }

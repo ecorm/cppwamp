@@ -15,6 +15,8 @@
     @brief Contains version information on the CppWAMP library. */
 //------------------------------------------------------------------------------
 
+// NOLINTBEGIN(modernize-macro-to-enum)
+
 /// Major version with incompatible API changes
 #define CPPWAMP_MAJOR_VERSION 0
 
@@ -29,6 +31,8 @@
     (CPPWAMP_MAJOR_VERSION * 10000 + \
      CPPWAMP_MINOR_VERSION * 100 + \
      CPPWAMP_PATCH_VERSION)
+
+// NOLINTEND(modernize-macro-to-enum)
 
 namespace wamp
 {

@@ -42,7 +42,8 @@ public:
     using ObjectType = typename TVariant::Object;
 
     template <typename TField>
-    bool operator()(const TField& lhs, const TField& rhs) const
+    bool operator()( // NOLINT(misc-no-recursion)
+        const TField& lhs, const TField& rhs) const
     {
         return lhs == rhs;
     }

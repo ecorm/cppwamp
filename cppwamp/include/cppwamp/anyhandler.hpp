@@ -155,7 +155,10 @@ public:
     }
 
     /** Returns false iff the AnyReusableHandler is empty. */
-    explicit operator bool() const noexcept {return bool(handler_);}
+    explicit operator bool() const noexcept
+    {
+        return static_cast<bool>(handler_);
+    }
 
     /** Obtains the executor associated with this handler. */
     const Executor& get_executor() const {return executor_;}
@@ -203,7 +206,7 @@ bool operator==(std::nullptr_t, const AnyReusableHandler<S>& f) noexcept
 template <typename S>
 bool operator!=(const AnyReusableHandler<S>& f, std::nullptr_t) noexcept
 {
-    return bool(f);
+    return static_cast<bool>(f);
 }
 
 /** Returns false is the given handler is empty. @relates AnyReusableHandler */

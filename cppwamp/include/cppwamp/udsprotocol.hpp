@@ -45,6 +45,8 @@ namespace internal { class UdsOpener; } // Forward declaration
 class CPPWAMP_API UdsOptions
 {
 public:
+    // NOLINTBEGIN(readability-inconsistent-declaration-parameter-name)
+
     /** Adds the SO_BROADCAST socket option. */
     UdsOptions& withBroadcast(bool enabled = true);
 
@@ -77,6 +79,8 @@ public:
 
     /** Adds the SO_SNDLOWAT socket option. */
     UdsOptions& withSendLowWatermark(int size);
+
+    // NOLINTEND(readability-inconsistent-declaration-parameter-name)
 
 private:
     template <typename TOption, typename... TArgs>

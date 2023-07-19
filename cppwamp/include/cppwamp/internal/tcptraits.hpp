@@ -27,8 +27,8 @@ struct TcpTraits
 
         std::ostringstream oss;
         oss << ep;
-        auto addr = ep.address();
-        bool isIpv6 = addr.is_v6();
+        const auto addr = ep.address();
+        const bool isIpv6 = addr.is_v6();
 
         Object details
         {

@@ -174,9 +174,9 @@ private:
 
     void complete(Handshake hs)
     {
-        TransportInfo i{hs.codecId(),
-                        Handshake::byteLengthOf(maxTxLength_),
-                        Handshake::byteLengthOf(maxRxLength_)};
+        const TransportInfo i{hs.codecId(),
+                              Handshake::byteLengthOf(maxTxLength_),
+                              Handshake::byteLengthOf(maxRxLength_)};
         Transporting::Ptr transport{Transport::create(std::move(socket_), i)};
         socket_.reset();
         dispatchHandler(std::move(transport));
@@ -191,7 +191,7 @@ private:
     template <typename TArg>
     void dispatchHandler(TArg&& arg)
     {
-        Handler handler(std::move(handler_));
+        const Handler handler(std::move(handler_));
         handler_ = nullptr;
         handler(std::forward<TArg>(arg));
     }

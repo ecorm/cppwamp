@@ -307,7 +307,10 @@ public:
     value_type value_or(U&& v) &&
     {
         if (!has_value())
+        {
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
             return std::forward<U>(v);
+        }
         return std::move(value_);
     }
 

@@ -801,8 +801,10 @@ struct Variant::FieldAccess
 
 template <typename D> struct Variant::FieldAccess<String, D>
 {
+    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
     template <typename U> static void construct(U&& value, void* field)
         {new (field) String(std::forward<U>(value));}
+    // NOLINTEND(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
 
     static void destruct(void* field) {get(field).~String();}
 
@@ -839,7 +841,8 @@ template <typename D> struct Variant::FieldAccess<Blob, D>
 
 template <typename D> struct Variant::FieldAccess<Array, D>
 {
-    template <typename U> static void construct(U&& value, void* field)
+    template <typename U>
+    static void construct(U&& value, void* field) // NOLINT(misc-no-recursion)
         {ptr(field) = new Array(std::forward<U>(value));}
 
     static void destruct(void* field)
@@ -862,7 +865,8 @@ template <typename D> struct Variant::FieldAccess<Array, D>
 
 template <typename D> struct Variant::FieldAccess<Object, D>
 {
-    template <typename U> static void construct(U&& value, void* field)
+    template <typename U>
+    static void construct(U&& value, void* field) // NOLINT(misc-no-recursion)
     {
         ptr(field) = new Object(std::forward<U>(value));
     }
@@ -1126,7 +1130,7 @@ Variant& Variant::operator=(std::map<String,T> map)
 
 //------------------------------------------------------------------------------
 template <typename TField, typename TArg>
-void Variant::constructAs(TArg&& value)
+void Variant::constructAs(TArg&& value) // NOLINT(misc-no-recursion)
 {
     Access<TField>::construct(std::forward<TArg>(value), &field_);
 }
@@ -1193,7 +1197,7 @@ void Variant::convertTo(T& value) const
 template <typename T, Needs<Variant::isInvalidArg<T>()>>
 void Variant::convertTo(T& value) const
 {
-    FromVariantConverter conv(*this);
+    FromVariantConverter conv(*this); // NOLINT(misc-const-correctness)
     convert(conv, value);
 }
 
@@ -1545,9 +1549,14 @@ FromVariantConverter& FromVariantConverter::operator()(const String& key,
         const auto& obj = var_->as<Object>();
         auto kv = obj.find(key);
         if (kv != obj.end())
+        {
             kv->second.to(value);
+        }
         else
+        {
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
             value = std::forward<U>(fallback);
+        }
     }
     catch (const error::Conversion& e)
     {

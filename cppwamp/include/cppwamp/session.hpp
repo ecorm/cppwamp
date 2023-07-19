@@ -158,7 +158,7 @@ public:
     {}
 
     /** Destructor. */
-    virtual ~Session();
+    virtual ~Session(); // NOLINT(bugprone-exception-escape)
     /// @}
 
     /// @name Move-only

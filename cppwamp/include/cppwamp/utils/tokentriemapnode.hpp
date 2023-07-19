@@ -127,7 +127,7 @@ public:
     bool is_leaf() const noexcept {return children_.empty();}
 
     /** Determines if this node has a mapped value. */
-    bool has_element() const noexcept {return bool(element_);}
+    bool has_element() const noexcept {return element_ != nullptr;}
 
     /** Obtains a pointer to the node's parent, or `nullptr` if this is
         the sentinel node. */
@@ -186,9 +186,14 @@ private:
     void setElement(key_type&& key, Us&&... args)
     {
         if (has_element())
-            value() = mapped_type(std::forward<Us>(args)...);
+        {
+            mapped_type x(std::forward<Us>(args)...);
+            value() = std::move(x);
+        }
         else
+        {
             constructElementWithKey(std::move(key), std::forward<Us>(args)...);
+        }
     }
 
     void clearValue()

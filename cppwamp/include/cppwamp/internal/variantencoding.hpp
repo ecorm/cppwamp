@@ -59,12 +59,13 @@ public:
 
     void operator()(const Blob& b)
     {
-        jsoncons::byte_string_view bsv(b.data().data(), b.data().size());
+        const jsoncons::byte_string_view bsv(b.data().data(), b.data().size());
         encoder_->byte_string_value(bsv);
     }
 
     void operator()(const Array& a)
     {
+        // TODO: Use stack container instead of recursion
         encoder_->begin_array(a.size());
         for (const auto& v: a)
             wamp::apply(*this, v);
@@ -73,6 +74,7 @@ public:
 
     void operator()(const Object& o)
     {
+        // TODO: Use stack container instead of recursion
         encoder_->begin_object(o.size());
         for (const auto& kv: o)
         {

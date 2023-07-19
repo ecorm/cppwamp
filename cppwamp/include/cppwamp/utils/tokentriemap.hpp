@@ -396,8 +396,8 @@ public:
         @returns The number of elements erased (0 or 1). */
     size_type erase(const key_type& key)
     {
-        auto cursor = impl_.locate(key);
-        bool found = cursor.good();
+        const auto cursor = impl_.locate(key);
+        const bool found = cursor.good();
         if (found)
             impl_.erase(cursor);
         return found ? 1 : 0;

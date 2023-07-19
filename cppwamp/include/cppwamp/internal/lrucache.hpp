@@ -56,7 +56,7 @@ public:
         auto found = map_.find(key);
         if (found == map_.end())
             return nullptr;
-        Entry& entry = found->second;
+        const Entry& entry = found->second;
 
         // Update most recently used
         assert(!lruList_.empty());

@@ -232,6 +232,7 @@ private:
         transmit();
     }
 
+    // NOLINTBEGIN(misc-no-recursion)
     void transmit()
     {
         if (isReadyToTransmit())
@@ -243,7 +244,8 @@ private:
             boost::asio::async_write(*socket_, txFrame_->gatherBuffers(),
                 [this, self](boost::system::error_code asioEc, size_t)
                 {
-                    bool frameWasPoisoned = txFrame_ && txFrame_->isPoisoned();
+                    const bool frameWasPoisoned = txFrame_ &&
+                                                  txFrame_->isPoisoned();
                     txFrame_.reset();
                     if (asioEc)
                     {
@@ -265,6 +267,7 @@ private:
                 });
         }
     }
+    // NOLINTEND(misc-no-recursion)
 
     bool isReadyToTransmit() const
     {
@@ -273,6 +276,7 @@ private:
                !txQueue_.empty();  // One or more messages are enqueued
     }
 
+    // NOLINTBEGIN(misc-no-recursion)
     void receive()
     {
         if (socket_)
@@ -294,6 +298,7 @@ private:
                 });
         }
     }
+    // NOLINTEND(misc-no-recursion)
 
     void onRemoteDisconnect()
     {
@@ -302,16 +307,19 @@ private:
         cleanup();
     }
 
+    // NOLINTNEXTLINE(misc-no-recursion)
     void processHeader()
     {
-        auto hdr = rxFrame_.header();
-        auto len  = hdr.length();
-        bool ok = check(len <= info_.maxRxLength, TransportErrc::tooLong)
-               && check(hdr.msgTypeIsValid(), TransportErrc::badCommand);
+        const auto hdr = rxFrame_.header();
+        const auto len  = hdr.length();
+        const bool ok =
+            check(len <= info_.maxRxLength, TransportErrc::tooLong) &&
+            check(hdr.msgTypeIsValid(), TransportErrc::badCommand);
         if (ok)
             receivePayload(hdr.msgType(), len);
     }
 
+    // NOLINTBEGIN(misc-no-recursion)
     void receivePayload(RawsockMsgType msgType, size_t length)
     {
         rxFrame_.resize(length);
@@ -347,7 +355,9 @@ private:
                 }
             });
     }
+    // NOLINTEND(misc-no-recursion)
 
+    // NOLINTNEXTLINE(misc-no-recursion)
     void sendPong()
     {
         auto frame = enframe(RawsockMsgType::pong,
@@ -356,6 +366,7 @@ private:
         receive();
     }
 
+    // NOLINTNEXTLINE(misc-no-recursion)
     void receivePong()
     {
         if (canProcessPong())

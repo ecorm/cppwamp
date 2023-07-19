@@ -357,7 +357,7 @@ private:
     {
         // Will take 285 years to overflow 2^53 at 1 million requests/sec
         assert(nextRequestId_ < 9007199254740992u);
-        RequestId requestId = nextRequestId_ + 1;
+        const RequestId requestId = nextRequestId_ + 1;
         command.setRequestId({}, requestId);
 
         auto sent = peer_->send(std::forward<C>(command));

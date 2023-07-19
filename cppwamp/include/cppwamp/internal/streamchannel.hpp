@@ -89,7 +89,7 @@ public:
                             "wamp::CallerChannel::send: invalid mode");
         State expectedState = State::open;
         auto newState = chunk.isFinal() ? State::closed : State::open;
-        bool ok = state_.compare_exchange_strong(expectedState, newState);
+        const bool ok = state_.compare_exchange_strong(expectedState, newState);
         if (!ok)
             return makeUnexpectedError(MiscErrc::invalidState);
 
@@ -100,7 +100,8 @@ public:
     void cancel(CallCancelMode mode)
     {
         State expectedState = State::open;
-        bool ok = state_.compare_exchange_strong(expectedState, State::closed);
+        const bool ok = state_.compare_exchange_strong(expectedState,
+                                                       State::closed);
         if (ok)
             caller_.cancelCall(id_, mode);
     }
@@ -280,7 +281,7 @@ public:
                             "wamp::CalleeChannel::accept: invalid mode");
         State expectedState = State::awaiting;
         auto newState = response.isFinal() ? State::closed : State::open;
-        bool ok = state_.compare_exchange_strong(expectedState, newState);
+        const bool ok = state_.compare_exchange_strong(expectedState, newState);
         if (!ok)
             return makeUnexpectedError(MiscErrc::invalidState);
 
@@ -301,7 +302,8 @@ public:
                                          InterruptSlot onInterrupt = {})
     {
         State expectedState = State::awaiting;
-        bool ok = state_.compare_exchange_strong(expectedState, State::open);
+        const bool ok = state_.compare_exchange_strong(expectedState,
+                                                       State::open);
         if (!ok)
             return makeUnexpectedError(MiscErrc::invalidState);
 
@@ -318,7 +320,7 @@ public:
     {
         State expectedState = State::open;
         auto newState = chunk.isFinal() ? State::closed : State::open;
-        bool ok = state_.compare_exchange_strong(expectedState, newState);
+        const bool ok = state_.compare_exchange_strong(expectedState, newState);
         if (!ok)
             return makeUnexpectedError(MiscErrc::invalidState);
         return callee_.yieldChunk(std::move(chunk), id_, registrationId_);

@@ -88,6 +88,7 @@ public:
     template <typename TVariant>
     void operator()(const std::vector<TVariant>& array)
     {
+        // TODO: Use stack container instead of recursion
         enter(true);
         encoder_->begin_array(array.size());
         for (const auto& v: array)
@@ -100,6 +101,7 @@ public:
     template <typename TVariant>
     void operator()(const std::map<String, TVariant>& object)
     {
+        // TODO: Use stack container instead of recursion
         enter();
         encoder_->begin_object(object.size());
         for (const auto& kv: object)

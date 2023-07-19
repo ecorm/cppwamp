@@ -388,9 +388,9 @@ void WildcardMatcher<C>::findNextMatchCandidate()
         // if present.
         assert(level_ <= maxLevel);
         const auto& expectedToken = key_[level_];
-        bool canDescend = !cursor_.target()->is_leaf() &&
-                          (level_ < maxLevel) &&
-                          tokenMatches(expectedToken);
+        const bool canDescend = !cursor_.target()->is_leaf() &&
+                                (level_ < maxLevel) &&
+                                tokenMatches(expectedToken);
         if (canDescend)
         {
             level_ = cursor_.descend(level_);
@@ -437,14 +437,14 @@ void WildcardMatcher<C>::findTokenInLevel(const Token& token)
 template <typename C>
 bool WildcardMatcher<C>::canSearchThisLevel(const Token& token) const
 {
-    auto iter = cursor_.iter();
+    const auto iter = cursor_.iter();
     const auto& children = cursor_.children();
     if (iter == children.end())
         return false;
 
     assert(!children.empty());
 
-    bool firstTimeSearchingThisLevel = iter == children.begin();
+    const bool firstTimeSearchingThisLevel = iter == children.begin();
     if (firstTimeSearchingThisLevel)
         return true;
 
@@ -452,10 +452,10 @@ bool WildcardMatcher<C>::canSearchThisLevel(const Token& token) const
     // the search token is not empty.
     if (token.empty())
         return false;
-    bool thisLevelHasWildcard = children.begin()->first.empty();
+    const bool thisLevelHasWildcard = children.begin()->first.empty();
     if (!thisLevelHasWildcard)
         return false;
-    bool secondTimeSearchingThisLevel = iter == ++children.begin();
+    const bool secondTimeSearchingThisLevel = iter == ++children.begin();
     return secondTimeSearchingThisLevel;
 }
 

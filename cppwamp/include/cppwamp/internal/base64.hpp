@@ -299,6 +299,7 @@ private:
         using OutputByte = typename TOutputByteContainer::value_type;
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         auto data = reinterpret_cast<const OutputByte*>(triplet.data());
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         output.insert(output.end(), data, data + length);
     }
 };

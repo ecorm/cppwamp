@@ -98,6 +98,7 @@ public:
 
     bool join(RouterSessionPtr session);
 
+    // NOLINTNEXTLINE(bugprone-exception-escape)
     bool leave(const RouterSessionPtr& session) noexcept;
 
     template <typename C>
