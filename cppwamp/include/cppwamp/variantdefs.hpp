@@ -23,7 +23,7 @@ namespace wamp
 //------------------------------------------------------------------------------
 /** Integer ID used to indicate the current dynamic type of a `Variant`. */
 //------------------------------------------------------------------------------
-enum class TypeId : uint8_t
+enum class TypeId : uint8_t // TODO: Rename to VariantKind
 {
     null,       ///< For Variant::Null
     boolean,    ///< For Variant::Bool
