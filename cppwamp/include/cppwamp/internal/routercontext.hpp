@@ -68,13 +68,7 @@ private:
           logHandler_(std::move(lh)),
           accessLogHandler_(std::move(alh)),
           logLevel_(lv)
-    {
-        if (logHandler_.get_executor() == nullptr)
-            logHandler_.set_executor(executor_);
-
-        if (accessLogHandler_.get_executor() == nullptr)
-            accessLogHandler_.set_executor(executor_);
-    }
+    {}
 
     void setLevel(LogLevel level) {logLevel_.store(level);}
 
