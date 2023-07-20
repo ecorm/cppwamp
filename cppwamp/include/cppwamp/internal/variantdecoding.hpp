@@ -9,9 +9,9 @@
 
 #include <cassert>
 #include <cstdint>
+#include <deque>
 #include <limits>
 #include <utility>
-#include <vector>
 #include <jsoncons/byte_string.hpp>
 #include <jsoncons/config/version.hpp>
 #include <jsoncons/item_event_visitor.hpp>
@@ -282,7 +282,7 @@ private:
         return !ec;
     }
 
-    std::vector<Context> contextStack_;
+    std::deque<Context> contextStack_;
     String key_;
     Variant variant_;
     bool hasRoot_ = false;
