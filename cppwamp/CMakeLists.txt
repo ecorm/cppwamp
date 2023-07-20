@@ -139,7 +139,6 @@ set(HEADERS
     include/cppwamp/types/unorderedset.hpp
     include/cppwamp/utils/consolelogger.hpp
     include/cppwamp/utils/filelogger.hpp
-    include/cppwamp/utils/logsequencer.hpp
     include/cppwamp/utils/logtee.hpp
     include/cppwamp/utils/streamlogger.hpp
     include/cppwamp/utils/tokentriemap.hpp

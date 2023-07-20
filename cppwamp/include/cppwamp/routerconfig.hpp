@@ -25,6 +25,8 @@
 #include "uri.hpp"
 #include "internal/passkey.hpp"
 
+// TODO: Rename config -> options
+
 namespace wamp
 {
 
