@@ -503,7 +503,7 @@ CPPWAMP_INLINE Variant::String typeNameOf(const Variant& v)
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Array& a)
 {
     using Sink = jsoncons::stream_sink<char>;
-    internal::JsonEncoderImpl<Sink> encoder;
+    internal::JsonEncoderImpl<Sink, Variant> encoder;
     out.put('[');
     auto begin = a.begin();
     auto end = a.end();
@@ -521,7 +521,7 @@ CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Array& a)
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Object& o)
 {
     using Sink = jsoncons::stream_sink<char>;
-    internal::JsonEncoderImpl<Sink> encoder;
+    internal::JsonEncoderImpl<Sink, Variant> encoder;
     out.put('{');
     auto begin = o.begin();
     auto end = o.end();
@@ -541,7 +541,7 @@ CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Object& o)
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Variant& v)
 {
     using Sink = jsoncons::stream_sink<char>;
-    internal::JsonEncoderImpl<Sink> encoder;
+    internal::JsonEncoderImpl<Sink, Variant> encoder;
     encoder.encode(v, out);
     return out;
 }
@@ -550,7 +550,7 @@ CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Variant& v)
 CPPWAMP_INLINE std::string toString(const Array& a)
 {
     using Sink = jsoncons::string_sink<std::string>;
-    internal::JsonEncoderImpl<Sink> encoder;
+    internal::JsonEncoderImpl<Sink, Variant> encoder;
     std::string str;
     str += '[';
     auto begin = a.begin();
@@ -569,7 +569,7 @@ CPPWAMP_INLINE std::string toString(const Array& a)
 CPPWAMP_INLINE std::string toString(const Object& o)
 {
     using Sink = jsoncons::string_sink<std::string>;
-    internal::JsonEncoderImpl<Sink> encoder;
+    internal::JsonEncoderImpl<Sink, Variant> encoder;
     std::string str;
     str += '{';
     auto begin = o.begin();
@@ -590,7 +590,7 @@ CPPWAMP_INLINE std::string toString(const Object& o)
 CPPWAMP_INLINE std::string toString(const Variant& v)
 {
     using Sink = jsoncons::string_sink<std::string>;
-    internal::JsonEncoderImpl<Sink> encoder;
+    internal::JsonEncoderImpl<Sink, Variant> encoder;
     std::string str;
     encoder.encode(v, str);
     return str;

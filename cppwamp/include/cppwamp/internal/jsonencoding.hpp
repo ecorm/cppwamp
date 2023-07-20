@@ -7,12 +7,10 @@
 #ifndef CPPWAMP_INTERNAL_JSONENCODING_HPP
 #define CPPWAMP_INTERNAL_JSONENCODING_HPP
 
-#include <stack>
+#include <deque>
 #include <jsoncons/json_encoder.hpp>
 #include "../blob.hpp"
-#include "../null.hpp"
 #include "../variantdefs.hpp"
-#include "../visitor.hpp"
 #include "base64.hpp"
 
 namespace wamp
@@ -22,129 +20,95 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-template <typename TEncoder>
-class JsonVariantEncodingVisitor
+template <typename TVariant>
+struct JsonVariantEncoderContext
 {
-public:
-    using Sink = typename TEncoder::sink_type;
-    using Result = void;
+    struct ArrayTag {};
+    struct ObjectTag {};
 
-    explicit JsonVariantEncodingVisitor(Sink sink, TEncoder& encoder)
-        : sink_(sink),
-          encoder_(&encoder)
+    explicit JsonVariantEncoderContext(const TVariant* var) : variant_(var) {}
+
+    explicit JsonVariantEncoderContext(const TVariant* var, ArrayTag)
+        : variant_(var)
     {
-        enter();
+        iterator_.forArray = asArray().begin();
     }
 
-    void operator()(Null)
+    explicit JsonVariantEncoderContext(const TVariant* var, ObjectTag)
+        : variant_(var)
     {
-        encoder_->null_value();
-        next();
+        iterator_.forObject = asObject().begin();
     }
 
-    void operator()(Bool b)
+    bool needsArraySeparator() const
     {
-        encoder_->bool_value(b);
-        next();
+        return isArray() && (iterator_.forArray != asArray().begin());
     }
 
-    void operator()(Int n)
+    template <typename E>
+    const TVariant* next(E& encoder)
     {
-        encoder_->int64_value(n);
-        next();
-    }
+        const TVariant* result = nullptr;
 
-    void operator()(UInt n)
-    {
-        encoder_->uint64_value(n);
-        next();
-    }
-
-    void operator()(Real x)
-    {
-        encoder_->double_value(x);
-        next();
-    }
-
-    void operator()(const String& s)
-    {
-        encoder_->string_value({s.data(), s.size()});
-        next();
-    }
-
-    void operator()(const Blob& b)
-    {
-        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        static constexpr char prefix[] = "\"\\u0000";
-        if (context_.back().needsArraySeparator())
-            sink_.push_back(',');
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-        auto data = reinterpret_cast<const typename Sink::value_type*>(prefix);
-        sink_.append(data, sizeof(prefix) - 1);
-        Base64::encode(b.data().data(), b.data().size(), sink_);
-        sink_.push_back('\"');
-        next();
-    }
-
-    template <typename TVariant>
-    void operator()(const std::vector<TVariant>& array)
-    {
-        // TODO: Use stack container instead of recursion
-        enter(true);
-        encoder_->begin_array(array.size());
-        for (const auto& v: array)
-            wamp::apply(*this, v);
-        encoder_->end_array();
-        leave();
-        next();
-    }
-
-    template <typename TVariant>
-    void operator()(const std::map<String, TVariant>& object)
-    {
-        // TODO: Use stack container instead of recursion
-        enter();
-        encoder_->begin_object(object.size());
-        for (const auto& kv: object)
+        if (isObject())
         {
-            const auto& key = kv.first;
-            encoder_->key({key.data(), key.size()});
-            wamp::apply(*this, kv.second);
+            if (iterator_.forObject == asObject().end())
+            {
+                encoder.end_object();
+                return nullptr;
+            }
+
+            const auto& key = iterator_.forObject->first;
+            encoder.key({key.data(), key.size()});
+            result = &(iterator_.forObject->second);
+            ++iterator_.forObject;
         }
-        encoder_->end_object();
-        leave();
-        next();
+        else if (isArray())
+        {
+            if (iterator_.forArray == asArray().end())
+            {
+                encoder.end_array();
+                return nullptr;
+            }
+
+            result = &(*iterator_.forArray);
+            ++iterator_.forArray;
+        }
+        else
+        {
+            result = variant_;
+        }
+
+        return result;
     }
 
 private:
-    struct Context
+    using Array = std::vector<TVariant>;
+    using Object = std::map<String, TVariant>;
+
+    union ArrayOrObjectIterator
     {
-        explicit Context(bool isArray = false)
-            : isArray(isArray),
-              isPopulated(false)
-        {}
-
-        bool needsArraySeparator() const {return isArray && isPopulated;}
-
-        void populate() {isPopulated = true;}
-
-        bool isArray : 1;
-        bool isPopulated : 1;
+        ArrayOrObjectIterator() {}
+        typename Array::const_iterator forArray;
+        typename Object::const_iterator forObject;
     };
 
-    void next() {context_.back().populate();}
+    bool isArray() const {return variant_->typeId() == TypeId::array;}
 
-    void enter(bool isArray = false) {context_.push_back(Context{isArray});}
+    bool isObject() const {return variant_->typeId() == TypeId::object;}
 
-    void leave()
+    const Array& asArray() const
     {
-        assert(!context_.empty());
-        context_.pop_back();
+        return variant_->template as<TypeId::array>();
     }
 
-    Sink sink_;
-    TEncoder* encoder_ = nullptr;
-    std::vector<Context> context_;
+    const Object& asObject() const
+    {
+        return variant_->template as<TypeId::object>();
+    }
+
+    const TVariant* variant_ = nullptr;
+    ArrayOrObjectIterator iterator_;
 };
 
 //------------------------------------------------------------------------------
@@ -155,106 +119,93 @@ public:
     using Sink = typename TEncoder::sink_type;
     using Result = void;
 
-    explicit JsonVariantEncoder(Sink sink, TEncoder& encoder)
-        : sink_(sink),
-          encoder_(&encoder)
+    JsonVariantEncoder() : encoder_(Sink{}) {}
+
+    template <typename O>
+    JsonVariantEncoder(O&& options)
+        : encoder_(Sink{}, std::forward<O>(options))
     {}
+
+    void reset(Sink sink)
+    {
+        sink_ = sink;
+        encoder_.reset(std::move(sink));
+        stack_.clear();
+    }
 
     void encode(const TVariant& v)
     {
-        stack_.emplace(Context{&v});
+        assert(stack_.empty());
+        const TVariant* variant = &v;
 
-        while (stack_.empty())
+        while (true)
         {
-            auto& context = stack_.top();
-            bool done = false;
-            const TVariant* variant = nullptr;
-
-            if (context.isObject())
+            if (!stack_.empty())
             {
-                const auto& key = context.iterator.forObject->first;
-                encoder_->key({key.data(), key.size()});
-                variant = &(context.iterator.forObject->second);
-            }
-            else if (context.isArray())
-            {
-                variant = &(*context.iterator.forArray);
-            }
-            else
-            {
-                variant = context.variant;
+                variant = stack_.back().next(encoder_);
+                if (variant == nullptr)
+                {
+                    stack_.pop_back();
+                    if (stack_.empty())
+                        break;
+                    continue;
+                }
             }
 
             switch (variant->typeId())
             {
             case TypeId::null:
-                encoder_->null_value();
-                done = context.advance();
+                encoder_.null_value();
                 break;
 
             case TypeId::boolean:
-                encoder_->bool_value(variant->template as<TypeId::boolean>());
-                done = context.advance();
+                encoder_.bool_value(variant->template as<TypeId::boolean>());
                 break;
 
             case TypeId::integer:
-                encoder_->int64_value(variant->template as<TypeId::integer>());
-                done = context.advance();
+                encoder_.int64_value(variant->template as<TypeId::integer>());
                 break;
 
             case TypeId::uint:
-                encoder_->uint64_value(variant->template as<TypeId::uint>());
-                done = context.advance();
+                encoder_.uint64_value(variant->template as<TypeId::uint>());
                 break;
 
             case TypeId::real:
-                encoder_->double_value(variant->template as<TypeId::real>());
-                done = context.advance();
+                encoder_.double_value(variant->template as<TypeId::real>());
                 break;
 
             case TypeId::string:
             {
                 const auto& str = variant->template as<TypeId::string>();
-                encoder_->string_value({str.data(), str.size()});
-                done = context.advance();
+                encoder_.string_value({str.data(), str.size()});
                 break;
             }
 
             case TypeId::blob:
                 encodeBlob(variant->template as<TypeId::blob>());
-                done = context.advance();
                 break;
 
             case TypeId::array:
             {
                 const auto& array = variant->template as<TypeId::array>();
-                encoder_->begin_array(array.size());
-                stack_.emplace(Context{variant});
+                encoder_.begin_array(array.size());
+                stack_.emplace_back(Context{variant,
+                                            typename Context::ArrayTag{}});
                 break;
             }
 
             case TypeId::object:
             {
                 const auto& object = variant->template as<TypeId::object>();
-                encoder_->begin_object(object.size());
-                stack_.emplace(Context{variant});
+                encoder_.begin_object(object.size());
+                stack_.emplace_back(Context{variant,
+                                            typename Context::ObjectTag{}});
                 break;
             }
             }
 
-            while (!stack_.empty() && done)
-            {
-                stack_.pop();
-                auto& context = stack_.top();
-                done = context.advance();
-                if (done)
-                {
-                    if (context.isArray())
-                        encoder_->end_array();
-                    if (context.isObject())
-                        encoder_->end_object();
-                }
-            }
+            if (stack_.empty())
+                break;
         }
     }
 
@@ -262,7 +213,7 @@ public:
     {
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
         static constexpr char prefix[] = "\"\\u0000";
-        if (!stack_.empty() && stack_.top().needsArraySeparator())
+        if (!stack_.empty() && stack_.back().needsArraySeparator())
             sink_.push_back(',');
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         auto data = reinterpret_cast<const typename Sink::value_type*>(prefix);
@@ -272,71 +223,11 @@ public:
     }
 
 private:
-    struct Context
-    {
-        using Array = std::vector<TVariant>;
-        using Object = std::map<String, TVariant>;
-
-        union ArrayOrObjectIterator
-        {
-            ArrayOrObjectIterator() {}
-
-            typename Array::const_iterator forArray;
-            typename Object::const_iterator forObject;
-        };
-
-        explicit Context(const TVariant* var)
-            : variant(var)
-        {
-            if (isArray())
-                iterator.forArray = asArray().begin();
-            if (isObject())
-                iterator.forObject = asObject().begin();
-        }
-
-        bool advance()
-        {
-            if (isArray())
-            {
-                ++iterator.forArray;
-                return iterator.forArray == asArray().end();
-            }
-
-            if (isObject())
-            {
-                ++iterator.forObject;
-                return iterator.forObject == asObject().end();
-            }
-
-            return true;
-        }
-
-        bool isArray() const {return variant->typeId() == TypeId::array;}
-
-        bool isObject() const {return variant->typeId() == TypeId::object;}
-
-        bool needsArraySeparator() const
-        {
-            return isArray() && (iterator.forArray != asArray().begin());
-        }
-
-        const Array& asArray() const
-        {
-            return variant->template as<TypeId::array>();
-        }
-
-        const Object& asObject() const
-        {
-            return variant->template as<TypeId::object>();
-        }
-
-        const TVariant* variant = nullptr;
-        ArrayOrObjectIterator iterator;
-    };
+    using Context = JsonVariantEncoderContext<TVariant>;
 
     Sink sink_;
-    TEncoder* encoder_ = nullptr;
-    std::stack<Context> stack_;
+    TEncoder encoder_;
+    std::deque<Context> stack_;
 };
 
 //------------------------------------------------------------------------------
@@ -377,38 +268,34 @@ private:
 // This implementation needs to be taken out of the json.ipp module to
 // avoid a circular dependency with the variant.ipp module.
 //------------------------------------------------------------------------------
-template <typename TSink>
+template <typename TSink, typename TVariant>
 class JsonEncoderImpl
 {
 public:
-    JsonEncoderImpl() : encoder_(Proxy{}) {}
+    JsonEncoderImpl() = default;
 
     template <typename O>
     explicit JsonEncoderImpl(const O& options)
-        : encoder_(Proxy{}, options.template as<jsoncons::json_options>())
+        : encoder_(options.template as<jsoncons::json_options>())
     {}
 
-    template <typename TVariant, typename TOutput>
+    template <typename TOutput>
     void encode(const TVariant& variant, TOutput& output)
     {
         // JsonSinkProxy is needed because shared access to the underlying sink
-        // by JsonVariantEncodingVisitor is required for WAMP's special
-        // handling of Base64-encoded blobs.
+        // by JsonVariantEncoder is required for WAMP's special handling of
+        // Base64-encoded blobs.
         TSink sink(output);
         encoder_.reset(Proxy{sink});
-//        internal::JsonVariantEncodingVisitor<Encoder> visitor(Proxy{sink},
-//                                                              encoder_);
-//        wamp::apply(visitor, variant);
-        using JsonVariantEncoderType = internal::JsonVariantEncoder<TVariant,
-                                                                    Encoder>;
-        JsonVariantEncoderType variantEncoder{Proxy{sink}, encoder_};
-        variantEncoder.encode(variant);
+        encoder_.encode(variant);
     }
 
 private:
     using Proxy = internal::JsonSinkProxy<TSink>;
-    using Encoder = jsoncons::basic_compact_json_encoder<char, Proxy>;
-    Encoder encoder_;
+    using UnderlyingEncoder = jsoncons::basic_compact_json_encoder<char, Proxy>;
+    using EncoderType = internal::JsonVariantEncoder<TVariant,
+                                                     UnderlyingEncoder>;
+    EncoderType encoder_;
 };
 
 } // namespace internal

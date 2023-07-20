@@ -142,7 +142,7 @@ private:
                                  jsoncons::stream_sink<char>,
                                  jsoncons::string_sink<Output>>;
 
-    internal::JsonEncoderImpl<ImplSink> encoderImpl_;
+    internal::JsonEncoderImpl<ImplSink, Variant> encoderImpl_;
 };
 
 //------------------------------------------------------------------------------
