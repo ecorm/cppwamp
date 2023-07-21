@@ -29,23 +29,22 @@ class CPPWAMP_API Blob
 {
 public:
     /// Array of bytes used to contain the binary data.
-    using Data = std::vector<uint8_t>;
+    using Bytes = std::vector<uint8_t>;
 
     /** Default constructor. */
     Blob();
 
     /** Constructor taking a vector of bytes. */
-    explicit Blob(Data data);
+    explicit Blob(Bytes data);
 
     /** Constructor taking an initializer list. */
     Blob(std::initializer_list<uint8_t> list);
 
     /** Obtains the blob's array of bytes. */
-    // TODO: Rename to bytes
-    Data& data();
+    Bytes& bytes();
 
     /** Obtains the blob's constant array of bytes. */
-    const Data& data() const;
+    const Bytes& bytes() const;
 
     /** Equality comparison. */
     bool operator==(const Blob& other) const;
@@ -57,7 +56,7 @@ public:
     bool operator<(const Blob& other) const;
 
 private:
-    std::vector<uint8_t> data_;
+    Bytes bytes_;
 };
 
 //------------------------------------------------------------------------------

@@ -204,7 +204,8 @@ public:
 
             case TypeId::blob:
             {
-                const auto& bytes = variant->template as<TypeId::blob>().data();
+                const auto& bytes =
+                    variant->template as<TypeId::blob>().bytes();
                 encoder_.byte_string_value(bytes);
                 break;
             }

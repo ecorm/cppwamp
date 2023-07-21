@@ -254,7 +254,7 @@ private:
     bool visit_byte_string(const ByteStringView& bsv, Tag, const Where& where,
                            std::error_code& ec) override
     {
-        ec = put(Blob(Blob::Data(bsv.begin(), bsv.end())), where);
+        ec = put(Blob(Blob::Bytes(bsv.begin(), bsv.end())), where);
         return !ec;
     }
 
@@ -305,7 +305,7 @@ private:
     {
         if ( !sv.empty() && (sv[0] == '\0') )
         {
-            Blob::Data bytes;
+            Blob::Bytes bytes;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             ec = Base64::decode(sv.data() + 1, sv.size() - 1, bytes);
             if (!ec)

@@ -258,7 +258,7 @@ private:
             sink.push_back(',');
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         sink.append(prefix, sizeof(prefix) - 1);
-        Base64::encode(b.data().data(), b.data().size(), sink);
+        Base64::encode(b.bytes().data(), b.bytes().size(), sink);
         sink.push_back('\"');
     }
 
