@@ -41,6 +41,7 @@ public:
     Blob(std::initializer_list<uint8_t> list);
 
     /** Obtains the blob's array of bytes. */
+    // TODO: Rename to bytes
     Data& data();
 
     /** Obtains the blob's constant array of bytes. */
