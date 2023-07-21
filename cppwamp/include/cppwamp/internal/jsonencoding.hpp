@@ -21,20 +21,20 @@ namespace internal
 
 //------------------------------------------------------------------------------
 template <typename TVariant>
-struct JsonVariantEncoderContext
+struct JsonEncoderContext
 {
     struct ArrayTag {};
     struct ObjectTag {};
 
-    explicit JsonVariantEncoderContext(const TVariant* var) : variant_(var) {}
+    explicit JsonEncoderContext(const TVariant* var) : variant_(var) {}
 
-    explicit JsonVariantEncoderContext(const TVariant* var, ArrayTag)
+    explicit JsonEncoderContext(const TVariant* var, ArrayTag)
         : variant_(var)
     {
         iterator_.forArray = asArray().begin();
     }
 
-    explicit JsonVariantEncoderContext(const TVariant* var, ObjectTag)
+    explicit JsonEncoderContext(const TVariant* var, ObjectTag)
         : variant_(var)
     {
         iterator_.forObject = asObject().begin();
@@ -112,30 +112,66 @@ private:
 };
 
 //------------------------------------------------------------------------------
-template <typename TVariant, typename TEncoder>
-class JsonVariantEncoder
+template <typename TSink>
+class JsonSinkProxy
 {
 public:
-    using Sink = typename TEncoder::sink_type;
-    using Result = void;
+    using value_type = char;
 
-    JsonVariantEncoder() : encoder_(Sink{}) {}
+    JsonSinkProxy() = default;
 
-    template <typename O>
-    JsonVariantEncoder(O&& options)
-        : encoder_(Sink{}, std::forward<O>(options))
-    {}
+    explicit JsonSinkProxy(TSink& out) : sink_(&out) {}
 
-    void reset(Sink sink)
+    void append(const value_type* data, size_t size)
     {
-        sink_ = sink;
-        encoder_.reset(std::move(sink));
-        stack_.clear();
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        auto ptr = reinterpret_cast<const SinkByte*>(data);
+        sink_->append(ptr, size);
     }
 
-    void encode(const TVariant& v)
+    void push_back(value_type byte)
     {
-        assert(stack_.empty());
+        // Emulate std::bit_cast
+        SinkByte value;
+        std::memcpy(&value, &byte, sizeof(byte));
+        sink_->push_back(value);
+    }
+
+    void flush() {}
+
+private:
+    using SinkByte = typename TSink::value_type;
+
+    TSink* sink_ = nullptr;
+};
+
+//------------------------------------------------------------------------------
+// This implementation needs to be taken out of the json.ipp module to
+// avoid a circular dependency with the variant.ipp module.
+//------------------------------------------------------------------------------
+template <typename TSink, typename TVariant>
+class JsonEncoderImpl
+{
+public:
+    using Sink = TSink;
+
+    JsonEncoderImpl() : encoder_(Proxy{}) {}
+
+    template <typename O>
+    explicit JsonEncoderImpl(const O& options)
+        : encoder_(Proxy{}, options.template as<jsoncons::json_options>())
+    {}
+
+    template <typename TOutput>
+    void encode(const TVariant& v, TOutput& output)
+    {
+        // JsonSinkProxy is needed because shared access to the underlying sink
+        // by JsonVariantEncoder is required for WAMP's special handling of
+        // Base64-encoded blobs.
+        Sink outputSink{output};
+        Proxy sink(outputSink);
+        encoder_.reset(Proxy{sink});
+        stack_.clear();
         const TVariant* variant = &v;
 
         while (true)
@@ -182,7 +218,7 @@ public:
             }
 
             case TypeId::blob:
-                encodeBlob(variant->template as<TypeId::blob>());
+                encodeBlob(variant->template as<TypeId::blob>(), sink);
                 break;
 
             case TypeId::array:
@@ -209,93 +245,25 @@ public:
         }
     }
 
-    void encodeBlob(const Blob& b)
+private:
+    using Proxy = internal::JsonSinkProxy<Sink>;
+    using EncoderType = jsoncons::basic_compact_json_encoder<char, Proxy>;
+    using Context = JsonEncoderContext<TVariant>;
+
+    void encodeBlob(const Blob& b, Proxy& sink)
     {
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
         static constexpr char prefix[] = "\"\\u0000";
         if (!stack_.empty() && stack_.back().needsArraySeparator())
-            sink_.push_back(',');
+            sink.push_back(',');
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-        auto data = reinterpret_cast<const typename Sink::value_type*>(prefix);
-        sink_.append(data, sizeof(prefix) - 1);
-        Base64::encode(b.data().data(), b.data().size(), sink_);
-        sink_.push_back('\"');
+        sink.append(prefix, sizeof(prefix) - 1);
+        Base64::encode(b.data().data(), b.data().size(), sink);
+        sink.push_back('\"');
     }
 
-private:
-    using Context = JsonVariantEncoderContext<TVariant>;
-
-    Sink sink_;
-    TEncoder encoder_;
-    std::deque<Context> stack_;
-};
-
-//------------------------------------------------------------------------------
-template <typename TSink>
-class JsonSinkProxy
-{
-public:
-    using value_type = char;
-
-    JsonSinkProxy() = default;
-
-    explicit JsonSinkProxy(TSink& out) : sink_(&out) {}
-
-    void append(const value_type* data, size_t size)
-    {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-        auto ptr = reinterpret_cast<const SinkByte*>(data);
-        sink_->append(ptr, size);
-    }
-
-    void push_back(value_type byte)
-    {
-        // Emulate std::bit_cast
-        SinkByte value;
-        std::memcpy(&value, &byte, sizeof(byte));
-        sink_->push_back(value);
-    }
-
-    void flush() {}
-
-private:
-    using SinkByte = typename TSink::value_type;
-
-    TSink* sink_ = nullptr;
-};
-
-//------------------------------------------------------------------------------
-// This implementation needs to be taken out of the json.ipp module to
-// avoid a circular dependency with the variant.ipp module.
-//------------------------------------------------------------------------------
-template <typename TSink, typename TVariant>
-class JsonEncoderImpl
-{
-public:
-    JsonEncoderImpl() = default;
-
-    template <typename O>
-    explicit JsonEncoderImpl(const O& options)
-        : encoder_(options.template as<jsoncons::json_options>())
-    {}
-
-    template <typename TOutput>
-    void encode(const TVariant& variant, TOutput& output)
-    {
-        // JsonSinkProxy is needed because shared access to the underlying sink
-        // by JsonVariantEncoder is required for WAMP's special handling of
-        // Base64-encoded blobs.
-        TSink sink(output);
-        encoder_.reset(Proxy{sink});
-        encoder_.encode(variant);
-    }
-
-private:
-    using Proxy = internal::JsonSinkProxy<TSink>;
-    using UnderlyingEncoder = jsoncons::basic_compact_json_encoder<char, Proxy>;
-    using EncoderType = internal::JsonVariantEncoder<TVariant,
-                                                     UnderlyingEncoder>;
     EncoderType encoder_;
+    std::deque<Context> stack_;
 };
 
 } // namespace internal
