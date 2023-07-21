@@ -15,7 +15,6 @@
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/uds.hpp>
 #include <cppwamp/utils/consolelogger.hpp>
-#include <cppwamp/utils/logsequencer.hpp>
 
 namespace test
 {
@@ -60,10 +59,12 @@ struct RouterFixture::Impl
     using AccessLogHandler = std::function<void (wamp::AccessLogEntry)>;
 
     Impl()
-        : logger_(ioctx_, wamp::utils::ColorConsoleLogger{true}),
+        : logger_(wamp::utils::ColorConsoleLogger{true}),
           router_(ioctx_, routerConfig(*this)),
           thread_([this](){run();})
-    {}
+    {
+        logger_.set_executor(ioctx_.get_executor());
+    }
 
     AccessLogSnoopGuard snoopAccessLog(wamp::AnyCompletionExecutor exec,
                                        AccessLogHandler handler)
@@ -84,7 +85,6 @@ struct RouterFixture::Impl
     }
 
 private:
-    using Logger = wamp::utils::LogSequencer;
     using AccessLogHandlerWithExecutor =
         wamp::AnyReusableHandler<void (wamp::AccessLogEntry)>;
 
@@ -150,7 +150,7 @@ private:
     }
 
     wamp::IoContext ioctx_;
-    Logger logger_;
+    wamp::RouterConfig::LogHandler logger_;
     wamp::Router router_;
     std::thread thread_;
     AccessLogHandlerWithExecutor accessLogHandler_;
