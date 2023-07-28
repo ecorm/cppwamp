@@ -64,22 +64,49 @@ static constexpr AuthorizationDenied denied;
 
 
 //------------------------------------------------------------------------------
+/** Enumerates the possible outcomes of an authorization. */
+//------------------------------------------------------------------------------
+enum class AuthorizationDecision
+{
+    granted, ///< Permission to complete the operation is granted.
+    denied,  ///< Permission to complete the operation is denied.
+    failed   ///< The authorization operation itself failed.
+};
+
+
+//------------------------------------------------------------------------------
 /** Contains authorization information on a operation. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API Authorization
 {
 public:
-    /** Constructor taking a boolean indicating if the operation
-        is allowed. */
-    explicit Authorization(bool allowed = true);
+    /// Enumerates the possible outcomes of an authorization
+    using Decision = AuthorizationDecision;
 
     // NOLINTBEGIN(google-explicit-constructor)
 
-    /** Converting constructor taking an AuthorizationGranted tag type. */
+    /** Default constructs an instance indicating the authorization
+        is granted. */
+    Authorization();
+
+    /** Constructs an instance indicating the authorization is granted. */
     Authorization(AuthorizationGranted);
 
-    /** Converting constructor taking an AuthorizationDenied tag type. */
+    /** Constructs an instance indicating the authorization is granted,
+        along with the policy that governs how the caller/publisher is
+        disclosed. */
+    Authorization(AuthorizationGranted, Disclosure d);
+
+    /** Constructs an instance indicating the authorization is denied. */
     Authorization(AuthorizationDenied);
+
+    /** Constructs an instance indicating the authorization is denied, along
+        with additional error information to be returned to the originator. */
+    Authorization(AuthorizationDenied, std::error_code ec);
+
+    /** Constructs an instance indicating the authorization is denied, along
+        with additional error information to be returned to the originator. */
+    Authorization(AuthorizationDenied, WampErrc errc);
 
     /** Converting constructor taking an error code indicating that the
         authorization operation itself has failed. */
@@ -91,27 +118,27 @@ public:
 
     // NOLINTEND(google-explicit-constructor)
 
-    /** Sets the policy that governs how the caller/publisher is disclosed. */
-    Authorization& withDisclosure(DisclosurePolicy d);
-
-    /** Returns true if the authorization succeeded and the operation
-        is allowed. */
+    /** Returns true if and only if the authorization decision is
+        Authorization::granted. */
     bool good() const;
 
-    /** Obtains the error code indicating if the authorization operation itself
-        has failed. */
+    /** Obtains the authorization decision. */
+    Decision decision() const;
+
+    /** Obtains the caller/publisher disclosure mode. */
+    Disclosure disclosure() const;
+
+    /** Obtains the error code indicating indicating the reason for
+        authorization denial or failure. */
     std::error_code error() const;
 
-    /** Determines if the operation is allowed. */
-    bool allowed() const;
-
-    /** Obtains the caller/publisher disclosure policy. */
-    DisclosurePolicy disclosure() const;
-
 private:
+    explicit Authorization(Decision decision, Disclosure disclosure,
+                           std::error_code ec);
+
     std::error_code errorCode_;
-    DisclosurePolicy disclosure_ = Disclosure::preset;
-    bool allowed_ = false;
+    Decision decision_ = Decision::granted;
+    Disclosure disclosure_ = Disclosure::preset;
 };
 
 class Authorizer;
@@ -138,25 +165,35 @@ public:
     void authorize(Rpc r, Authorization a, bool cache = false);
 
 private:
+    using Listener = internal::AuthorizationListener;
     using ListenerPtr = internal::AuthorizationListener::WeakPtr;
     using Originator = internal::RouterSession;
 
     template <typename C>
     void doAuthorize(C&& command, Authorization auth, bool cache);
 
-    ListenerPtr listener_;
-    std::weak_ptr<internal::RouterSession> originator_;
+    template <typename C>
+    void grantAuthorization(C&& command, Authorization auth,
+                            const std::shared_ptr<Originator>& originator,
+                            internal::AuthorizationListener& listener);
+
+    template <typename C>
+    void rejectAuthorization(C&& command, Authorization auth, WampErrc errc,
+                             internal::RouterSession& originator);
+
+    Listener::WeakPtr listener_;
+    std::weak_ptr<Originator> originator_;
     std::weak_ptr<Authorizer> authorizer_;
     SessionInfo info_;
-    DisclosurePolicy realmDisclosure_ = Disclosure::preset;
+    Disclosure realmDisclosure_ = Disclosure::preset;
     bool consumerDisclosure_ = false;
 
 public: // Internal use only
     AuthorizationRequest(internal::PassKey,
         ListenerPtr listener,
-        const std::shared_ptr<internal::RouterSession>& originator,
+        const std::shared_ptr<Originator>& originator,
         const std::shared_ptr<Authorizer>& authorizer,
-        DisclosurePolicy realmDisclosure, bool consumerDisclosure = false);
+        Disclosure realmDisclosure, bool consumerDisclosure = false);
 };
 
 //------------------------------------------------------------------------------

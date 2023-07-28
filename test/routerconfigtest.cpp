@@ -51,7 +51,7 @@ void checkInvocationDisclosure(std::string info, Invocation& inv,
 
 //------------------------------------------------------------------------------
 void checkCallerDisclosure(
-    std::string info, IoContext& ioctx, DisclosurePolicy policy,
+    std::string info, IoContext& ioctx, Disclosure policy,
     bool expectedDisclosedByDefault,
     bool expectedDisclosedWhenOriginatorReveals,
     bool expectedDisclosedWhenOriginatorConceals)
@@ -79,18 +79,11 @@ void checkCallerDisclosure(
         s.call(rpc, yield).value();
         checkInvocationDisclosure("disclose_me unset", invocation, w,
                                   expectedDisclosedByDefault, yield);
-        if (policy.producerDisclosureDisallowed())
-        {
-            auto ack = s.call(rpc.withDiscloseMe(), yield);
-            CHECK(ack == makeUnexpectedError(WampErrc::discloseMeDisallowed));
-        }
-        else
-        {
-            s.call(rpc.withDiscloseMe(), yield).value();
-            checkInvocationDisclosure("disclose_me=true", invocation, w,
-                                      expectedDisclosedWhenOriginatorReveals,
-                                      yield);
-        }
+
+        s.call(rpc.withDiscloseMe(), yield).value();
+        checkInvocationDisclosure("disclose_me=true", invocation, w,
+                                  expectedDisclosedWhenOriginatorReveals,
+                                  yield);
 
         s.call(rpc.withDiscloseMe(false), yield).value();
         checkInvocationDisclosure("disclose_me=false", invocation, w,
@@ -131,7 +124,7 @@ void checkEventDisclosure(std::string info, Event& event,
 
 //------------------------------------------------------------------------------
 void checkPublisherDisclosure(
-    std::string info, IoContext& ioctx, DisclosurePolicy policy,
+    std::string info, IoContext& ioctx, Disclosure policy,
     bool expectedDisclosedByDefault,
     bool expectedDisclosedWhenOriginatorReveals,
     bool expectedDisclosedWhenOriginatorConceals)
@@ -158,17 +151,9 @@ void checkPublisherDisclosure(
         checkEventDisclosure("disclose_me unset", event, w,
                              expectedDisclosedByDefault, yield);
 
-        if (policy.producerDisclosureDisallowed())
-        {
-            auto ack = s.publish(pub.withDiscloseMe(), yield);
-            CHECK(ack == makeUnexpectedError(WampErrc::discloseMeDisallowed));
-        }
-        else
-        {
-            s.publish(pub.withDiscloseMe(), yield).value();
-            checkEventDisclosure("disclose_me=true", event, w,
-                                 expectedDisclosedWhenOriginatorReveals, yield);
-        }
+        s.publish(pub.withDiscloseMe(), yield).value();
+        checkEventDisclosure("disclose_me=true", event, w,
+                             expectedDisclosedWhenOriginatorReveals, yield);
 
         s.publish(pub.withDiscloseMe(false), yield).value();
         checkEventDisclosure("disclose_me=false", event, w,
@@ -294,30 +279,22 @@ TEST_CASE( "Router disclosure config", "[WAMP][Router]" )
     using D = Disclosure;
     static constexpr bool y = true;
     static constexpr bool n = false;
-    const auto strictReveal = DisclosurePolicy{Disclosure::reveal}
-                                  .withProducerDisclosureDisallowed();
-    const auto strictConceal = DisclosurePolicy{Disclosure::conceal}
-                                  .withProducerDisclosureDisallowed();
 
     SECTION("Caller disclosure")
     {
-        checkCallerDisclosure("preset",        io, D::preset,     n, y, n);
-        checkCallerDisclosure("producer",      io, D::producer,   n, y, n);
-        checkCallerDisclosure("reveal",        io, D::reveal,     y, y, y);
-        checkCallerDisclosure("conceal",       io, D::conceal,    n, n, n);
-        checkCallerDisclosure("strictReveal",  io, strictReveal,  y, y, y);
-        checkCallerDisclosure("strictConceal", io, strictConceal, n, n, n);
+        checkCallerDisclosure("preset",   io, D::preset,   n, y, n);
+        checkCallerDisclosure("producer", io, D::producer, n, y, n);
+        checkCallerDisclosure("reveal",   io, D::reveal,   y, y, y);
+        checkCallerDisclosure("conceal",  io, D::conceal,  n, n, n);
         io.stop();
     }
 
     SECTION("Publisher disclosure")
     {
-        checkPublisherDisclosure("preset",        io, D::preset,     n, y, n);
-        checkPublisherDisclosure("producer",      io, D::producer, n, y, n);
-        checkPublisherDisclosure("reveal",        io, D::reveal,     y, y, y);
-        checkPublisherDisclosure("conceal",       io, D::conceal,    n, n, n);
-        checkPublisherDisclosure("strictReveal",  io, strictReveal,  y, y, y);
-        checkPublisherDisclosure("strictConceal", io, strictConceal, n, n, n);
+        checkPublisherDisclosure("preset",   io, D::preset,   n, y, n);
+        checkPublisherDisclosure("producer", io, D::producer, n, y, n);
+        checkPublisherDisclosure("reveal",   io, D::reveal,   y, y, y);
+        checkPublisherDisclosure("conceal",  io, D::conceal,  n, n, n);
         io.stop();
     }
 }

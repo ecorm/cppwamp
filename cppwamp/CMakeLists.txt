@@ -84,7 +84,7 @@ set(HEADERS
     include/cppwamp/internal/commandinfo.hpp
     include/cppwamp/internal/connectioninfoimpl.hpp
     include/cppwamp/internal/dealer.hpp
-    include/cppwamp/internal/disclosure.inl.hpp
+    include/cppwamp/internal/disclosuremode.hpp
     include/cppwamp/internal/directpeer.hpp
     include/cppwamp/internal/endian.hpp
     include/cppwamp/internal/jsonencoding.hpp

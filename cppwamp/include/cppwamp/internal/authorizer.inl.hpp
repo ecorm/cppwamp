@@ -8,6 +8,7 @@
 #include <utility>
 #include "../api.hpp"
 #include "../traits.hpp"
+#include "disclosuremode.hpp"
 #include "routersession.hpp"
 
 namespace wamp
@@ -18,31 +19,53 @@ namespace wamp
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-/** @note Implicit conversions from bool are not enabled to avoid accidental
-          conversions from other types convertible to bool.
-    @see Authorization::Authorization(AuthorizationGranted)
-    @see Authorization::Authorization(AuthorizationDenied) */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE Authorization::Authorization(bool allowed) : allowed_(allowed) {}
+CPPWAMP_INLINE Authorization::Authorization() = default;
 
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE Authorization::Authorization(AuthorizationGranted)
-    : Authorization(true)
-{}
-
-CPPWAMP_INLINE Authorization::Authorization(AuthorizationDenied)
-    : Authorization(false)
+    : Authorization(Decision::granted, Disclosure::preset, {})
 {}
 
 //------------------------------------------------------------------------------
-/** If WampErrc::authorizationDenied, WampErrc::authorizationFailed, or
-    WampErrc::discloseMeDisallowed is passed, their corresponding URI shall be
-    used in the ERROR message returned to the client. Otherwise, the error
-    URI shall be `wamp.error.authorization_failed` and the ERROR message will
-    contain two positional arguments:
+CPPWAMP_INLINE Authorization::Authorization(AuthorizationGranted,
+                                            Disclosure d)
+    : Authorization(Decision::granted, d, {})
+{}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Authorization::Authorization(AuthorizationDenied)
+    : Authorization(Decision::denied, Disclosure::preset,
+                    make_error_code(WampErrc::authorizationDenied))
+{}
+
+//------------------------------------------------------------------------------
+/** If the given error code is not equivent to WampErrc::authorizationDenied,
+    the returned ERROR message will contain two positional arguments:
     - A string formatted as `<ec.category().name()>:<ec.value()`
     - A string containing `ec.message()` */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Authorization::Authorization(std::error_code ec) : errorCode_(ec) {}
+CPPWAMP_INLINE Authorization::Authorization(AuthorizationDenied,
+                                            std::error_code ec)
+    : Authorization(Decision::denied, Disclosure::preset, ec)
+{}
+
+//------------------------------------------------------------------------------
+/** @copydetails Authorization(AuthorizationDenied, std::error_code) */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Authorization::Authorization(AuthorizationDenied,
+                                            WampErrc errc)
+    : Authorization(AuthorizationDenied{}, make_error_code(errc))
+{}
+
+//------------------------------------------------------------------------------
+/** If the given error code is not equivent to WampErrc::authorizationFailed,
+    the returned ERROR message will contain two positional arguments:
+    - A string formatted as `<ec.category().name()>:<ec.value()`
+    - A string containing `ec.message()` */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Authorization::Authorization(std::error_code ec)
+    : Authorization(Decision::failed, Disclosure::preset, ec)
+{}
 
 //------------------------------------------------------------------------------
 /** @copydetails Authorization(std::error_code) */
@@ -52,26 +75,30 @@ CPPWAMP_INLINE Authorization::Authorization(WampErrc errc)
 {}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Authorization& Authorization::withDisclosure(DisclosurePolicy d)
+CPPWAMP_INLINE bool Authorization::good() const {return !errorCode_;}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE AuthorizationDecision Authorization::decision() const
 {
-    disclosure_ = d;
-    return *this;
+    return decision_;
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE bool Authorization::good() const {return !errorCode_ && allowed_;}
+CPPWAMP_INLINE Disclosure Authorization::disclosure() const
+{
+    return disclosure_;
+}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE std::error_code Authorization::error() const {return errorCode_;}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE bool Authorization::allowed() const {return allowed_;}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE DisclosurePolicy Authorization::disclosure() const
-{
-    return disclosure_;
-}
+CPPWAMP_INLINE Authorization::Authorization(
+    Decision decision, Disclosure disclosure, std::error_code ec)
+    : errorCode_(ec),
+      decision_(decision),
+      disclosure_(disclosure)
+{}
 
 
 //******************************************************************************
@@ -131,58 +158,65 @@ void AuthorizationRequest::doAuthorize(C&& command, Authorization auth,
             authorizer->cache(command, originator->sharedInfo(), auth);
     }
 
-    std::error_code ec;
-
-    if (auth.good())
+    switch (auth.decision())
     {
-        auto disclosed = auth.disclosure().computeDisclosure(
-            command.disclosed(internal::PassKey{}),
-            consumerDisclosure_,
-            realmDisclosure_);
+    case AuthorizationDecision::granted:
+        grantAuthorization(std::forward<C>(command), auth, originator,
+                           *listener);
+        break;
 
-        if (disclosed.has_value())
-        {
-            command.setDisclosed({}, *disclosed);
-            listener->onAuthorized(originator, std::forward<C>(command));
-            return;
-        }
+    case AuthorizationDecision::denied:
+        rejectAuthorization(std::forward<C>(command), auth,
+                            WampErrc::authorizationDenied, *originator);
+        break;
 
-        ec = disclosed.error();
-    }
-    else
-    {
-        ec = make_error_code(WampErrc::authorizationDenied);;
+    case AuthorizationDecision::failed:
+        rejectAuthorization(std::forward<C>(command), auth,
+                            WampErrc::authorizationFailed, *originator);
+        break;
     }
 
+    originator_ = {};
+}
+
+//------------------------------------------------------------------------------
+template <typename C>
+void AuthorizationRequest::grantAuthorization(
+    C&& command, Authorization auth,
+    const std::shared_ptr<Originator>& originator,
+    internal::AuthorizationListener& listener)
+{
+    bool producerDisclosure = command.disclosed(internal::PassKey{});
+    internal::DisclosureMode disclosureMode{auth.disclosure()};
+    bool disclosed = disclosureMode.compute(producerDisclosure,
+                                            consumerDisclosure_,
+                                            realmDisclosure_);
+    command.setDisclosed({}, disclosed);
+    listener.onAuthorized(originator, std::forward<C>(command));
+}
+
+//------------------------------------------------------------------------------
+template <typename C>
+void AuthorizationRequest::rejectAuthorization(
+    C&& command, Authorization auth, WampErrc errc, Originator& originator)
+{
     auto authEc = auth.error();
-    bool isKnownAuthError = true;
 
-    if (authEc)
-    {
-        isKnownAuthError =
-            authEc == WampErrc::authorizationDenied ||
-            authEc == WampErrc::authorizationFailed ||
-            authEc == WampErrc::authorizationRequired ||
-            authEc == WampErrc::discloseMeDisallowed;
+    if (authEc == WampErrc::discloseMeDisallowed)
+        errc = WampErrc::discloseMeDisallowed;
 
-        ec = isKnownAuthError ?
-                 authEc :
-                 make_error_code(WampErrc::authorizationFailed);
-    }
-
-    auto error = Error::fromRequest({}, command, ec);
-    if (!isKnownAuthError)
+    auto error = Error::fromRequest({}, command, errc);
+    if (authEc != errc)
         error.withArgs(briefErrorCodeString(authEc), authEc.message());
-
-    originator->sendRouterCommand(std::move(error), true);
+    originator.sendRouterCommand(std::move(error), true);
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AuthorizationRequest::AuthorizationRequest(
     internal::PassKey, ListenerPtr listener,
-    const std::shared_ptr<internal::RouterSession>& originator,
+    const std::shared_ptr<Originator>& originator,
     const std::shared_ptr<Authorizer>& authorizer,
-    DisclosurePolicy realmDisclosure, bool consumerDisclosure)
+    Disclosure realmDisclosure, bool consumerDisclosure)
     : listener_(std::move(listener)),
       originator_(originator),
       authorizer_(authorizer),

@@ -33,16 +33,14 @@ RealmConfig::withCallTimeoutForwardingRule(CallTimeoutForwardingRule rule)
 }
 
 /** @note Disclosure::preset is treated as Disclosure::producer. */
-CPPWAMP_INLINE RealmConfig&
-RealmConfig::withCallerDisclosure(DisclosurePolicy d)
+CPPWAMP_INLINE RealmConfig& RealmConfig::withCallerDisclosure(Disclosure d)
 {
     callerDisclosure_ = d;
     return *this;
 }
 
 /** @note Disclosure::preset is treated as Disclosure::producer. */
-CPPWAMP_INLINE RealmConfig&
-RealmConfig::withPublisherDisclosure(DisclosurePolicy d)
+CPPWAMP_INLINE RealmConfig& RealmConfig::withPublisherDisclosure(Disclosure d)
 {
     publisherDisclosure_ = d;
     return *this;
@@ -76,12 +74,12 @@ CPPWAMP_INLINE Authorizer::Ptr RealmConfig::authorizer() const
     return authorizer_;
 }
 
-CPPWAMP_INLINE DisclosurePolicy RealmConfig::callerDisclosure() const
+CPPWAMP_INLINE Disclosure RealmConfig::callerDisclosure() const
 {
     return callerDisclosure_;
 }
 
-CPPWAMP_INLINE DisclosurePolicy RealmConfig::publisherDisclosure() const
+CPPWAMP_INLINE Disclosure RealmConfig::publisherDisclosure() const
 {
     return publisherDisclosure_;
 }

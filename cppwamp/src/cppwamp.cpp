@@ -25,7 +25,6 @@
 #include <cppwamp/internal/connectioninfo.inl.hpp>
 #include <cppwamp/internal/consolelogger.inl.hpp>
 #include <cppwamp/internal/directsession.inl.hpp>
-#include <cppwamp/internal/disclosure.inl.hpp>
 #include <cppwamp/internal/errorcodes.inl.hpp>
 #include <cppwamp/internal/errorinfo.inl.hpp>
 #include <cppwamp/internal/exceptions.inl.hpp>

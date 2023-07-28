@@ -7,11 +7,13 @@
 #if defined(CPPWAMP_TEST_HAS_CORO)
 
 #include <catch2/catch.hpp>
+#include <vector>
 #include <cppwamp/cachingauthorizer.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
+#include <cppwamp/internal/disclosuremode.hpp>
 #include "routerfixture.hpp"
 
 using namespace wamp;
@@ -42,7 +44,12 @@ struct TestAuthorizer : public Authorizer
     {
         pub = p;
         info = a.info();
-        a.authorize(std::move(p), canPublish, cacheEnabled);
+
+        if (discloseMeAllowed || !p.discloseMe())
+            return a.authorize(std::move(p), canPublish, cacheEnabled);
+
+        a.authorize(std::move(p),
+                    Authorization{denied, WampErrc::discloseMeDisallowed});
     }
 
     void authorize(Procedure p, AuthorizationRequest a) override
@@ -56,7 +63,12 @@ struct TestAuthorizer : public Authorizer
     {
         rpc = r;
         info = a.info();
-        a.authorize(std::move(r), canCall, cacheEnabled);
+
+        if (discloseMeAllowed || !r.discloseMe())
+            return a.authorize(std::move(r), canCall, cacheEnabled);
+
+        a.authorize(std::move(r),
+                    Authorization{denied, WampErrc::discloseMeDisallowed});
     }
 
     void clear(bool enableCache = false)
@@ -73,6 +85,7 @@ struct TestAuthorizer : public Authorizer
 
         info = {};
         cacheEnabled = enableCache;
+        discloseMeAllowed = true;
     }
 
     Authorization canSubscribe;
@@ -85,14 +98,84 @@ struct TestAuthorizer : public Authorizer
     Rpc rpc;
     SessionInfo info;
     bool cacheEnabled = false;
+    bool discloseMeAllowed = true;
 };
 
 } // anomymous namespace
 
 
 //------------------------------------------------------------------------------
+TEST_CASE( "Disclosure computation", "[Disclosure]" )
+{
+//    constexpr auto pre = Disclosure::preset;
+//    constexpr auto pro = Disclosure::producer;
+//    constexpr auto con = Disclosure::consumer;
+//    constexpr auto eit = Disclosure::either;
+//    constexpr auto bth = Disclosure::both;
+//    constexpr auto rev = Disclosure::reveal;
+//    constexpr auto cnc = Disclosure::conceal;
+
+    constexpr bool y = true;
+    constexpr bool n = false;
+
+    struct DisclosureVector
+    {
+        bool producer;
+        bool consumer;
+        bool disclosed;
+    };
+
+    struct TestVector
+    {
+        Disclosure disclosure;
+        std::vector<DisclosureVector> subTestVectors;
+    };
+
+    using D = Disclosure;
+
+    const std::vector<TestVector> testVectors =
+    {
+        //              p, c, d    p, c, d    p, c, d    p, c, d
+        {D::preset,   {{n, n, n}, {n, y, n}, {y, n, y}, {y, y, y}}},
+        {D::producer, {{n, n, n}, {n, y, n}, {y, n, y}, {y, y, y}}},
+        {D::consumer, {{n, n, n}, {n, y, y}, {y, n, n}, {y, y, y}}},
+        {D::either,   {{n, n, n}, {n, y, y}, {y, n, y}, {y, y, y}}},
+        {D::both,     {{n, n, n}, {n, y, n}, {y, n, n}, {y, y, y}}},
+        {D::reveal,   {{n, n, y}, {n, y, y}, {y, n, y}, {y, y, y}}},
+        {D::conceal,  {{n, n, n}, {n, y, n}, {y, n, n}, {y, y, n}}}
+    };
+
+    SECTION("Without realm preset")
+    {
+        for (unsigned i=0; i<testVectors.size(); ++i)
+        {
+            INFO("for i=" << i);
+            const auto& vec = testVectors.at(i);
+            for (const auto& subVec: vec.subTestVectors)
+            {
+                INFO("with producer=" << subVec.producer
+                     << ", consumer=" << subVec.consumer);
+                internal::DisclosureMode mode{vec.disclosure};
+                CHECK(mode.compute(subVec.producer, subVec.consumer) ==
+                      subVec.disclosed);
+            }
+        }
+    }
+
+    SECTION("With realm preset")
+    {
+        internal::DisclosureMode presetMode{D::preset};
+        internal::DisclosureMode nonPresetMode{D::consumer};
+        CHECK(presetMode.compute(false, false, D::reveal) == true);
+        CHECK(nonPresetMode.compute(false, true, D::conceal) == true);
+    }
+}
+
+//------------------------------------------------------------------------------
 TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
 {
+    // TODO: Test consumer disclosure
+
     if (!test::RouterFixture::enabled())
         return;
 
@@ -218,8 +301,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Publish authorized with overriden disclosure rule");
             auth->clear();
-            auth->canPublish =
-                Authorization().withDisclosure(Disclosure::reveal);
+            auth->canPublish = Authorization(granted, Disclosure::reveal);
             event = {};
             s.subscribe(Topic{"topic7"}, onEvent, yield).value();
             auto ack = s.publish(Pub{"topic7"}.withArgs(42)
@@ -234,12 +316,10 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         }
 
         {
-            INFO("Publish failed due to overriden strict disclosure rule");
+            INFO("Publish disclosure disallowed");
             auth->clear();
-            auth->canPublish =
-                Authorization().withDisclosure(
-                    DisclosurePolicy{Disclosure::conceal}
-                        .withProducerDisclosureDisallowed());
+            auth->canPublish = Authorization{granted, Disclosure::conceal};
+            auth->discloseMeAllowed = false;
             auto ack = s.publish(Pub{"topic8"}.withArgs(42)
                                      .withExcludeMe(false)
                                      .withDiscloseMe(), yield);
@@ -304,7 +384,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Call authorized with overriden disclosure rule");
             auth->clear();
-            auth->canCall = Authorization().withDisclosure(Disclosure::conceal);
+            auth->canCall = Authorization(granted, Disclosure::conceal);
             invocation = {};
             s.enroll(Procedure{"rpc5"}, onInvocation, yield).value();
             auto result = s.call(Rpc{"rpc5"}.withArgs(42).withDiscloseMe(),
@@ -319,12 +399,10 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         }
 
         {
-            INFO("Call failed due to overriden strict disclosure rule");
+            INFO("Call disclosure disallowed");
             auth->clear();
-            auth->canCall =
-                Authorization().withDisclosure(
-                    DisclosurePolicy{Disclosure::conceal}
-                        .withProducerDisclosureDisallowed());
+            auth->canCall = Authorization{granted, Disclosure::conceal};
+            auth->discloseMeAllowed = false;
             s.enroll(Procedure{"rpc6"}, onInvocation, yield).value();
             auto result = s.call(Rpc{"rpc6"}.withArgs(42).withDiscloseMe(),
                                  yield);
@@ -650,8 +728,7 @@ TEST_CASE( "Router caching dynamic authorizer", "[WAMP][Router]" )
 
             // First publish generates cache entry
             auth->clear(true);
-            auth->canPublish =
-                Authorization().withDisclosure(Disclosure::reveal);
+            auth->canPublish = Authorization{granted, Disclosure::reveal};
             event = {};
             s1.subscribe(Topic{"topic7"}, onEvent, yield).value();
             auto ack = s1.publish(Pub{"topic7"}.withArgs(42)
@@ -666,8 +743,7 @@ TEST_CASE( "Router caching dynamic authorizer", "[WAMP][Router]" )
 
             // Second publish authorization should already be cached
             auth->clear(true);
-            auth->canPublish =
-                Authorization().withDisclosure(Disclosure::reveal);
+            auth->canPublish = Authorization{granted, Disclosure::reveal};
             event = {};
             s1.subscribe(Topic{"topic7"}, onEvent, yield).value();
             ack = s1.publish(Pub{"topic7"}.withArgs(42)

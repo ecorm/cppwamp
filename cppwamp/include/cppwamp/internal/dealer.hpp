@@ -25,6 +25,7 @@
 #include "../utils/triemap.hpp"
 #include "authorizationlistener.hpp"
 #include "commandinfo.hpp"
+#include "disclosuremode.hpp"
 #include "metaapi.hpp"
 #include "routersession.hpp"
 #include "timeoutscheduler.hpp"
@@ -1076,7 +1077,7 @@ private:
         }
 
         AuthorizationRequest r{{}, shared_from_this(), originator,
-                               authorizer, callerDisclosure_,
+                               authorizer, callerDisclosure_.disclosure(),
                                consumerDisclosure};
         authorizer->authorize(std::forward<C>(command), std::move(r));
     }
@@ -1090,11 +1091,9 @@ private:
     void bypassAuthorization(const RouterSession::Ptr& caller, Rpc&& rpc,
                              bool consumerDisclosure, DealerRegistration* reg)
     {
-        auto disclosed = callerDisclosure_.computeDisclosure(
-            rpc.disclosed({}), consumerDisclosure);
-        if (!disclosed.has_value())
-            return caller->sendRouterCommandError(rpc, disclosed.error());
-        rpc.setDisclosed({}, *disclosed);
+        bool disclosed = callerDisclosure_.compute(rpc.disclosed({}),
+                                                   consumerDisclosure);
+        rpc.setDisclosed({}, disclosed);
         impl_.call(caller, std::move(rpc), reg);
     }
 
@@ -1152,7 +1151,7 @@ private:
     AnyIoExecutor executor_;
     SharedStrand strand_;
     UriValidator::Ptr uriValidator_;
-    DisclosurePolicy callerDisclosure_;
+    DisclosureMode callerDisclosure_;
     bool metaProcedureRegistrationAllowed_ = false;
 };
 

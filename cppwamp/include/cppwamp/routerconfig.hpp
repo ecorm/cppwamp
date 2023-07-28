@@ -56,9 +56,9 @@ public:
 
     RealmConfig& withCallTimeoutForwardingRule(CallTimeoutForwardingRule rule);
 
-    RealmConfig& withCallerDisclosure(DisclosurePolicy d);
+    RealmConfig& withCallerDisclosure(Disclosure d);
 
-    RealmConfig& withPublisherDisclosure(DisclosurePolicy d);
+    RealmConfig& withPublisherDisclosure(Disclosure d);
 
     RealmConfig& withMetaApiEnabled(bool enabled = true);
 
@@ -73,11 +73,11 @@ public:
 
     Authorizer::Ptr authorizer() const;
 
-    DisclosurePolicy callerDisclosure() const;
+    Disclosure callerDisclosure() const;
 
     CallTimeoutForwardingRule callTimeoutForwardingRule() const;
 
-    DisclosurePolicy publisherDisclosure() const;
+    Disclosure publisherDisclosure() const;
 
     bool metaApiEnabled() const;
 
@@ -88,8 +88,8 @@ public:
 private:
     Uri uri_;
     Authorizer::Ptr authorizer_;
-    DisclosurePolicy callerDisclosure_ = Disclosure::producer;
-    DisclosurePolicy publisherDisclosure_ = Disclosure::producer;
+    Disclosure callerDisclosure_ = Disclosure::producer;
+    Disclosure publisherDisclosure_ = Disclosure::producer;
     CallTimeoutForwardingRule callTimeoutForwardingRule_ =
         CallTimeoutForwardingRule::perRegistration;
     bool metaApiEnabled_ = false;
