@@ -70,7 +70,9 @@ public:
     // Internal use only
     Topic(internal::PassKey, internal::Message&& msg);
     Uri&& uri(internal::PassKey) &&;
+    bool disclosed(internal::PassKey) const;
     void setTrustLevel(internal::PassKey, TrustLevel);
+    void setDisclosed(internal::PassKey, bool);
 };
 
 

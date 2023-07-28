@@ -67,14 +67,27 @@ public:
 
     /** @name Call Timeouts
         See [Call Timeouts in the WAMP Specification]
-        (https://wamp-proto.org/wamp_latest_ietf.html#name-call-timeouts)
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-caller-identification)
         @{ */
 
     /** Makes the dealer bypass call timeout logic and forward the timeout
         option to the callee. */
     TDerived& withForwardTimeout(bool enabled = true);
 
+    /** Determines if timeout forwarding was requested. */
     bool forwardTimeoutEnabled() const;
+    /// @}
+
+    /** @name Caller Identification
+        See [Caller Identification in the WAMP Specification]
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-call-timeouts)
+        @{ */
+
+    /** Requests caller identity disclosure. */
+    TDerived& withDiscloseCaller(bool disclose = true);
+
+    /** Determines if caller disclosure was requested. */
+    bool discloseCaller() const;
     /// @}
 
 protected:
@@ -92,7 +105,9 @@ private:
 public:
     // Internal use only
     Uri&& uri(internal::PassKey);
+    bool disclosed(internal::PassKey) const;
     void setTrustLevel(internal::PassKey, TrustLevel);
+    void setDisclosed(internal::PassKey, bool);
 };
 
 
@@ -100,7 +115,7 @@ public:
 /** Contains the procedure URI and other options contained within
     WAMP `REGISTER` messages. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Procedure: public ProcedureLike<Procedure>
+class CPPWAMP_API Procedure : public ProcedureLike<Procedure>
 {
 public:
     /** Converting constructor taking a procedure URI. */
@@ -652,6 +667,18 @@ bool ProcedureLike<D>::forwardTimeoutEnabled() const
 }
 
 template <typename D>
+D& ProcedureLike<D>::withDiscloseCaller(bool disclose)
+{
+    return this->withOption("disclose_caller", disclose);
+}
+
+template <typename D>
+bool ProcedureLike<D>::discloseCaller() const
+{
+    return this->template optionOr<bool>("disclose_caller", false);
+}
+
+template <typename D>
 ProcedureLike<D>::ProcedureLike(String&& uri)
     : Base(in_place, 0, Object{}, std::move(uri))
 {}
@@ -668,7 +695,20 @@ Uri&& ProcedureLike<D>::uri(internal::PassKey)
 }
 
 template <typename D>
+bool ProcedureLike<D>::disclosed(internal::PassKey) const
+{
+    // Not applicable; return false
+    return false;
+}
+
+template <typename D>
 void ProcedureLike<D>::setTrustLevel(internal::PassKey, TrustLevel)
+{
+    // Not applicable; do nothing
+}
+
+template <typename D>
+void ProcedureLike<D>::setDisclosed(internal::PassKey, bool)
 {
     // Not applicable; do nothing
 }

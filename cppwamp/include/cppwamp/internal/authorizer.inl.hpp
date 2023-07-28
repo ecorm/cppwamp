@@ -8,7 +8,6 @@
 #include <utility>
 #include "../api.hpp"
 #include "../traits.hpp"
-#include "disclosuresetter.hpp"
 #include "routersession.hpp"
 
 namespace wamp
@@ -53,7 +52,7 @@ CPPWAMP_INLINE Authorization::Authorization(WampErrc errc)
 {}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Authorization& Authorization::withDisclosure(DisclosureRule d)
+CPPWAMP_INLINE Authorization& Authorization::withDisclosure(DisclosurePolicy d)
 {
     disclosure_ = d;
     return *this;
@@ -69,7 +68,7 @@ CPPWAMP_INLINE std::error_code Authorization::error() const {return errorCode_;}
 CPPWAMP_INLINE bool Authorization::allowed() const {return allowed_;}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE DisclosureRule Authorization::disclosure() const
+CPPWAMP_INLINE DisclosurePolicy Authorization::disclosure() const
 {
     return disclosure_;
 }
@@ -132,17 +131,29 @@ void AuthorizationRequest::doAuthorize(C&& command, Authorization auth,
             authorizer->cache(command, originator->sharedInfo(), auth);
     }
 
+    std::error_code ec;
+
     if (auth.good())
     {
-        if (internal::DisclosureSetter::applyToCommand(
-                command, *originator, realmDisclosure_, auth.disclosure()))
+        auto disclosed = auth.disclosure().computeDisclosure(
+            command.disclosed(internal::PassKey{}),
+            consumerDisclosure_,
+            realmDisclosure_);
+
+        if (disclosed.has_value())
         {
+            command.setDisclosed({}, *disclosed);
             listener->onAuthorized(originator, std::forward<C>(command));
+            return;
         }
-        return;
+
+        ec = disclosed.error();
+    }
+    else
+    {
+        ec = make_error_code(WampErrc::authorizationDenied);;
     }
 
-    auto ec = make_error_code(WampErrc::authorizationDenied);
     auto authEc = auth.error();
     bool isKnownAuthError = true;
 
@@ -171,12 +182,13 @@ CPPWAMP_INLINE AuthorizationRequest::AuthorizationRequest(
     internal::PassKey, ListenerPtr listener,
     const std::shared_ptr<internal::RouterSession>& originator,
     const std::shared_ptr<Authorizer>& authorizer,
-    DisclosureRule realmDisclosure)
+    DisclosurePolicy realmDisclosure, bool consumerDisclosure)
     : listener_(std::move(listener)),
       originator_(originator),
       authorizer_(authorizer),
       info_(originator->sharedInfo()),
-      realmDisclosure_(realmDisclosure)
+      realmDisclosure_(realmDisclosure),
+      consumerDisclosure_(consumerDisclosure)
 {}
 
 

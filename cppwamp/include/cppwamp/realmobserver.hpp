@@ -81,6 +81,7 @@ struct CPPWAMP_API RegistrationInfo
     size_t calleeCount = 0;
     MatchPolicy matchPolicy = MatchPolicy::unknown;
     InvocationPolicy invocationPolicy = InvocationPolicy::unknown;
+    bool discloseCaller = false;
     bool forwardTimeoutEnabled = false;
 };
 

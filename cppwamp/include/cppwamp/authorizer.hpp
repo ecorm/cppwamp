@@ -16,7 +16,7 @@
 #include "anyhandler.hpp"
 #include "api.hpp"
 #include "asiodefs.hpp"
-#include "disclosurerule.hpp"
+#include "disclosure.hpp"
 #include "errorcodes.hpp"
 #include "pubsubinfo.hpp"
 #include "realmobserver.hpp"
@@ -91,10 +91,10 @@ public:
 
     // NOLINTEND(google-explicit-constructor)
 
-    /** Sets the rule that governs how the caller/publisher is disclosed. */
-    Authorization& withDisclosure(DisclosureRule d);
+    /** Sets the policy that governs how the caller/publisher is disclosed. */
+    Authorization& withDisclosure(DisclosurePolicy d);
 
-    /** Returns true if the authorization succeeded and the operations
+    /** Returns true if the authorization succeeded and the operation
         is allowed. */
     bool good() const;
 
@@ -105,12 +105,12 @@ public:
     /** Determines if the operation is allowed. */
     bool allowed() const;
 
-    /** Obtains the caller/publisher disclosure rule. */
-    DisclosureRule disclosure() const;
+    /** Obtains the caller/publisher disclosure policy. */
+    DisclosurePolicy disclosure() const;
 
 private:
     std::error_code errorCode_;
-    DisclosureRule disclosure_ = DisclosureRule::preset;
+    DisclosurePolicy disclosure_ = Disclosure::preset;
     bool allowed_ = false;
 };
 
@@ -148,14 +148,15 @@ private:
     std::weak_ptr<internal::RouterSession> originator_;
     std::weak_ptr<Authorizer> authorizer_;
     SessionInfo info_;
-    DisclosureRule realmDisclosure_ = DisclosureRule::preset;
+    DisclosurePolicy realmDisclosure_ = Disclosure::preset;
+    bool consumerDisclosure_ = false;
 
 public: // Internal use only
     AuthorizationRequest(internal::PassKey,
         ListenerPtr listener,
         const std::shared_ptr<internal::RouterSession>& originator,
         const std::shared_ptr<Authorizer>& authorizer,
-        DisclosureRule realmDisclosure);
+        DisclosurePolicy realmDisclosure, bool consumerDisclosure = false);
 };
 
 //------------------------------------------------------------------------------

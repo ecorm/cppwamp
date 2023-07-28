@@ -20,6 +20,7 @@
 #include "authenticator.hpp"
 #include "authorizer.hpp"
 #include "codec.hpp"
+#include "disclosure.hpp"
 #include "listener.hpp"
 #include "logging.hpp"
 #include "uri.hpp"
@@ -55,9 +56,9 @@ public:
 
     RealmConfig& withCallTimeoutForwardingRule(CallTimeoutForwardingRule rule);
 
-    RealmConfig& withCallerDisclosure(DisclosureRule d);
+    RealmConfig& withCallerDisclosure(DisclosurePolicy d);
 
-    RealmConfig& withPublisherDisclosure(DisclosureRule d);
+    RealmConfig& withPublisherDisclosure(DisclosurePolicy d);
 
     RealmConfig& withMetaApiEnabled(bool enabled = true);
 
@@ -72,11 +73,11 @@ public:
 
     Authorizer::Ptr authorizer() const;
 
-    DisclosureRule callerDisclosure() const;
+    DisclosurePolicy callerDisclosure() const;
 
     CallTimeoutForwardingRule callTimeoutForwardingRule() const;
 
-    DisclosureRule publisherDisclosure() const;
+    DisclosurePolicy publisherDisclosure() const;
 
     bool metaApiEnabled() const;
 
@@ -87,8 +88,8 @@ public:
 private:
     Uri uri_;
     Authorizer::Ptr authorizer_;
-    DisclosureRule callerDisclosure_ = DisclosureRule::originator;
-    DisclosureRule publisherDisclosure_ = DisclosureRule::originator;
+    DisclosurePolicy callerDisclosure_ = Disclosure::producer;
+    DisclosurePolicy publisherDisclosure_ = Disclosure::producer;
     CallTimeoutForwardingRule callTimeoutForwardingRule_ =
         CallTimeoutForwardingRule::perRegistration;
     bool metaApiEnabled_ = false;

@@ -51,14 +51,14 @@ void checkInvocationDisclosure(std::string info, Invocation& inv,
 
 //------------------------------------------------------------------------------
 void checkCallerDisclosure(
-    std::string info, IoContext& ioctx, DisclosureRule rule,
+    std::string info, IoContext& ioctx, DisclosurePolicy policy,
     bool expectedDisclosedByDefault,
     bool expectedDisclosedWhenOriginatorReveals,
     bool expectedDisclosedWhenOriginatorConceals)
 {
     INFO(info);
 
-    auto config = RealmConfig{testRealm}.withCallerDisclosure(rule);
+    auto config = RealmConfig{testRealm}.withCallerDisclosure(policy);
 
     wamp::Router& router = test::RouterFixture::instance().router();
     test::ScopedRealm realm{router.openRealm(config).value()};
@@ -79,9 +79,7 @@ void checkCallerDisclosure(
         s.call(rpc, yield).value();
         checkInvocationDisclosure("disclose_me unset", invocation, w,
                                   expectedDisclosedByDefault, yield);
-        bool isStrict = rule == DisclosureRule::strictConceal ||
-                        rule == DisclosureRule::strictReveal;
-        if (isStrict)
+        if (policy.producerDisclosureDisallowed())
         {
             auto ack = s.call(rpc.withDiscloseMe(), yield);
             CHECK(ack == makeUnexpectedError(WampErrc::discloseMeDisallowed));
@@ -133,14 +131,14 @@ void checkEventDisclosure(std::string info, Event& event,
 
 //------------------------------------------------------------------------------
 void checkPublisherDisclosure(
-    std::string info, IoContext& ioctx, DisclosureRule rule,
+    std::string info, IoContext& ioctx, DisclosurePolicy policy,
     bool expectedDisclosedByDefault,
     bool expectedDisclosedWhenOriginatorReveals,
     bool expectedDisclosedWhenOriginatorConceals)
 {
     INFO(info);
 
-    auto config = RealmConfig{testRealm}.withPublisherDisclosure(rule);
+    auto config = RealmConfig{testRealm}.withPublisherDisclosure(policy);
 
     wamp::Router& router = test::RouterFixture::instance().router();
     test::ScopedRealm realm{router.openRealm(config).value()};
@@ -160,9 +158,7 @@ void checkPublisherDisclosure(
         checkEventDisclosure("disclose_me unset", event, w,
                              expectedDisclosedByDefault, yield);
 
-        bool isStrict = rule == DisclosureRule::strictConceal ||
-                        rule == DisclosureRule::strictReveal;
-        if (isStrict)
+        if (policy.producerDisclosureDisallowed())
         {
             auto ack = s.publish(pub.withDiscloseMe(), yield);
             CHECK(ack == makeUnexpectedError(WampErrc::discloseMeDisallowed));
@@ -285,7 +281,7 @@ TEST_CASE( "Router call timeout forwarding config", "[WAMP][Router][Timeout]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "Router caller disclosure config", "[WAMP][Router]" )
+TEST_CASE( "Router disclosure config", "[WAMP][Router]" )
 {
     if (!test::RouterFixture::enabled())
         return;
@@ -295,41 +291,35 @@ TEST_CASE( "Router caller disclosure config", "[WAMP][Router]" )
     router.setLogLevel(LogLevel::error);
 
     IoContext io;
-    using DR = DisclosureRule;
+    using D = Disclosure;
     static constexpr bool y = true;
     static constexpr bool n = false;
+    const auto strictReveal = DisclosurePolicy{Disclosure::reveal}
+                                  .withProducerDisclosureDisallowed();
+    const auto strictConceal = DisclosurePolicy{Disclosure::conceal}
+                                  .withProducerDisclosureDisallowed();
 
-    checkCallerDisclosure("preset",        io, DR::preset,        n, y, n);
-    checkCallerDisclosure("originator",    io, DR::originator,    n, y, n);
-    checkCallerDisclosure("reveal",        io, DR::reveal,        y, y, y);
-    checkCallerDisclosure("conceal",       io, DR::conceal,       n, n, n);
-    checkCallerDisclosure("strictReveal",  io, DR::strictReveal,  y, y, y);
-    checkCallerDisclosure("strictConceal", io, DR::strictConceal, n, n, n);
-    io.stop();
-}
+    SECTION("Caller disclosure")
+    {
+        checkCallerDisclosure("preset",        io, D::preset,     n, y, n);
+        checkCallerDisclosure("producer",      io, D::producer,   n, y, n);
+        checkCallerDisclosure("reveal",        io, D::reveal,     y, y, y);
+        checkCallerDisclosure("conceal",       io, D::conceal,    n, n, n);
+        checkCallerDisclosure("strictReveal",  io, strictReveal,  y, y, y);
+        checkCallerDisclosure("strictConceal", io, strictConceal, n, n, n);
+        io.stop();
+    }
 
-//------------------------------------------------------------------------------
-TEST_CASE( "Router publisher disclosure config", "[WAMP][Router]" )
-{
-    if (!test::RouterFixture::enabled())
-        return;
-
-    wamp::Router& router = test::RouterFixture::instance().router();
-    test::RouterLogLevelGuard logLevelGuard(router.logLevel());
-    router.setLogLevel(LogLevel::error);
-
-    IoContext io;
-    using DR = DisclosureRule;
-    static constexpr bool y = true;
-    static constexpr bool n = false;
-
-    checkPublisherDisclosure("preset",        io, DR::preset,        n, y, n);
-    checkPublisherDisclosure("originator",    io, DR::originator,    n, y, n);
-    checkPublisherDisclosure("reveal",        io, DR::reveal,        y, y, y);
-    checkPublisherDisclosure("conceal",       io, DR::conceal,       n, n, n);
-    checkPublisherDisclosure("strictReveal",  io, DR::strictReveal,  y, y, y);
-    checkPublisherDisclosure("strictConceal", io, DR::strictConceal, n, n, n);
-    io.stop();
+    SECTION("Publisher disclosure")
+    {
+        checkPublisherDisclosure("preset",        io, D::preset,     n, y, n);
+        checkPublisherDisclosure("producer",      io, D::producer, n, y, n);
+        checkPublisherDisclosure("reveal",        io, D::reveal,     y, y, y);
+        checkPublisherDisclosure("conceal",       io, D::conceal,    n, n, n);
+        checkPublisherDisclosure("strictReveal",  io, strictReveal,  y, y, y);
+        checkPublisherDisclosure("strictConceal", io, strictConceal, n, n, n);
+        io.stop();
+    }
 }
 
 //------------------------------------------------------------------------------

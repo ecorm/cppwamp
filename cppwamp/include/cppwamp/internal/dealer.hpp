@@ -25,7 +25,6 @@
 #include "../utils/triemap.hpp"
 #include "authorizationlistener.hpp"
 #include "commandinfo.hpp"
-#include "disclosuresetter.hpp"
 #include "metaapi.hpp"
 #include "routersession.hpp"
 #include "timeoutscheduler.hpp"
@@ -641,9 +640,9 @@ public:
         return metaProcedures_ && metaProcedures_->hasProcedure(uri);
     }
 
-    bool hasProcedure(const Uri& uri) const
+    DealerRegistration* findProcedure(const Uri& uri) const
     {
-        return registry_.find(uri) != nullptr;
+        return registry_.find(uri);
     }
 
     const Authorizer::Ptr& authorizer() const {return authorizer_;}
@@ -696,10 +695,11 @@ public:
             callee->sendRouterCommandError(cmd, uri.error());
     }
 
-    void call(const RouterSession::Ptr& caller, Rpc&& rpc)
+    void call(const RouterSession::Ptr& caller, Rpc&& rpc,
+              DealerRegistration* reg = nullptr)
     {
         const auto reqId = rpc.requestId({});
-        const auto done = callProcedure(caller, std::move(rpc));
+        const auto done = callProcedure(caller, std::move(rpc), reg);
         if (!done.has_value())
         {
             caller->sendRouterCommand(
@@ -798,9 +798,12 @@ public:
 private:
     using MutexGuard = std::lock_guard<std::mutex>;
 
-    ErrorOrDone callProcedure(const RouterSession::Ptr& caller, Rpc&& rpc)
+    ErrorOrDone callProcedure(const RouterSession::Ptr& caller, Rpc&& rpc,
+                              DealerRegistration* reg)
     {
-        auto* reg = registry_.find(rpc.uri());
+        if (reg == nullptr)
+            reg = registry_.find(rpc.uri());
+
         if (reg == nullptr)
         {
             auto found = metaProcedures_ &&
@@ -1017,7 +1020,7 @@ private:
         if (errc != WampErrc::success)
             return callee->sendRouterCommandError(enroll, errc);
 
-        authorize(callee, enroll);
+        authorize(callee, enroll, false);
     }
 
     void processCommand(const RouterSession::Ptr& callee, Unregister&& cmd)
@@ -1030,10 +1033,16 @@ private:
         if (!uriValidator_->checkProcedure(call.uri(), false))
             return caller->abort({WampErrc::invalidUri});
 
-        if (!checkProcedureExistsBeforeAuthorizing(caller, call))
+        auto reg = impl_.findProcedure(call.uri());
+        if (!reg && !impl_.hasMetaProcedure(call.uri()))
+        {
+            caller->sendRouterCommandError(call, WampErrc::noSuchProcedure);
             return;
+        }
 
-        authorize(caller, call);
+        const bool discloseCaller = (reg != nullptr) &&
+                                    reg->info().discloseCaller;
+        authorize(caller, call, discloseCaller, reg);
     }
 
     void processCommand(const RouterSession::Ptr& caller,
@@ -1054,27 +1063,39 @@ private:
         return impl_.yieldError(callee, std::move(yielded));
     }
 
-    template <typename C>
-    void authorize(const RouterSession::Ptr& originator, C& command)
+    template <typename C, typename... Ts>
+    void authorize(const RouterSession::Ptr& originator, C& command,
+                   bool consumerDisclosure, Ts&&... bypassArgs)
     {
         const auto& authorizer = impl_.authorizer();
         if (!authorizer)
-            return bypassAuthorization(originator, std::move(command));
+        {
+            return bypassAuthorization(originator, std::move(command),
+                                       consumerDisclosure,
+                                       std::forward<Ts>(bypassArgs)...);
+        }
 
         AuthorizationRequest r{{}, shared_from_this(), originator,
-                               authorizer, callerDisclosure_};
+                               authorizer, callerDisclosure_,
+                               consumerDisclosure};
         authorizer->authorize(std::forward<C>(command), std::move(r));
     }
 
-    void bypassAuthorization(const RouterSession::Ptr& callee, Procedure&& p)
+    void bypassAuthorization(const RouterSession::Ptr& callee, Procedure&& p,
+                             bool /* consumerDisclosure */)
     {
         impl_.enroll(callee, std::move(p));
     }
 
-    void bypassAuthorization(const RouterSession::Ptr& callee, Rpc&& r)
+    void bypassAuthorization(const RouterSession::Ptr& caller, Rpc&& rpc,
+                             bool consumerDisclosure, DealerRegistration* reg)
     {
-        DisclosureSetter::applyToCommand(r, *callee, callerDisclosure_);
-        impl_.call(callee, std::move(r));
+        auto disclosed = callerDisclosure_.computeDisclosure(
+            rpc.disclosed({}), consumerDisclosure);
+        if (!disclosed.has_value())
+            return caller->sendRouterCommandError(rpc, disclosed.error());
+        rpc.setDisclosed({}, *disclosed);
+        impl_.call(caller, std::move(rpc), reg);
     }
 
     WampErrc checkMetaProcedureRegistrationAttempt(const Procedure& enroll)
@@ -1109,17 +1130,6 @@ private:
             *strand_, Dispatched{shared_from_this(), callee, std::move(proc)});
     };
 
-    bool checkProcedureExistsBeforeAuthorizing(const RouterSession::Ptr& caller,
-                                               const Rpc& call)
-    {
-        const bool ok = !impl_.authorizer() ||
-                        impl_.hasProcedure(call.uri()) ||
-                        impl_.hasMetaProcedure(call.uri());
-        if (!ok)
-            caller->sendRouterCommandError(call, WampErrc::noSuchProcedure);
-        return ok;
-    }
-
     void onAuthorized(const RouterSession::Ptr& caller, Rpc&& rpc) override
     {
         struct Dispatched
@@ -1142,7 +1152,7 @@ private:
     AnyIoExecutor executor_;
     SharedStrand strand_;
     UriValidator::Ptr uriValidator_;
-    DisclosureRule callerDisclosure_;
+    DisclosurePolicy callerDisclosure_;
     bool metaProcedureRegistrationAllowed_ = false;
 };
 

@@ -106,8 +106,8 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
     auto config =
         RealmConfig{testRealm}.withMetaApiEnabled()
                               .withAuthorizer(postingAuth)
-                              .withCallerDisclosure(DisclosureRule::reveal)
-                              .withPublisherDisclosure(DisclosureRule::conceal);
+                              .withCallerDisclosure(Disclosure::reveal)
+                              .withPublisherDisclosure(Disclosure::conceal);
     test::ScopedRealm realm{router.openRealm(config).value()};
 
     Event event;
@@ -219,7 +219,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
             INFO("Publish authorized with overriden disclosure rule");
             auth->clear();
             auth->canPublish =
-                Authorization().withDisclosure(DisclosureRule::reveal);
+                Authorization().withDisclosure(Disclosure::reveal);
             event = {};
             s.subscribe(Topic{"topic7"}, onEvent, yield).value();
             auto ack = s.publish(Pub{"topic7"}.withArgs(42)
@@ -237,7 +237,9 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
             INFO("Publish failed due to overriden strict disclosure rule");
             auth->clear();
             auth->canPublish =
-                Authorization().withDisclosure(DisclosureRule::strictConceal);
+                Authorization().withDisclosure(
+                    DisclosurePolicy{Disclosure::conceal}
+                        .withProducerDisclosureDisallowed());
             auto ack = s.publish(Pub{"topic8"}.withArgs(42)
                                      .withExcludeMe(false)
                                      .withDiscloseMe(), yield);
@@ -302,8 +304,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Call authorized with overriden disclosure rule");
             auth->clear();
-            auth->canCall =
-                Authorization().withDisclosure(DisclosureRule::conceal);
+            auth->canCall = Authorization().withDisclosure(Disclosure::conceal);
             invocation = {};
             s.enroll(Procedure{"rpc5"}, onInvocation, yield).value();
             auto result = s.call(Rpc{"rpc5"}.withArgs(42).withDiscloseMe(),
@@ -321,7 +322,9 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
             INFO("Call failed due to overriden strict disclosure rule");
             auth->clear();
             auth->canCall =
-                Authorization().withDisclosure(DisclosureRule::strictConceal);
+                Authorization().withDisclosure(
+                    DisclosurePolicy{Disclosure::conceal}
+                        .withProducerDisclosureDisallowed());
             s.enroll(Procedure{"rpc6"}, onInvocation, yield).value();
             auto result = s.call(Rpc{"rpc6"}.withArgs(42).withDiscloseMe(),
                                  yield);
@@ -476,8 +479,8 @@ TEST_CASE( "Router caching dynamic authorizer", "[WAMP][Router]" )
     auto config =
         RealmConfig{testRealm}.withMetaApiEnabled()
                               .withAuthorizer(cachingAuth)
-                              .withCallerDisclosure(DisclosureRule::reveal)
-                              .withPublisherDisclosure(DisclosureRule::conceal);
+                              .withCallerDisclosure(Disclosure::reveal)
+                              .withPublisherDisclosure(Disclosure::conceal);
     test::ScopedRealm realm{router.openRealm(config).value()};
 
     Event event;
@@ -648,7 +651,7 @@ TEST_CASE( "Router caching dynamic authorizer", "[WAMP][Router]" )
             // First publish generates cache entry
             auth->clear(true);
             auth->canPublish =
-                Authorization().withDisclosure(DisclosureRule::reveal);
+                Authorization().withDisclosure(Disclosure::reveal);
             event = {};
             s1.subscribe(Topic{"topic7"}, onEvent, yield).value();
             auto ack = s1.publish(Pub{"topic7"}.withArgs(42)
@@ -664,7 +667,7 @@ TEST_CASE( "Router caching dynamic authorizer", "[WAMP][Router]" )
             // Second publish authorization should already be cached
             auth->clear(true);
             auth->canPublish =
-                Authorization().withDisclosure(DisclosureRule::reveal);
+                Authorization().withDisclosure(Disclosure::reveal);
             event = {};
             s1.subscribe(Topic{"topic7"}, onEvent, yield).value();
             ack = s1.publish(Pub{"topic7"}.withArgs(42)

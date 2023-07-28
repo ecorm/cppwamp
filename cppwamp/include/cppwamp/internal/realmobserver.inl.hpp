@@ -62,6 +62,7 @@ CPPWAMP_INLINE RegistrationInfo::RegistrationInfo(RegistrationId id,
       id(id),
       matchPolicy(MatchPolicy::exact),
       invocationPolicy(InvocationPolicy::single),
+      discloseCaller(procedure.discloseCaller()),
       forwardTimeoutEnabled(procedure.forwardTimeoutEnabled())
 {}
 

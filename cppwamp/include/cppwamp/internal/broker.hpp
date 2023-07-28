@@ -23,7 +23,6 @@
 #include "../utils/wildcarduri.hpp"
 #include "authorizationlistener.hpp"
 #include "commandinfo.hpp"
-#include "disclosuresetter.hpp"
 #include "metaapi.hpp"
 #include "random.hpp"
 #include "routersession.hpp"
@@ -1032,12 +1031,14 @@ private:
         impl_.subscribe(subscriber, std::move(t));
     }
 
-    void bypassAuthorization(const RouterSession::Ptr& publisher, Pub&& p)
+    void bypassAuthorization(const RouterSession::Ptr& publisher, Pub&& pub)
     {
-        const bool ok = DisclosureSetter::applyToCommand(p, *publisher,
-                                                         publisherDisclosure_);
-        if (ok)
-            impl_.publish(publisher, std::move(p));
+        auto disclosed =
+            publisherDisclosure_.computeDisclosure(pub.disclosed({}), false);
+        if (!disclosed.has_value())
+            return publisher->sendRouterCommandError(pub, disclosed.error());
+        pub.setDisclosed({}, *disclosed);
+        impl_.publish(publisher, std::move(pub));
     }
 
     void onAuthorized(const RouterSession::Ptr& subscriber,
@@ -1089,7 +1090,7 @@ private:
     AnyIoExecutor executor_;
     SharedStrand strand_;
     UriValidator::Ptr uriValidator_;
-    DisclosureRule publisherDisclosure_;
+    DisclosurePolicy publisherDisclosure_;
     bool metaTopicPublicationAllowed_ = false;
 };
 

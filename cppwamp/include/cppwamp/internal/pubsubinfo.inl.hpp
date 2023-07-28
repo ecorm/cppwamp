@@ -57,7 +57,18 @@ CPPWAMP_INLINE Uri&& Topic::uri(internal::PassKey) &&
     return std::move(message().as<String>(uriPos_));
 }
 
+CPPWAMP_INLINE bool Topic::disclosed(internal::PassKey) const
+{
+    // Not applicable; return false
+    return false;
+}
+
 CPPWAMP_INLINE void Topic::setTrustLevel(internal::PassKey, TrustLevel)
+{
+    // Not applicable; do nothing
+}
+
+CPPWAMP_INLINE void Topic::setDisclosed(internal::PassKey, bool)
 {
     // Not applicable; do nothing
 }
