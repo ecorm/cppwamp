@@ -9,25 +9,29 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains the facilities for managing caller/publisher disclosure. */
+    @brief Contains definitions for managing caller/publisher disclosure. */
 //------------------------------------------------------------------------------
 
 namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** Determines how callers and publishers are disclosed. */
+/** Determines how callers and publishers are disclosed.
+    @note Disclosure request by consumers is only supported for RPCs via the
+          `REGISTER.Options.disclose_caller` option. */
 //------------------------------------------------------------------------------
 enum class Disclosure
 {
     preset,   ///< Disclose as per the realm configuration preset.
     producer, ///< Disclose as per the producer's `disclose_me` option.
     consumer, /**< Disclose if the callee requested disclosure when registering
-                   (ignored for subscriptions) */
+                   (effectively Disclosure::conceal for publications) */
     either,   /**< Disclose if either the producer or the consumer
-                   requested disclosure. */
+                   requested disclosure
+                   (effectively Disclosure::producer for publications). */
     both,     /**< Disclose if both the originator and the consumer
-                   requested disclosure. */
+                   requested disclosure
+                   (effectively Disclosure::conceal for publications). */
     reveal,   ///< Disclose even if disclosure was not requested.
     conceal   ///< Don't disclose even if disclosure was requested.
 };

@@ -107,14 +107,6 @@ struct TestAuthorizer : public Authorizer
 //------------------------------------------------------------------------------
 TEST_CASE( "Disclosure computation", "[Disclosure]" )
 {
-//    constexpr auto pre = Disclosure::preset;
-//    constexpr auto pro = Disclosure::producer;
-//    constexpr auto con = Disclosure::consumer;
-//    constexpr auto eit = Disclosure::either;
-//    constexpr auto bth = Disclosure::both;
-//    constexpr auto rev = Disclosure::reveal;
-//    constexpr auto cnc = Disclosure::conceal;
-
     constexpr bool y = true;
     constexpr bool n = false;
 
@@ -174,8 +166,6 @@ TEST_CASE( "Disclosure computation", "[Disclosure]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
 {
-    // TODO: Test consumer disclosure
-
     if (!test::RouterFixture::enabled())
         return;
 

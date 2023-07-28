@@ -54,7 +54,10 @@ void checkCallerDisclosure(
     std::string info, IoContext& ioctx, Disclosure policy,
     bool expectedDisclosedByDefault,
     bool expectedDisclosedWhenOriginatorReveals,
-    bool expectedDisclosedWhenOriginatorConceals)
+    bool expectedDisclosedWhenOriginatorConceals,
+    bool expectedDisclosedByDefaultWhenCalleeRequestsDisclosure,
+    bool expectedDisclosedWhenOriginatorRevealsAndCalleeRequestsDisclosure,
+    bool expectedDisclosedWhenOriginatorConcealsAndCalleeRequestsDisclosure)
 {
     INFO(info);
 
@@ -72,23 +75,52 @@ void checkCallerDisclosure(
 
     spawn(ioctx, [&](YieldContext yield)
     {
-        auto rpc = Rpc{"rpc"}.withArgs(42);
         s.connect(withTcp, yield).value();
         auto w = s.join(testRealm, yield).value();
-        s.enroll(Procedure{"rpc"}, onInvocation, yield).value();
-        s.call(rpc, yield).value();
-        checkInvocationDisclosure("disclose_me unset", invocation, w,
-                                  expectedDisclosedByDefault, yield);
 
-        s.call(rpc.withDiscloseMe(), yield).value();
-        checkInvocationDisclosure("disclose_me=true", invocation, w,
-                                  expectedDisclosedWhenOriginatorReveals,
-                                  yield);
+        {
+            INFO("With callee not requesting disclosure");
+            auto rpc = Rpc{"rpc1"}.withArgs(42);
+            s.enroll(Procedure{"rpc1"}, onInvocation, yield).value();
 
-        s.call(rpc.withDiscloseMe(false), yield).value();
-        checkInvocationDisclosure("disclose_me=false", invocation, w,
-                                  expectedDisclosedWhenOriginatorConceals,
-                                  yield);
+            s.call(rpc, yield).value();
+            checkInvocationDisclosure("disclose_me unset", invocation, w,
+                                      expectedDisclosedByDefault, yield);
+
+            s.call(rpc.withDiscloseMe(), yield).value();
+            checkInvocationDisclosure("disclose_me=true", invocation, w,
+                                      expectedDisclosedWhenOriginatorReveals,
+                                      yield);
+
+            s.call(rpc.withDiscloseMe(false), yield).value();
+            checkInvocationDisclosure("disclose_me=false", invocation, w,
+                                      expectedDisclosedWhenOriginatorConceals,
+                                      yield);
+        }
+
+        {
+            INFO("With callee requesting disclosure");
+            auto rpc = Rpc{"rpc2"}.withArgs(42);
+            s.enroll(Procedure{"rpc2"}.withDiscloseCaller(),
+                     onInvocation, yield).value();
+            s.call(rpc, yield).value();
+            checkInvocationDisclosure(
+                "disclose_me unset", invocation, w,
+                expectedDisclosedByDefaultWhenCalleeRequestsDisclosure, yield);
+
+            s.call(rpc.withDiscloseMe(), yield).value();
+            checkInvocationDisclosure(
+                "disclose_me=true", invocation, w,
+                expectedDisclosedWhenOriginatorRevealsAndCalleeRequestsDisclosure,
+                yield);
+
+            s.call(rpc.withDiscloseMe(false), yield).value();
+            checkInvocationDisclosure(
+                "disclose_me=false", invocation, w,
+                expectedDisclosedWhenOriginatorConcealsAndCalleeRequestsDisclosure,
+                yield);
+        }
+
         s.disconnect();
     });
 
@@ -282,10 +314,13 @@ TEST_CASE( "Router disclosure config", "[WAMP][Router]" )
 
     SECTION("Caller disclosure")
     {
-        checkCallerDisclosure("preset",   io, D::preset,   n, y, n);
-        checkCallerDisclosure("producer", io, D::producer, n, y, n);
-        checkCallerDisclosure("reveal",   io, D::reveal,   y, y, y);
-        checkCallerDisclosure("conceal",  io, D::conceal,  n, n, n);
+        checkCallerDisclosure("preset",   io, D::preset,   n, y, n, n, y, n);
+        checkCallerDisclosure("producer", io, D::producer, n, y, n, n, y, n);
+        checkCallerDisclosure("consumer", io, D::consumer, n, n, n, y, y, y);
+        checkCallerDisclosure("either",   io, D::either,   n, y, n, y, y, y);
+        checkCallerDisclosure("both",     io, D::both,     n, n, n, n, y, n);
+        checkCallerDisclosure("reveal",   io, D::reveal,   y, y, y, y, y, y);
+        checkCallerDisclosure("conceal",  io, D::conceal,  n, n, n, n, n, n);
         io.stop();
     }
 
@@ -293,6 +328,9 @@ TEST_CASE( "Router disclosure config", "[WAMP][Router]" )
     {
         checkPublisherDisclosure("preset",   io, D::preset,   n, y, n);
         checkPublisherDisclosure("producer", io, D::producer, n, y, n);
+        checkPublisherDisclosure("consumer", io, D::consumer, n, n, n);
+        checkPublisherDisclosure("either",   io, D::either,   n, y, n);
+        checkPublisherDisclosure("both",     io, D::both,     n, n, n);
         checkPublisherDisclosure("reveal",   io, D::reveal,   y, y, y);
         checkPublisherDisclosure("conceal",  io, D::conceal,  n, n, n);
         io.stop();
