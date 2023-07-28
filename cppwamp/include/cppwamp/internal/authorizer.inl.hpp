@@ -22,21 +22,10 @@ namespace wamp
 CPPWAMP_INLINE Authorization::Authorization() = default;
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Authorization::Authorization(AuthorizationGranted)
-    : Authorization(Decision::granted, Disclosure::preset, {})
-{}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE Authorization::Authorization(AuthorizationGranted,
-                                            Disclosure d)
-    : Authorization(Decision::granted, d, {})
-{}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE Authorization::Authorization(AuthorizationDenied)
-    : Authorization(Decision::denied, Disclosure::preset,
-                    make_error_code(WampErrc::authorizationDenied))
-{}
+CPPWAMP_INLINE Authorization Authorization::granted(Disclosure d)
+{
+    return Authorization{Decision::granted, d, {}};
+}
 
 //------------------------------------------------------------------------------
 /** If the given error code is not equivent to WampErrc::authorizationDenied,
@@ -44,18 +33,18 @@ CPPWAMP_INLINE Authorization::Authorization(AuthorizationDenied)
     - A string formatted as `<ec.category().name()>:<ec.value()`
     - A string containing `ec.message()` */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Authorization::Authorization(AuthorizationDenied,
-                                            std::error_code ec)
-    : Authorization(Decision::denied, Disclosure::preset, ec)
-{}
+CPPWAMP_INLINE Authorization Authorization::denied(std::error_code ec)
+{
+    return Authorization{Decision::denied, Disclosure::preset, ec};
+}
 
 //------------------------------------------------------------------------------
-/** @copydetails Authorization(AuthorizationDenied, std::error_code) */
+/** @copydetails Authorization::denied(std::error_code) */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Authorization::Authorization(AuthorizationDenied,
-                                            WampErrc errc)
-    : Authorization(AuthorizationDenied{}, make_error_code(errc))
-{}
+CPPWAMP_INLINE Authorization Authorization::denied(WampErrc errc)
+{
+    return denied(make_error_code(errc));
+}
 
 //------------------------------------------------------------------------------
 /** If the given error code is not equivent to WampErrc::authorizationFailed,
@@ -63,16 +52,18 @@ CPPWAMP_INLINE Authorization::Authorization(AuthorizationDenied,
     - A string formatted as `<ec.category().name()>:<ec.value()`
     - A string containing `ec.message()` */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Authorization::Authorization(std::error_code ec)
-    : Authorization(Decision::failed, Disclosure::preset, ec)
-{}
+CPPWAMP_INLINE Authorization Authorization::failed(std::error_code ec)
+{
+    return Authorization{Decision::failed, Disclosure::preset, ec};
+}
 
 //------------------------------------------------------------------------------
-/** @copydetails Authorization(std::error_code) */
+/** @copydetails Authorization::failed(std::error_code) */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Authorization::Authorization(WampErrc errc)
-    : Authorization(make_error_code(errc))
-{}
+CPPWAMP_INLINE Authorization Authorization::failed(WampErrc errc)
+{
+    return failed(make_error_code(errc));
+}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE bool Authorization::good() const {return !errorCode_;}
@@ -237,7 +228,7 @@ CPPWAMP_INLINE void Authorizer::authorize(Topic t, AuthorizationRequest a)
     if (chained_)
         chained_->authorize(std::move(t), std::move(a));
     else
-        a.authorize(std::move(t), granted);
+        a.authorize(std::move(t), Authorization::granted());
 }
 
 //------------------------------------------------------------------------------
@@ -247,7 +238,7 @@ CPPWAMP_INLINE void Authorizer::authorize(Pub p, AuthorizationRequest a)
     if (chained_)
         chained_->authorize(std::move(p), std::move(a));
     else
-        a.authorize(std::move(p), granted);
+        a.authorize(std::move(p), Authorization::granted());
 }
 
 //------------------------------------------------------------------------------
@@ -257,7 +248,7 @@ CPPWAMP_INLINE void Authorizer::authorize(Procedure p, AuthorizationRequest a)
     if (chained_)
         chained_->authorize(std::move(p), std::move(a));
     else
-        a.authorize(std::move(p), granted);
+        a.authorize(std::move(p), Authorization::granted());
 }
 
 //------------------------------------------------------------------------------
@@ -267,7 +258,7 @@ CPPWAMP_INLINE void Authorizer::authorize(Rpc r, AuthorizationRequest a)
     if (chained_)
         chained_->authorize(std::move(r), std::move(a));
     else
-        a.authorize(std::move(r), granted);
+        a.authorize(std::move(r), Authorization::granted());
 }
 
 //------------------------------------------------------------------------------

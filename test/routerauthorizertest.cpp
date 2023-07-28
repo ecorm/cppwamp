@@ -49,7 +49,7 @@ struct TestAuthorizer : public Authorizer
             return a.authorize(std::move(p), canPublish, cacheEnabled);
 
         a.authorize(std::move(p),
-                    Authorization{denied, WampErrc::discloseMeDisallowed});
+                    Authorization::denied(WampErrc::discloseMeDisallowed));
     }
 
     void authorize(Procedure p, AuthorizationRequest a) override
@@ -68,15 +68,15 @@ struct TestAuthorizer : public Authorizer
             return a.authorize(std::move(r), canCall, cacheEnabled);
 
         a.authorize(std::move(r),
-                    Authorization{denied, WampErrc::discloseMeDisallowed});
+                    Authorization::denied(WampErrc::discloseMeDisallowed));
     }
 
     void clear(bool enableCache = false)
     {
-        canSubscribe = granted;
-        canPublish = granted;
-        canRegister = granted;
-        canCall = granted;
+        canSubscribe = Authorization::granted();
+        canPublish = Authorization::granted();
+        canRegister = Authorization::granted();
+        canCall = Authorization::granted();
 
         topic = Topic{"empty"};
         pub = Pub{"empty"};
@@ -211,7 +211,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Subscribe denied");
             auth->clear();
-            auth->canSubscribe = denied;
+            auth->canSubscribe = Authorization::denied();
             auto sub = s.subscribe(Topic{"topic2"}, [](Event){}, yield);
             CHECK(auth->topic.uri() == "topic2");
             CHECK(auth->info.sessionId() == welcome.sessionId());
@@ -222,7 +222,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Subscribe authorization failed");
             auth->clear();
-            auth->canSubscribe = WampErrc::authorizationFailed;
+            auth->canSubscribe = Authorization::failed();
             auto sub = s.subscribe(Topic{"topic3"}, [](Event){}, yield);
             CHECK(auth->topic.uri() == "topic3");
             CHECK(auth->info.sessionId() == welcome.sessionId());
@@ -233,12 +233,12 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Subscribe denied with custom error");
             auth->clear();
-            auth->canSubscribe = WampErrc::invalidUri;
+            auth->canSubscribe = Authorization::denied(WampErrc::invalidUri);
             auto sub = s.subscribe(Topic{"topic4"}, [](Event){}, yield);
             CHECK(auth->topic.uri() == "topic4");
             CHECK(auth->info.sessionId() == welcome.sessionId());
             REQUIRE_FALSE(sub.has_value());
-            CHECK(sub.error() == WampErrc::authorizationFailed);
+            CHECK(sub.error() == WampErrc::authorizationDenied);
         }
 
         {
@@ -254,7 +254,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Subscribe to meta-topic denied");
             auth->clear();
-            auth->canSubscribe = denied;
+            auth->canSubscribe = Authorization::denied();
             auto sub = s.subscribe(Topic{"wamp.session.on_leave"},
                                    [](Event){}, yield);
             CHECK(auth->topic.uri() == "wamp.session.on_leave");
@@ -282,7 +282,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Publish denied");
             auth->clear();
-            auth->canPublish = denied;
+            auth->canPublish = Authorization::denied();
             auto ack = s.publish(Pub{"topic6"}.withArgs(42), yield);
             REQUIRE_FALSE(ack.has_value());
             CHECK(ack.error() == WampErrc::authorizationDenied);
@@ -291,7 +291,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Publish authorized with overriden disclosure rule");
             auth->clear();
-            auth->canPublish = Authorization(granted, Disclosure::reveal);
+            auth->canPublish = Authorization::granted(Disclosure::reveal);
             event = {};
             s.subscribe(Topic{"topic7"}, onEvent, yield).value();
             auto ack = s.publish(Pub{"topic7"}.withArgs(42)
@@ -308,7 +308,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Publish disclosure disallowed");
             auth->clear();
-            auth->canPublish = Authorization{granted, Disclosure::conceal};
+            auth->canPublish = Authorization::granted(Disclosure::conceal);
             auth->discloseMeAllowed = false;
             auto ack = s.publish(Pub{"topic8"}.withArgs(42)
                                      .withExcludeMe(false)
@@ -331,7 +331,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Register denied");
             auth->clear();
-            auth->canRegister = denied;
+            auth->canRegister = Authorization::denied();
             auto reg = s.enroll(Procedure{"rpc2"},
                                 [](Invocation) -> Outcome{return Result{};},
                                 yield);
@@ -360,7 +360,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Call denied");
             auth->clear();
-            auth->canCall = denied;
+            auth->canCall = Authorization::denied();
             s.enroll(Procedure{"rpc4"},
                      [](Invocation) -> Outcome {return Result{};},
                      yield).value();
@@ -374,7 +374,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Call authorized with overriden disclosure rule");
             auth->clear();
-            auth->canCall = Authorization(granted, Disclosure::conceal);
+            auth->canCall = Authorization::granted(Disclosure::conceal);
             invocation = {};
             s.enroll(Procedure{"rpc5"}, onInvocation, yield).value();
             auto result = s.call(Rpc{"rpc5"}.withArgs(42).withDiscloseMe(),
@@ -391,7 +391,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Call disclosure disallowed");
             auth->clear();
-            auth->canCall = Authorization{granted, Disclosure::conceal};
+            auth->canCall = Authorization::granted(Disclosure::conceal);
             auth->discloseMeAllowed = false;
             s.enroll(Procedure{"rpc6"}, onInvocation, yield).value();
             auto result = s.call(Rpc{"rpc6"}.withArgs(42).withDiscloseMe(),
@@ -405,7 +405,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Call denied but procedure doesn't exist");
             auth->clear();
-            auth->canCall = denied;
+            auth->canCall = Authorization::denied();
             auto result = s.call(Rpc{"rpc7"}.withArgs(42), yield);
             REQUIRE_FALSE(result.has_value());
             CHECK(result.error() == WampErrc::noSuchProcedure);
@@ -428,7 +428,7 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         {
             INFO("Call meta-procedure denied");
             auth->clear();
-            auth->canCall = denied;
+            auth->canCall = Authorization::denied();
             auto result = s.call(Rpc{"wamp.session.count"}, yield);
             REQUIRE_FALSE(result.has_value());
             CHECK(result.error() == WampErrc::authorizationDenied);
@@ -608,7 +608,7 @@ TEST_CASE( "Router caching dynamic authorizer", "[WAMP][Router]" )
 
             // First subscription to topic generates cache entry.
             auth->clear(true);
-            auth->canSubscribe = denied;
+            auth->canSubscribe = Authorization::denied();
             auto sub = s1.subscribe(Topic{"topic2"}, [](Event){}, yield);
             CHECK(auth->topic.uri() == "topic2");
             CHECK(auth->info.sessionId() == welcome.sessionId());
@@ -617,7 +617,7 @@ TEST_CASE( "Router caching dynamic authorizer", "[WAMP][Router]" )
 
             // Second subscription attempt should be already cached
             auth->clear(true);
-            auth->canSubscribe = denied;
+            auth->canSubscribe = Authorization::denied();
             sub = s1.subscribe(Topic{"topic2"}, [](Event){}, yield);
             CHECK(auth->topic.uri() == "empty"); // Already cached
             CHECK(auth->info.sessionId() == 0);
@@ -630,7 +630,7 @@ TEST_CASE( "Router caching dynamic authorizer", "[WAMP][Router]" )
 
             // First subscription to topic generates cache entry.
             auth->clear(true);
-            auth->canSubscribe = WampErrc::authorizationFailed;
+            auth->canSubscribe = Authorization::failed();
             auto sub = s1.subscribe(Topic{"topic3"}, [](Event){}, yield);
             CHECK(auth->topic.uri() == "topic3");
             CHECK(auth->info.sessionId() == welcome.sessionId());
@@ -639,7 +639,7 @@ TEST_CASE( "Router caching dynamic authorizer", "[WAMP][Router]" )
 
             // Second subscription attempt should be already cached
             auth->clear(true);
-            auth->canSubscribe = WampErrc::authorizationFailed;
+            auth->canSubscribe = Authorization::failed();
             sub = s1.subscribe(Topic{"topic3"}, [](Event){}, yield);
             CHECK(auth->topic.uri() == "empty"); // Already cached
             CHECK(auth->info.sessionId() == 0);
@@ -718,7 +718,7 @@ TEST_CASE( "Router caching dynamic authorizer", "[WAMP][Router]" )
 
             // First publish generates cache entry
             auth->clear(true);
-            auth->canPublish = Authorization{granted, Disclosure::reveal};
+            auth->canPublish = Authorization::granted(Disclosure::reveal);
             event = {};
             s1.subscribe(Topic{"topic7"}, onEvent, yield).value();
             auto ack = s1.publish(Pub{"topic7"}.withArgs(42)
@@ -733,7 +733,7 @@ TEST_CASE( "Router caching dynamic authorizer", "[WAMP][Router]" )
 
             // Second publish authorization should already be cached
             auth->clear(true);
-            auth->canPublish = Authorization{granted, Disclosure::reveal};
+            auth->canPublish = Authorization::granted(Disclosure::reveal);
             event = {};
             s1.subscribe(Topic{"topic7"}, onEvent, yield).value();
             ack = s1.publish(Pub{"topic7"}.withArgs(42)

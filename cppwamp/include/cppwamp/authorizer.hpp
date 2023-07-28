@@ -34,36 +34,6 @@ class RouterSession;
 }
 
 //------------------------------------------------------------------------------
-/** Type that can be implicitly converted to an Authorization, indicating
-    that the operation is allowed.
-    @see wamp::granted */
-//------------------------------------------------------------------------------
-struct AuthorizationGranted
-{
-    constexpr AuthorizationGranted() noexcept = default;
-};
-
-/** Convenient AuthorizationGranted instance that can be passed to a function
-    expecting an Authorization. */
-static constexpr AuthorizationGranted granted;
-
-
-//------------------------------------------------------------------------------
-/** Type that can be implicitly converted to an Authorization, indicating
-    that the operation is rejected.
-    @see wamp::denied */
-//------------------------------------------------------------------------------
-struct AuthorizationDenied
-{
-    constexpr AuthorizationDenied() noexcept = default;
-};
-
-/** Convenient AuthorizationGranted instance that can be passed to a function
-    expecting an Authorization. */
-static constexpr AuthorizationDenied denied;
-
-
-//------------------------------------------------------------------------------
 /** Enumerates the possible outcomes of an authorization. */
 //------------------------------------------------------------------------------
 enum class AuthorizationDecision
@@ -90,31 +60,25 @@ public:
     Authorization();
 
     /** Constructs an instance indicating the authorization is granted. */
-    Authorization(AuthorizationGranted);
-
-    /** Constructs an instance indicating the authorization is granted,
-        along with the policy that governs how the caller/publisher is
-        disclosed. */
-    Authorization(AuthorizationGranted, Disclosure d);
-
-    /** Constructs an instance indicating the authorization is denied. */
-    Authorization(AuthorizationDenied);
+    static Authorization granted(Disclosure d = Disclosure::preset);
 
     /** Constructs an instance indicating the authorization is denied, along
         with additional error information to be returned to the originator. */
-    Authorization(AuthorizationDenied, std::error_code ec);
+    static Authorization denied(std::error_code ec);
+
+    /** Constructs an instance indicating the authorization is denied, along
+        with optional additional error information to be returned to the
+        originator. */
+    static Authorization denied(WampErrc errc = WampErrc::authorizationDenied);
 
     /** Constructs an instance indicating the authorization is denied, along
         with additional error information to be returned to the originator. */
-    Authorization(AuthorizationDenied, WampErrc errc);
+    static Authorization failed(std::error_code ec);
 
-    /** Converting constructor taking an error code indicating that the
-        authorization operation itself has failed. */
-    Authorization(std::error_code ec);
-
-    /** Converting constructor taking a WampErrc enumerator indicating that the
-        authorization operation itself has failed. */
-    Authorization(WampErrc errc);
+    /** Constructs an instance indicating the authorization is denied, along
+        with optional additional error information to be returned to the
+        originator. */
+    static Authorization failed(WampErrc errc = WampErrc::authorizationFailed);
 
     // NOLINTEND(google-explicit-constructor)
 
