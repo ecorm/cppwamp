@@ -20,10 +20,11 @@ CPPWAMP_INLINE ClientFeatures ClientFeatures::provided()
     using F = Feature;
     ClientFeatures f;
 
-    /* Not supported: callReroute, payloadPassthruMode, registrationRevocation,
-       shardedRegistration */
+    /* Not supported: payloadPassthruMode, registrationRevocation,
+                      shardedRegistration */
     f.callee_ = F::basic |
                 F::callCanceling |
+                F::callReroute |
                 F::callTimeout |
                 F::callTrustLevels |
                 F::callerIdentification |
@@ -47,7 +48,7 @@ CPPWAMP_INLINE ClientFeatures ClientFeatures::provided()
                    F::subscriberBlackWhiteListing;
 
     /* Not supported: payloadPassthruMode, shardedSubscription,
-       subscriptionRevocation */
+                      subscriptionRevocation */
     f.subscriber_ = F::basic |
                     F::patternBasedSubscription |
                     F::publicationTrustLevels |
@@ -62,6 +63,7 @@ CPPWAMP_INLINE const Object& ClientFeatures::providedRoles()
     {
         {"callee", Object{{"features", Object{{
             {"call_canceling",                true},
+            {"call_reroute",                  true},
             {"call_timeout",                  true},
             {"call_trustlevels",              true},
             {"caller_identification",         true},
