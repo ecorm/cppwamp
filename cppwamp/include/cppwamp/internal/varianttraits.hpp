@@ -40,7 +40,7 @@ struct VariantUncheckedAccess
         return std::forward<TVariant>(v).template alt<TField>();
     }
 
-    template <TypeId id, typename TVariant>
+    template <VariantKind id, typename TVariant>
     static auto alt(TVariant&& v) ->
         decltype(std::forward<TVariant>(v).template alt<id>())
     {
@@ -49,87 +49,87 @@ struct VariantUncheckedAccess
 };
 
 //------------------------------------------------------------------------------
-template <TypeId typeId> struct FieldTypeForId {};
-template <> struct FieldTypeForId<TypeId::null>    {using Type = Null;};
-template <> struct FieldTypeForId<TypeId::boolean> {using Type = Bool;};
-template <> struct FieldTypeForId<TypeId::integer> {using Type = Int;};
-template <> struct FieldTypeForId<TypeId::uint>    {using Type = UInt;};
-template <> struct FieldTypeForId<TypeId::real>    {using Type = Real;};
-template <> struct FieldTypeForId<TypeId::string>  {using Type = String;};
-template <> struct FieldTypeForId<TypeId::blob>    {using Type = Blob;};
-template <> struct FieldTypeForId<TypeId::array>   {using Type = ArrayType;};
-template <> struct FieldTypeForId<TypeId::object>  {using Type = ObjectType;};
+template <VariantKind Kind> struct FieldTypeForKind {};
+template <> struct FieldTypeForKind<VariantKind::null>    {using Type = Null;};
+template <> struct FieldTypeForKind<VariantKind::boolean> {using Type = Bool;};
+template <> struct FieldTypeForKind<VariantKind::integer> {using Type = Int;};
+template <> struct FieldTypeForKind<VariantKind::uint>    {using Type = UInt;};
+template <> struct FieldTypeForKind<VariantKind::real>    {using Type = Real;};
+template <> struct FieldTypeForKind<VariantKind::string>  {using Type = String;};
+template <> struct FieldTypeForKind<VariantKind::blob>    {using Type = Blob;};
+template <> struct FieldTypeForKind<VariantKind::array>   {using Type = ArrayType;};
+template <> struct FieldTypeForKind<VariantKind::object>  {using Type = ObjectType;};
 
 
 //------------------------------------------------------------------------------
 template <typename TField>
 struct FieldTraits
 {
-    static constexpr bool isValid   = false;
-    static String typeName()        {return "<unknown>";}
+    static constexpr bool isValid = false;
+    static String typeName()      {return "<unknown>";}
 };
 
 template <> struct FieldTraits<Null>
 {
-    static constexpr bool isValid   = true;
-    static constexpr TypeId typeId  = TypeId::null;
-    static String typeName()        {return "Null";}
+    static constexpr bool isValid     = true;
+    static constexpr VariantKind kind = VariantKind::null;
+    static String typeName()          {return "Null";}
 };
 
 template <> struct FieldTraits<Bool>
 {
-    static constexpr bool isValid   = true;
-    static constexpr TypeId typeId  = TypeId::boolean;
-    static String typeName()        {return "Bool";}
+    static constexpr bool isValid     = true;
+    static constexpr VariantKind kind = VariantKind::boolean;
+    static String typeName()          {return "Bool";}
 };
 
 template <> struct FieldTraits<Int>
 {
     static constexpr bool isValid   = true;
-    static constexpr TypeId typeId  = TypeId::integer;
+    static constexpr VariantKind kind  = VariantKind::integer;
     static String typeName()        {return "Int";}
 };
 
 template <> struct FieldTraits<UInt>
 {
-    static constexpr bool isValid   = true;
-    static constexpr TypeId typeId  = TypeId::uint;
-    static String typeName()        {return "UInt";}
+    static constexpr bool isValid     = true;
+    static constexpr VariantKind kind = VariantKind::uint;
+    static String typeName()          {return "UInt";}
 };
 
 template <> struct FieldTraits<Real>
 {
-    static constexpr bool isValid   = true;
-    static constexpr TypeId typeId  = TypeId::real;
-    static String typeName()        {return "Real";}
+    static constexpr bool isValid     = true;
+    static constexpr VariantKind kind = VariantKind::real;
+    static String typeName()          {return "Real";}
 };
 
 template <> struct FieldTraits<String>
 {
-    static constexpr bool isValid   = true;
-    static constexpr TypeId typeId  = TypeId::string;
-    static String typeName()        {return "String";}
+    static constexpr bool isValid     = true;
+    static constexpr VariantKind kind = VariantKind::string;
+    static String typeName()          {return "String";}
 };
 
 template <> struct FieldTraits<Blob>
 {
-    static constexpr bool isValid   = true;
-    static constexpr TypeId typeId  = TypeId::blob;
-    static String typeName()        {return "Blob";}
+    static constexpr bool isValid     = true;
+    static constexpr VariantKind kind = VariantKind::blob;
+    static String typeName()          {return "Blob";}
 };
 
 template <> struct FieldTraits<ArrayType>
 {
-    static constexpr bool isValid   = true;
-    static constexpr TypeId typeId  = TypeId::array;
-    static String typeName()        {return "Array";}
+    static constexpr bool isValid     = true;
+    static constexpr VariantKind kind = VariantKind::array;
+    static String typeName()          {return "Array";}
 };
 
 template <> struct FieldTraits<ObjectType>
 {
-    static constexpr bool isValid   = true;
-    static constexpr TypeId typeId  = TypeId::object;
-    static String typeName()        {return "Object";}
+    static constexpr bool isValid     = true;
+    static constexpr VariantKind kind = VariantKind::object;
+    static String typeName()          {return "Object";}
 };
 
 //------------------------------------------------------------------------------

@@ -91,24 +91,24 @@ template <typename V, typename X>
 ResultTypeOf<V> apply(V&& v, X&& x) // NOLINT(misc-no-recursion)
 {
     using A = internal::VariantUncheckedAccess;
-    using I = decltype(x.typeId());
+    using K = decltype(x.kind());
 
-    switch (x.typeId())
+    switch (x.kind())
     {
-    case I::null:    return std::forward<V>(v)(A::alt<I::null>   (std::forward<X>(x)));
-    case I::boolean: return std::forward<V>(v)(A::alt<I::boolean>(std::forward<X>(x)));
-    case I::integer: return std::forward<V>(v)(A::alt<I::integer>(std::forward<X>(x)));
-    case I::uint:    return std::forward<V>(v)(A::alt<I::uint>   (std::forward<X>(x)));
-    case I::real:    return std::forward<V>(v)(A::alt<I::real>   (std::forward<X>(x)));
-    case I::string:  return std::forward<V>(v)(A::alt<I::string> (std::forward<X>(x)));
-    case I::blob:    return std::forward<V>(v)(A::alt<I::blob>   (std::forward<X>(x)));
-    case I::array:   return std::forward<V>(v)(A::alt<I::array>  (std::forward<X>(x)));
-    case I::object:  return std::forward<V>(v)(A::alt<I::object> (std::forward<X>(x)));
+    case K::null:    return std::forward<V>(v)(A::alt<K::null>   (std::forward<X>(x)));
+    case K::boolean: return std::forward<V>(v)(A::alt<K::boolean>(std::forward<X>(x)));
+    case K::integer: return std::forward<V>(v)(A::alt<K::integer>(std::forward<X>(x)));
+    case K::uint:    return std::forward<V>(v)(A::alt<K::uint>   (std::forward<X>(x)));
+    case K::real:    return std::forward<V>(v)(A::alt<K::real>   (std::forward<X>(x)));
+    case K::string:  return std::forward<V>(v)(A::alt<K::string> (std::forward<X>(x)));
+    case K::blob:    return std::forward<V>(v)(A::alt<K::blob>   (std::forward<X>(x)));
+    case K::array:   return std::forward<V>(v)(A::alt<K::array>  (std::forward<X>(x)));
+    case K::object:  return std::forward<V>(v)(A::alt<K::object> (std::forward<X>(x)));
     default:         assert(false);
     }
 
     // Unreachable. Return null case to silence warning.
-    return std::forward<V>(v)(A::alt<I::null>(std::forward<X>(x)));
+    return std::forward<V>(v)(A::alt<K::null>(std::forward<X>(x)));
 }
 
 //------------------------------------------------------------------------------
@@ -116,25 +116,25 @@ template <typename V, typename X, typename Y>
 ResultTypeOf<V> apply(V&& v, X&& x, Y&& y) // NOLINT(misc-no-recursion)
 {
     using A = internal::VariantUncheckedAccess;
-    using I = decltype(x.typeId());
+    using K = decltype(x.kind());
 
-    switch(y.typeId())
+    switch(y.kind())
     {
-    case I::null:    return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<I::null>   (std::forward<Y>(y)));
-    case I::boolean: return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<I::boolean>(std::forward<Y>(y)));
-    case I::integer: return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<I::integer>(std::forward<Y>(y)));
-    case I::uint:    return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<I::uint>   (std::forward<Y>(y)));
-    case I::real:    return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<I::real>   (std::forward<Y>(y)));
-    case I::string:  return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<I::string> (std::forward<Y>(y)));
-    case I::blob:    return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<I::blob>   (std::forward<Y>(y)));
-    case I::array:   return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<I::array>  (std::forward<Y>(y)));
-    case I::object:  return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<I::object> (std::forward<Y>(y)));
+    case K::null:    return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<K::null>   (std::forward<Y>(y)));
+    case K::boolean: return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<K::boolean>(std::forward<Y>(y)));
+    case K::integer: return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<K::integer>(std::forward<Y>(y)));
+    case K::uint:    return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<K::uint>   (std::forward<Y>(y)));
+    case K::real:    return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<K::real>   (std::forward<Y>(y)));
+    case K::string:  return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<K::string> (std::forward<Y>(y)));
+    case K::blob:    return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<K::blob>   (std::forward<Y>(y)));
+    case K::array:   return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<K::array>  (std::forward<Y>(y)));
+    case K::object:  return applyWithOperand(std::forward<V>(v), std::forward<X>(x), A::alt<K::object> (std::forward<Y>(y)));
     default:         assert(false);
     }
 
     // Unreachable. Return null case to silence warning.
     return applyWithOperand(std::forward<V>(v), std::forward<X>(x),
-                            A::alt<I::null>(std::forward<Y>(y)));
+                            A::alt<K::null>(std::forward<Y>(y)));
 }
 
 //------------------------------------------------------------------------------
@@ -142,24 +142,24 @@ template <typename V, typename X, typename O>
 ResultTypeOf<V> applyWithOperand(V&& v, X&& x, O&& o)
 {
     using A = internal::VariantUncheckedAccess;
-    using I = decltype(x.typeId());
+    using K = decltype(x.kind());
 
-    switch (x.typeId())
+    switch (x.kind())
     {
-    case I::null:    return std::forward<V>(v)(A::alt<I::null>   (std::forward<X>(x)), std::forward<O>(o));
-    case I::boolean: return std::forward<V>(v)(A::alt<I::boolean>(std::forward<X>(x)), std::forward<O>(o));
-    case I::integer: return std::forward<V>(v)(A::alt<I::integer>(std::forward<X>(x)), std::forward<O>(o));
-    case I::uint:    return std::forward<V>(v)(A::alt<I::uint>   (std::forward<X>(x)), std::forward<O>(o));
-    case I::real:    return std::forward<V>(v)(A::alt<I::real>   (std::forward<X>(x)), std::forward<O>(o));
-    case I::string:  return std::forward<V>(v)(A::alt<I::string> (std::forward<X>(x)), std::forward<O>(o));
-    case I::blob:    return std::forward<V>(v)(A::alt<I::blob>   (std::forward<X>(x)), std::forward<O>(o));
-    case I::array:   return std::forward<V>(v)(A::alt<I::array>  (std::forward<X>(x)), std::forward<O>(o));
-    case I::object:  return std::forward<V>(v)(A::alt<I::object> (std::forward<X>(x)), std::forward<O>(o));
+    case K::null:    return std::forward<V>(v)(A::alt<K::null>   (std::forward<X>(x)), std::forward<O>(o));
+    case K::boolean: return std::forward<V>(v)(A::alt<K::boolean>(std::forward<X>(x)), std::forward<O>(o));
+    case K::integer: return std::forward<V>(v)(A::alt<K::integer>(std::forward<X>(x)), std::forward<O>(o));
+    case K::uint:    return std::forward<V>(v)(A::alt<K::uint>   (std::forward<X>(x)), std::forward<O>(o));
+    case K::real:    return std::forward<V>(v)(A::alt<K::real>   (std::forward<X>(x)), std::forward<O>(o));
+    case K::string:  return std::forward<V>(v)(A::alt<K::string> (std::forward<X>(x)), std::forward<O>(o));
+    case K::blob:    return std::forward<V>(v)(A::alt<K::blob>   (std::forward<X>(x)), std::forward<O>(o));
+    case K::array:   return std::forward<V>(v)(A::alt<K::array>  (std::forward<X>(x)), std::forward<O>(o));
+    case K::object:  return std::forward<V>(v)(A::alt<K::object> (std::forward<X>(x)), std::forward<O>(o));
     default:         assert(false);
     }
 
     // Unreachable. Return null case to silence warning.
-    return std::forward<V>(v)(x.template as<I::null>(), std::forward<O>(o));
+    return std::forward<V>(v)(x.template as<K::null>(), std::forward<O>(o));
 }
 
 } // namespace wamp

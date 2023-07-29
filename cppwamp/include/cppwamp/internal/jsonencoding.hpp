@@ -93,18 +93,18 @@ private:
         typename Object::const_iterator forObject;
     };
 
-    bool isArray() const {return variant_->typeId() == TypeId::array;}
+    bool isArray() const {return variant_->kind() == VariantKind::array;}
 
-    bool isObject() const {return variant_->typeId() == TypeId::object;}
+    bool isObject() const {return variant_->kind() == VariantKind::object;}
 
     const Array& asArray() const
     {
-        return variant_->template as<TypeId::array>();
+        return variant_->template as<VariantKind::array>();
     }
 
     const Object& asObject() const
     {
-        return variant_->template as<TypeId::object>();
+        return variant_->template as<VariantKind::object>();
     }
 
     const TVariant* variant_ = nullptr;
@@ -188,51 +188,52 @@ public:
                 }
             }
 
-            switch (variant->typeId())
+            using K = VariantKind;
+            switch (variant->kind())
             {
-            case TypeId::null:
+            case K::null:
                 encoder_.null_value();
                 break;
 
-            case TypeId::boolean:
-                encoder_.bool_value(variant->template as<TypeId::boolean>());
+            case K::boolean:
+                encoder_.bool_value(variant->template as<VariantKind::boolean>());
                 break;
 
-            case TypeId::integer:
-                encoder_.int64_value(variant->template as<TypeId::integer>());
+            case K::integer:
+                encoder_.int64_value(variant->template as<VariantKind::integer>());
                 break;
 
-            case TypeId::uint:
-                encoder_.uint64_value(variant->template as<TypeId::uint>());
+            case K::uint:
+                encoder_.uint64_value(variant->template as<VariantKind::uint>());
                 break;
 
-            case TypeId::real:
-                encoder_.double_value(variant->template as<TypeId::real>());
+            case K::real:
+                encoder_.double_value(variant->template as<VariantKind::real>());
                 break;
 
-            case TypeId::string:
+            case K::string:
             {
-                const auto& str = variant->template as<TypeId::string>();
+                const auto& str = variant->template as<VariantKind::string>();
                 encoder_.string_value({str.data(), str.size()});
                 break;
             }
 
-            case TypeId::blob:
-                encodeBlob(variant->template as<TypeId::blob>(), sink);
+            case K::blob:
+                encodeBlob(variant->template as<VariantKind::blob>(), sink);
                 break;
 
-            case TypeId::array:
+            case K::array:
             {
-                const auto& array = variant->template as<TypeId::array>();
+                const auto& array = variant->template as<VariantKind::array>();
                 encoder_.begin_array(array.size());
                 stack_.emplace_back(Context{variant,
                                             typename Context::ArrayTag{}});
                 break;
             }
 
-            case TypeId::object:
+            case K::object:
             {
-                const auto& object = variant->template as<TypeId::object>();
+                const auto& object = variant->template as<VariantKind::object>();
                 encoder_.begin_object(object.size());
                 stack_.emplace_back(Context{variant,
                                             typename Context::ObjectTag{}});

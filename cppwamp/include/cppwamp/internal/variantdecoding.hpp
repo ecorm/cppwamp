@@ -66,11 +66,11 @@ protected:
         if (contextStack_.empty())
             return addRoot(std::forward<T>(value), isComposite);
 
-        switch (context().variant().typeId())
+        switch (context().variant().kind())
         {
-        case TypeId::array:
+        case VariantKind::array:
             return addArrayElement(std::forward<T>(value), isComposite);
-        case TypeId::object:
+        case VariantKind::object:
             return addObjectElement(std::forward<T>(value), isComposite, where);
         default:
             assert(false);
@@ -157,7 +157,7 @@ private:
     template <typename T>
     std::error_code addArrayElement(T&& value, bool isComposite)
     {
-        auto& array = context().variant().template as<TypeId::array>();
+        auto& array = context().variant().template as<VariantKind::array>();
         array.push_back(std::forward<T>(value));
         if (isComposite)
             contextStack_.push_back(Context{array.back()});
@@ -172,7 +172,7 @@ private:
             return make_error_code(DecodingErrc::expectedStringKey);
 
         Variant* newElement = nullptr;
-        auto& object = ctx.variant().template as<TypeId::object>();
+        auto& object = ctx.variant().template as<VariantKind::object>();
         auto found = object.find(key_);
         if (found == object.end())
         {

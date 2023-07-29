@@ -45,7 +45,7 @@ struct Message
         assert(fields.size() <= MessageTraits::maxFieldCount);
         for (size_t i=0; i<fields.size(); ++i)
         {
-            if (fields.at(i).typeId() != traits.fieldTypes.at(i))
+            if (fields.at(i).kind() != traits.fieldKinds.at(i))
                 return unex;
         }
 

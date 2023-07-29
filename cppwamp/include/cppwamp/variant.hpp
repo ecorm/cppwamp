@@ -108,7 +108,7 @@ namespace wamp
 
 //------------------------------------------------------------------------------
 // Forward declaration
-namespace internal {template <TypeId typeId> struct FieldTypeForId;}
+namespace internal {template <VariantKind Kind> struct FieldTypeForKind;}
 
 //------------------------------------------------------------------------------
 /** Discriminated union container that represents a JSON value.
@@ -145,9 +145,9 @@ private:
 public:
     /// @name Metafunctions
     /// @{
-    /** Obtains the bound type associated with a particular @ref TypeId. */
-    template <TypeId typeId>
-    using BoundTypeForId = typename internal::FieldTypeForId<typeId>::Type;
+    /** Obtains the bound type associated with a particular @ref VariantKind. */
+    template <VariantKind Kind>
+    using BoundTypeForKind = typename internal::FieldTypeForKind<Kind>::Type;
 
     /** Indicates that the given argument type is convertible
         to a bound type. */
@@ -240,7 +240,7 @@ public:
     /// @{
 
     /** Returns the id of the variant's current dynamic type. */
-    TypeId typeId() const;
+    VariantKind kind() const;
 
     /** Returns `false` iff the variant is currently null. */
     explicit operator bool() const;
@@ -250,8 +250,8 @@ public:
     template <typename TBound> bool is() const;
 
     /** Returns `true` iff the variant's current dynamic type matches the
-        given `id` template parameter. */
-    template <TypeId id> bool is() const;
+        given `Kind` template parameter. */
+    template <VariantKind Kind> bool is() const;
 
     /** Converts the variant's bound value to the given type. */
     template <typename T> T to() const;
@@ -280,10 +280,10 @@ public:
     template <typename TBound> const TBound& as() const;
 
     /** Returns a reference to the variant's bound value. */
-    template <TypeId id> BoundTypeForId<id>& as();
+    template <VariantKind Kind> BoundTypeForKind<Kind>& as();
 
     /** Returns a constant reference to the variant's bound value. */
-    template <TypeId id> const BoundTypeForId<id>& as() const;
+    template <VariantKind Kind> const BoundTypeForKind<Kind>& as() const;
 
     /** Accesses an array element by index. */
     Variant& operator[](SizeType index);
@@ -377,7 +377,7 @@ private:
 
     template <typename... TFields> struct CPPWAMP_HIDDEN TypeMask;
 
-    template <TypeId... typeIds> struct CPPWAMP_HIDDEN TypeIdMask;
+    template <VariantKind... typeIds> struct CPPWAMP_HIDDEN VariantKindMask;
 
     template <typename TValue, typename TArg>
     CPPWAMP_HIDDEN void constructAs(TArg&& value);
@@ -427,11 +427,11 @@ private:
     template <typename TField>
     CPPWAMP_HIDDEN const TField& alt() const;
 
-    template <TypeId id>
-    CPPWAMP_HIDDEN BoundTypeForId<id>& alt();
+    template <VariantKind Kind>
+    CPPWAMP_HIDDEN BoundTypeForKind<Kind>& alt();
 
-    template <TypeId id>
-    CPPWAMP_HIDDEN const BoundTypeForId<id>& alt() const;
+    template <VariantKind Kind>
+    CPPWAMP_HIDDEN const BoundTypeForKind<Kind>& alt() const;
 
     union Field
     {
@@ -453,7 +453,7 @@ private:
         Object* object;
     } field_;
 
-    TypeId typeId_;
+    VariantKind typeId_;
 
     friend struct internal::VariantUncheckedAccess;
 };
@@ -908,7 +908,7 @@ Variant Variant::from(TValue&& value)
 //------------------------------------------------------------------------------
 template <typename T, CPPWAMP_NEEDS(Variant::isValidArg<T>())>
 Variant::Variant(T&& value) // NOLINT(bugprone-forwarding-reference-overload)
-    : typeId_(FieldTraits<typename ArgTraits<ValueTypeOf<T>>::FieldType>::typeId)
+    : typeId_(FieldTraits<typename ArgTraits<ValueTypeOf<T>>::FieldType>::kind)
 {
     using FieldType = typename ArgTraits<ValueTypeOf<T>>::FieldType;
     constructAs<FieldType>(std::forward<T>(value));
@@ -924,7 +924,7 @@ Variant::Variant(T&& value) // NOLINT(bugprone-forwarding-reference-overload)
 //------------------------------------------------------------------------------
 template <typename T, CPPWAMP_NEEDS(Variant::isValidArg<std::vector<T>>())>
 Variant::Variant(std::vector<T> vec)
-    : typeId_(TypeId::array)
+    : typeId_(VariantKind::array)
 {
     Array array;
     array.reserve(vec.size());
@@ -943,7 +943,7 @@ Variant::Variant(std::vector<T> vec)
 template <typename T,
          CPPWAMP_NEEDS((Variant::isValidArg<std::map<String, T>>()))>
 Variant::Variant(std::map<String, T> map)
-    : typeId_(TypeId::object)
+    : typeId_(VariantKind::object)
 {
     Object object;
     std::move(map.begin(), map.end(), std::inserter(object, object.begin()));
@@ -954,13 +954,13 @@ Variant::Variant(std::map<String, T> map)
 template <typename TBound> bool Variant::is() const
 {
     static_assert(FieldTraits<TBound>::isValid, "Invalid field type");
-    return typeId_ == FieldTraits<TBound>::typeId;
+    return typeId_ == FieldTraits<TBound>::kind;
 }
 
 //------------------------------------------------------------------------------
-template <TypeId id> bool Variant::is() const
+template <VariantKind Kind> bool Variant::is() const
 {
-    return is<BoundTypeForId<id>>();
+    return is<BoundTypeForKind<Kind>>();
 }
 
 //------------------------------------------------------------------------------
@@ -1049,25 +1049,25 @@ template <typename TBound> const TBound& Variant::as() const
 }
 
 //------------------------------------------------------------------------------
-/** @tparam id The bound type id under which to interpret the variant.
-    @pre `this->typeId() == id`
-    @throws error::Access if `this->typeId() != id`. */
+/** @tparam Kind The bound type id under which to interpret the variant.
+    @pre `this->kind() == Kind`
+    @throws error::Access if `this->kind() != Kind`. */
 //------------------------------------------------------------------------------
-template <TypeId id>
-Variant::BoundTypeForId<id>& Variant::as()
+template <VariantKind Kind>
+Variant::BoundTypeForKind<Kind>& Variant::as()
 {
-    return as<BoundTypeForId<id>>();
+    return as<BoundTypeForKind<Kind>>();
 }
 
 //------------------------------------------------------------------------------
-/** @tparam id The bound type id under which to interpret the variant.
-    @pre `this->typeId() == id`
-    @throws error::Access if `this->typeId() != id`. */
+/** @tparam Kind The bound type id under which to interpret the variant.
+    @pre `this->kind() == Kind`
+    @throws error::Access if `this->kind() != Kind`. */
 //------------------------------------------------------------------------------
-template <TypeId id>
-const Variant::BoundTypeForId<id>& Variant::as() const
+template <VariantKind Kind>
+const Variant::BoundTypeForKind<Kind>& Variant::as() const
 {
-    return as<BoundTypeForId<id>>();
+    return as<BoundTypeForKind<Kind>>();
 }
 
 //------------------------------------------------------------------------------
@@ -1089,7 +1089,7 @@ Variant& Variant::operator=(T&& value)
     {
         destruct();
         constructAs<FieldType>(std::forward<T>(value));
-        typeId_ = FieldTraits<FieldType>::typeId;
+        typeId_ = FieldTraits<FieldType>::kind;
     }
     return *this;
 }
@@ -1099,7 +1099,7 @@ Variant& Variant::operator=(T&& value)
     Only participates in overload resolution when
     `Variant::isValidArg<T>() == true`.
     @tparam T (Deduced) Value type which must be convertible to a bound type.
-    @post `this->typeId() == TypeId::array`
+    @post `this->kind() == VariantKind::array`
     @post `*this == vec` */
 //------------------------------------------------------------------------------
 template <typename T,
@@ -1117,7 +1117,7 @@ Variant& Variant::operator=(std::vector<T> vec)
     Only participates in overload resolution when
     `Variant::isValidArg<T>() == true`.
     @tparam T (Deduced) Value type which must be convertible to a bound type.
-    @post `this->typeId() == TypeId::object`
+    @post `this->kind() == VariantKind::object`
     @post `*this == map` */
 //------------------------------------------------------------------------------
 template <typename T,
@@ -1267,17 +1267,17 @@ CPPWAMP_HIDDEN const TField& Variant::alt() const
 }
 
 //------------------------------------------------------------------------------
-template <TypeId id>
-CPPWAMP_HIDDEN Variant::BoundTypeForId<id>& Variant::alt()
+template <VariantKind Kind>
+CPPWAMP_HIDDEN Variant::BoundTypeForKind<Kind>& Variant::alt()
 {
-    return alt<Variant::BoundTypeForId<id>>();
+    return alt<Variant::BoundTypeForKind<Kind>>();
 }
 
 //------------------------------------------------------------------------------
-template <TypeId id>
-CPPWAMP_HIDDEN const Variant::BoundTypeForId<id>& Variant::alt() const
+template <VariantKind Kind>
+CPPWAMP_HIDDEN const Variant::BoundTypeForKind<Kind>& Variant::alt() const
 {
-    return alt<Variant::BoundTypeForId<id>>();
+    return alt<Variant::BoundTypeForKind<Kind>>();
 }
 
 //------------------------------------------------------------------------------

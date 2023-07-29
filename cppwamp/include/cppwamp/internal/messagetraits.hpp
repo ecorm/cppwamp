@@ -302,7 +302,7 @@ struct CPPWAMP_API MessageTraits
     bool forAuthenticating   : 1;
     bool forEstablished      : 1;
     bool isRequest           : 1;
-    std::array<TypeId, maxFieldCount> fieldTypes;
+    std::array<VariantKind, maxFieldCount> fieldKinds;
 };
 
 } // namespace internal

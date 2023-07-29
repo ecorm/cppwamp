@@ -87,11 +87,11 @@ void checkVariantToVariantConvert(Variant v)
     INFO( "For Variant = " << v );
 
     auto to = v.to<Variant>();
-    CHECK( to.typeId() == v.typeId() );
+    CHECK( to.kind() == v.kind() );
     CHECK( to == v );
 
     Variant from = Variant::from(v);
-    CHECK( from.typeId() == v.typeId() );
+    CHECK( from.kind() == v.kind() );
     CHECK( from == v );
 }
 
@@ -99,6 +99,7 @@ void checkVariantToVariantConvert(Variant v)
 template <typename T>
 void checkBadAccess(const T& value)
 {
+    using K = VariantKind;
     Variant v(value);
     const Variant& cv = v;
     INFO( "For variant of type '" << typeNameOf(v) <<
@@ -107,64 +108,64 @@ void checkBadAccess(const T& value)
     {
         CHECK_THROWS_AS( v.as<Null>(), error::Access );
         CHECK_THROWS_AS( cv.as<Null>(), error::Access );
-        CHECK_THROWS_AS( v.as<TypeId::null>(), error::Access );
-        CHECK_THROWS_AS( cv.as<TypeId::null>(), error::Access );
+        CHECK_THROWS_AS( v.as<K::null>(), error::Access );
+        CHECK_THROWS_AS( cv.as<K::null>(), error::Access );
     }
     if (!v.is<Bool>())
     {
         CHECK_THROWS_AS( v.as<Bool>(), error::Access );
         CHECK_THROWS_AS( cv.as<Bool>(), error::Access );
-        CHECK_THROWS_AS( v.as<TypeId::boolean>(), error::Access );
-        CHECK_THROWS_AS( cv.as<TypeId::boolean>(), error::Access );
+        CHECK_THROWS_AS( v.as<K::boolean>(), error::Access );
+        CHECK_THROWS_AS( cv.as<K::boolean>(), error::Access );
     }
     if (!v.is<Int>())
     {
         CHECK_THROWS_AS( v.as<Int>(), error::Access );
         CHECK_THROWS_AS( cv.as<Int>(), error::Access );
-        CHECK_THROWS_AS( v.as<TypeId::integer>(), error::Access );
-        CHECK_THROWS_AS( cv.as<TypeId::integer>(), error::Access );
+        CHECK_THROWS_AS( v.as<K::integer>(), error::Access );
+        CHECK_THROWS_AS( cv.as<K::integer>(), error::Access );
     }
     if (!v.is<UInt>())
     {
         CHECK_THROWS_AS( v.as<UInt>(), error::Access );
         CHECK_THROWS_AS( cv.as<UInt>(), error::Access );
-        CHECK_THROWS_AS( v.as<TypeId::uint>(), error::Access );
-        CHECK_THROWS_AS( cv.as<TypeId::uint>(), error::Access );
+        CHECK_THROWS_AS( v.as<K::uint>(), error::Access );
+        CHECK_THROWS_AS( cv.as<K::uint>(), error::Access );
     }
     if (!v.is<Real>())
     {
         CHECK_THROWS_AS( v.as<Real>(), error::Access );
         CHECK_THROWS_AS( cv.as<Real>(), error::Access );
-        CHECK_THROWS_AS( v.as<TypeId::real>(), error::Access );
-        CHECK_THROWS_AS( cv.as<TypeId::real>(), error::Access );
+        CHECK_THROWS_AS( v.as<K::real>(), error::Access );
+        CHECK_THROWS_AS( cv.as<K::real>(), error::Access );
     }
     if (!v.is<String>())
     {
         CHECK_THROWS_AS( v.as<String>(), error::Access );
         CHECK_THROWS_AS( cv.as<String>(), error::Access );
-        CHECK_THROWS_AS( v.as<TypeId::string>(), error::Access );
-        CHECK_THROWS_AS( cv.as<TypeId::string>(), error::Access );
+        CHECK_THROWS_AS( v.as<K::string>(), error::Access );
+        CHECK_THROWS_AS( cv.as<K::string>(), error::Access );
     }
     if (!v.is<Blob>())
     {
         CHECK_THROWS_AS( v.as<Blob>(), error::Access );
         CHECK_THROWS_AS( cv.as<Blob>(), error::Access );
-        CHECK_THROWS_AS( v.as<TypeId::blob>(), error::Access );
-        CHECK_THROWS_AS( cv.as<TypeId::blob>(), error::Access );
+        CHECK_THROWS_AS( v.as<K::blob>(), error::Access );
+        CHECK_THROWS_AS( cv.as<K::blob>(), error::Access );
     }
     if (!v.is<Array>())
     {
         CHECK_THROWS_AS( v.as<Array>(), error::Access );
         CHECK_THROWS_AS( cv.as<Array>(), error::Access );
-        CHECK_THROWS_AS( v.as<TypeId::array>(), error::Access );
-        CHECK_THROWS_AS( cv.as<TypeId::array>(), error::Access );
+        CHECK_THROWS_AS( v.as<K::array>(), error::Access );
+        CHECK_THROWS_AS( cv.as<K::array>(), error::Access );
     }
     if (!v.is<Object>())
     {
         CHECK_THROWS_AS( v.as<Object>(), error::Access );
         CHECK_THROWS_AS( cv.as<Object>(), error::Access );
-        CHECK_THROWS_AS( v.as<TypeId::object>(), error::Access );
-        CHECK_THROWS_AS( cv.as<TypeId::object>(), error::Access );
+        CHECK_THROWS_AS( v.as<K::object>(), error::Access );
+        CHECK_THROWS_AS( cv.as<K::object>(), error::Access );
     }
 }
 

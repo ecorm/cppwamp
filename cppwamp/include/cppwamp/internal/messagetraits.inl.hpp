@@ -19,11 +19,11 @@ namespace internal
 CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(MessageKind kind)
 {
     using K = MessageKind;
-    constexpr TypeId n = TypeId::null;
-    constexpr TypeId i = TypeId::integer;
-    constexpr TypeId s = TypeId::string;
-    constexpr TypeId a = TypeId::array;
-    constexpr TypeId o = TypeId::object;
+    constexpr VariantKind n = VariantKind::null;
+    constexpr VariantKind i = VariantKind::integer;
+    constexpr VariantKind s = VariantKind::string;
+    constexpr VariantKind a = VariantKind::array;
+    constexpr VariantKind o = VariantKind::object;
 
     // NOLINTBEGIN(modernize-use-bool-literals)
     // NOLINTBEGIN(readability-implicit-bool-conversion)

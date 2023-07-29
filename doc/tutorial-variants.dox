@@ -60,8 +60,8 @@ v = Array{123, false, "foo"}; // v becomes an array of variants
 Checking Dynamic Type
 ---------------------
 
-Each `Variant` stores its current dynamic type as a wamp::TypeId enumerator.
-The dynamic type can be checked with wamp::Variant::typeId() or
+Each `Variant` stores its current dynamic type as a wamp::VariantKind
+enumerator. The dynamic type can be checked with wamp::Variant::kind() or
 wamp::Variant::is<T>(). In addition, `operator bool` can be used to determine
 if a variant is null.
 
@@ -70,16 +70,16 @@ using namespace wamp;
 Variant v;    // v starts out being null
 assert( !v );   // Check that the variant is indeed null
 assert( v == null );
-assert( v.typeId() == TypeId::null );
+assert( v.kind() == VariantKind::null );
 assert( v.is<Null>() );
-assert( v.is<TypeId::null>() );
+assert( v.is<VariantKind::null>() );
 
 v = 42;       // v becomes an integer
 assert( !!v); // Check that the variant is no longer null
 assert( v != null );
-assert( v.typeId() == TypeId::integer );
+assert( v.kind() == VariantKind::integer );
 assert( v.is<Int>() );
-assert( v.is<TypeId::integer>() );
+assert( v.is<VariantKind::integer>() );
 ```
 
 The @ref wamp::Variant::isNumber "isNumber" non-member function can be used to

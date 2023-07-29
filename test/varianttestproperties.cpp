@@ -155,17 +155,17 @@ bool same(const TLeft& lhs, const TRight& rhs)
 //------------------------------------------------------------------------------
 SCENARIO( "Variant type information", "[Variant]" )
 {
-    using I = TypeId;
+    using K = VariantKind;
     GIVEN( "a default-constructed Variant" )
     {
         Variant v;
         THEN( "The type information is as expected" )
         {
-            CHECK( (v.typeId() == I::null) );
+            CHECK( (v.kind() == K::null) );
             CHECK_THAT( typeNameOf(v), Matchers::Equals("Null") );
             CHECK( !v );
             CHECK( v.is<Null>() );
-            CHECK( v.is<I::null>() );
+            CHECK( v.is<K::null>() );
             CHECK( v.size() == 0 );
             CHECK( !isNumber(v) );
             CHECK( !isScalar(v) );
@@ -176,11 +176,11 @@ SCENARIO( "Variant type information", "[Variant]" )
         Variant v(null);
         THEN( "The type information is as expected" )
         {
-            CHECK( (v.typeId() == I::null) );
+            CHECK( (v.kind() == K::null) );
             CHECK_THAT( typeNameOf(v), Matchers::Equals("Null") );
             CHECK( !v );
             CHECK( v.is<Null>() );
-            CHECK( v.is<I::null>() );
+            CHECK( v.is<K::null>() );
             CHECK( v.size() == 0 );
             CHECK( !isNumber(v) );
             CHECK( !isScalar(v) );
@@ -191,11 +191,11 @@ SCENARIO( "Variant type information", "[Variant]" )
         Variant v(true);
         THEN( "The type information is as expected" )
         {
-            CHECK( (v.typeId() == I::boolean) );
+            CHECK( (v.kind() == K::boolean) );
             CHECK_THAT( typeNameOf(v), Matchers::Equals("Bool") );
             CHECK( !!v );
             CHECK( v.is<Bool>() );
-            CHECK( v.is<I::boolean>() );
+            CHECK( v.is<K::boolean>() );
             CHECK( v.size() == 1 );
             CHECK( !isNumber(v) );
             CHECK( isScalar(v) );
@@ -206,11 +206,11 @@ SCENARIO( "Variant type information", "[Variant]" )
         Variant v(Int(-42));
         THEN( "The type information is as expected" )
         {
-            CHECK( (v.typeId() == I::integer) );
+            CHECK( (v.kind() == K::integer) );
             CHECK_THAT( typeNameOf(v), Matchers::Equals("Int") );
             CHECK( !!v );
             CHECK( v.is<Int>() );
-            CHECK( v.is<I::integer>() );
+            CHECK( v.is<K::integer>() );
             CHECK( v.size() == 1 );
             CHECK( isNumber(v) );
             CHECK( isScalar(v) );
@@ -221,11 +221,11 @@ SCENARIO( "Variant type information", "[Variant]" )
         Variant v(UInt(42u));
         THEN( "The type information is as expected" )
         {
-            CHECK( (v.typeId() == I::uint) );
+            CHECK( (v.kind() == K::uint) );
             CHECK_THAT( typeNameOf(v), Matchers::Equals("UInt") );
             CHECK( !!v );
             CHECK( v.is<UInt>() );
-            CHECK( v.is<I::uint>() );
+            CHECK( v.is<K::uint>() );
             CHECK( v.size() == 1 );
             CHECK( isNumber(v) );
             CHECK( isScalar(v) );
@@ -236,11 +236,11 @@ SCENARIO( "Variant type information", "[Variant]" )
         Variant v(Real(42.0));
         THEN( "The type information is as expected" )
         {
-            CHECK( (v.typeId() == I::real) );
+            CHECK( (v.kind() == K::real) );
             CHECK_THAT( typeNameOf(v), Matchers::Equals("Real") );
             CHECK( !!v );
             CHECK( v.is<Real>() );
-            CHECK( v.is<I::real>() );
+            CHECK( v.is<K::real>() );
             CHECK( v.size() == 1 );
             CHECK( isNumber(v) );
             CHECK( isScalar(v) );
@@ -251,11 +251,11 @@ SCENARIO( "Variant type information", "[Variant]" )
         Variant v(String("Hello"));
         THEN( "The type information is as expected" )
         {
-            CHECK( (v.typeId() == I::string) );
+            CHECK( (v.kind() == K::string) );
             CHECK_THAT( typeNameOf(v), Matchers::Equals("String") );
             CHECK( !!v );
             CHECK( v.is<String>() );
-            CHECK( v.is<I::string>() );
+            CHECK( v.is<K::string>() );
             CHECK( v.size() == 1 );
             CHECK( !isNumber(v) );
             CHECK( !isScalar(v) );
@@ -266,11 +266,11 @@ SCENARIO( "Variant type information", "[Variant]" )
         Variant v(Blob{0x00, 0x01, 0x02});
         THEN( "The type information is as expected" )
         {
-            CHECK( (v.typeId() == I::blob) );
+            CHECK( (v.kind() == K::blob) );
             CHECK_THAT( typeNameOf(v), Matchers::Equals("Blob") );
             CHECK( !!v );
             CHECK( v.is<Blob>() );
-            CHECK( v.is<I::blob>() );
+            CHECK( v.is<K::blob>() );
             CHECK( v.size() == 1 );
             CHECK( !isNumber(v) );
             CHECK( !isScalar(v) );
@@ -281,11 +281,11 @@ SCENARIO( "Variant type information", "[Variant]" )
         Variant v(Array{42, "hello", false});
         THEN( "The type information is as expected" )
         {
-            CHECK( (v.typeId() == I::array) );
+            CHECK( (v.kind() == K::array) );
             CHECK_THAT( typeNameOf(v), Matchers::Equals("Array") );
             CHECK( !!v );
             CHECK( v.is<Array>() );
-            CHECK( v.is<I::array>() );
+            CHECK( v.is<K::array>() );
             CHECK( v.size() == 3 );
             CHECK( !isNumber(v) );
             CHECK( !isScalar(v) );
@@ -296,11 +296,11 @@ SCENARIO( "Variant type information", "[Variant]" )
         Variant v(Object{{"foo",42}, {"bar","hello"}});
         THEN( "The type information is as expected" )
         {
-            CHECK( (v.typeId() == I::object) );
+            CHECK( (v.kind() == K::object) );
             CHECK_THAT( typeNameOf(v), Matchers::Equals("Object") );
             CHECK( !!v );
             CHECK( v.is<Object>() );
-            CHECK( v.is<I::object>() );
+            CHECK( v.is<K::object>() );
             CHECK( v.size() == 2 );
             CHECK( !isNumber(v) );
             CHECK( !isScalar(v) );

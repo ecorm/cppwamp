@@ -253,9 +253,9 @@ inline bool optionToUnsignedInteger(const Variant& option, UInt& number)
 {
     using A = internal::VariantUncheckedAccess;
 
-    switch (option.typeId())
+    switch (option.kind())
     {
-    case TypeId::integer:
+    case VariantKind::integer:
     {
         auto n = A::alt<Int>(option);
         if (n < 0)
@@ -264,11 +264,11 @@ inline bool optionToUnsignedInteger(const Variant& option, UInt& number)
         break;
     }
 
-    case TypeId::uint:
+    case VariantKind::uint:
         number = A::alt<UInt>(option);
         break;
 
-    case TypeId::real:
+    case VariantKind::real:
     {
         auto x = A::alt<Real>(option);
         if (x < 0)

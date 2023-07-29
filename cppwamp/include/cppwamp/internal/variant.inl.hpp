@@ -66,7 +66,7 @@ public:
     {
         dest_->template destructAs<TOld>();
         dest_->template constructAs<TNew>(std::move(rhs));
-        dest_->typeId_ = FieldTraits<TNew>::typeId;
+        dest_->typeId_ = FieldTraits<TNew>::kind;
     }
 
 private:
@@ -157,7 +157,7 @@ private:
     template <typename TLeft, typename TRight>
     static bool compare(FalseType, const TLeft&, const TRight&)
     {
-        return FieldTraits<TLeft>::typeId < FieldTraits<TRight>::typeId;
+        return FieldTraits<TLeft>::kind < FieldTraits<TRight>::kind;
     }
 
     template <typename TLeft, typename TRight>
@@ -205,7 +205,7 @@ private:
 };
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Variant::Variant() noexcept : typeId_(TypeId::null) {}
+CPPWAMP_INLINE Variant::Variant() noexcept : typeId_(VariantKind::null) {}
 
 //------------------------------------------------------------------------------
 // NOLINTNEXTLINE(misc-no-recursion)
@@ -228,7 +228,7 @@ CPPWAMP_INLINE Variant::Variant(Variant&& other) noexcept
     @post `*this == array` */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Variant::Variant(Array array)
-    : typeId_(TypeId::array)
+    : typeId_(VariantKind::array)
 {
     constructAs<Array>(std::move(array));
 }
@@ -238,7 +238,7 @@ CPPWAMP_INLINE Variant::Variant(Array array)
     @post `*this == object` */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Variant::Variant(Object object)
-    : typeId_(TypeId::object)
+    : typeId_(VariantKind::object)
 {
     constructAs<Object>(std::move(object));
 }
@@ -247,10 +247,10 @@ CPPWAMP_INLINE Variant::Variant(Object object)
 CPPWAMP_INLINE Variant::~Variant() {*this = null;}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE TypeId Variant::typeId() const {return typeId_;}
+CPPWAMP_INLINE VariantKind Variant::kind() const {return typeId_;}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Variant::operator bool() const {return typeId_ != TypeId::null;}
+CPPWAMP_INLINE Variant::operator bool() const {return typeId_ != VariantKind::null;}
 
 
 //------------------------------------------------------------------------------
@@ -398,7 +398,7 @@ CPPWAMP_INLINE bool Variant::operator<(const Variant &other) const
 }
 
 //------------------------------------------------------------------------------
-/** @post `this->typeId() == other.typeId()`
+/** @post `this->kind() == other.kind()`
     @post `*this == other` */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Variant& Variant::operator=(const Variant& other)
@@ -422,7 +422,7 @@ CPPWAMP_INLINE Variant& Variant::operator=(Variant&& other) noexcept
 }
 
 //------------------------------------------------------------------------------
-/** @post `this->typeId() == TypeId::array`
+/** @post `this->kind() == VariantKind::array`
     @post `*this == array` */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Variant& Variant::operator=(Array array)
@@ -432,7 +432,7 @@ CPPWAMP_INLINE Variant& Variant::operator=(Array array)
 }
 
 //------------------------------------------------------------------------------
-/** @post `this->typeId() == TypeId::object`
+/** @post `this->kind() == VariantKind::object`
     @post `*this == object` */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Variant& Variant::operator=(Object object)
@@ -469,10 +469,10 @@ CPPWAMP_INLINE void swap(Variant& v, Variant& w) noexcept {v.swap(w);}
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE bool isNumber(const Variant& v)
 {
-    using T = TypeId;
-    switch(v.typeId())
+    using K = VariantKind;
+    switch(v.kind())
     {
-    case T::integer: case T::uint: case T::real:
+    case K::integer: case K::uint: case K::real:
         return true;
     default:
         return false;
@@ -482,10 +482,10 @@ CPPWAMP_INLINE bool isNumber(const Variant& v)
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE bool isScalar(const Variant& v)
 {
-    using T = TypeId;
-    switch(v.typeId())
+    using K = VariantKind;
+    switch(v.kind())
     {
-    case T::boolean: case T::integer: case T::uint: case T::real:
+    case K::boolean: case K::integer: case K::uint: case K::real:
         return true;
     default:
         return false;
