@@ -20,7 +20,7 @@
 
 const std::string realm = "cppwamp.examples";
 const std::string address = "localhost";
-const short port = 54321u;
+const short port = 12345u;
 
 //------------------------------------------------------------------------------
 namespace wamp
