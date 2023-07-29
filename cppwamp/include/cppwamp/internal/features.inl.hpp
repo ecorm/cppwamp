@@ -46,7 +46,8 @@ CPPWAMP_INLINE ClientFeatures ClientFeatures::provided()
                    F::publisherIdentification |
                    F::subscriberBlackWhiteListing;
 
-    /* Not supported: payloadPassthruMode, shardedSubscription */
+    /* Not supported: payloadPassthruMode, shardedSubscription,
+       subscriptionRevocation */
     f.subscriber_ = F::basic |
                     F::patternBasedSubscription |
                     F::publicationTrustLevels |
@@ -231,6 +232,7 @@ CPPWAMP_INLINE void ClientFeatures::parseSubscriberFeatures(const Object& dict)
     parse(subscriber_, F::publicationTrustLevels,   d, "publication_trustlevels");
     parse(subscriber_, F::publisherIdentification,  d, "publisher_identification");
     parse(subscriber_, F::shardedSubscription,      d, "sharded_subscription");
+    parse(subscriber_, F::subscriptionRevocation,   d, "subscription_revocation");
 }
 
 
@@ -243,8 +245,8 @@ CPPWAMP_INLINE RouterFeatures RouterFeatures::provided()
     using F = Feature;
     RouterFeatures f;
 
-    /* Not supported: eventHistory, payloadPassthruMode, shardedSubscription,
-       topicReflection */
+    /* Not supported: eventHistory, eventRetention, payloadPassthruMode,
+       shardedSubscription, subscriptionRevocation, topicReflection */
     f.broker_ = F::basic |
                 F::patternBasedSubscription |
                 F::publicationTrustLevels |
@@ -256,7 +258,7 @@ CPPWAMP_INLINE RouterFeatures RouterFeatures::provided()
 
     /* Not supported: callReroute, patternBasedRegistration,
        payloadPassthruMode, procedureReflection, registrationRevocation,
-       shardedRegistration, sharedRegistration */
+       shardedRegistration, sharedRegistration, sessionTestament */
     f.dealer_ = F::basic |
                 F::callCanceling |
                 F::callTimeout |
@@ -349,15 +351,18 @@ CPPWAMP_INLINE void RouterFeatures::parseBrokerFeatures(const Object& dict)
         return;
     broker_.set(F::basic, true);
     parse(broker_, F::eventHistory,                d, "event_history");
+    parse(broker_, F::eventRetention,              d, "event_retention");
     parse(broker_, F::patternBasedSubscription,    d, "pattern_based_subscription");
     parse(broker_, F::payloadPassthruMode,         d, "payload_passthru_mode");
     parse(broker_, F::publicationTrustLevels,      d, "publication_trustlevels");
     parse(broker_, F::publisherExclusion,          d, "publisher_exclusion");
     parse(broker_, F::publisherIdentification,     d, "publisher_identification");
     parse(broker_, F::sessionMetaApi,              d, "session_meta_api");
+    parse(broker_, F::sessionTestament,            d, "session_testament");
     parse(broker_, F::shardedSubscription,         d, "sharded_subscription");
     parse(broker_, F::subscriberBlackWhiteListing, d, "subscriber_blackwhite_listing");
     parse(broker_, F::subscriptionMetaApi,         d, "subscription_meta_api");
+    parse(broker_, F::subscriptionRevocation,      d, "subscription_revocation");
     parse(broker_, F::topicReflection,             d, "topic_reflection");
 }
 
