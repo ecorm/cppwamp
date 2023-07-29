@@ -9,9 +9,9 @@
 #include <iostream>
 #include <thread>
 #include <cppwamp/anyhandler.hpp>
-#include <cppwamp/json.hpp>
-#include <cppwamp/msgpack.hpp>
 #include <cppwamp/router.hpp>
+#include <cppwamp/codecs/json.hpp>
+#include <cppwamp/codecs/msgpack.hpp>
 #include <cppwamp/transports/tcp.hpp>
 #include <cppwamp/transports/uds.hpp>
 #include <cppwamp/utils/consolelogger.hpp>

@@ -11,7 +11,7 @@
 #include <deque>
 #include <vector>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/json.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/internal/message.hpp>
 #include <cppwamp/transports/tcp.hpp>
 

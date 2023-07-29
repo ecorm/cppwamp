@@ -13,11 +13,11 @@
 #include <catch2/catch.hpp>
 #include <cppwamp/config.hpp>
 #include <cppwamp/corounpacker.hpp>
-#include <cppwamp/json.hpp>
-#include <cppwamp/msgpack.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/unpacker.hpp>
+#include <cppwamp/codecs/json.hpp>
+#include <cppwamp/codecs/msgpack.hpp>
 #include <cppwamp/transports/tcp.hpp>
 
 #ifdef CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS

@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_TCPHOST_HPP
-#define CPPWAMP_TCPHOST_HPP
+#ifndef CPPWAMP_TRANSPORTS_TCPHOST_HPP
+#define CPPWAMP_TRANSPORTS_TCPHOST_HPP
 
 //------------------------------------------------------------------------------
 /** @file
@@ -102,4 +102,4 @@ private:
 #include "../internal/tcphost.inl.hpp"
 #endif
 
-#endif // CPPWAMP_TCPHOST_HPP
+#endif // CPPWAMP_TRANSPORTS_TCPHOST_HPP

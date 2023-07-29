@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_UDS_HPP
-#define CPPWAMP_UDS_HPP
+#ifndef CPPWAMP_TRANSPORTS_UDS_HPP
+#define CPPWAMP_TRANSPORTS_UDS_HPP
 
 //------------------------------------------------------------------------------
 /** @file
@@ -111,4 +111,4 @@ private:
 #include "../internal/uds.inl.hpp"
 #endif
 
-#endif // CPPWAMP_UDS_HPP
+#endif // CPPWAMP_TRANSPORTS_UDS_HPP

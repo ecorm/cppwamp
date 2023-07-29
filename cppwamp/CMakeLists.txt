@@ -18,7 +18,6 @@ set(HEADERS
     include/cppwamp/calleestreaming.hpp
     include/cppwamp/callerstreaming.hpp
     include/cppwamp/cancellation.hpp
-    include/cppwamp/cbor.hpp
     include/cppwamp/clientinfo.hpp
     include/cppwamp/codec.hpp
     include/cppwamp/config.hpp
@@ -34,11 +33,9 @@ set(HEADERS
     include/cppwamp/exceptions.hpp
     include/cppwamp/features.hpp
     include/cppwamp/flags.hpp
-    include/cppwamp/json.hpp
     include/cppwamp/listener.hpp
     include/cppwamp/logging.hpp
     include/cppwamp/messagebuffer.hpp
-    include/cppwamp/msgpack.hpp
     include/cppwamp/null.hpp
     include/cppwamp/options.hpp
     include/cppwamp/payload.hpp
@@ -68,6 +65,9 @@ set(HEADERS
     include/cppwamp/authenticators/anonymousauthenticator.hpp
     include/cppwamp/bundled/tessil_htrie/htrie_map.h
     include/cppwamp/bundled/sevmeyer_prng.hpp
+    include/cppwamp/codecs/cbor.hpp
+    include/cppwamp/codecs/json.hpp
+    include/cppwamp/codecs/msgpack.hpp
     include/cppwamp/internal/authorizationlistener.hpp
     include/cppwamp/internal/base64.hpp
     include/cppwamp/internal/broker.hpp

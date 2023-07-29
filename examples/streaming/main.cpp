@@ -5,9 +5,9 @@
 ------------------------------------------------------------------------------*/
 
 #include <iostream>
-#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 

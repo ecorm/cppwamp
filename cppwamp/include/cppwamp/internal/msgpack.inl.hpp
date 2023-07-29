@@ -4,7 +4,7 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#include "../msgpack.hpp"
+#include "../codecs/msgpack.hpp"
 #include <jsoncons_ext/msgpack/msgpack_encoder.hpp>
 #include <jsoncons_ext/msgpack/msgpack_parser.hpp>
 #include "variantdecoding.hpp"

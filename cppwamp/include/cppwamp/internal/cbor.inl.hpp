@@ -4,7 +4,7 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#include "../cbor.hpp"
+#include "../codecs/cbor.hpp"
 #include <jsoncons_ext/cbor/cbor_encoder.hpp>
 #include <jsoncons_ext/cbor/cbor_options.hpp>
 #include <jsoncons_ext/cbor/cbor_parser.hpp>

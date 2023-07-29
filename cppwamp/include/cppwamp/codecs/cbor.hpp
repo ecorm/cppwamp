@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_CBOR_HPP
-#define CPPWAMP_CBOR_HPP
+#ifndef CPPWAMP_CODECS_CBOR_HPP
+#define CPPWAMP_CODECS_CBOR_HPP
 
 //------------------------------------------------------------------------------
 /** @file
@@ -16,10 +16,10 @@
 #include <memory>
 #include <ostream>
 #include <string>
-#include "api.hpp"
-#include "codec.hpp"
-#include "config.hpp"
-#include "variant.hpp"
+#include "../api.hpp"
+#include "../codec.hpp"
+#include "../config.hpp"
+#include "../variant.hpp"
 
 namespace wamp
 {
@@ -179,7 +179,7 @@ using CborStreamDecoder = CborDecoder<StreamSource>;
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/cbor.inl.hpp"
+#include "../internal/cbor.inl.hpp"
 #endif
 
-#endif // CPPWAMP_CBOR_HPP
+#endif // CPPWAMP_CODECS_CBOR_HPP

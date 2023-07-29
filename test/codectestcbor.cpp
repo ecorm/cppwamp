@@ -8,7 +8,7 @@
 #include <vector>
 #include <catch2/catch.hpp>
 #include <cppwamp/variant.hpp>
-#include <cppwamp/cbor.hpp>
+#include <cppwamp/codecs/cbor.hpp>
 #include <jsoncons_ext/cbor/cbor_options.hpp>
 
 using namespace wamp;

@@ -9,7 +9,7 @@
 #include <sstream>
 #include <catch2/catch.hpp>
 #include <cppwamp/variant.hpp>
-#include <cppwamp/json.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <jsoncons/json_options.hpp>
 
 using namespace wamp;

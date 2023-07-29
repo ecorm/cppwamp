@@ -51,9 +51,9 @@ plus other optional information related to advanced WAMP features, and,
 
 Example:
 ```
-#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 
 wamp::Outcome addToCart(wamp::Invocation inv)
@@ -128,11 +128,11 @@ where:
 
 Example:
 ```
-#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/transports/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
+#include <cppwamp/codecs/json.hpp>
+#include <cppwamp/transports/tcp.hpp>
 
 float sum(float x, float y)
 {
@@ -188,8 +188,9 @@ Example:
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/transports/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
+#include <cppwamp/codecs/json.hpp>
+#include <cppwamp/transports/tcp.hpp>
 
 Outcome sum(Invocation inv, float x, float y)
 {
@@ -235,6 +236,7 @@ be used:
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 
 int main()
@@ -370,6 +372,7 @@ If successful, `call` emits a wamp::Result object via the completion handler.
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 
 int main()
@@ -415,9 +418,9 @@ When calling an RPC, `ERROR` messages returned by the caller can be captured
 via the `wamp::Rpc::captureError` option:
 
 ```
-#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 
 int main()
@@ -474,9 +477,9 @@ Example interruptible callee:
 
 ```
 #include <boost/asio/steady_timer.hpp>
-#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 
 int main()
@@ -539,9 +542,9 @@ int main()
 Example caller issuing a call cancellation via wamp::CallCancellationSlot:
 ```
 #include <boost/asio/steady_timer.hpp>
-#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 
 int main()
@@ -586,9 +589,9 @@ Example caller issuing a call cancellation via a
 ```
 #include <boost/asio/cancellation_signal.hpp>
 #include <boost/asio/steady_timer.hpp>
-#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 
 int main()

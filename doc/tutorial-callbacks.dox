@@ -22,7 +22,7 @@ handler functions:
 
 ```
 #include <cppwamp/session.hpp>
-#include <cppwamp/json.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 
 int main()
@@ -73,7 +73,7 @@ handlers, and how to chain one asynchronous operation after another:
 
 ```
 #include <cppwamp/session.hpp>
-#include <cppwamp/json.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 
 class App

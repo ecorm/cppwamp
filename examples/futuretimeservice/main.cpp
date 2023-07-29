@@ -14,11 +14,11 @@
 #include <future>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/use_future.hpp>
-#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
-#include <cppwamp/transports/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/variant.hpp>
+#include <cppwamp/codecs/json.hpp>
+#include <cppwamp/transports/tcp.hpp>
 
 const std::string realm = "cppwamp.examples";
 const std::string address = "localhost";

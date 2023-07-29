@@ -7,9 +7,9 @@
 #if defined(CPPWAMP_TEST_HAS_CORO)
 
 #include <catch2/catch.hpp>
-#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 #include "mockclient.hpp"
 #include "routerfixture.hpp"

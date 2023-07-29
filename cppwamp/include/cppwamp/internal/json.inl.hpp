@@ -4,7 +4,7 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#include "../json.hpp"
+#include "../codecs/json.hpp"
 #include <array>
 #include <cassert>
 #include <cstring>

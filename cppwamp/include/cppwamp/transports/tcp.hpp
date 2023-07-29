@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_TCP_HPP
-#define CPPWAMP_TCP_HPP
+#ifndef CPPWAMP_TRANSPORTS_TCP_HPP
+#define CPPWAMP_TRANSPORTS_TCP_HPP
 
 //------------------------------------------------------------------------------
 /** @file
@@ -108,4 +108,4 @@ private:
 #include "../internal/tcp.inl.hpp"
 #endif
 
-#endif // CPPWAMP_TCP_HPP
+#endif // CPPWAMP_TRANSPORTS_TCP_HPP

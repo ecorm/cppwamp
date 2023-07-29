@@ -13,8 +13,8 @@
 #include <iostream>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/variant2.hpp>
-#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/variant.hpp>

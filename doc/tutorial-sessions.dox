@@ -130,9 +130,9 @@ The following example shows how to spawn a coroutine, and how the
 operations.
 
 ```
-#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 
 int main()
@@ -179,9 +179,9 @@ To gracefully end a WAMP session, the @ref wamp::Session::leave "leave" and
 @ref wamp::Session::disconnect "disconnect" operations are used:
 
 ```
-#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 
 int main()
@@ -222,9 +222,9 @@ your session leaving. This may be useful when handling error conditions where
 further attempts to communicate are futile.
 
 ```
-#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 
 int main()
@@ -324,9 +324,9 @@ The following example shows how to perform ticket authentication.
 
 ```
 #include <iostream>
-#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 
 int main()
@@ -378,9 +378,9 @@ for example, to attempt reconnection when the session is disconnected due to a
 network failure.
 
 ```
-#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 
 int main()

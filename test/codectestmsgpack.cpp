@@ -7,7 +7,7 @@
 #include <sstream>
 #include <catch2/catch.hpp>
 #include <cppwamp/variant.hpp>
-#include <cppwamp/msgpack.hpp>
+#include <cppwamp/codecs/msgpack.hpp>
 #include <jsoncons_ext/msgpack/msgpack_error.hpp>
 
 using namespace wamp;

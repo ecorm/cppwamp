@@ -1,62 +1,63 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2022.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_JSON_HPP
-#define CPPWAMP_JSON_HPP
+#ifndef CPPWAMP_CODECS_MSGPACK_HPP
+#define CPPWAMP_CODECS_MSGPACK_HPP
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains the JSON codec. */
+    @brief Contains the MSGPACK codec. */
 //------------------------------------------------------------------------------
 
 #include <istream>
 #include <memory>
 #include <ostream>
 #include <string>
-#include "api.hpp"
-#include "codec.hpp"
-#include "config.hpp"
-#include "variant.hpp"
+#include "../api.hpp"
+#include "../codec.hpp"
+#include "../config.hpp"
+#include "../variant.hpp"
 
 namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** JSON format tag type.
+/** %Msgpack format tag type.
     Meets the requirements of the @ref CodecFormat concept. */
 //------------------------------------------------------------------------------
-struct CPPWAMP_API Json
+struct CPPWAMP_API Msgpack
 {
     /** Default contructor. */
-    constexpr Json() = default;
+    constexpr Msgpack() = default;
 
     /** Obtains a numeric identifier associated with this codec. */
-    static constexpr int id() {return KnownCodecIds::json();}
+    static constexpr int id() {return KnownCodecIds::msgpack();}
 };
 
-/** Instance of the Json tag. */
-constexpr CPPWAMP_INLINE Json json;
+/** Instance of the Msgpack tag. */
+constexpr CPPWAMP_INLINE Msgpack msgpack;
 
 template <>
-struct IsCodecFormat<Json> : TrueType {};
-
-
-//------------------------------------------------------------------------------
-/// CodecOptions options type alias for JSON, wrapping jsoncons::json_options
-//------------------------------------------------------------------------------
-using JsonOptions = CodecOptions<Json>;
+struct IsCodecFormat<Msgpack> : TrueType {};
 
 //------------------------------------------------------------------------------
-/** Generates JSON codec options with the given maximum recursion depth. */
+/** CodecOptions options type alias for MessagePack, wrapping
+    jsoncons::msgpack::msgpack_options */
 //------------------------------------------------------------------------------
-CPPWAMP_API JsonOptions jsonWithMaxDepth(unsigned maxDepth);
+using MsgpackOptions = CodecOptions<Msgpack>;
 
 //------------------------------------------------------------------------------
-/** JSON encoder.
-    This class uses [jsoncons][1] to serialize JSON payloads from Variant
+/** Generates MessagePack codec options with the given maximum
+    recursion depth. */
+//------------------------------------------------------------------------------
+CPPWAMP_API MsgpackOptions msgpackWithMaxDepth(unsigned maxDepth);
+
+//------------------------------------------------------------------------------
+/** %Msgpack encoder.
+    This class uses [jsoncons][1] to serialize MessagePack payloads from Variant
     instances.
     [1]: https://github.com/danielaparker/jsoncons
 
@@ -65,12 +66,12 @@ CPPWAMP_API JsonOptions jsonWithMaxDepth(unsigned maxDepth);
     @tparam S The output sink type in which to encode. */
 //------------------------------------------------------------------------------
 template <typename S>
-class CPPWAMP_API SinkEncoder<Json, S>
+class CPPWAMP_API SinkEncoder<Msgpack, S>
 {
 public:
     using Sink = S;
     using Output = typename Sink::Output;
-    using Options = JsonOptions;
+    using Options = MsgpackOptions;
 
     /** Default constructor. */
     SinkEncoder();
@@ -102,23 +103,23 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
-/// Yields the JSON encoder type for the given output sink type.
+/// Yields the %Msgpack encoder type for the given output sink type.
 template <typename TSink>
-using JsonEncoder = SinkEncoder<Json, TSink>;
+using MsgpackEncoder = SinkEncoder<Msgpack, TSink>;
 
-/// JSON encoder type that encodes into a std::string. */
-using JsonStringEncoder = JsonEncoder<StringSink>;
+/// %Msgpack encoder type that encodes into a std::string. */
+using MsgpackStringEncoder = MsgpackEncoder<StringSink>;
 
-/// JSON encoder type that encodes into a MessageBuffer. */
-using JsonBufferEncoder = JsonEncoder<BufferSink>;
+/// %Msgpack encoder type that encodes into a MessageBuffer. */
+using MsgpackBufferEncoder = MsgpackEncoder<BufferSink>;
 
-/// JSON encoder type that encodes into a std::ostream. */
-using JsonStreamEncoder = JsonEncoder<StreamSink>;
+/// %Msgpack encoder type that encodes into a std::ostream. */
+using MsgpackStreamEncoder = MsgpackEncoder<StreamSink>;
 
 
 //------------------------------------------------------------------------------
-/** JSON decoder.
-    This class uses [jsoncons][1] to deserialize JSON payloads into Variant
+/** %Msgpack decoder.
+    This class uses [jsoncons][1] to deserialize MSGPACK payloads into Variant
     instances.
     [1]: https://github.com/danielaparker/jsoncons
 
@@ -127,12 +128,12 @@ using JsonStreamEncoder = JsonEncoder<StreamSink>;
     @tparam S The input source type from which to decode. */
 //------------------------------------------------------------------------------
 template <typename S>
-class CPPWAMP_API SourceDecoder<Json, S>
+class CPPWAMP_API SourceDecoder<Msgpack, S>
 {
 public:
     using Source = S;
     using Input = typename Source::Input;
-    using Options = JsonOptions;
+    using Options = MsgpackOptions;
 
     /** Default constructor. */
     SourceDecoder();
@@ -163,24 +164,23 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
-/// Yields the JSON decoder type for the given input source type.
+/// Yields the %Msgpack decoder type for the given input source type.
 template <typename TSource>
-using JsonDecoder = SourceDecoder<Json, TSource>;
+using MsgpackDecoder = SourceDecoder<Msgpack, TSource>;
 
-/// JSON decoder type that decodes from a std::string. */
-using JsonStringDecoder = JsonDecoder<StringSource>;
+/// %Msgpack decoder type that decodes from a std::string. */
+using MsgpackStringDecoder = MsgpackDecoder<StringSource>;
 
-/// JSON decoder type that decodes from a MessageBuffer. */
-using JsonBufferDecoder = JsonDecoder<BufferSource>;
+/// %Msgpack decoder type that decodes from a MessageBuffer. */
+using MsgpackBufferDecoder = MsgpackDecoder<BufferSource>;
 
-/// JSON decoder type that decodes from a std::ostream. */
-using JsonStreamDecoder = JsonDecoder<StreamSource>;
-
+/// %Msgpack decoder type that decodes from a std::istream. */
+using MsgpackStreamDecoder = MsgpackDecoder<StreamSource>;
 
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-    #include "internal/json.inl.hpp"
+#include "../internal/msgpack.inl.hpp"
 #endif
 
-#endif // CPPWAMP_JSON_HPP
+#endif // CPPWAMP_CODECS_MSGPACK_HPP

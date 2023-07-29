@@ -11,9 +11,9 @@
 // TODO: Standalone router to run examples
 
 #include <cppwamp/directsession.hpp>
-#include <cppwamp/json.hpp>
 #include <cppwamp/router.hpp>
 #include <cppwamp/spawn.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 #include <cppwamp/utils/consolelogger.hpp>
 

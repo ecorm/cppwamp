@@ -27,18 +27,18 @@ To generatate a `ConnectionWish`, specify a serialization format tag in the
 
 The following serialization format tags are currently supported:
 
-| Format tag    | Declared in             |
-| ------------- | ----------------------- |
-| wamp::json    | `<cppwamp/json.hpp>`    |
-| wamp::msgpack | `<cppwamp/msgpack.hpp>` |
-| wamp::cbor    | `<cppwamp/cbor.hpp>`    |
+| Format tag    | Declared in                    |
+| ------------- | ------------------------------ |
+| wamp::json    | `<cppwamp/codecs/json.hpp>`    |
+| wamp::msgpack | `<cppwamp/codecs/msgpack.hpp>` |
+| wamp::cbor    | `<cppwamp/codecs/cbor.hpp>`    |
 
 
 Example with TCP Raw Socket Transport and Json Format
 -----------------------------------------------------
 
 ```
-#include <cppwamp/json.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 
 auto tcp =                // 'tcp' will be of type wamp::ConnectionWish
@@ -52,8 +52,8 @@ Example with Unix Domain Socket Transport and Msgpack Format
 ------------------------------------------------------------
 
 ```
-#include <cppwamp/msgpack.hpp>
-#include <cppwamp/uds.hpp>
+#include <cppwamp/codecs/msgpack.hpp>
+#include <cppwamp/transports/uds.hpp>
 
  auto uds =                  // 'tcp' will be of type wamp::ConnectionWish
     wamp::UdpPath{           // Raw Unix domain socket transport is desired
@@ -93,8 +93,8 @@ for several `ConnectionWish` objects. The following example uses two
 `TcpHost` settings, each specifying a different serialization format:
 
 ```
-#include <cppwamp/json.hpp>
-#include <cppwamp/msgpack.hpp>
+#include <cppwamp/codecs/json.hpp>
+#include <cppwamp/codecs/msgpack.hpp>
 #include <cppwamp/transports/tcp.hpp>
 
 wamp::ConnectionWishList wishList{

@@ -53,9 +53,9 @@ related to the event publication.
 
 Example:
 ```
-#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 
 // The event slot
@@ -122,9 +122,9 @@ where:
 
 Example:
 ```
-#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 
@@ -179,9 +179,9 @@ where:
 
 Example:
 ```
-#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 
@@ -229,9 +229,9 @@ be used:
 
 ```
 #include <cppwamp/corounpacker.hpp>
-#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 
 int main()
@@ -308,9 +308,9 @@ The follwing example uses a non-blocking publish, which enqueues the
 publication for transmission.
 
 ```
-#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
+#include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcp.hpp>
 
 int main()
