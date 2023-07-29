@@ -7,8 +7,7 @@
 #ifndef CPPWAMP_INTERNAL_TIMEFORMATTING_HPP
 #define CPPWAMP_INTERNAL_TIMEFORMATTING_HPP
 
-// TODO: Test
-
+#include <cassert>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
@@ -55,8 +54,22 @@ std::ostream& outputRfc3339Timestamp(
 #endif
 
     namespace chrono = std::chrono;
+    using TimePoint = std::chrono::system_clock::time_point;
     using SubSeconds = typename Rfc3339Subseconds<Precision>::Type;
-    auto time = chrono::system_clock::to_time_t(when);
+    auto d = when.time_since_epoch();
+
+    // Emulate std::chrono::floor
+    auto mins = chrono::duration_cast<chrono::minutes>(d);
+    if (mins > d)
+        mins -= std::chrono::minutes{1};
+
+    auto remainder1 = (when - mins).time_since_epoch();
+    assert(remainder1.count() >= 0);
+    auto secs = chrono::duration_cast<chrono::seconds>(remainder1);
+    auto remainder2 = remainder1 - secs;
+    auto ss = chrono::duration_cast<SubSeconds>(remainder2);
+
+    auto time = chrono::system_clock::to_time_t(TimePoint{mins});
 
 #ifdef CPPWAMP_HAS_GMTIME_R
     std::tm tmbResult; // NOLINT(cppcoreguidelines-pro-type-member-init)
@@ -65,19 +78,13 @@ std::ostream& outputRfc3339Timestamp(
 #else
     std::tm* tmb = std::gmtime(&time);
 #endif
-    auto d = when.time_since_epoch();
-    auto mins = chrono::duration_cast<chrono::minutes>(d);
-    auto remainder1 = (when - mins).time_since_epoch();
-    auto secs = chrono::duration_cast<chrono::seconds>(remainder1);
-    auto remainder2 = remainder1 - secs;
-    auto ms = chrono::duration_cast<SubSeconds>(remainder2);
 
     auto locale = out.getloc();
     out.imbue(std::locale::classic());
     out << std::put_time(tmb, "%FT%H:%M:")
         << std::setfill('0') << std::setw(2) << secs.count();
     if (Precision != 0)
-        out << '.' << std::setw(Precision) << ms.count();
+        out << '.' << std::setw(Precision) << ss.count();
     out << 'Z';
     out.imbue(locale);
     return out;
@@ -124,6 +131,12 @@ inline std::istream& inputRfc3339Timestamp(
     #error No timegm() runtime function avaiable
 #endif
 
+    const auto fail = [&in]() -> std::istream&
+    {
+        in.setstate(std::ios::failbit);
+        return in;
+    };
+
     namespace chrono = std::chrono;
     using Clock = chrono::system_clock;
 
@@ -134,27 +147,27 @@ inline std::istream& inputRfc3339Timestamp(
 
     auto locale = in.getloc();
     in.imbue(std::locale::classic());
-    in >> std::get_time(&tmb, "%Y-%m-%dT%H:%M:");
+    in >> std::noskipws >> std::get_time(&tmb, "%Y-%m-%dT%H:%M:");
     tmb.tm_isdst = 0;
+
     double seconds = 0;
     in >> seconds;
-    in.imbue(locale);
+    if (seconds >= 61.0)
+        return fail();
+
     char zone = 0;
     in >> zone;
+    in.imbue(locale);
     if (!in)
         return in;
     if (zone != 'Z')
-    {
-        in.setstate(std::ios::failbit);
-        return in;
-    }
+        return fail();
+    if (in.peek() != std::istream::traits_type::eof())
+        return fail();
 
     ticks = SplitTmToTime::toTime(tmb);
     if (ticks == static_cast<decltype(ticks)>(-1))
-    {
-        in.setstate(std::ios::failbit);
-        return in;
-    }
+        return fail();
 
     when = Clock::time_point{chrono::seconds{ticks}};
     fpSeconds = decltype(fpSeconds){seconds};

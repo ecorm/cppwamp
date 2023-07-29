@@ -12,6 +12,7 @@
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
+#include <cppwamp/internal/timeformatting.hpp>
 #include "routerfixture.hpp"
 
 using namespace wamp;
@@ -216,7 +217,107 @@ void checkPublishMetaTopic(bool allowed, WampErrc expected)
 
 
 //------------------------------------------------------------------------------
-TEST_CASE( "WAMP session meta events", "[WAMP][Router]" )
+TEST_CASE( "Time formatting and parsing", "[Router][Time]" )
+{
+    using TimePoint = std::chrono::system_clock::time_point;
+
+    struct TestVector
+    {
+        int64_t msTicks;
+        std::string text;
+    };
+
+    const std::vector<TestVector> testVectors
+    {
+        {-9223371960000000, "1677-09-21T00:14:00.000000Z"},
+        {-1000001,          "1969-12-31T23:59:58.999999Z"},
+        {-1000000,          "1969-12-31T23:59:59.000000Z"},
+        {-999999,           "1969-12-31T23:59:59.000001Z"},
+        {-500000,           "1969-12-31T23:59:59.500000Z"},
+        {-1,                "1969-12-31T23:59:59.999999Z"},
+        {0,                 "1970-01-01T00:00:00.000000Z"},
+        {1,                 "1970-01-01T00:00:00.000001Z"},
+        {500000,            "1970-01-01T00:00:00.500000Z"},
+        {999999,            "1970-01-01T00:00:00.999999Z"},
+        {1000000,           "1970-01-01T00:00:01.000000Z"},
+        {946684799999999,   "1999-12-31T23:59:59.999999Z"},
+        {946684800000000,   "2000-01-01T00:00:00.000000Z"},
+        {951782400000000,   "2000-02-29T00:00:00.000000Z"},
+        {951868799999999,   "2000-02-29T23:59:59.999999Z"},
+        {951868800000000,   "2000-03-01T00:00:00.000000Z"},
+        {983404799999999,   "2001-02-28T23:59:59.999999Z"},
+        {983404800000000,   "2001-03-01T00:00:00.000000Z"},
+        {9223372036854775,  "2262-04-11T23:47:16.854775Z"}
+    };
+
+    for (const auto& vec: testVectors)
+    {
+        INFO("For timestamp " << vec.text);
+        TimePoint time;
+        TimePoint expected{std::chrono::microseconds{vec.msTicks}};
+        bool ok = internal::parseRfc3339Timestamp(vec.text, time);
+        CHECK(ok);
+        CHECK(time.time_since_epoch().count() ==
+              expected.time_since_epoch().count());
+
+        auto formatted = internal::toRfc3339Timestamp<6>(expected);
+        CHECK(formatted == vec.text);
+    }
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Invalid timestamp parsing", "[Router][Time]" )
+{
+    using TimePoint = std::chrono::system_clock::time_point;
+
+    const std::vector<std::string> timestamps
+    {
+        "0000-00-00T00:00:00Z",   // Zero day and month
+        "1970-00-01T00:00:00Z",   // Zero month
+        "1970-01-00T00:00:00Z",   // Zero day
+        "1970-01-01T-1:00:00Z",   // Negative hour
+        "1970-01-01T00:00:61Z",   // Invalid seconds
+        "1970-01-01T00:60:00Z",   // Invalid minutes
+        "1970-01-01T24:00:00Z",   // Invalid hour
+        "1970-01-32T00:00:00Z",   // Invalid day
+        "1970-13-01T00:00:00Z",   // Invalid month
+        " 1970-01-01T00:00:00Z",  // leading space
+        "1970-01-01 T00:00:00Z",  // middle space
+        "1970-01-01T 00:00:00Z",  // middle space
+        "1970-01-01T00: 00:00Z",  // middle space
+        "1970-01-01T00:00 :00Z",  // middle space
+        "1970-01-01T00:00:00Z ",  // trailing space
+        "01970-01-01T00:00:00Z",  // too many digits
+        "1970-001-01T00:00:00Z",  // too many digits
+        "1970-01-001T00:00:00Z",  // too many digits
+        "1970-01-00T000:00:00Z",  // too many digits
+        "1970-01-00T00:000:00Z",  // too many digits
+        "1970-01-00T00:00:000Z",  // too many digits
+        "1970-01-01T00:00:00GMT", // invalid time zone
+        "1970-01-01T00:00:00UTC", // invalid time zone
+        "1970-01-01T00:00:00",    // no time zone
+        "19700101000000Z",        // no separator
+        "1970-01-01/00:00:00Z",   // bad separator
+        "1970/01/01T00:00:00Z",   // bad separator
+        "1970.01.01T00:00:00Z",   // bad separator
+        "1970-01-01T00-00-00Z",   // bad separator
+        "1970-01-01T00.00.00Z",   // bad separator
+        "01-01-1970T00:00:00Z",   // wrong order
+        "01/01/1970T00:00:00Z",   // MM/DD/YYYY format
+        "1970-01-01.0T00:00:00Z", // decimal days
+    };
+
+    for (const auto& timestamp: timestamps)
+    {
+        INFO("For timestamp '" << timestamp << "'");
+        TimePoint time;
+        bool ok = internal::parseRfc3339Timestamp(timestamp, time);
+        CHECK_FALSE(ok);
+    }
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "WAMP session meta events", "[WAMP][Router][MetaAPI]" )
 {
     IoContext ioctx;
     Session s1{ioctx};
@@ -270,7 +371,7 @@ TEST_CASE( "WAMP session meta events", "[WAMP][Router]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "WAMP session meta procedures", "[WAMP][Router]" )
+TEST_CASE( "WAMP session meta procedures", "[WAMP][Router][MetaAPI]" )
 {
     using SessionIdList = std::vector<SessionId>;
 
@@ -798,7 +899,7 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "Attempting to publish meta topics", "[WAMP][Router]" )
+TEST_CASE( "Attempting to publish meta topics", "[WAMP][Router][MetaAPI]" )
 {
     // This is the behavior for Crossbar
     SECTION("publications not allowed")
@@ -815,7 +916,8 @@ TEST_CASE( "Attempting to publish meta topics", "[WAMP][Router]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "Insecure WAMP meta events subscriptions", "[WAMP][Router]" )
+TEST_CASE( "Insecure WAMP meta events subscriptions",
+           "[WAMP][Router][MetaAPI]" )
 {
     IoContext ioctx;
     Session s1{ioctx};

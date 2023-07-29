@@ -69,7 +69,7 @@ CPPWAMP_INLINE RegistrationInfo::RegistrationInfo(RegistrationId id,
 
 CPPWAMP_INLINE bool RegistrationInfo::matches(const Uri& procedure) const
 {
-    // TODO: Pattern-based registrations
+    // Pattern-based registrations not supported
     return procedure == uri;
 }
 
