@@ -13,104 +13,94 @@ namespace wamp
 namespace utils
 {
 
+//******************************************************************************
+// ConsoleLoggerOptions
+//******************************************************************************
+
+CPPWAMP_INLINE ConsoleLoggerOptions&
+ConsoleLoggerOptions::withOriginLabel(std::string originLabel)
+{
+    originLabel_ = std::move(originLabel);
+    return *this;
+}
+
+CPPWAMP_INLINE ConsoleLoggerOptions&
+ConsoleLoggerOptions::withFlushOnWrite(bool enabled)
+{
+    flushOnWriteEnabled_ = enabled;
+    return *this;
+}
+
+CPPWAMP_INLINE ConsoleLoggerOptions&
+ConsoleLoggerOptions::withColor(bool enabled)
+{
+    colorEnabled_ = enabled;
+    return *this;
+}
+
+CPPWAMP_INLINE const std::string ConsoleLoggerOptions::originLabel() const
+{
+    return originLabel_;
+}
+
+CPPWAMP_INLINE bool ConsoleLoggerOptions::flushOnWriteEnabled() const
+{
+    return flushOnWriteEnabled_;
+}
+
+CPPWAMP_INLINE bool ConsoleLoggerOptions::colorEnabled() const
+{
+    return colorEnabled_;
+}
+
+
+//******************************************************************************
+// ConsoleLogger
+//******************************************************************************
+
 //------------------------------------------------------------------------------
 struct ConsoleLogger::Impl
 {
-    Impl(std::string origin, bool flushOnWrite)
-        : origin(std::move(origin)),
-          flushOnWrite(flushOnWrite)
-    {}
+    Impl(ConsoleLoggerOptions options) : options(std::move(options)) {}
 
-    std::string origin;
-    bool flushOnWrite = false;
+    ConsoleLoggerOptions options;
 };
 
-CPPWAMP_INLINE ConsoleLogger::ConsoleLogger() = default;
-
-CPPWAMP_INLINE ConsoleLogger::ConsoleLogger(bool flushOnWrite)
-    : ConsoleLogger(std::string{"cppwamp"}, flushOnWrite)
-{}
-
-CPPWAMP_INLINE ConsoleLogger::ConsoleLogger(std::string originLabel,
-                                            bool flushOnWrite)
-    : impl_(std::make_shared<Impl>(std::move(originLabel), flushOnWrite))
-{}
-
-CPPWAMP_INLINE ConsoleLogger::ConsoleLogger(const char* originLabel,
-                                            bool flushOnWrite)
-    : ConsoleLogger(std::string{originLabel}, flushOnWrite)
+CPPWAMP_INLINE ConsoleLogger::ConsoleLogger(Options options)
+    : impl_(std::make_shared<Impl>(std::move(options)))
 {}
 
 CPPWAMP_INLINE void ConsoleLogger::operator()(const LogEntry& entry) const
 {
-    auto& impl = *impl_;
+    const auto& opts = impl_->options;
     if (entry.severity() < LogLevel::warning)
     {
-        toStream(std::clog, entry, impl.origin) << "\n";
-        if (impl.flushOnWrite)
+        if (opts.colorEnabled())
+            toColorStream(std::clog, entry, opts.originLabel()) << "\n";
+        else
+            toStream(std::clog, entry, opts.originLabel()) << "\n";
+        if (opts.flushOnWriteEnabled())
             std::clog << std::flush;
     }
     else
     {
-        toStream(std::cerr, entry, impl.origin) << std::endl;
+        if (opts.colorEnabled())
+            toColorStream(std::cerr, entry, opts.originLabel()) << std::endl;
+        else
+            toStream(std::cerr, entry, opts.originLabel()) << std::endl;
     }
 }
 
 CPPWAMP_INLINE void ConsoleLogger::operator()(const AccessLogEntry& entry) const
 {
-    auto& impl = *impl_;
-    toStream(std::clog, entry) << "\n";
-    if (impl.flushOnWrite)
-        std::clog << std::flush;
-}
+    const auto& opts = impl_->options;
 
-//------------------------------------------------------------------------------
-struct ColorConsoleLogger::Impl
-{
-    Impl(std::string origin, bool flushOnWrite)
-        : origin(std::move(origin)),
-          flushOnWrite(flushOnWrite)
-    {}
-
-    std::string origin;
-    bool flushOnWrite = false;
-};
-
-CPPWAMP_INLINE ColorConsoleLogger::ColorConsoleLogger(bool flushOnWrite)
-    : ColorConsoleLogger(std::string{"cppwamp"}, flushOnWrite)
-{}
-
-CPPWAMP_INLINE ColorConsoleLogger::ColorConsoleLogger(std::string originLabel,
-                                                      bool flushOnWrite)
-    : impl_(std::make_shared<Impl>(std::move(originLabel), flushOnWrite))
-{}
-
-CPPWAMP_INLINE ColorConsoleLogger::ColorConsoleLogger(const char* originLabel,
-                                                      bool flushOnWrite)
-    : ColorConsoleLogger(std::string{originLabel}, flushOnWrite)
-{}
-
-CPPWAMP_INLINE void ColorConsoleLogger::operator()(const LogEntry& entry) const
-{
-    auto& impl = *impl_;
-    if (entry.severity() < LogLevel::warning)
-    {
-        toColorStream(std::clog, entry, impl.origin) << "\n";
-        if (impl.flushOnWrite)
-            std::clog << std::flush;
-    }
+    if (opts.colorEnabled())
+        toColorStream(std::clog, entry) << "\n";
     else
-    {
-        toColorStream(std::cerr, entry, impl.origin) << std::endl;
-    }
-}
+        toStream(std::clog, entry) << "\n";
 
-CPPWAMP_INLINE void
-ColorConsoleLogger::operator()(const AccessLogEntry& entry) const
-{
-    auto& impl = *impl_;
-    toColorStream(std::clog, entry) << "\n";
-    if (impl.flushOnWrite)
+    if (opts.flushOnWriteEnabled())
         std::clog << std::flush;
 }
 

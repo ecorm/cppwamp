@@ -25,59 +25,49 @@ namespace utils
 {
 
 //------------------------------------------------------------------------------
+/** Contains options for use with wamp::ConsoleLogger */
+//------------------------------------------------------------------------------
+class CPPWAMP_API ConsoleLoggerOptions
+{
+public:
+    /** Sets the origin label. */
+    ConsoleLoggerOptions& withOriginLabel(std::string originLabel);
+
+    /** Flush the stream immediately after all log entries, regardless
+        of severity. */
+    ConsoleLoggerOptions& withFlushOnWrite(bool enabled = true);
+
+    /** Enables color output. */
+    ConsoleLoggerOptions& withColor(bool enabled = true);
+
+    /** Obtains the origin label. */
+    const std::string originLabel() const;
+
+    /** Determines if flush-on-write was enabled. */
+    bool flushOnWriteEnabled() const;
+
+    /** Determines if color output was enabled. */
+    bool colorEnabled() const;
+
+private:
+    std::string originLabel_;
+    bool flushOnWriteEnabled_;
+    bool colorEnabled_;
+};
+
+//------------------------------------------------------------------------------
 /** Outputs log entries to the console.
     The format is per wamp::toString(const LogEntry&).
     Entries below LogLevel::warning are output to std::clog, and all others
     are output to std::cerr. Concurrent output operations are not serialized. */
-// TODO: Unify with ColorConsoleLogger via options
-// TODO: Options instead of constructor overloads
 //------------------------------------------------------------------------------
 class CPPWAMP_API ConsoleLogger
 {
 public:
-    /** Default constructor. */
-    ConsoleLogger();
+    using Options = ConsoleLoggerOptions;
 
-    /** Constructor taking a flushOnWrite option. */
-    explicit ConsoleLogger(bool flushOnWrite);
-
-    /** Constructor taking a custom origin label. */
-    explicit ConsoleLogger(std::string originLabel, bool flushOnWrite = false);
-
-    /** Constructor taking a custom origin label. */
-    explicit ConsoleLogger(const char* originLabel, bool flushOnWrite = false);
-
-    /** Outputs the given log entry to the console. */
-    void operator()(const LogEntry& entry) const;
-
-    /** Outputs the given access log entry to the console. */
-    void operator()(const AccessLogEntry& entry) const;
-
-private:
-    struct Impl;
-    std::shared_ptr<Impl> impl_; // Cheap to copy
-};
-
-//------------------------------------------------------------------------------
-/** Outputs log entries to the console using ANSI color escape codes that
-    depend on severity.
-    The format is per wamp::toString(const LogEntry&).
-    Entries below LogLevel::warning are output to std::clog, and all others
-    are output to std::cerr. Concurrent output operations are not serialized. */
-//------------------------------------------------------------------------------
-class CPPWAMP_API ColorConsoleLogger
-{
-public:
-    /** Default constructor. */
-    explicit ColorConsoleLogger(bool flushOnWrite = false);
-
-    /** Constructor taking a custom origin label. */
-    explicit ColorConsoleLogger(std::string originLabel,
-                                bool flushOnWrite = false);
-
-    /** Constructor taking a custom origin label. */
-    explicit ColorConsoleLogger(const char* originLabel,
-                                bool flushOnWrite = false);
+    /** Constructor taking options. */
+    explicit ConsoleLogger(Options options = {});
 
     /** Outputs the given log entry to the console. */
     void operator()(const LogEntry& entry) const;

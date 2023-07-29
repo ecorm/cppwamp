@@ -49,11 +49,14 @@ protected:
 //------------------------------------------------------------------------------
 int main()
 {
-    wamp::utils::ColorConsoleLogger logger{"router"};
+    auto loggerOptions =
+        wamp::utils::ConsoleLoggerOptions{}.withOriginLabel("router")
+                                           .withColor();
+    wamp::utils::ConsoleLogger logger{std::move(loggerOptions)};
 
     auto authenticator = std::make_shared<TicketAuthenticator>();
 
-    auto options = wamp::RouterOptions()
+    auto routerOptions = wamp::RouterOptions()
         .withLogHandler(logger)
         .withLogLevel(wamp::LogLevel::debug)
         .withAccessLogHandler(wamp::AccessLogFilter(logger));
@@ -73,7 +76,7 @@ int main()
     logger({wamp::LogLevel::info, "CppWAMP Example Router launched"});
     wamp::IoContext ioctx;
 
-    wamp::Router router{ioctx, options};
+    wamp::Router router{ioctx, routerOptions};
     router.openRealm(realmOptions);
     router.openServer(serverOptions);
 

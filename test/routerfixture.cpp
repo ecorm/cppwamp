@@ -59,8 +59,8 @@ struct RouterFixture::Impl
     using AccessLogHandler = std::function<void (wamp::AccessLogEntry)>;
 
     Impl()
-        : logger_(wamp::utils::ColorConsoleLogger{true}),
-        router_(ioctx_, routerOptions(*this)),
+        : logger_(wamp::utils::ConsoleLogger{loggerOptions()}),
+          router_(ioctx_, routerOptions(*this)),
           thread_([this](){run();})
     {
         logger_.set_executor(ioctx_.get_executor());
@@ -87,6 +87,11 @@ struct RouterFixture::Impl
 private:
     using AccessLogHandlerWithExecutor =
         wamp::AnyReusableHandler<void (wamp::AccessLogEntry)>;
+
+    static wamp::utils::ConsoleLoggerOptions loggerOptions()
+    {
+        return wamp::utils::ConsoleLoggerOptions{}.withColor();
+    }
 
     static wamp::RouterOptions routerOptions(Impl& self)
     {
