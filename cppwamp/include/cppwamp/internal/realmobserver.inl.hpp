@@ -8,6 +8,7 @@
 #include "../api.hpp"
 #include "../utils/wildcarduri.hpp"
 #include "matchpolicyoption.hpp"
+#include "invocationpolicyoption.hpp"
 #include "timeformatting.hpp"
 
 namespace wamp
@@ -84,7 +85,7 @@ CPPWAMP_INLINE void convertFrom(FromVariantConverter& conv,
     {
         String created;
         Variant match;
-        String invoke;
+        Variant invoke;
 
         conv("created", created, "")
             ("id",      r.id,    0)
@@ -102,19 +103,7 @@ CPPWAMP_INLINE void convertFrom(FromVariantConverter& conv,
             }
         }
 
-        if (invoke.empty() || invoke == "single")
-            r.invocationPolicy = InvocationPolicy::single;
-        else if (invoke == "roundrobin")
-            r.invocationPolicy = InvocationPolicy::roundRobin;
-        else if (invoke == "random")
-            r.invocationPolicy = InvocationPolicy::random;
-        else if (invoke == "first")
-            r.invocationPolicy = InvocationPolicy::first;
-        else if (invoke == "last")
-            r.invocationPolicy = InvocationPolicy::last;
-        else
-            r.invocationPolicy = InvocationPolicy::unknown;
-
+        r.invocationPolicy = internal::parseInvocationPolicy(invoke);
         r.matchPolicy = internal::parseMatchPolicy(match);
     }
 
@@ -125,7 +114,7 @@ CPPWAMP_INLINE void convertTo(ToVariantConverter& conv,
 
     conv("created", internal::toRfc3339Timestamp<precision>(r.created))
         ("id",      r.id)
-        ("invoke",  "single") // TODO: Shared registrations
+        ("invoke",  internal::toString(r.invocationPolicy))
         ("match",   internal::toString(r.matchPolicy))
         ("uri",     r.uri);
 }

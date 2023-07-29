@@ -60,7 +60,8 @@ This library has been tested with:
 - General: agent identification, feature announcement
 - _Callee_: `call_canceling`, `call_timeout`, `call_trustlevels`,
             `caller_identification`, `pattern_based_registration`,
-            `progressive_call_results`, `progressive_call_invocations`
+            `progressive_call_results`, `progressive_call_invocations`,
+            `shared_registration`
 - _Caller_: `call_canceling`, `call_timeout`, `caller_identification`,
             `progressive_call_results`, `progressive_call_invocations`
 - _Publisher_: `publisher_exclusion`, `publisher_identification`,

@@ -21,7 +21,7 @@ CPPWAMP_INLINE ClientFeatures ClientFeatures::provided()
     ClientFeatures f;
 
     /* Not supported: callReroute, payloadPassthruMode, registrationRevocation,
-       shardedRegistration, sharedRegistration */
+       shardedRegistration */
     f.callee_ = F::basic |
                 F::callCanceling |
                 F::callTimeout |
@@ -29,7 +29,8 @@ CPPWAMP_INLINE ClientFeatures ClientFeatures::provided()
                 F::callerIdentification |
                 F::patternBasedRegistration |
                 F::progressiveCallInvocations |
-                F::progressiveCallResults;
+                F::progressiveCallResults |
+                F::sharedRegistration;
 
     /* Not supported: payloadPassthruMode */
     f.caller_ = F::basic |
@@ -65,7 +66,8 @@ CPPWAMP_INLINE const Object& ClientFeatures::providedRoles()
             {"caller_identification",         true},
             {"pattern_based_registration",    true},
             {"progressive_call_results",      true},
-            {"progressive_call_invocations",  true}
+            {"progressive_call_invocations",  true},
+            {"shared_registration",           true}
         }}}}},
         {"caller", Object{{"features", Object{{
             {"call_canceling",                true},

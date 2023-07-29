@@ -24,6 +24,7 @@
 #include "variant.hpp"
 #include "wampdefs.hpp"
 #include "internal/clientcontext.hpp"
+#include "internal/invocationpolicyoption.hpp"
 #include "internal/passkey.hpp"
 #include "internal/matchpolicyoption.hpp"
 #include "internal/message.hpp"
@@ -88,6 +89,17 @@ public:
 
     /** Determines if caller disclosure was requested. */
     bool discloseCaller() const;
+    /// @}
+
+    /** @name Shared Registration
+        See [Shared Registration in the WAMP Specification]
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-shared-registration)
+        @{ */
+    /** Sets the matching policy to be used for this registration. */
+    TDerived& withInvocationPolicy(InvocationPolicy);
+
+    /** Obtains the matching policy used for this registration. */
+    InvocationPolicy invocationPolicy() const;
     /// @}
 
 protected:
@@ -676,6 +688,19 @@ template <typename D>
 bool ProcedureLike<D>::discloseCaller() const
 {
     return this->template optionOr<bool>("disclose_caller", false);
+}
+
+template <typename D>
+D& ProcedureLike<D>::withInvocationPolicy(InvocationPolicy policy)
+{
+    internal::setInvocationPolicyOption(this->options(), policy);
+    return derived();
+}
+
+template <typename D>
+InvocationPolicy ProcedureLike<D>::invocationPolicy() const
+{
+    return internal::getInvocationPolicyOption(this->options());
 }
 
 template <typename D>
