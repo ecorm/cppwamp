@@ -238,8 +238,7 @@ TEST_CASE( "WAMP session meta events", "[WAMP][Router]" )
     {
         s1.connect(withTcp, yield).value();
         auto w1 = s1.join(Petition(testRealm), yield).value();
-        REQUIRE(w1.features().broker()
-                    .all_of(BrokerFeatures::sessionMetaApi));
+        REQUIRE(w1.features().broker().test(Feature::sessionMetaApi));
         s1.subscribe(Topic{"wamp.session.on_join"}, onJoin, yield).value();
         s1.subscribe(Topic{"wamp.session.on_leave"}, onLeave, yield).value();
 
@@ -290,7 +289,7 @@ TEST_CASE( "WAMP session meta procedures", "[WAMP][Router]" )
         auto w2 = s2.join(Petition(testRealm), yield).value();
         std::vector<String> inclusiveAuthRoleList{{"anonymous"}};
         std::vector<String> exclusiveAuthRoleList{{"exclusive"}};
-        REQUIRE(w1.features().dealer().all_of(DealerFeatures::sessionMetaApi));
+        REQUIRE(w1.features().dealer().test(Feature::sessionMetaApi));
 
         {
             INFO("wamp.session.count");
@@ -585,8 +584,7 @@ TEST_CASE( "WAMP registration meta events", "[WAMP][Router]" )
 
         s1.connect(withTcp, yield).value();
         auto w1 = s1.join(Petition(testRealm), yield).value();
-        REQUIRE(w1.features().dealer()
-                    .all_of(DealerFeatures::registrationMetaApi));
+        REQUIRE(w1.features().dealer().test(Feature::registrationMetaApi));
         s1.subscribe(Topic{"wamp.registration.on_create"},
                      onRegistrationCreated, yield).value();
         s1.subscribe(Topic{"wamp.registration.on_register"}, onRegister,
@@ -700,8 +698,7 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
         auto after = now + chrono::seconds(60);
         s1.connect(withTcp, yield).value();
         auto w1 = s1.join(Petition(testRealm), yield).value();
-        REQUIRE(w1.features().broker()
-                    .all_of(BrokerFeatures::subscriptionMetaApi));
+        REQUIRE(w1.features().broker().test(Feature::subscriptionMetaApi));
         s1.subscribe(Topic{"wamp.subscription.on_create"},
                      onSubscriptionCreated, yield).value();
         s1.subscribe(Topic{"wamp.subscription.on_subscribe"}, onSubscribe,
@@ -853,8 +850,7 @@ TEST_CASE( "Insecure WAMP meta events subscriptions", "[WAMP][Router]" )
     {
         s1.connect(withTcp, yield).value();
         auto w1 = s1.join(Petition(testRealm), yield).value();
-        REQUIRE(w1.features().broker()
-                    .all_of(BrokerFeatures::sessionMetaApi));
+        REQUIRE(w1.features().broker().test(Feature::sessionMetaApi));
 
         s1.subscribe(Topic{"wamp.registration.on_register"},
                      onRegisterEvent, yield).value();

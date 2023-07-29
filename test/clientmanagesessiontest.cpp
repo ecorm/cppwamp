@@ -55,8 +55,7 @@ GIVEN( "a Session and a ConnectionWish" )
     const auto where = withTcp;
     IncidentListener incidents;
     s.observeIncidents(incidents);
-    RouterFeatures requiredFeatures{BrokerFeatures::basic,
-                                    DealerFeatures::basic};
+    RouterFeatures requiredFeatures{Feature::basic, Feature::basic};
 
     WHEN( "connecting and disconnecting" )
     {
@@ -150,8 +149,8 @@ GIVEN( "a Session and a ConnectionWish" )
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
                 CHECK( welcome.features().supports(requiredFeatures) );
-                CHECK( welcome.features().broker().all_of(BrokerFeatures::basic) );
-                CHECK( welcome.features().dealer().all_of(DealerFeatures::basic) );
+                CHECK( welcome.features().broker().all_of(Feature::basic) );
+                CHECK( welcome.features().dealer().all_of(Feature::basic) );
 
                 // Check leaving.
                 Reason reason;
@@ -410,8 +409,7 @@ GIVEN( "a Session and an alternate ConnectionWish" )
     IoContext ioctx;
     Session s(ioctx);
     const auto where = alternateTcp;
-    RouterFeatures requiredFeatures{BrokerFeatures::basic,
-                                    DealerFeatures::basic};
+    RouterFeatures requiredFeatures{Feature::basic, Feature::basic};
 
     WHEN( "joining and leaving" )
     {

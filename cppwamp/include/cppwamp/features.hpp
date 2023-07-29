@@ -16,59 +16,40 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** Flags representing callee features. */
+/** Flags representing features. */
 //------------------------------------------------------------------------------
-enum class CalleeFeatures : uint16_t
+enum class Feature : uint32_t
 {
     basic                       = flag_bit(0),
     callCanceling               = flag_bit(1),
-    callTimeout                 = flag_bit(2),
-    callTrustLevels             = flag_bit(3),
-    callerIdentification        = flag_bit(4),
-    patternBasedRegistration    = flag_bit(5),
-    progressiveCallInvocations  = flag_bit(6),
-    progressiveCallResults      = flag_bit(7)
+    callReroute                 = flag_bit(2),
+    callTimeout                 = flag_bit(3),
+    callTrustLevels             = flag_bit(4),
+    callerIdentification        = flag_bit(5),
+    eventHistory                = flag_bit(6),
+    patternBasedRegistration    = flag_bit(7),
+    patternBasedSubscription    = flag_bit(8),
+    payloadPassthruMode         = flag_bit(9),
+    procedureReflection         = flag_bit(10),
+    progressiveCallInvocations  = flag_bit(11),
+    progressiveCallResults      = flag_bit(12),
+    publicationTrustLevels      = flag_bit(13),
+    publisherExclusion          = flag_bit(14),
+    publisherIdentification     = flag_bit(15),
+    registrationMetaApi         = flag_bit(16),
+    registrationRevocation      = flag_bit(17),
+    sessionMetaApi              = flag_bit(18),
+    shardedRegistration         = flag_bit(19),
+    shardedSubscription         = flag_bit(20),
+    sharedRegistration          = flag_bit(21),
+    subscriberBlackWhiteListing = flag_bit(22),
+    subscriptionMetaApi         = flag_bit(23),
+    topicReflection             = flag_bit(24)
 };
 
-//------------------------------------------------------------------------------
-/** Flags representing caller features. */
-//------------------------------------------------------------------------------
-enum class CallerFeatures : uint16_t
-{
-    basic                       = flag_bit(0),
-    callCanceling               = flag_bit(1),
-    callTimeout                 = flag_bit(2),
-    callerIdentification        = flag_bit(3),
-    progressiveCallInvocations  = flag_bit(4),
-    progressiveCallResults      = flag_bit(5)
-};
+template <> struct is_flag<Feature> : TrueType {};
 
-//------------------------------------------------------------------------------
-/** Flags representing publisher features. */
-//------------------------------------------------------------------------------
-enum class PublisherFeatures : uint16_t
-{
-    basic                       = flag_bit(0),
-    publisherExclusion          = flag_bit(1),
-    publisherIdentification     = flag_bit(2),
-    subscriberBlackWhiteListing = flag_bit(3)
-};
-
-//------------------------------------------------------------------------------
-/** Flags representing subscriber features. */
-//------------------------------------------------------------------------------
-enum class SubscriberFeatures : uint16_t
-{
-    basic                    = flag_bit(0),
-    patternBasedSubscription = flag_bit(1),
-    publicationTrustLevels   = flag_bit(2),
-    publisherIdentification  = flag_bit(3)
-};
-
-template <> struct is_flag<CalleeFeatures> : TrueType {};
-template <> struct is_flag<CallerFeatures> : TrueType {};
-template <> struct is_flag<PublisherFeatures> : TrueType {};
-template <> struct is_flag<SubscriberFeatures> : TrueType {};
+using FeatureFlags = Flags<Feature>;
 
 //------------------------------------------------------------------------------
 /** Identifies the features supported by a WAMP client.
@@ -91,25 +72,23 @@ public:
     ClientFeatures();
 
     /** Constructor taking feature flags for each client role. */
-    ClientFeatures(Flags<CalleeFeatures> callee,
-                   Flags<CallerFeatures> caller,
-                   Flags<PublisherFeatures> publisher,
-                   Flags<SubscriberFeatures> subscriber);
+    ClientFeatures(FeatureFlags callee, FeatureFlags caller,
+                   FeatureFlags publisher, FeatureFlags subscriber);
 
     /** Constructor taking a roles dictionary to be parsed for features. */
     explicit ClientFeatures(const Object& dict);
 
     /** Obtains the callee feature flags. */
-    Flags<CalleeFeatures> callee() const;
+    FeatureFlags callee() const;
 
     /** Obtains the caller feature flags. */
-    Flags<CallerFeatures> caller() const;
+    FeatureFlags caller() const;
 
     /** Obtains the publisher feature flags. */
-    Flags<PublisherFeatures> publisher() const;
+    FeatureFlags publisher() const;
 
     /** Obtains the subscriber feature flags. */
-    Flags<SubscriberFeatures> subscriber() const;
+    FeatureFlags subscriber() const;
 
     /** Checks if this instance contains all the given desired features. */
     bool supports(ClientFeatures desired) const;
@@ -121,8 +100,7 @@ private:
     static const Object* findFeaturesDict(const Object& dict,
                                           const char* roleName);
 
-    template <typename E>
-    static void parse(Flags<E>& flags, E pos, const Object* roleDict,
+    static void parse(FeatureFlags& flags, Feature pos, const Object* roleDict,
                       const char* featureName);
 
     void parseCalleeFeatures(const Object& dict);
@@ -130,47 +108,11 @@ private:
     void parsePublisherFeatures(const Object& dict);
     void parseSubscriberFeatures(const Object& dict);
 
-    Flags<CalleeFeatures> callee_;
-    Flags<CallerFeatures> caller_;
-    Flags<PublisherFeatures> publisher_;
-    Flags<SubscriberFeatures> subscriber_;
+    FeatureFlags callee_;
+    FeatureFlags caller_;
+    FeatureFlags publisher_;
+    FeatureFlags subscriber_;
 };
-
-
-//------------------------------------------------------------------------------
-/** Flags representing broker features. */
-//------------------------------------------------------------------------------
-enum class BrokerFeatures : uint16_t
-{
-    basic                       = 1u << 0,
-    patternBasedSubscription    = 1u << 1,
-    publicationTrustLevels      = 1u << 2,
-    publisherExclusion          = 1u << 3,
-    publisherIdentification     = 1u << 4,
-    sessionMetaApi              = 1u << 5,
-    subscriberBlackWhiteListing = 1u << 6,
-    subscriptionMetaApi         = 1u << 7
-};
-
-//------------------------------------------------------------------------------
-/** Flags representing dealer features. */
-//------------------------------------------------------------------------------
-enum class DealerFeatures : uint16_t
-{
-    basic                      = 1u << 0,
-    callCanceling              = 1u << 1,
-    callTimeout                = 1u << 2,
-    callTrustLevels            = 1u << 3,
-    callerIdentification       = 1u << 4,
-    patternBasedRegistration   = 1u << 5,
-    progressiveCallInvocations = 1u << 6,
-    progressiveCallResults     = 1u << 7,
-    registrationMetaApi        = 1u << 8,
-    sessionMetaApi             = 1u << 9
-};
-
-template <> struct is_flag<BrokerFeatures> : TrueType {};
-template <> struct is_flag<DealerFeatures> : TrueType {};
 
 
 //------------------------------------------------------------------------------
@@ -194,23 +136,22 @@ public:
     RouterFeatures();
 
     /** Constructor taking feature flags for each router role. */
-    RouterFeatures(Flags<BrokerFeatures> broker, Flags<DealerFeatures> dealer);
+    RouterFeatures(FeatureFlags broker, FeatureFlags dealer);
 
     /** Constructor taking a roles dictionary to be parsed for features. */
     explicit RouterFeatures(const Object& dict);
 
     /** Obtains the broker feature flags. */
-    Flags<BrokerFeatures> broker() const;
+    FeatureFlags broker() const;
 
     /** Obtains the dealer feature flags. */
-    Flags<DealerFeatures> dealer() const;
+    FeatureFlags dealer() const;
 
     /** Checks if this instance contains all the given desired features. */
     bool supports(RouterFeatures desired) const;
 
 private:
-    template <typename E>
-    static void parse(Flags<E>& flags, E pos, const Object* roleDict,
+    static void parse(FeatureFlags& flags, Feature pos, const Object* roleDict,
                       const char* featureName);
 
     static const Object* findFeaturesDict(const Object& dict,
@@ -220,8 +161,8 @@ private:
 
     void parseDealerFeatures(const Object& dict);
 
-    Flags<BrokerFeatures> broker_;
-    Flags<DealerFeatures> dealer_;
+    FeatureFlags broker_;
+    FeatureFlags dealer_;
 };
 
 } // namespace wamp

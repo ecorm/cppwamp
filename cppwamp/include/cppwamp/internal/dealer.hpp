@@ -318,9 +318,8 @@ public:
         if (!callee)
             return false; // notifyAbandonedCallee has already sent ERROR
 
-        auto calleeFeatures = callee->info().features().callee();
         const bool calleeHasCallCanceling =
-            calleeFeatures.all_of(CalleeFeatures::callCanceling);
+            callee->info().features().callee().test(Feature::callCanceling);
         mode = calleeHasCallCanceling ? mode : Mode::skip;
 
         // Reject duplicate cancellations, except for killnowait that
@@ -364,8 +363,7 @@ public:
             return;
 
         auto reqId = calleeKey_.second;
-        auto calleeFeatures = callee->info().features().callee();
-        if (calleeFeatures.all_of(CalleeFeatures::callCanceling))
+        if (callee->info().features().callee().test(Feature::callCanceling))
         {
             Interruption intr{{}, reqId, CallCancelMode::killNoWait,
                               WampErrc::cancelled};
@@ -450,9 +448,9 @@ private:
                 timeout_ = *timeout;
         }
 
-        auto calleeFeatures = callee->info().features().callee();
+        const auto calleeFeatures = callee->info().features().callee();
         const bool calleeHasCallCancelling =
-            calleeFeatures.all_of(CalleeFeatures::callCanceling);
+            calleeFeatures.test(Feature::callCanceling);
 
         // Not clear what the behavior should be when progressive results are
         // requested, but not supported by the callee.
@@ -461,7 +459,7 @@ private:
         {
             const bool calleeHasProgressiveCallResults =
                 calleeHasCallCancelling &&
-                calleeFeatures.all_of(CalleeFeatures::progressiveCallResults);
+                calleeFeatures.test(Feature::progressiveCallResults);
             progressiveResultsRequested_ = calleeHasProgressiveCallResults;
         }
 
@@ -469,7 +467,7 @@ private:
         {
             const bool calleeHasProgressiveCallInvocations =
                 calleeHasCallCancelling &&
-                calleeFeatures.all_of(CalleeFeatures::progressiveCallInvocations);
+                calleeFeatures.test(Feature::progressiveCallInvocations);
 
             if (!calleeHasProgressiveCallInvocations)
             {
@@ -858,8 +856,7 @@ private:
             return reg.info().forwardTimeoutEnabled;
 
         case Rule::perFeature:
-            return callee.info().features().callee().any_of(
-                CalleeFeatures::callTimeout);
+            return callee.info().features().callee().test(Feature::callTimeout);
 
         case Rule::never:
             return false;

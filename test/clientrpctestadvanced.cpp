@@ -74,8 +74,8 @@ GIVEN( "a caller and a callee" )
             SessionId disclosedId = -1;
 
             f.join(yield);
-            REQUIRE(f.welcome.features().dealer().all_of(
-                DealerFeatures::callerIdentification));
+            REQUIRE(f.welcome.features().dealer()
+                        .test(Feature::callerIdentification));
 
             f.callee.enroll(
                 Procedure("rpc"),
@@ -101,8 +101,8 @@ GIVEN( "a caller and a callee" )
             int wildcardMatchCount = 0;
 
             f.join(yield);
-            if (!f.welcome.features().dealer().all_of(
-                    DealerFeatures::patternBasedRegistration))
+            if (!f.welcome.features().dealer()
+                     .test(Feature::patternBasedRegistration))
             {
                 auto errorOrReg = f.callee.enroll(
                     Procedure("com.myapp").withMatchPolicy(MatchPolicy::prefix),
@@ -179,8 +179,7 @@ GIVEN( "a caller and a callee" )
             ErrorOr<Result> response;
 
             f.join(yield);
-            REQUIRE(f.welcome.features().dealer().all_of(
-                DealerFeatures::callCanceling));
+            REQUIRE(f.welcome.features().dealer().test(Feature::callCanceling));
 
             f.callee.enroll(
                 Procedure("rpc"),
@@ -239,8 +238,7 @@ GIVEN( "a caller and a callee" )
             ErrorOr<Result> response;
 
             f.join(yield);
-            REQUIRE(f.welcome.features().dealer().all_of(
-                DealerFeatures::callCanceling));
+            REQUIRE(f.welcome.features().dealer().test(Feature::callCanceling));
 
             f.callee.enroll(
                 Procedure("rpc"),
@@ -295,8 +293,7 @@ GIVEN( "a caller and a callee" )
             ErrorOr<Result> response;
 
             f.join(yield);
-            REQUIRE(f.welcome.features().dealer().all_of(
-                DealerFeatures::callCanceling));
+            REQUIRE(f.welcome.features().dealer().test(Feature::callCanceling));
 
             f.callee.enroll(
                 Procedure("rpc"),
@@ -343,8 +340,7 @@ GIVEN( "a caller and a callee" )
             ErrorOr<Result> response;
 
             f.join(yield);
-            REQUIRE(f.welcome.features().dealer().all_of(
-                DealerFeatures::callCanceling));
+            REQUIRE(f.welcome.features().dealer().test(Feature::callCanceling));
 
             f.callee.enroll(
                 Procedure("rpc"),
@@ -391,8 +387,7 @@ GIVEN( "a caller and a callee" )
             ErrorOr<Result> response;
 
             f.join(yield);
-            REQUIRE(f.welcome.features().dealer().all_of(
-                DealerFeatures::callCanceling));
+            REQUIRE(f.welcome.features().dealer().test(Feature::callCanceling));
 
             f.callee.enroll(
                 Procedure("rpc"),
@@ -446,8 +441,7 @@ GIVEN( "a caller and a callee" )
             Invocation invocation;
 
             f.join(yield);
-            REQUIRE(f.welcome.features().dealer().test(
-                DealerFeatures::callCanceling));
+            REQUIRE(f.welcome.features().dealer().test(Feature::callCanceling));
 
             f.callee.enroll(
                 Procedure("rpc"),
@@ -501,8 +495,7 @@ GIVEN( "a caller and a callee" )
             ErrorOr<Result> response;
 
             f.join(yield);
-            REQUIRE(f.welcome.features().dealer().all_of(
-                DealerFeatures::callCanceling));
+            REQUIRE(f.welcome.features().dealer().test(Feature::callCanceling));
 
             f.callee.enroll(
                 Procedure("rpc"),
@@ -565,11 +558,10 @@ GIVEN( "a caller and a callee" )
             f.join(yield);
             if (callerInitiated)
             {
-                REQUIRE(f.welcome.features().dealer().all_of(
-                    DealerFeatures::callCanceling));
+                REQUIRE(f.welcome.features().dealer()
+                            .test(Feature::callCanceling));
             }
-            else if (!f.welcome.features().dealer().all_of(
-                        DealerFeatures::callTimeout))
+            else if (!f.welcome.features().dealer().test(Feature::callTimeout))
             {
                 f.disconnect();
                 return;
@@ -782,8 +774,8 @@ GIVEN( "a caller and a callee" )
         spawn(ioctx, [&](YieldContext yield)
         {
             f.join(yield);
-            REQUIRE(f.welcome.features().dealer().all_of(
-                DealerFeatures::progressiveCallResults));
+            REQUIRE(f.welcome.features().dealer()
+                        .test(Feature::progressiveCallResults));
             f.callee.enroll(Stream("com.myapp.foo").withInvitationExpected(),
                             onStream, yield).value();
 
@@ -933,8 +925,8 @@ GIVEN( "a caller and a callee" )
         spawn(ioctx, [&](YieldContext yield)
         {
             f.join(yield);
-            REQUIRE(f.welcome.features().dealer().all_of(
-                DealerFeatures::progressiveCallResults));
+            REQUIRE(f.welcome.features().dealer()
+                        .test(Feature::progressiveCallResults));
             f.callee.enroll(Stream("com.myapp.foo"), onStream, yield).value();
 
             for (unsigned i=0; i<2; ++i)
@@ -1051,8 +1043,7 @@ GIVEN( "a caller and a callee" )
         {
             f.join(yield);
             REQUIRE(f.welcome.features().dealer().all_of(
-                DealerFeatures::progressiveCallResults |
-                DealerFeatures::callCanceling));
+                Feature::progressiveCallResults | Feature::callCanceling));
             f.callee.enroll(Stream("com.myapp.foo").withInvitationExpected(),
                             onStream, yield).value();
 
@@ -1194,8 +1185,8 @@ GIVEN( "a caller and a callee" )
         spawn(ioctx, [&](YieldContext yield)
         {
             f.join(yield);
-            REQUIRE(f.welcome.features().dealer().all_of(
-                DealerFeatures::progressiveCallResults));
+            REQUIRE(f.welcome.features().dealer()
+                        .test(Feature::progressiveCallResults));
             f.callee.enroll(Stream("com.myapp.foo").withInvitationExpected(),
                             onStream, yield).value();
 
@@ -1300,8 +1291,7 @@ GIVEN( "a caller and a callee" )
         {
             f.join(yield);
             REQUIRE(f.welcome.features().dealer().all_of(
-                DealerFeatures::progressiveCallResults |
-                DealerFeatures::callCanceling));
+                Feature::progressiveCallResults | Feature::callCanceling));
             f.callee.enroll(Stream("com.myapp.foo").withInvitationExpected(),
                             onStream, yield).value();
 
@@ -1432,8 +1422,8 @@ GIVEN( "a caller and a callee" )
         spawn(ioctx, [&](YieldContext yield)
         {
             f.join(yield);
-            if (!f.welcome.features().dealer().all_of(
-                DealerFeatures::progressiveCallInvocations))
+            if (!f.welcome.features().dealer()
+                     .test(Feature::progressiveCallInvocations))
             {
                 f.disconnect();
                 return;
@@ -1570,8 +1560,8 @@ GIVEN( "a caller and a callee" )
         spawn(ioctx, [&](YieldContext yield)
         {
             f.join(yield);
-            if (!f.welcome.features().dealer().all_of(
-                DealerFeatures::progressiveCallInvocations))
+            if (!f.welcome.features().dealer()
+                     .test(Feature::progressiveCallInvocations))
             {
                 f.disconnect();
                 return;
@@ -1699,8 +1689,8 @@ GIVEN( "a caller and a callee" )
         spawn(ioctx, [&](YieldContext yield)
         {
             f.join(yield);
-            if (!f.welcome.features().dealer().all_of(
-                DealerFeatures::progressiveCallInvocations))
+            if (!f.welcome.features().dealer()
+                     .test(Feature::progressiveCallInvocations))
             {
                 f.disconnect();
                 return;
@@ -1837,8 +1827,8 @@ GIVEN( "a caller and a callee" )
         spawn(ioctx, [&](YieldContext yield)
         {
             f.join(yield);
-            if (!f.welcome.features().dealer().all_of(
-                    DealerFeatures::progressiveCallInvocations))
+            if (!f.welcome.features().dealer()
+                     .test(Feature::progressiveCallInvocations))
             {
                 f.disconnect();
                 return;

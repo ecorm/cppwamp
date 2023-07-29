@@ -79,8 +79,8 @@ GIVEN( "a publisher and a subscriber" )
             int eventCount = 0;
 
             f.join(yield);
-            REQUIRE(f.welcome.features().broker().all_of(
-                BrokerFeatures::publisherIdentification));
+            REQUIRE(f.welcome.features().broker()
+                        .test(Feature::publisherIdentification));
 
             f.subscriber.subscribe(
                 Topic("onEvent"),
@@ -110,8 +110,8 @@ GIVEN( "a publisher and a subscriber" )
             std::string wildcardTopic;
 
             f.join(yield);
-            REQUIRE(f.welcome.features().broker().all_of(
-                BrokerFeatures::patternBasedSubscription));
+            REQUIRE(f.welcome.features().broker()
+                        .test(Feature::patternBasedSubscription));
 
             f.subscriber.subscribe(
                 Topic("com.myapp").withMatchPolicy(MatchPolicy::prefix),
@@ -180,8 +180,8 @@ GIVEN( "a publisher and a subscriber" )
             int publisherEventCount = 0;
 
             f.join(yield);
-            REQUIRE(f.welcome.features().broker().all_of(
-                BrokerFeatures::publisherExclusion));
+            REQUIRE(f.welcome.features().broker()
+                        .test(Feature::publisherExclusion));
 
             f.subscriber.subscribe(
                 Topic("onEvent"),
@@ -214,8 +214,8 @@ GIVEN( "a publisher and a subscriber" )
             int eventCount2 = 0;
 
             f.join(yield);
-            REQUIRE(f.welcome.features().broker().all_of(
-                BrokerFeatures::subscriberBlackWhiteListing));
+            REQUIRE(f.welcome.features().broker()
+                        .test(Feature::subscriberBlackWhiteListing));
 
             subscriber2.connect(withTcp, yield).value();
             auto subscriber2Id =
