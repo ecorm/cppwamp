@@ -4,127 +4,127 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#include "../routerconfig.hpp"
+#include "../routeroptions.hpp"
 #include "../api.hpp"
 
 namespace wamp
 {
 
 //******************************************************************************
-// RealmConfig
+// RealmOptions
 //******************************************************************************
 
-CPPWAMP_INLINE RealmConfig::RealmConfig(Uri uri)
+CPPWAMP_INLINE RealmOptions::RealmOptions(Uri uri)
     : uri_(std::move(uri))
 {}
 
-CPPWAMP_INLINE RealmConfig&
-RealmConfig::withAuthorizer(Authorizer::Ptr a)
+CPPWAMP_INLINE RealmOptions&
+RealmOptions::withAuthorizer(Authorizer::Ptr a)
 {
     authorizer_ = std::move(a);
     return *this;
 }
 
-CPPWAMP_INLINE RealmConfig&
-RealmConfig::withCallTimeoutForwardingRule(CallTimeoutForwardingRule rule)
+CPPWAMP_INLINE RealmOptions&
+RealmOptions::withCallTimeoutForwardingRule(CallTimeoutForwardingRule rule)
 {
     callTimeoutForwardingRule_ = rule;
     return *this;
 }
 
 /** @note Disclosure::preset is treated as Disclosure::producer. */
-CPPWAMP_INLINE RealmConfig& RealmConfig::withCallerDisclosure(Disclosure d)
+CPPWAMP_INLINE RealmOptions& RealmOptions::withCallerDisclosure(Disclosure d)
 {
     callerDisclosure_ = d;
     return *this;
 }
 
 /** @note Disclosure::preset is treated as Disclosure::producer. */
-CPPWAMP_INLINE RealmConfig& RealmConfig::withPublisherDisclosure(Disclosure d)
+CPPWAMP_INLINE RealmOptions& RealmOptions::withPublisherDisclosure(Disclosure d)
 {
     publisherDisclosure_ = d;
     return *this;
 }
 
-CPPWAMP_INLINE RealmConfig& RealmConfig::withMetaApiEnabled(bool enabled)
+CPPWAMP_INLINE RealmOptions& RealmOptions::withMetaApiEnabled(bool enabled)
 {
     metaApiEnabled_ = enabled;
     return *this;
 }
 
-CPPWAMP_INLINE RealmConfig&
-RealmConfig::withMetaProcedureRegistrationAllowed(bool allowed)
+CPPWAMP_INLINE RealmOptions&
+RealmOptions::withMetaProcedureRegistrationAllowed(bool allowed)
 {
     metaProcedureRegistrationAllowed_ = allowed;
     return *this;
 }
 
-CPPWAMP_INLINE RealmConfig&
-RealmConfig::withMetaTopicPublicationAllowed(bool allowed)
+CPPWAMP_INLINE RealmOptions&
+RealmOptions::withMetaTopicPublicationAllowed(bool allowed)
 {
     metaTopicPublicationAllowed_ = allowed;
     return *this;
 }
 
 
-CPPWAMP_INLINE const Uri& RealmConfig::uri() const {return uri_;}
+CPPWAMP_INLINE const Uri& RealmOptions::uri() const {return uri_;}
 
-CPPWAMP_INLINE Authorizer::Ptr RealmConfig::authorizer() const
+CPPWAMP_INLINE Authorizer::Ptr RealmOptions::authorizer() const
 {
     return authorizer_;
 }
 
-CPPWAMP_INLINE Disclosure RealmConfig::callerDisclosure() const
+CPPWAMP_INLINE Disclosure RealmOptions::callerDisclosure() const
 {
     return callerDisclosure_;
 }
 
-CPPWAMP_INLINE Disclosure RealmConfig::publisherDisclosure() const
+CPPWAMP_INLINE Disclosure RealmOptions::publisherDisclosure() const
 {
     return publisherDisclosure_;
 }
 
 CPPWAMP_INLINE CallTimeoutForwardingRule
-RealmConfig::callTimeoutForwardingRule() const
+RealmOptions::callTimeoutForwardingRule() const
 {
     return callTimeoutForwardingRule_;
 }
 
-CPPWAMP_INLINE bool RealmConfig::metaApiEnabled() const
+CPPWAMP_INLINE bool RealmOptions::metaApiEnabled() const
 {
     return metaApiEnabled_;
 }
 
-CPPWAMP_INLINE bool RealmConfig::metaProcedureRegistrationAllowed() const
+CPPWAMP_INLINE bool RealmOptions::metaProcedureRegistrationAllowed() const
 {
     return metaProcedureRegistrationAllowed_;
 }
 
-CPPWAMP_INLINE bool RealmConfig::metaTopicPublicationAllowed() const
+CPPWAMP_INLINE bool RealmOptions::metaTopicPublicationAllowed() const
 {
     return metaTopicPublicationAllowed_;
 }
 
 
 //******************************************************************************
-// ServerConfig
+// ServerOptions
 //******************************************************************************
 
-CPPWAMP_INLINE ServerConfig&
-ServerConfig::withAuthenticator(Authenticator::Ptr a)
+CPPWAMP_INLINE ServerOptions&
+ServerOptions::withAuthenticator(Authenticator::Ptr a)
 {
     authenticator_ = std::move(a);
     return *this;
 }
 
-CPPWAMP_INLINE const String& ServerConfig::name() const {return name_;}
+CPPWAMP_INLINE const String& ServerOptions::name() const {return name_;}
 
-CPPWAMP_INLINE Authenticator::Ptr ServerConfig::authenticator() const
+CPPWAMP_INLINE Authenticator::Ptr ServerOptions::authenticator() const
 {
     return authenticator_;
 }
 
-CPPWAMP_INLINE Listening::Ptr ServerConfig::makeListener(IoStrand s) const
+CPPWAMP_INLINE Listening::Ptr ServerOptions::makeListener(IoStrand s) const
 {
     std::set<int> codecIds;
     for (const auto& c: codecBuilders_)
@@ -132,7 +132,7 @@ CPPWAMP_INLINE Listening::Ptr ServerConfig::makeListener(IoStrand s) const
     return listenerBuilder_(std::move(s), std::move(codecIds));
 }
 
-CPPWAMP_INLINE AnyBufferCodec ServerConfig::makeCodec(int codecId) const
+CPPWAMP_INLINE AnyBufferCodec ServerOptions::makeCodec(int codecId) const
 {
     for (const auto& c: codecBuilders_)
         if (c.id() == codecId)
@@ -143,66 +143,68 @@ CPPWAMP_INLINE AnyBufferCodec ServerConfig::makeCodec(int codecId) const
 
 
 //******************************************************************************
-// RouterConfig
+// RouterOptions
 //******************************************************************************
 
-CPPWAMP_INLINE RouterConfig& RouterConfig::withLogHandler(LogHandler f)
+CPPWAMP_INLINE RouterOptions& RouterOptions::withLogHandler(LogHandler f)
 {
     logHandler_ = std::move(f);
     return *this;
 }
 
-CPPWAMP_INLINE RouterConfig& RouterConfig::withLogLevel(LogLevel level)
+CPPWAMP_INLINE RouterOptions& RouterOptions::withLogLevel(LogLevel level)
 {
     logLevel_ = level;
     return *this;
 }
 
-CPPWAMP_INLINE RouterConfig&
-RouterConfig::withAccessLogHandler(AccessLogHandler f)
+CPPWAMP_INLINE RouterOptions&
+RouterOptions::withAccessLogHandler(AccessLogHandler f)
 {
     accessLogHandler_ = std::move(f);
     return *this;
 }
 
-CPPWAMP_INLINE RouterConfig& RouterConfig::withUriValidator(UriValidator::Ptr v)
+CPPWAMP_INLINE RouterOptions&
+RouterOptions::withUriValidator(UriValidator::Ptr v)
 {
     uriValidator_ = std::move(v);
     return *this;
 }
 
-CPPWAMP_INLINE RouterConfig&
-RouterConfig::withRngFactory(RandomNumberGeneratorFactory f)
+CPPWAMP_INLINE RouterOptions&
+RouterOptions::withRngFactory(RandomNumberGeneratorFactory f)
 {
     rngFactory_ = std::move(f);
     return *this;
 }
 
-CPPWAMP_INLINE const RouterConfig::LogHandler& RouterConfig::logHandler() const
+CPPWAMP_INLINE const RouterOptions::LogHandler&
+RouterOptions::logHandler() const
 {
     return logHandler_;
 }
 
-CPPWAMP_INLINE LogLevel RouterConfig::logLevel() const {return logLevel_;}
+CPPWAMP_INLINE LogLevel RouterOptions::logLevel() const {return logLevel_;}
 
-CPPWAMP_INLINE const RouterConfig::AccessLogHandler&
-RouterConfig::accessLogHandler() const
+CPPWAMP_INLINE const RouterOptions::AccessLogHandler&
+RouterOptions::accessLogHandler() const
 {
     return accessLogHandler_;
 }
 
-CPPWAMP_INLINE UriValidator::Ptr RouterConfig::uriValidator() const
+CPPWAMP_INLINE UriValidator::Ptr RouterOptions::uriValidator() const
 {
     return uriValidator_;
 }
 
 CPPWAMP_INLINE const RandomNumberGeneratorFactory&
-RouterConfig::rngFactory() const
+RouterOptions::rngFactory() const
 {
     return rngFactory_;
 }
 
-CPPWAMP_INLINE void RouterConfig::initialize(internal::PassKey)
+CPPWAMP_INLINE void RouterOptions::initialize(internal::PassKey)
 {
     if (!uriValidator_)
         uriValidator_ = RelaxedUriValidator::create();

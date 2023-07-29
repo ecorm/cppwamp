@@ -154,7 +154,6 @@ public:
 
     void encode(const Variant& v, Sink sink)
     {
-        // TODO: Typed arrays
         const Variant* variant = &v;
         encoder_.reset(sink.output());
         stack_.clear();

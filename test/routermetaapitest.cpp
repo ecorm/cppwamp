@@ -122,12 +122,12 @@ void checkRegisterMetaProcedure(bool metaApiEnabled,
     router.setLogLevel(LogLevel::error);
 
     const String realmUri{"cppwamp.test-meta-procedure-registration"};
-    auto config =
-        RealmConfig{realmUri}
+    auto options =
+        RealmOptions{realmUri}
             .withMetaApiEnabled(metaApiEnabled)
             .withMetaProcedureRegistrationAllowed(
                 metaProcedureRegistrationAllowed);
-    test::ScopedRealm realm{router.openRealm(config).value()};
+    test::ScopedRealm realm{router.openRealm(options).value()};
 
     doCheckRegisterMetaProcedure(realmUri, expectedForKnown,
                                  expectedForUnknown);
@@ -205,9 +205,9 @@ void checkPublishMetaTopic(bool allowed, WampErrc expected)
     router.setLogLevel(LogLevel::error);
 
     const String realmUri{"cppwamp.test-meta-topic-publication"};
-    auto config =
-        RealmConfig{realmUri}.withMetaTopicPublicationAllowed(allowed);
-    test::ScopedRealm realm{router.openRealm(config).value()};
+    auto options =
+        RealmOptions{realmUri}.withMetaTopicPublicationAllowed(allowed);
+    test::ScopedRealm realm{router.openRealm(options).value()};
 
     doCheckPublishMetaTopic(realmUri, expected);
     realm->close();

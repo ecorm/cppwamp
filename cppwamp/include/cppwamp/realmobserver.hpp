@@ -124,8 +124,6 @@ class CPPWAMP_API RealmObserver
     : public std::enable_shared_from_this<RealmObserver>
 {
 public:
-    // TODO: Bit mask for events of interest
-
     using Ptr = std::shared_ptr<RealmObserver>;
     using WeakPtr = std::weak_ptr<RealmObserver>;
 

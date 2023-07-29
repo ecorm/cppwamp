@@ -23,7 +23,7 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-struct DefaultRawsockServerConfig
+struct DefaultRawsockServerOptions
 {
     template <typename TSocket, typename TTraits>
     using TransportType = RawsockTransport<TSocket, TTraits>;
@@ -38,7 +38,7 @@ struct DefaultRawsockServerConfig
 };
 
 //------------------------------------------------------------------------------
-template <typename TAcceptor, typename TConfig = DefaultRawsockServerConfig>
+template <typename TAcceptor, typename TConfig = DefaultRawsockServerOptions>
 class RawsockListener
     : public std::enable_shared_from_this<RawsockListener<TAcceptor, TConfig>>
 {

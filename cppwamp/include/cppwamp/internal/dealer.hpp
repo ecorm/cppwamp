@@ -19,7 +19,7 @@
 #include "../errorcodes.hpp"
 #include "../errorinfo.hpp"
 #include "../erroror.hpp"
-#include "../routerconfig.hpp"
+#include "../routeroptions.hpp"
 #include "../rpcinfo.hpp"
 #include "../uri.hpp"
 #include "../utils/triemap.hpp"
@@ -621,12 +621,12 @@ class DealerImpl
 {
 public:
     DealerImpl(IoStrand strand, MetaProcedures::Ptr metaProcedures,
-               MetaTopics::Ptr metaTopics, const RealmConfig& cfg)
+               MetaTopics::Ptr metaTopics, const RealmOptions& opts)
         : jobs_(std::move(strand)),
           metaProcedures_(std::move(metaProcedures)),
           metaTopics_(std::move(metaTopics)),
-          authorizer_(cfg.authorizer()),
-          callTimeoutForwardingRule_(cfg.callTimeoutForwardingRule())
+          authorizer_(opts.authorizer()),
+          callTimeoutForwardingRule_(opts.callTimeoutForwardingRule())
     {}
 
     bool metaProceduresAreEnabled() const
@@ -917,14 +917,15 @@ public:
 
     Dealer(AnyIoExecutor executor, SharedStrand strand,
            MetaProcedures::Ptr metaProcedures, MetaTopics::Ptr metaTopics,
-           UriValidator::Ptr uriValidator, const RealmConfig& cfg)
-        : impl_(*strand, std::move(metaProcedures), std::move(metaTopics), cfg),
+           UriValidator::Ptr uriValidator, const RealmOptions& opts)
+        : impl_(*strand, std::move(metaProcedures), std::move(metaTopics),
+                opts),
           executor_(std::move(executor)),
           strand_(std::move(strand)),
           uriValidator_(std::move(uriValidator)),
-          callerDisclosure_(cfg.callerDisclosure()),
+          callerDisclosure_(opts.callerDisclosure()),
           metaProcedureRegistrationAllowed_(
-              cfg.metaProcedureRegistrationAllowed())
+              opts.metaProcedureRegistrationAllowed())
     {}
 
     void enroll(RouterSession::Ptr callee, Procedure&& procedure)

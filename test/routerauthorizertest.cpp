@@ -177,10 +177,10 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
     auto auth = std::make_shared<TestAuthorizer>();
     auto postingAuth = PostingAuthorizer::create(auth, ioctx.get_executor());
     auto config =
-        RealmConfig{testRealm}.withMetaApiEnabled()
-                              .withAuthorizer(postingAuth)
-                              .withCallerDisclosure(Disclosure::reveal)
-                              .withPublisherDisclosure(Disclosure::conceal);
+        RealmOptions{testRealm}.withMetaApiEnabled()
+                               .withAuthorizer(postingAuth)
+                               .withCallerDisclosure(Disclosure::reveal)
+                               .withPublisherDisclosure(Disclosure::conceal);
     test::ScopedRealm realm{router.openRealm(config).value()};
 
     Event event;
@@ -544,12 +544,12 @@ TEST_CASE( "Router caching dynamic authorizer", "[WAMP][Router]" )
     auto auth = std::make_shared<TestAuthorizer>();
     auto postingAuth = PostingAuthorizer::create(auth, ioctx.get_executor());
     auto cachingAuth = CachingAuthorizer::create(postingAuth, 1000);
-    auto config =
-        RealmConfig{testRealm}.withMetaApiEnabled()
-                              .withAuthorizer(cachingAuth)
-                              .withCallerDisclosure(Disclosure::reveal)
-                              .withPublisherDisclosure(Disclosure::conceal);
-    test::ScopedRealm realm{router.openRealm(config).value()};
+    auto options =
+        RealmOptions{testRealm}.withMetaApiEnabled()
+                               .withAuthorizer(cachingAuth)
+                               .withCallerDisclosure(Disclosure::reveal)
+                               .withPublisherDisclosure(Disclosure::conceal);
+    test::ScopedRealm realm{router.openRealm(options).value()};
 
     Event event;
     auto onEvent = [&event](Event e) {event = std::move(e);};

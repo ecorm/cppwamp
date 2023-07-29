@@ -209,7 +209,7 @@ struct FakeTransportClientConfig : internal::DefaultRawsockClientConfig
 };
 
 //------------------------------------------------------------------------------
-struct FakeTransportServerConfig : internal::DefaultRawsockServerConfig
+struct FakeTransportServerOptions : internal::DefaultRawsockServerOptions
 {
     template <typename, typename>
     using TransportType = BadMsgTypeTransport;
@@ -1193,7 +1193,7 @@ GIVEN ( "A mock server that sends an invalid message type" )
     IoStrand strand{ioctx.get_executor()};
 
     using MockListener = internal::RawsockListener<internal::TcpAcceptor,
-                                                   FakeTransportServerConfig>;
+                                                   FakeTransportServerOptions>;
     auto lstn = MockListener::create(strand, tcpEndpoint, {jsonId});
     Transporting::Ptr server;
     lstn->establish(

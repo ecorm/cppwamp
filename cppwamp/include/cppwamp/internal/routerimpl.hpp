@@ -12,7 +12,7 @@
 #include <thread>
 #include <string>
 #include <utility>
-#include "../routerconfig.hpp"
+#include "../routeroptions.hpp"
 #include "random.hpp"
 #include "routercontext.hpp"
 #include "routerrealm.hpp"
@@ -33,7 +33,7 @@ public:
     using WeakPtr = std::shared_ptr<RouterImpl>;
     using Executor = AnyIoExecutor;
 
-    static Ptr create(Executor exec, RouterConfig config)
+    static Ptr create(Executor exec, RouterOptions config)
     {
         config.initialize({});
         return Ptr(new RouterImpl(std::move(exec), std::move(config)));
@@ -42,9 +42,9 @@ public:
     // NOLINTNEXTLINE(bugprone-exception-escape)
     ~RouterImpl() {close(WampErrc::systemShutdown);}
 
-    RouterRealm::Ptr addRealm(RealmConfig c)
+    RouterRealm::Ptr addRealm(RealmOptions opts)
     {
-        auto uri = c.uri();
+        auto uri = opts.uri();
         RouterRealm::Ptr realm;
 
         {
@@ -52,8 +52,8 @@ public:
             if (realms_.find(uri) == realms_.end())
             {
                 realm = std::make_shared<RouterRealm>(
-                    executor_, std::move(c), config_,
-                    RouterContext{shared_from_this()}, config_.rngFactory()());
+                    executor_, std::move(opts), options_,
+                    RouterContext{shared_from_this()}, options_.rngFactory()());
                 realms_.emplace(uri, realm);
             }
         }
@@ -102,7 +102,7 @@ public:
         return found->second;
     }
 
-    bool openServer(ServerConfig c)
+    bool openServer(ServerOptions c)
     {
         RouterServer::Ptr server;
         auto name = c.name();
@@ -201,19 +201,19 @@ private:
     using ServerMap = std::map<std::string, RouterServer::Ptr>;
     using RealmMap = std::map<Uri, RouterRealm::Ptr>;
 
-    RouterImpl(Executor e, RouterConfig c)
-        : config_(std::move(c)),
+    RouterImpl(Executor e, RouterOptions c)
+        : options_(std::move(c)),
           executor_(e),
           logger_(RouterLogger::create(std::move(e),
-                                       config_.logHandler(),
-                                       config_.logLevel(),
-                                       config_.accessLogHandler())),
+                                       options_.logHandler(),
+                                       options_.logLevel(),
+                                       options_.accessLogHandler())),
           nextDirectSessionIndex_(0)
     {
-        if (!config_.rngFactory())
-            config_.withRngFactory(internal::DefaultPRNGFactory{});
+        if (!options_.rngFactory())
+            options_.withRngFactory(internal::DefaultPRNGFactory{});
 
-        sessionIdPool_ = RandomIdPool::create(config_.rngFactory()());
+        sessionIdPool_ = RandomIdPool::create(options_.rngFactory()());
     }
 
     void inform(String msg)
@@ -235,7 +235,7 @@ private:
 
     RouterLogger::Ptr logger() const {return logger_;}
 
-    UriValidator::Ptr uriValidator() const {return config_.uriValidator();}
+    UriValidator::Ptr uriValidator() const {return options_.uriValidator();}
 
     ReservedId reserveSessionId()
     {
@@ -255,7 +255,7 @@ private:
 
     ServerMap servers_;
     RealmMap realms_;
-    RouterConfig config_;
+    RouterOptions options_;
     AnyIoExecutor executor_;
     std::mutex serversMutex_;
     mutable std::mutex realmsMutex_;

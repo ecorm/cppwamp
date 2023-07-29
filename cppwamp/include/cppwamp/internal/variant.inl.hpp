@@ -493,7 +493,6 @@ CPPWAMP_INLINE bool isScalar(const Variant& v)
 }
 
 //------------------------------------------------------------------------------
-// TODO: Return const String&
 CPPWAMP_INLINE Variant::String typeNameOf(const Variant& v)
 {
     return wamp::apply(internal::VariantTypeName(), v);

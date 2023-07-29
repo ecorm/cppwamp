@@ -16,7 +16,7 @@
 #include <utility>
 #include "../errorcodes.hpp"
 #include "../erroror.hpp"
-#include "../routerconfig.hpp"
+#include "../routeroptions.hpp"
 #include "../traits.hpp"
 #include "../uri.hpp"
 #include "../utils/triemap.hpp"
@@ -900,13 +900,13 @@ public:
 
     Broker(AnyIoExecutor exec, SharedStrand strand, RandomNumberGenerator64 prng,
            MetaTopics::Ptr metaTopics, UriValidator::Ptr uriValidator,
-           const RealmConfig& config)
-        : impl_(std::move(prng), std::move(metaTopics), config.authorizer()),
+           const RealmOptions& opts)
+        : impl_(std::move(prng), std::move(metaTopics), opts.authorizer()),
           executor_(std::move(exec)),
           strand_(std::move(strand)),
           uriValidator_(std::move(uriValidator)),
-          publisherDisclosure_(config.publisherDisclosure()),
-          metaTopicPublicationAllowed_(config.metaTopicPublicationAllowed())
+          publisherDisclosure_(opts.publisherDisclosure()),
+          metaTopicPublicationAllowed_(opts.metaTopicPublicationAllowed())
     {}
 
     void subscribe(const RouterSession::Ptr& subscriber, Topic&& topic)

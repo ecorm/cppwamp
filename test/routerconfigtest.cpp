@@ -19,7 +19,7 @@ using namespace wamp;
 namespace
 {
 
-const std::string testRealm = "cppwamp.test-config";
+const std::string testRealm = "cppwamp.test-options";
 const unsigned short testPort = 12345;
 const auto withTcp = TcpHost("localhost", testPort).withFormat(json);
 
@@ -61,10 +61,10 @@ void checkCallerDisclosure(
 {
     INFO(info);
 
-    auto config = RealmConfig{testRealm}.withCallerDisclosure(policy);
+    auto options = RealmOptions{testRealm}.withCallerDisclosure(policy);
 
     wamp::Router& router = test::RouterFixture::instance().router();
-    test::ScopedRealm realm{router.openRealm(config).value()};
+    test::ScopedRealm realm{router.openRealm(options).value()};
     Session s{ioctx};
     Invocation invocation;
     auto onInvocation = [&invocation](Invocation i)
@@ -163,10 +163,10 @@ void checkPublisherDisclosure(
 {
     INFO(info);
 
-    auto config = RealmConfig{testRealm}.withPublisherDisclosure(policy);
+    auto options = RealmOptions{testRealm}.withPublisherDisclosure(policy);
 
     wamp::Router& router = test::RouterFixture::instance().router();
-    test::ScopedRealm realm{router.openRealm(config).value()};
+    test::ScopedRealm realm{router.openRealm(options).value()};
     Session s{ioctx};
     Event event;
     auto onEvent = [&event](Event e) { event = std::move(e); };
@@ -203,7 +203,7 @@ void checkPublisherDisclosure(
 
 
 //------------------------------------------------------------------------------
-TEST_CASE( "Router call timeout forwarding config", "[WAMP][Router][Timeout]" )
+TEST_CASE( "Router call timeout forwarding options", "[WAMP][Router][Timeout]" )
 {
     if (!test::RouterFixture::enabled())
         return;
@@ -237,9 +237,9 @@ TEST_CASE( "Router call timeout forwarding config", "[WAMP][Router][Timeout]" )
                        bool expectedForwardedWhenAsked,
                        bool expectedForwardedWhenNotAsked)
     {
-        auto config = RealmConfig{testRealm}
+        auto options = RealmOptions{testRealm}
                           .withCallTimeoutForwardingRule(rule);
-        test::ScopedRealm realm{router.openRealm(config).value()};
+        test::ScopedRealm realm{router.openRealm(options).value()};
 
         spawn(ioctx, [&](YieldContext yield)
         {
@@ -298,7 +298,7 @@ TEST_CASE( "Router call timeout forwarding config", "[WAMP][Router][Timeout]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "Router disclosure config", "[WAMP][Router]" )
+TEST_CASE( "Router disclosure options", "[WAMP][Router]" )
 {
     if (!test::RouterFixture::enabled())
         return;
@@ -338,7 +338,7 @@ TEST_CASE( "Router disclosure config", "[WAMP][Router]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "Router meta API enable config", "[WAMP][Router]" )
+TEST_CASE( "Router meta API enable options", "[WAMP][Router]" )
 {
     if (!test::RouterFixture::enabled())
         return;
@@ -352,8 +352,8 @@ TEST_CASE( "Router meta API enable config", "[WAMP][Router]" )
 
     SECTION("Meta API disabled)")
     {
-        auto config = RealmConfig{testRealm}.withMetaApiEnabled(false);
-        test::ScopedRealm realm{router.openRealm(config).value()};
+        auto options = RealmOptions{testRealm}.withMetaApiEnabled(false);
+        test::ScopedRealm realm{router.openRealm(options).value()};
 
         spawn(ioctx, [&](YieldContext yield)
         {
@@ -369,8 +369,8 @@ TEST_CASE( "Router meta API enable config", "[WAMP][Router]" )
 
     SECTION("Meta API enabled)")
     {
-        auto config = RealmConfig{testRealm}.withMetaApiEnabled(true);
-        test::ScopedRealm realm{router.openRealm(config).value()};
+        auto options = RealmOptions{testRealm}.withMetaApiEnabled(true);
+        test::ScopedRealm realm{router.openRealm(options).value()};
 
         spawn(ioctx, [&](YieldContext yield)
         {

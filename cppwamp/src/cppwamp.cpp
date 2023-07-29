@@ -39,7 +39,7 @@
 #include <cppwamp/internal/realmobserver.inl.hpp>
 #include <cppwamp/internal/registration.inl.hpp>
 #include <cppwamp/internal/router.inl.hpp>
-#include <cppwamp/internal/routerconfig.inl.hpp>
+#include <cppwamp/internal/routeroptions.inl.hpp>
 #include <cppwamp/internal/rpcinfo.inl.hpp>
 #include <cppwamp/internal/session.inl.hpp>
 #include <cppwamp/internal/sessioninfo.inl.hpp>

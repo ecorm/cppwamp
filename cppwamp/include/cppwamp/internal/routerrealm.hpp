@@ -19,7 +19,7 @@
 #include <vector>
 #include "../anyhandler.hpp"
 #include "../realmobserver.hpp"
-#include "../routerconfig.hpp"
+#include "../routeroptions.hpp"
 #include "broker.hpp"
 #include "commandinfo.hpp"
 #include "metaapi.hpp"
@@ -47,30 +47,30 @@ public:
     using SessionPredicate = std::function<bool (const SessionInfo&)>;
     using SessionIdSet     = std::set<SessionId>;
 
-    RouterRealm(Executor e, RealmConfig&& c, const RouterConfig& rcfg,
+    RouterRealm(Executor e, RealmOptions&& o, const RouterOptions& ropts,
                 RouterContext&& rctx, RandomNumberGenerator64&& rng)
         : executor_(std::move(e)),
           strand_(std::make_shared<IoStrand>(
               boost::asio::make_strand(executor_))),
-          config_(std::move(c)),
-          logSuffix_(" (Realm " + config_.uri() + ")"),
+        options_(std::move(o)),
+        logSuffix_(" (Realm " + options_.uri() + ")"),
           router_(std::move(rctx)),
           metaTopics_(std::make_shared<MetaTopics>(this, executor_, strand_,
-                                                   config_.metaApiEnabled())),
+                                                   options_.metaApiEnabled())),
           metaProcedures_(
-              config_.metaApiEnabled() ?
+              options_.metaApiEnabled() ?
                   std::make_shared<RealmProcedures>(this) : nullptr),
           broker_(std::make_shared<Broker>(executor_, strand_, std::move(rng),
-                                           metaTopics_, rcfg.uriValidator(),
-                                           config_)),
+                                           metaTopics_, ropts.uriValidator(),
+                                           options_)),
           dealer_(std::make_shared<Dealer>(executor_, strand_, metaProcedures_,
-                                           metaTopics_, rcfg.uriValidator(),
-                                           config_)),
+                                           metaTopics_, ropts.uriValidator(),
+                                           options_)),
           logger_(router_.logger()),
           isOpen_(true)
     {
-        if (config_.authorizer())
-            config_.authorizer()->setIoExecutor(executor_);
+        if (options_.authorizer())
+            options_.authorizer()->setIoExecutor(executor_);
     }
 
     ~RouterRealm() override = default;
@@ -79,7 +79,7 @@ public:
 
     const IoStrand& strand() const {return *strand_;}
 
-    const std::string& uri() const {return config_.uri();}
+    const std::string& uri() const {return options_.uri();}
 
     bool isOpen() const {return isOpen_.load();}
 
@@ -333,8 +333,8 @@ private:
         metaTopics_->inhibitSession(sid);
         broker_->removeSubscriber(info);
         dealer_->removeSession(info);
-        if (config_.authorizer())
-            config_.authorizer()->uncacheSession(info);
+        if (options_.authorizer())
+            options_.authorizer()->uncacheSession(info);
         if (metaTopics_->enabled())
             metaTopics_->onLeave(info);
         metaTopics_->clearSessionInhibitions();
@@ -359,7 +359,7 @@ private:
             kv.second->abort(r);
         isOpen_.store(false);
         if (metaTopics_->enabled())
-            metaTopics_->onRealmClosed(config_.uri());
+            metaTopics_->onRealmClosed(options_.uri());
     }
 
     bool doKillSession(SessionId sid, Reason reason)
@@ -508,7 +508,7 @@ private:
     mutable std::mutex sessionQueryMutex_;
     AnyIoExecutor executor_;
     std::shared_ptr<IoStrand> strand_;
-    RealmConfig config_;
+    RealmOptions options_;
     SessionMap sessions_;
     std::string logSuffix_;
     RouterContext router_;

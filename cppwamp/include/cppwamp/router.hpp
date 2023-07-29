@@ -24,7 +24,7 @@
 #include "erroror.hpp"
 #include "logging.hpp"
 #include "realm.hpp"
-#include "routerconfig.hpp"
+#include "routeroptions.hpp"
 #include "internal/passkey.hpp"
 
 namespace wamp
@@ -52,12 +52,12 @@ public:
     static const Reason& shutdownReason();
 
     /** Constructor taking an executor. */
-    explicit Router(Executor exec, RouterConfig config = {});
+    explicit Router(Executor exec, RouterOptions options = {});
 
     /** Constructor taking an execution context. */
     template <typename E, CPPWAMP_NEEDS(isExecutionContext<E>()) = 0>
-    explicit Router(E& context, RouterConfig config = {})
-        : Router(context.get_executor(), std::move(config))
+    explicit Router(E& context, RouterOptions options = {})
+        : Router(context.get_executor(), std::move(options))
     {}
 
     /** Destructor. */
@@ -71,15 +71,15 @@ public:
     Router& operator=(Router&&) = default;
     /// @}
 
-    ErrorOr<Realm> openRealm(RealmConfig config);
+    ErrorOr<Realm> openRealm(RealmOptions options);
 
-    ErrorOr<Realm> openRealm(RealmConfig config, FallbackExecutor fe);
+    ErrorOr<Realm> openRealm(RealmOptions options, FallbackExecutor fe);
 
     ErrorOr<Realm> realm(const Uri& uri) const;
 
     ErrorOr<Realm> realm(const Uri& uri, FallbackExecutor fe) const;
 
-    bool openServer(ServerConfig config);
+    bool openServer(ServerOptions config);
 
     void closeServer(const std::string& name, Reason r = shutdownReason());
 

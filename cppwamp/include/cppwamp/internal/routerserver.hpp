@@ -12,7 +12,7 @@
 #include <memory>
 #include <string>
 #include <utility>
-#include "../routerconfig.hpp"
+#include "../routeroptions.hpp"
 #include "../authenticators/anonymousauthenticator.hpp"
 #include "challenger.hpp"
 #include "commandinfo.hpp"
@@ -130,7 +130,7 @@ public:
     using Index = uint64_t;
 
     ServerSession(AnyIoExecutor e, IoStrand i, Transporting::Ptr&& t,
-                  AnyBufferCodec&& c, ServerContext&& s, ServerConfig::Ptr sc,
+                  AnyBufferCodec&& c, ServerContext&& s, ServerOptions::Ptr sc,
                   Index sessionIndex)
         : Base(s.logger()),
         executor_(std::move(e)),
@@ -139,12 +139,12 @@ public:
         transport_(t),
         codec_(std::move(c)),
         server_(std::move(s)),
-        serverConfig_(std::move(sc)),
+        ServerOptions_(std::move(sc)),
         uriValidator_(server_.uriValidator())
     {
-        assert(serverConfig_ != nullptr);
+        assert(ServerOptions_ != nullptr);
         auto info = t->connectionInfo();
-        info.setServer({}, serverConfig_->name(), sessionIndex);
+        info.setServer({}, ServerOptions_->name(), sessionIndex);
         Base::connect(std::move(info));
         peer_->listen(this);
     }
@@ -234,7 +234,7 @@ private:
 
         authExchange_ = AuthExchange::create({}, std::move(hello),
                                              shared_from_this());
-        serverConfig_->authenticator()->authenticate(authExchange_, executor_);
+        ServerOptions_->authenticator()->authenticate(authExchange_, executor_);
     }
 
     void onPeerAbort(Reason&& r, bool) override
@@ -258,7 +258,7 @@ private:
         }
 
         authExchange_->setAuthentication({}, std::move(authentication));
-        serverConfig_->authenticator()->authenticate(authExchange_, executor_);
+        ServerOptions_->authenticator()->authenticate(authExchange_, executor_);
     }
 
     void onPeerGoodbye(Reason&& reason, bool wasShuttingDown) override
@@ -474,7 +474,7 @@ private:
     AnyBufferCodec codec_;
     ServerContext server_;
     RealmContext realm_;
-    ServerConfig::Ptr serverConfig_;
+    ServerOptions::Ptr ServerOptions_;
     AuthExchange::Ptr authExchange_;
     RequestIdChecker requestIdChecker_;
     UriValidator::Ptr uriValidator_;
@@ -488,7 +488,7 @@ public:
     using Ptr = std::shared_ptr<RouterServer>;
     using Executor = AnyIoExecutor;
 
-    static Ptr create(Executor e, ServerConfig c, RouterContext r)
+    static Ptr create(Executor e, ServerOptions c, RouterContext r)
     {
         return Ptr(new RouterServer(std::move(e), std::move(c), std::move(r)));
     }
@@ -512,15 +512,15 @@ public:
                                               std::move(r)});
     }
 
-    ServerConfig::Ptr config() const {return config_;}
+    ServerOptions::Ptr config() const {return config_;}
 
 private:
-    RouterServer(AnyIoExecutor e, ServerConfig&& c, RouterContext&& r)
+    RouterServer(AnyIoExecutor e, ServerOptions&& c, RouterContext&& r)
         : executor_(std::move(e)),
           strand_(boost::asio::make_strand(executor_)),
           logSuffix_(" [Server " + c.name() + ']'),
           router_(std::move(r)),
-          config_(std::make_shared<ServerConfig>(std::move(c))),
+          config_(std::make_shared<ServerOptions>(std::move(c))),
           logger_(router_.logger())
     {
         if (!config_->authenticator())
@@ -620,7 +620,7 @@ private:
     std::set<ServerSession::Ptr> sessions_;
     std::string logSuffix_;
     RouterContext router_;
-    ServerConfig::Ptr config_;
+    ServerOptions::Ptr config_;
     Listening::Ptr listener_;
     RouterLogger::Ptr logger_;
     ServerSession::Index nextSessionIndex_ = 0;

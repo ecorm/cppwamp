@@ -48,7 +48,7 @@ set(HEADERS
     include/cppwamp/realmobserver.hpp
     include/cppwamp/registration.hpp
     include/cppwamp/router.hpp
-    include/cppwamp/routerconfig.hpp
+    include/cppwamp/routeroptions.hpp
     include/cppwamp/rpcinfo.hpp
     include/cppwamp/session.hpp
     include/cppwamp/sessioninfo.hpp
@@ -180,7 +180,7 @@ set(INLINES
     include/cppwamp/internal/realmobserver.inl.hpp
     include/cppwamp/internal/registration.inl.hpp
     include/cppwamp/internal/router.inl.hpp
-    include/cppwamp/internal/routerconfig.inl.hpp
+    include/cppwamp/internal/routeroptions.inl.hpp
     include/cppwamp/internal/rpcinfo.inl.hpp
     include/cppwamp/internal/session.inl.hpp
     include/cppwamp/internal/sessioninfo.inl.hpp

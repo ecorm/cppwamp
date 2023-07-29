@@ -60,7 +60,7 @@ struct RouterFixture::Impl
 
     Impl()
         : logger_(wamp::utils::ColorConsoleLogger{true}),
-          router_(ioctx_, routerConfig(*this)),
+        router_(ioctx_, routerOptions(*this)),
           thread_([this](){run();})
     {
         logger_.set_executor(ioctx_.get_executor());
@@ -88,9 +88,9 @@ private:
     using AccessLogHandlerWithExecutor =
         wamp::AnyReusableHandler<void (wamp::AccessLogEntry)>;
 
-    static wamp::RouterConfig routerConfig(Impl& self)
+    static wamp::RouterOptions routerOptions(Impl& self)
     {
-        return wamp::RouterConfig()
+        return wamp::RouterOptions()
             .withLogHandler(self.logger_)
             .withLogLevel(wamp::LogLevel::info)
             .withAccessLogHandler(
@@ -100,35 +100,35 @@ private:
                 });
     }
 
-    static wamp::ServerConfig tcpConfig()
+    static wamp::ServerOptions tcpOptions()
     {
-        return wamp::ServerConfig("tcp12345", wamp::TcpEndpoint{12345},
+        return wamp::ServerOptions("tcp12345", wamp::TcpEndpoint{12345},
                                   wamp::json);
     }
 
-    static wamp::ServerConfig tcpTicketConfig()
+    static wamp::ServerOptions tcpTicketOptions()
     {
-        return wamp::ServerConfig("tcp23456", wamp::TcpEndpoint{23456},
+        return wamp::ServerOptions("tcp23456", wamp::TcpEndpoint{23456},
                                   wamp::json)
             .withAuthenticator(std::make_shared<TicketAuthenticator>());
     }
 
-    static wamp::ServerConfig udsConfig()
+    static wamp::ServerOptions udsOptions()
     {
-        return wamp::ServerConfig("uds", wamp::UdsPath{"./udstest"},
-                                  wamp::msgpack);
+        return wamp::ServerOptions("uds", wamp::UdsPath{"./udstest"},
+                                   wamp::msgpack);
     }
 
     void run()
     {
         try
         {
-            router_.openRealm(wamp::RealmConfig{"cppwamp.test"}
+            router_.openRealm(wamp::RealmOptions{"cppwamp.test"}
                                   .withMetaApiEnabled());
-            router_.openRealm(wamp::RealmConfig{"cppwamp.authtest"});
-            router_.openServer(tcpConfig());
-            router_.openServer(tcpTicketConfig());
-            router_.openServer(udsConfig());
+            router_.openRealm(wamp::RealmOptions{"cppwamp.authtest"});
+            router_.openServer(tcpOptions());
+            router_.openServer(tcpTicketOptions());
+            router_.openServer(udsOptions());
             ioctx_.run();
         }
         catch (const std::exception& e)
@@ -150,7 +150,7 @@ private:
     }
 
     wamp::IoContext ioctx_;
-    wamp::RouterConfig::LogHandler logger_;
+    wamp::RouterOptions::LogHandler logger_;
     wamp::Router router_;
     std::thread thread_;
     AccessLogHandlerWithExecutor accessLogHandler_;

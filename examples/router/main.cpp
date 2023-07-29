@@ -53,16 +53,16 @@ int main()
 
     auto authenticator = std::make_shared<TicketAuthenticator>();
 
-    auto config = wamp::RouterConfig()
+    auto options = wamp::RouterOptions()
         .withLogHandler(logger)
         .withLogLevel(wamp::LogLevel::debug)
         .withAccessLogHandler(wamp::AccessLogFilter(logger));
 
-    auto realmConfig = wamp::RealmConfig("cppwamp.examples");
+    auto realmOptions = wamp::RealmOptions("cppwamp.examples");
 
-    auto serverConfig =
-        wamp::ServerConfig("tcp12345", wamp::TcpEndpoint{12345},
-                           wamp::jsonWithMaxDepth(10))
+    auto serverOptions =
+        wamp::ServerOptions("tcp12345", wamp::TcpEndpoint{12345},
+                            wamp::jsonWithMaxDepth(10))
             .withAuthenticator(authenticator);
 
     auto echo = [](wamp::Invocation inv) -> wamp::Outcome
@@ -73,9 +73,9 @@ int main()
     logger({wamp::LogLevel::info, "CppWAMP Example Router launched"});
     wamp::IoContext ioctx;
 
-    wamp::Router router{ioctx, config};
-    router.openRealm(realmConfig);
-    router.openServer(serverConfig);
+    wamp::Router router{ioctx, options};
+    router.openRealm(realmOptions);
+    router.openServer(serverOptions);
 
     wamp::DirectSession session{ioctx};
     wamp::spawn(ioctx, [&](wamp::YieldContext yield)

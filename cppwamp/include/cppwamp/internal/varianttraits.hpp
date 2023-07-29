@@ -62,7 +62,6 @@ template <> struct FieldTypeForId<TypeId::object>  {using Type = ObjectType;};
 
 
 //------------------------------------------------------------------------------
-// TODO: Return const String&
 template <typename TField>
 struct FieldTraits
 {

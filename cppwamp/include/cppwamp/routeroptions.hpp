@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_ROUTERCONFIG_HPP
-#define CPPWAMP_ROUTERCONFIG_HPP
+#ifndef CPPWAMP_ROUTEROPTIONS_HPP
+#define CPPWAMP_ROUTEROPTIONS_HPP
 
 //------------------------------------------------------------------------------
 /** @file
@@ -26,8 +26,6 @@
 #include "uri.hpp"
 #include "internal/passkey.hpp"
 
-// TODO: Rename config -> options
-
 namespace wamp
 {
 
@@ -47,24 +45,24 @@ enum class CallTimeoutForwardingRule
 };
 
 //------------------------------------------------------------------------------
-class CPPWAMP_API RealmConfig
+class CPPWAMP_API RealmOptions
 {
 public:
-    RealmConfig(Uri uri); // NOLINT(google-explicit-constructor)
+    RealmOptions(Uri uri); // NOLINT(google-explicit-constructor)
 
-    RealmConfig& withAuthorizer(Authorizer::Ptr a);
+    RealmOptions& withAuthorizer(Authorizer::Ptr a);
 
-    RealmConfig& withCallTimeoutForwardingRule(CallTimeoutForwardingRule rule);
+    RealmOptions& withCallTimeoutForwardingRule(CallTimeoutForwardingRule rule);
 
-    RealmConfig& withCallerDisclosure(Disclosure d);
+    RealmOptions& withCallerDisclosure(Disclosure d);
 
-    RealmConfig& withPublisherDisclosure(Disclosure d);
+    RealmOptions& withPublisherDisclosure(Disclosure d);
 
-    RealmConfig& withMetaApiEnabled(bool enabled = true);
+    RealmOptions& withMetaApiEnabled(bool enabled = true);
 
-    RealmConfig& withMetaProcedureRegistrationAllowed(bool allowed = true);
+    RealmOptions& withMetaProcedureRegistrationAllowed(bool allowed = true);
 
-    RealmConfig& withMetaTopicPublicationAllowed(bool allowed = true);
+    RealmOptions& withMetaTopicPublicationAllowed(bool allowed = true);
 
     // TODO: Progressive calls quota
     // TODO: Pending call quota
@@ -100,21 +98,21 @@ private:
 namespace internal { class Challenger; } // Forward declaration
 
 //------------------------------------------------------------------------------
-class CPPWAMP_API ServerConfig
+class CPPWAMP_API ServerOptions
 {
 public:
     // TODO: IP filter
     // TODO: Authentication cooldown
-    using Ptr = std::shared_ptr<ServerConfig>;
+    using Ptr = std::shared_ptr<ServerOptions>;
 
     template <typename S, typename F, typename... Fs>
-    explicit ServerConfig(String name, S&& transportSettings, F&& format,
-                          Fs&&... extraFormats);
+    explicit ServerOptions(String name, S&& transportSettings, F&& format,
+                           Fs&&... extraFormats);
 
-    ServerConfig& withAuthenticator(Authenticator::Ptr a);
+    ServerOptions& withAuthenticator(Authenticator::Ptr a);
 
     template <typename F, typename E>
-    ServerConfig& withAuthenticator(F&& authenticator, E&& executor)
+    ServerOptions& withAuthenticator(F&& authenticator, E&& executor)
     {
         return withAuthenticator(std::forward<F>(authenticator),
                                  std::forward<E>(executor));
@@ -138,8 +136,8 @@ private:
 };
 
 template <typename S, typename F, typename... Fs>
-ServerConfig::ServerConfig(String name, S&& transportSettings, F&& format,
-                           Fs&&... extraFormats)
+ServerOptions::ServerOptions(String name, S&& transportSettings, F&& format,
+                             Fs&&... extraFormats)
     : name_(std::move(name)),
       listenerBuilder_(std::forward<S>(transportSettings)),
       codecBuilders_({BufferCodecBuilder{std::forward<F>(format)},
@@ -153,7 +151,7 @@ using RandomNumberGenerator64 = std::function<uint64_t ()>;
 using RandomNumberGeneratorFactory = std::function<RandomNumberGenerator64 ()>;
 
 //------------------------------------------------------------------------------
-class CPPWAMP_API RouterConfig
+class CPPWAMP_API RouterOptions
 {
 public:
     /// Type-erases a LogEntry handler and its associated executor.
@@ -162,15 +160,15 @@ public:
     /// Type-erases an AccessLogEntry handler and its associated executor.
     using AccessLogHandler = AnyReusableHandler<void (AccessLogEntry)>;
 
-    RouterConfig& withLogHandler(LogHandler f);
+    RouterOptions& withLogHandler(LogHandler f);
 
-    RouterConfig& withLogLevel(LogLevel level);
+    RouterOptions& withLogLevel(LogLevel level);
 
-    RouterConfig& withAccessLogHandler(AccessLogHandler f);
+    RouterOptions& withAccessLogHandler(AccessLogHandler f);
 
-    RouterConfig& withUriValidator(UriValidator::Ptr v);
+    RouterOptions& withUriValidator(UriValidator::Ptr v);
 
-    RouterConfig& withRngFactory(RandomNumberGeneratorFactory f);
+    RouterOptions& withRngFactory(RandomNumberGeneratorFactory f);
 
     const LogHandler& logHandler() const;
 
@@ -197,7 +195,7 @@ public:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/routerconfig.inl.hpp"
+#include "internal/routeroptions.inl.hpp"
 #endif
 
-#endif // CPPWAMP_ROUTERCONFIG_HPP
+#endif // CPPWAMP_ROUTEROPTIONS_HPP
