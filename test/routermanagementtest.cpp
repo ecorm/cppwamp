@@ -12,8 +12,8 @@
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
 #include <cppwamp/version.hpp>
+#include <cppwamp/transports/tcp.hpp>
 #include "routerfixture.hpp"
 
 using namespace wamp;

@@ -13,7 +13,7 @@
 #include <boost/asio/use_future.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
-#include <cppwamp/tcp.hpp>
+#include <cppwamp/transports/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/variant.hpp>
 

@@ -58,7 +58,7 @@ back chunks at fixed time intervals:
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
+#include <cppwamp/transports/tcp.hpp>
 
 int main()
 {
@@ -165,7 +165,7 @@ previous example:
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
+#include <cppwamp/transports/tcp.hpp>
 
 int main()
 {

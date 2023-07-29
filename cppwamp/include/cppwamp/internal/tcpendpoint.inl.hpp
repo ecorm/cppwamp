@@ -4,7 +4,7 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#include "../tcpendpoint.hpp"
+#include "../transports/tcpendpoint.hpp"
 #include <utility>
 #include "../api.hpp"
 

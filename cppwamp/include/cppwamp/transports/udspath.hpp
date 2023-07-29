@@ -14,9 +14,9 @@
 //------------------------------------------------------------------------------
 
 #include <string>
-#include "api.hpp"
-#include "connector.hpp"
-#include "rawsockoptions.hpp"
+#include "../api.hpp"
+#include "../connector.hpp"
+#include "../rawsockoptions.hpp"
 #include "udsprotocol.hpp"
 
 namespace wamp
@@ -88,7 +88,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/udspath.inl.hpp"
+#include "../internal/udspath.inl.hpp"
 #endif
 
 #endif // CPPWAMP_UDSPATH_HPP

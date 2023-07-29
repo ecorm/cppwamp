@@ -12,8 +12,8 @@
 #include <cppwamp/json.hpp>
 #include <cppwamp/msgpack.hpp>
 #include <cppwamp/router.hpp>
-#include <cppwamp/tcp.hpp>
-#include <cppwamp/uds.hpp>
+#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/uds.hpp>
 #include <cppwamp/utils/consolelogger.hpp>
 
 namespace test

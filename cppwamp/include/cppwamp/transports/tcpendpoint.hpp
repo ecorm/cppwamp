@@ -15,8 +15,8 @@
 
 #include <cstdint>
 #include <string>
-#include "api.hpp"
-#include "rawsockoptions.hpp"
+#include "../api.hpp"
+#include "../rawsockoptions.hpp"
 #include "tcpprotocol.hpp"
 
 namespace wamp
@@ -86,7 +86,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/tcpendpoint.inl.hpp"
+#include "../internal/tcpendpoint.inl.hpp"
 #endif
 
 #endif // CPPWAMP_TCPENDPOINT_HPP

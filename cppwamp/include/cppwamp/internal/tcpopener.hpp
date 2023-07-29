@@ -15,7 +15,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
-#include "../tcphost.hpp"
+#include "../transports/tcphost.hpp"
 #include "tcptraits.hpp"
 
 namespace wamp

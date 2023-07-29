@@ -54,7 +54,7 @@ Example:
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
+#include <cppwamp/transports/tcp.hpp>
 
 wamp::Outcome addToCart(wamp::Invocation inv)
 {
@@ -131,7 +131,7 @@ Example:
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
+#include <cppwamp/transports/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 
 float sum(float x, float y)
@@ -188,7 +188,7 @@ Example:
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
+#include <cppwamp/transports/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 
 Outcome sum(Invocation inv, float x, float y)
@@ -235,7 +235,7 @@ be used:
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
+#include <cppwamp/transports/tcp.hpp>
 
 int main()
 {
@@ -370,7 +370,7 @@ If successful, `call` emits a wamp::Result object via the completion handler.
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
+#include <cppwamp/transports/tcp.hpp>
 
 int main()
 {
@@ -418,7 +418,7 @@ via the `wamp::Rpc::captureError` option:
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
+#include <cppwamp/transports/tcp.hpp>
 
 int main()
 {
@@ -477,7 +477,7 @@ Example interruptible callee:
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
+#include <cppwamp/transports/tcp.hpp>
 
 int main()
 {
@@ -542,7 +542,7 @@ Example caller issuing a call cancellation via wamp::CallCancellationSlot:
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
+#include <cppwamp/transports/tcp.hpp>
 
 int main()
 {
@@ -589,7 +589,7 @@ Example caller issuing a call cancellation via a
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
+#include <cppwamp/transports/tcp.hpp>
 
 int main()
 {

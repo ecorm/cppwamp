@@ -14,9 +14,9 @@
 //------------------------------------------------------------------------------
 
 #include <string>
-#include "api.hpp"
-#include "connector.hpp"
-#include "rawsockoptions.hpp"
+#include "../api.hpp"
+#include "../connector.hpp"
+#include "../rawsockoptions.hpp"
 #include "tcpprotocol.hpp"
 
 namespace wamp
@@ -99,7 +99,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/tcphost.inl.hpp"
+#include "../internal/tcphost.inl.hpp"
 #endif
 
 #endif // CPPWAMP_TCPHOST_HPP

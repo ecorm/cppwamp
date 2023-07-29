@@ -17,11 +17,11 @@
 #include <cppwamp/msgpack.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
+#include <cppwamp/transports/tcp.hpp>
 
 #ifdef CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
-    #include <cppwamp/uds.hpp>
+    #include <cppwamp/transports/uds.hpp>
 #endif
 
 using namespace wamp;

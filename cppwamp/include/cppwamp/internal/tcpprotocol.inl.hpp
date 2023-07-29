@@ -4,7 +4,7 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#include "../tcpprotocol.hpp"
+#include "../transports/tcpprotocol.hpp"
 #include <boost/asio/socket_base.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ip/unicast.hpp>

@@ -4,38 +4,37 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_TCP_HPP
-#define CPPWAMP_TCP_HPP
+#ifndef CPPWAMP_UDS_HPP
+#define CPPWAMP_UDS_HPP
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains facilities for creating TCP transport connectors. */
+    @brief Contains facilities for creating Unix domain socket
+           transport connectors. */
 //------------------------------------------------------------------------------
 
 #include <memory>
-#include <set>
 #include <utility>
-#include "api.hpp"
-#include "asiodefs.hpp"
-#include "connector.hpp"
-#include "listener.hpp"
-#include "tcpendpoint.hpp"
-#include "tcphost.hpp"
+#include "../api.hpp"
+#include "../asiodefs.hpp"
+#include "../connector.hpp"
+#include "../listener.hpp"
+#include "udspath.hpp"
 
 namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** Connector specialization that establishes a client-side TCP transport.
+/** Connector specialization that establishes a Unix domain socket transport.
     Users do not need to use this class directly and should use
     ConnectionWish instead. */
 //------------------------------------------------------------------------------
 template <>
-class CPPWAMP_API Connector<Tcp> : public Connecting
+class CPPWAMP_API Connector<Uds> : public Connecting
 {
 public:
     /** Type containing the transport settings. */
-    using Settings = TcpHost;
+    using Settings = UdsPath;
 
     /** Constructor. */
     Connector(IoStrand i, Settings s, int codecId);
@@ -70,11 +69,11 @@ private:
     ConnectionWish instead. */
 //------------------------------------------------------------------------------
 template <>
-class CPPWAMP_API Listener<Tcp> : public Listening
+class CPPWAMP_API Listener<Uds> : public Listening
 {
 public:
     /** Type containing the transport settings. */
-    using Settings = TcpEndpoint;
+    using Settings = UdsPath;
 
     /** Collection type used for codec IDs. */
     using CodecIds = std::set<int>;
@@ -82,8 +81,14 @@ public:
     /** Constructor. */
     Listener(IoStrand i, Settings s, CodecIds codecIds);
 
+    /** Move constructor. */
+    Listener(Listener&&) noexcept;
+
     /** Destructor. */
     ~Listener() override;
+
+    /** Move assignment. */
+    Listener& operator=(Listener&&) noexcept;
 
     void establish(Handler&& handler) override;
 
@@ -92,9 +97,7 @@ public:
     /** @name Non-copyable and non-movable */
     /// @{
     Listener(const Listener&) = delete;
-    Listener(Listener&&) = delete;
     Listener& operator=(const Listener&) = delete;
-    Listener& operator=(Listener&&) = delete;
     /// @}
 
 private:
@@ -105,7 +108,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/tcp.inl.hpp"
+#include "../internal/uds.inl.hpp"
 #endif
 
-#endif // CPPWAMP_TCP_HPP
+#endif // CPPWAMP_UDS_HPP

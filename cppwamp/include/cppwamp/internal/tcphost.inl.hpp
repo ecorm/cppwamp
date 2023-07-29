@@ -4,7 +4,7 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#include "../tcphost.hpp"
+#include "../transports/tcphost.hpp"
 #include <utility>
 #include "../api.hpp"
 

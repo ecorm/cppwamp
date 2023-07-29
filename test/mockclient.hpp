@@ -12,8 +12,8 @@
 #include <vector>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/json.hpp>
-#include <cppwamp/tcp.hpp>
 #include <cppwamp/internal/message.hpp>
+#include <cppwamp/transports/tcp.hpp>
 
 namespace wamp
 {

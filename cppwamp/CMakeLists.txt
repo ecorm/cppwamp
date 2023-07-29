@@ -56,15 +56,8 @@ set(HEADERS
     include/cppwamp/streaming.hpp
     include/cppwamp/subscription.hpp
     include/cppwamp/tagtypes.hpp
-    include/cppwamp/tcp.hpp
-    include/cppwamp/tcpendpoint.hpp
-    include/cppwamp/tcphost.hpp
-    include/cppwamp/tcpprotocol.hpp
     include/cppwamp/traits.hpp
     include/cppwamp/transport.hpp
-    include/cppwamp/uds.hpp
-    include/cppwamp/udspath.hpp
-    include/cppwamp/udsprotocol.hpp
     include/cppwamp/unpacker.hpp
     include/cppwamp/uri.hpp
     include/cppwamp/variant.hpp
@@ -131,6 +124,13 @@ set(HEADERS
     include/cppwamp/internal/variantencoding.hpp
     include/cppwamp/internal/varianttraits.hpp
     include/cppwamp/internal/variantvisitors.hpp
+    include/cppwamp/transports/tcp.hpp
+    include/cppwamp/transports/tcpendpoint.hpp
+    include/cppwamp/transports/tcphost.hpp
+    include/cppwamp/transports/tcpprotocol.hpp
+    include/cppwamp/transports/uds.hpp
+    include/cppwamp/transports/udspath.hpp
+    include/cppwamp/transports/udsprotocol.hpp
     include/cppwamp/types/array.hpp
     include/cppwamp/types/boostoptional.hpp
     include/cppwamp/types/optional.hpp

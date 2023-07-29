@@ -14,7 +14,7 @@
 #include <boost/asio/local/stream_protocol.hpp>
 #include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
-#include "../udspath.hpp"
+#include "../transports/udspath.hpp"
 #include "udstraits.hpp"
 
 namespace wamp

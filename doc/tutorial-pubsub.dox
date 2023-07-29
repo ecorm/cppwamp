@@ -56,7 +56,7 @@ Example:
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
+#include <cppwamp/transports/tcp.hpp>
 
 // The event slot
 void onSensorSampled(Event event)
@@ -125,7 +125,7 @@ Example:
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
+#include <cppwamp/transports/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 
 // The event slot with static argument types
@@ -182,7 +182,7 @@ Example:
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
+#include <cppwamp/transports/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 
 // Event slot needing the Event object
@@ -232,7 +232,7 @@ be used:
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
+#include <cppwamp/transports/tcp.hpp>
 
 int main()
 {
@@ -311,7 +311,7 @@ publication for transmission.
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
+#include <cppwamp/transports/tcp.hpp>
 
 int main()
 {

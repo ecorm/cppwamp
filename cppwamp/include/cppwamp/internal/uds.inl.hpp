@@ -4,7 +4,7 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#include "../uds.hpp"
+#include "../transports/uds.hpp"
 #include "rawsockconnector.hpp"
 #include "rawsocklistener.hpp"
 #include "udsacceptor.hpp"

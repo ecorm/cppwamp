@@ -14,7 +14,7 @@
 #include <cppwamp/json.hpp>
 #include <cppwamp/router.hpp>
 #include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
+#include <cppwamp/transports/tcp.hpp>
 #include <cppwamp/utils/consolelogger.hpp>
 
 //------------------------------------------------------------------------------
