@@ -5,6 +5,7 @@
 ------------------------------------------------------------------------------*/
 
 #include "../router.hpp"
+#include <utility>
 #include "../api.hpp"
 #include "../errorcodes.hpp"
 #include "routerimpl.hpp"
@@ -78,6 +79,8 @@ CPPWAMP_INLINE void Router::setLogLevel(LogLevel level)
 {
     impl_->setLogLevel(level);
 }
+
+CPPWAMP_INLINE void Router::log(LogEntry entry) {impl_->log(std::move(entry));}
 
 CPPWAMP_INLINE const Router::Executor& Router::executor()
 {

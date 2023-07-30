@@ -65,6 +65,13 @@ CPPWAMP_INLINE void Realm::observe(RealmObserver::Ptr o)
     impl_->observe(std::move(o), fallbackExecutor_);
 }
 
+CPPWAMP_INLINE void Realm::log(LogEntry entry)
+{
+    if (!isAttached())
+        return;
+    impl_->log(std::move(entry));
+}
+
 CPPWAMP_INLINE std::size_t Realm::sessionCount() const
 {
     return impl_->sessionCount();

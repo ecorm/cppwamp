@@ -189,6 +189,8 @@ public:
 
     void setLogLevel(LogLevel level) {logger_->setLevel(level);}
 
+    void log(LogEntry entry) {logger_->log(std::move(entry));}
+
     const Executor& executor() const {return executor_;}
 
     RouterImpl(const RouterImpl&) = delete;
@@ -230,8 +232,6 @@ private:
     {
         logger_->log({LogLevel::error, std::move(msg), ec});
     }
-
-    void log(LogEntry&& e) {logger_->log(std::move(e));}
 
     RouterLogger::Ptr logger() const {return logger_;}
 

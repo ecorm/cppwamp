@@ -73,6 +73,8 @@ public:
 
     void observe(RealmObserver::Ptr o);
 
+    void log(LogEntry entry);
+
     std::size_t sessionCount() const;
 
     std::size_t forEachSession(const SessionPredicate& handler) const;

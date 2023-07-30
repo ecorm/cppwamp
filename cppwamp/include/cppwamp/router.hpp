@@ -89,6 +89,8 @@ public:
 
     void setLogLevel(LogLevel level);
 
+    void log(LogEntry entry);
+
     const Executor& executor();
 
 private:

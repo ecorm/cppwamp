@@ -125,6 +125,12 @@ public:
         safelyDispatch<Dispatched>(std::move(o), std::move(e));
     }
 
+    void log(LogEntry&& e)
+    {
+        e.append(logSuffix_);
+        logger_->log(std::move(e));
+    }
+
     std::size_t sessionCount() const
     {
         const std::lock_guard<std::mutex> guard{sessionQueryMutex_};
@@ -485,12 +491,6 @@ private:
     {
         originator->report(yielded.info(false));
         dealer_->yieldError(originator, std::move(yielded));
-    }
-
-    void log(LogEntry&& e)
-    {
-        e.append(logSuffix_);
-        logger_->log(std::move(e));
     }
 
     template <typename F, typename... Ts>
