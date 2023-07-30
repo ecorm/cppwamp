@@ -13,16 +13,18 @@
 namespace wamp
 {
 
-//******************************************************************************
-// Connector<Uds>
-//******************************************************************************
+namespace internal
+{
 
 //------------------------------------------------------------------------------
-struct Connector<Uds>::Impl
+// Making this a nested struct inside Connector<Uds> leads to bogus Doxygen
+// warnings.
+//------------------------------------------------------------------------------
+struct UdsConnectorImpl
 {
     using RawsockOpener = internal::RawsockConnector<internal::UdsOpener>;
 
-    Impl(IoStrand i, Settings s, int codecId)
+    UdsConnectorImpl(IoStrand i, UdsPath s, int codecId)
         : cnct(RawsockOpener::create(std::move(i), std::move(s), codecId))
     {}
 
@@ -30,8 +32,31 @@ struct Connector<Uds>::Impl
 };
 
 //------------------------------------------------------------------------------
+// Making this a nested struct inside Listener<Uds> leads to bogus Doxygen
+// warnings.
+//------------------------------------------------------------------------------
+struct UdsListenerImpl
+{
+    using RawsockListener = internal::RawsockListener<internal::UdsAcceptor>;
+
+    UdsListenerImpl(IoStrand i, UdsPath s, std::set<int> codecIds)
+        : lstn(RawsockListener::create(std::move(i), std::move(s),
+                                       std::move(codecIds)))
+    {}
+
+    RawsockListener::Ptr lstn;
+};
+
+} // namespace internal
+
+
+//******************************************************************************
+// Connector<Uds>
+//******************************************************************************
+
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE Connector<Uds>::Connector(IoStrand i, Settings s, int codecId)
-    : impl_(new Impl(std::move(i), std::move(s), codecId))
+    : impl_(new internal::UdsConnectorImpl(std::move(i), std::move(s), codecId))
 {}
 
 //------------------------------------------------------------------------------
@@ -53,23 +78,11 @@ CPPWAMP_INLINE void Connector<Uds>::cancel() {impl_->cnct->cancel();}
 // Listener<Uds>
 //******************************************************************************
 
-//------------------------------------------------------------------------------
-struct Listener<Uds>::Impl
-{
-    using RawsockListener = internal::RawsockListener<internal::UdsAcceptor>;
-
-    Impl(IoStrand i, Settings s, CodecIds codecIds)
-        : lstn(RawsockListener::create(std::move(i), std::move(s),
-                                       std::move(codecIds)))
-    {}
-
-    RawsockListener::Ptr lstn;
-};
-
 CPPWAMP_INLINE Listener<Uds>::Listener(IoStrand i, Settings s,
                                        std::set<int> codecIds)
     : Listening(s.label()),
-      impl_(new Impl(std::move(i), std::move(s), std::move(codecIds)))
+      impl_(new internal::UdsListenerImpl(std::move(i), std::move(s),
+                                          std::move(codecIds)))
 {}
 
 //------------------------------------------------------------------------------

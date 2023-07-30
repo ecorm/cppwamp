@@ -817,7 +817,9 @@ WARN_LOGFILE           =
 
 INPUT                  = cppwamp/include/cppwamp \
                          cppwamp/include/cppwamp/authenticators \
+                         cppwamp/include/cppwamp/codecs \
                          cppwamp/include/cppwamp/internal \
+                         cppwamp/include/cppwamp/transports \
                          cppwamp/include/cppwamp/types \
                          cppwamp/include/cppwamp/utils \
                          doc

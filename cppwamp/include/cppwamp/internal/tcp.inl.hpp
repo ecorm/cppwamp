@@ -13,16 +13,18 @@
 namespace wamp
 {
 
-//******************************************************************************
-// Connector<Tcp>
-//******************************************************************************
+namespace internal
+{
 
 //------------------------------------------------------------------------------
-struct Connector<Tcp>::Impl
+// Making this a nested struct inside Connector<Tcp> leads to bogus Doxygen
+// warnings.
+//------------------------------------------------------------------------------
+struct TcpConnectorImpl
 {
     using RawsockConnector = internal::RawsockConnector<internal::TcpOpener>;
 
-    Impl(IoStrand i, Settings s, int codecId)
+    TcpConnectorImpl(IoStrand i, TcpHost s, int codecId)
         : cnct(RawsockConnector::create(std::move(i), std::move(s), codecId))
     {}
 
@@ -30,8 +32,31 @@ struct Connector<Tcp>::Impl
 };
 
 //------------------------------------------------------------------------------
+// Making this a nested struct inside Listener<Tcp> leads to bogus Doxygen
+// warnings.
+//------------------------------------------------------------------------------
+struct TcpListenerImpl
+{
+    using RawsockListener = internal::RawsockListener<internal::TcpAcceptor>;
+
+    TcpListenerImpl(IoStrand i, TcpEndpoint s, std::set<int> codecIds)
+        : lstn(RawsockListener::create(std::move(i), std::move(s),
+                                       std::move(codecIds)))
+    {}
+
+    RawsockListener::Ptr lstn;
+};
+
+} // namespace internal
+
+
+//******************************************************************************
+// Connector<Tcp>
+//******************************************************************************
+
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE Connector<Tcp>::Connector(IoStrand i, Settings s, int codecId)
-    : impl_(new Impl(std::move(i), std::move(s), codecId))
+    : impl_(new internal::TcpConnectorImpl(std::move(i), std::move(s), codecId))
 {}
 
 //------------------------------------------------------------------------------
@@ -54,23 +79,11 @@ CPPWAMP_INLINE void Connector<Tcp>::cancel() {impl_->cnct->cancel();}
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-struct Listener<Tcp>::Impl
-{
-    using RawsockListener = internal::RawsockListener<internal::TcpAcceptor>;
-
-    Impl(IoStrand i, Settings s, CodecIds codecIds)
-        : lstn(RawsockListener::create(std::move(i), std::move(s),
-                                       std::move(codecIds)))
-    {}
-
-    RawsockListener::Ptr lstn;
-};
-
-//------------------------------------------------------------------------------
 CPPWAMP_INLINE Listener<Tcp>::Listener(IoStrand i, Settings s,
                                        std::set<int> codecIds)
     : Listening(s.label()),
-      impl_(new Impl(std::move(i), std::move(s), std::move(codecIds)))
+      impl_(new internal::TcpListenerImpl(std::move(i), std::move(s),
+                                          std::move(codecIds)))
 {}
 
 //------------------------------------------------------------------------------

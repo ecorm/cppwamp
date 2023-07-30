@@ -24,6 +24,13 @@
 namespace wamp
 {
 
+// Forward declatations
+namespace internal
+{
+struct UdsConnectorImpl;
+struct UdsListenerImpl;
+}
+
 //------------------------------------------------------------------------------
 /** Connector specialization that establishes a Unix domain socket transport.
     Users do not need to use this class directly and should use
@@ -59,8 +66,7 @@ public:
     /// @}
 
 private:
-    struct Impl;
-    std::unique_ptr<Impl> impl_;
+    std::unique_ptr<internal::UdsConnectorImpl> impl_;
 };
 
 //------------------------------------------------------------------------------
@@ -101,8 +107,7 @@ public:
     /// @}
 
 private:
-    struct Impl;
-    std::unique_ptr<Impl> impl_;
+    std::unique_ptr<internal::UdsListenerImpl> impl_;
 };
 
 } // namespace wamp
