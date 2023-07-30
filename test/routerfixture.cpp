@@ -108,14 +108,15 @@ private:
     static wamp::ServerOptions tcpOptions()
     {
         return wamp::ServerOptions("tcp12345", wamp::TcpEndpoint{12345},
-                                  wamp::json);
+                                   wamp::json);
     }
 
     static wamp::ServerOptions tcpTicketOptions()
     {
         return wamp::ServerOptions("tcp23456", wamp::TcpEndpoint{23456},
-                                  wamp::json)
-            .withAuthenticator(std::make_shared<TicketAuthenticator>());
+                                   wamp::json)
+            .withAuthenticator(std::make_shared<TicketAuthenticator>())
+            .withChallengeTimeout(std::chrono::milliseconds(50));
     }
 
     static wamp::ServerOptions udsOptions()

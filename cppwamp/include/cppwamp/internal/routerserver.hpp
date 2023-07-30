@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include "../routeroptions.hpp"
 #include "../authenticators/anonymousauthenticator.hpp"
@@ -20,6 +21,7 @@
 #include "networkpeer.hpp"
 #include "routercontext.hpp"
 #include "routersession.hpp"
+#include "timeoutscheduler.hpp"
 
 namespace wamp
 {
@@ -28,6 +30,9 @@ namespace internal
 {
 
 class RouterServer;
+class ServerSession;
+
+using ServerSessionIndex = uint64_t;
 
 //------------------------------------------------------------------------------
 class ServerContext : public RouterContext
@@ -35,6 +40,8 @@ class ServerContext : public RouterContext
 public:
     ServerContext(RouterContext r, const std::shared_ptr<RouterServer>& s);
     void removeSession(const std::shared_ptr<ServerSession>& s);
+    void armChallengeTimeout(ServerSessionIndex n);
+    void cancelChallengeTimeout(ServerSessionIndex n);
 
 private:
     using Base = RouterContext;
@@ -127,20 +134,21 @@ class ServerSession : public std::enable_shared_from_this<ServerSession>,
 public:
     using Ptr = std::shared_ptr<ServerSession>;
     using State = SessionState;
-    using Index = uint64_t;
+    using Index = ServerSessionIndex;
 
     ServerSession(AnyIoExecutor e, IoStrand i, Transporting::Ptr&& t,
                   AnyBufferCodec&& c, ServerContext&& s, ServerOptions::Ptr sc,
                   Index sessionIndex)
         : Base(s.logger()),
-        executor_(std::move(e)),
-        strand_(std::move(i)),
-        peer_(std::make_shared<NetworkPeer>(true)),
-        transport_(t),
-        codec_(std::move(c)),
-        server_(std::move(s)),
-        ServerOptions_(std::move(sc)),
-        uriValidator_(server_.uriValidator())
+          executor_(std::move(e)),
+          strand_(std::move(i)),
+          peer_(std::make_shared<NetworkPeer>(true)),
+          transport_(t),
+          codec_(std::move(c)),
+          server_(std::move(s)),
+          ServerOptions_(std::move(sc)),
+          uriValidator_(server_.uriValidator()),
+          index_(sessionIndex)
     {
         assert(ServerOptions_ != nullptr);
         auto info = t->connectionInfo();
@@ -151,11 +159,15 @@ public:
 
     ~ServerSession() override = default;
 
+    Index index() const {return index_;}
+
     void start()
     {
         auto self = shared_from_this();
         dispatch([this, self]() {startSession();});
     }
+
+    void onChallengeTimeout() {reject(Reason{WampErrc::timeout});}
 
     ServerSession(const ServerSession&) = delete;
     ServerSession(ServerSession&&) = delete;
@@ -257,6 +269,7 @@ private:
                                 withHint("Unexpected AUTHENTICATE message"));
         }
 
+        server_.cancelChallengeTimeout(index_);
         authExchange_->setAuthentication({}, std::move(authentication));
         ServerOptions_->authenticator()->authenticate(authExchange_, executor_);
     }
@@ -376,12 +389,12 @@ private:
 
     void challenge()
     {
-        // TODO: Challenge timeout
         if ((state() == State::authenticating) && (authExchange_ != nullptr))
         {
             auto c = authExchange_->challenge();
             report(c.info());
             peer_->send(std::move(c));
+            server_.armChallengeTimeout(index_);
         }
     }
 
@@ -467,6 +480,7 @@ private:
         dispatch(F{shared_from_this(), std::forward<Ts>(args)...});
     }
 
+    // TODO: Execute independently from server
     AnyIoExecutor executor_;
     IoStrand strand_;
     std::shared_ptr<NetworkPeer> peer_;
@@ -478,6 +492,7 @@ private:
     AuthExchange::Ptr authExchange_;
     RequestIdChecker requestIdChecker_;
     UriValidator::Ptr uriValidator_;
+    Index index_;
     bool alreadyStarted_ = false;
 };
 
@@ -512,26 +527,39 @@ public:
                                               std::move(r)});
     }
 
-    ServerOptions::Ptr config() const {return config_;}
+    ServerOptions::Ptr config() const {return options_;}
 
 private:
+    using SessionTimeoutScheduler = TimeoutScheduler<ServerSession::Index>;
+
     RouterServer(AnyIoExecutor e, ServerOptions&& c, RouterContext&& r)
         : executor_(std::move(e)),
           strand_(boost::asio::make_strand(executor_)),
+          challengeTimeouts_(SessionTimeoutScheduler::create(strand_)),
           logSuffix_(" [Server " + c.name() + ']'),
           router_(std::move(r)),
-          config_(std::make_shared<ServerOptions>(std::move(c))),
+        options_(std::make_shared<ServerOptions>(std::move(c))),
           logger_(router_.logger())
     {
-        if (!config_->authenticator())
-            config_->withAuthenticator(AnonymousAuthenticator::create());
+        if (!options_->authenticator())
+            options_->withAuthenticator(AnonymousAuthenticator::create());
     }
 
     void startListening()
     {
         assert(!listener_);
-        listener_ = config_->makeListener(strand_);
+        listener_ = options_->makeListener(strand_);
         inform("Starting server listening on " + listener_->where());
+
+        std::weak_ptr<RouterServer> self{shared_from_this()};
+        challengeTimeouts_->listen(
+            [self](ServerSession::Index n)
+            {
+                auto me = self.lock();
+                if (me)
+                    me->onChallengeTimeout(n);
+            });
+
         listen();
     }
 
@@ -543,12 +571,14 @@ private:
             msg += " " + toString(r.options());
         inform(std::move(msg));
 
+        challengeTimeouts_->unlisten();
+
         if (!listener_)
             return;
         listener_->cancel();
         listener_.reset();
-        for (const auto& s: sessions_)
-            s->abort(r);
+        for (const auto& kv: sessions_)
+            kv.second->abort(r);
     }
 
     void listen()
@@ -578,23 +608,44 @@ private:
 
     void onEstablished(Transporting::Ptr transport)
     {
-        auto codec = config_->makeCodec(transport->info().codecId);
+        auto codec = options_->makeCodec(transport->info().codecId);
         auto self = std::static_pointer_cast<RouterServer>(shared_from_this());
         ServerContext ctx{router_, self};
         if (++nextSessionIndex_ == 0u)
             nextSessionIndex_ = 1u;
+        auto index = nextSessionIndex_;
         auto s = std::make_shared<ServerSession>(
             executor_, boost::asio::make_strand(executor_),
             std::move(transport), std::move(codec), std::move(ctx),
-            config_, nextSessionIndex_);
-        sessions_.insert(s);
+            options_, index);
+        sessions_.emplace(index, s);
         s->start();
         listen();
     }
 
+    void onChallengeTimeout(ServerSession::Index n)
+    {
+        auto found = sessions_.find(n);
+        if (found == sessions_.end())
+            return;
+        found->second->onChallengeTimeout();
+    }
+
     void removeSession(const ServerSession::Ptr& s)
     {
-        sessions_.erase(s);
+        sessions_.erase(s->index());
+    }
+
+    void armChallengeTimeout(ServerSessionIndex n)
+    {
+        auto timeout = options_->challengeTimeout();
+        if (timeout.count() != 0)
+            challengeTimeouts_->insert(n, timeout);
+    }
+
+    void cancelChallengeTimeout(ServerSessionIndex n)
+    {
+        challengeTimeouts_->erase(n);
     }
 
     void log(LogEntry&& e)
@@ -617,10 +668,11 @@ private:
 
     AnyIoExecutor executor_;
     IoStrand strand_;
-    std::set<ServerSession::Ptr> sessions_;
+    std::unordered_map<ServerSession::Index, ServerSession::Ptr> sessions_;
+    SessionTimeoutScheduler::Ptr challengeTimeouts_;
     std::string logSuffix_;
     RouterContext router_;
-    ServerOptions::Ptr config_;
+    ServerOptions::Ptr options_;
     Listening::Ptr listener_;
     RouterLogger::Ptr logger_;
     ServerSession::Index nextSessionIndex_ = 0;
@@ -639,12 +691,22 @@ inline ServerContext::ServerContext(RouterContext r,
       server_(s)
 {}
 
-inline void ServerContext::removeSession(
-    const std::shared_ptr<ServerSession>& s)
+inline void
+ServerContext::removeSession(const std::shared_ptr<ServerSession>& s)
 {
     auto server = server_.lock();
     if (server)
         server->removeSession(s);
+}
+
+inline void ServerContext::armChallengeTimeout(ServerSessionIndex n)
+{
+
+}
+
+inline void ServerContext::cancelChallengeTimeout(ServerSessionIndex n)
+{
+
 }
 
 } // namespace internal

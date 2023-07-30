@@ -104,6 +104,7 @@ public:
     // TODO: IP filter
     // TODO: Authentication cooldown
     using Ptr = std::shared_ptr<ServerOptions>;
+    using Timeout = std::chrono::steady_clock::duration;
 
     template <typename S, typename F, typename... Fs>
     explicit ServerOptions(String name, S&& transportSettings, F&& format,
@@ -118,9 +119,13 @@ public:
                                  std::forward<E>(executor));
     }
 
+    ServerOptions& withChallengeTimeout(Timeout timeout);
+
     const String& name() const;
 
     Authenticator::Ptr authenticator() const;
+
+    Timeout challengeTimeout() const;
 
 private:
     Listening::Ptr makeListener(IoStrand s) const;
@@ -131,6 +136,7 @@ private:
     ListenerBuilder listenerBuilder_;
     std::vector<BufferCodecBuilder> codecBuilders_;
     Authenticator::Ptr authenticator_;
+    Timeout challengeTimeout_;
 
     friend class internal::RouterServer;
 };

@@ -117,11 +117,23 @@ ServerOptions::withAuthenticator(Authenticator::Ptr a)
     return *this;
 }
 
+CPPWAMP_INLINE ServerOptions&
+ServerOptions::withChallengeTimeout(Timeout timeout)
+{
+    challengeTimeout_ = timeout;
+    return *this;
+}
+
 CPPWAMP_INLINE const String& ServerOptions::name() const {return name_;}
 
 CPPWAMP_INLINE Authenticator::Ptr ServerOptions::authenticator() const
 {
     return authenticator_;
+}
+
+CPPWAMP_INLINE ServerOptions::Timeout ServerOptions::challengeTimeout() const
+{
+    return challengeTimeout_;
 }
 
 CPPWAMP_INLINE Listening::Ptr ServerOptions::makeListener(IoStrand s) const

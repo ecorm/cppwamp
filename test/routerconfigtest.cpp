@@ -386,4 +386,26 @@ TEST_CASE( "Router meta API enable options", "[WAMP][Router]" )
     }
 }
 
+//------------------------------------------------------------------------------
+TEST_CASE( "Router challenge timeout option", "[WAMP][Router]" )
+{
+    if (!test::RouterFixture::enabled())
+        return;
+
+    IoContext ioctx;
+    Session s{ioctx};
+
+    spawn(ioctx, [&](YieldContext yield)
+    {
+        s.connect(TcpHost{"localhost", 23456}.withFormat(json), yield).value();
+        auto welcome = s.join(Petition{"cppwamp.authtest"},
+                              [](Challenge) {}, yield);
+        REQUIRE_FALSE(welcome.has_value());
+        CHECK(welcome.error() == WampErrc::authenticationDenied);
+        s.disconnect();
+    });
+    ioctx.run();
+    ioctx.restart();
+}
+
 #endif // defined(CPPWAMP_TEST_HAS_CORO)
