@@ -32,16 +32,16 @@ namespace internal
 class RouterServer;
 class ServerSession;
 
-using ServerSessionIndex = uint64_t;
+using ServerSessionKey = uint64_t;
 
 //------------------------------------------------------------------------------
 class ServerContext : public RouterContext
 {
 public:
     ServerContext(RouterContext r, const std::shared_ptr<RouterServer>& s);
-    void removeSession(const std::shared_ptr<ServerSession>& s);
-    void armChallengeTimeout(ServerSessionIndex n);
-    void cancelChallengeTimeout(ServerSessionIndex n);
+    void removeSession(ServerSessionKey key);
+    void armChallengeTimeout(ServerSessionKey key);
+    void cancelChallengeTimeout(ServerSessionKey key);
 
 private:
     using Base = RouterContext;
@@ -134,32 +134,31 @@ class ServerSession : public std::enable_shared_from_this<ServerSession>,
 public:
     using Ptr = std::shared_ptr<ServerSession>;
     using State = SessionState;
-    using Index = ServerSessionIndex;
+    using Key = ServerSessionKey;
 
-    ServerSession(AnyIoExecutor e, IoStrand i, Transporting::Ptr&& t,
-                  AnyBufferCodec&& c, ServerContext&& s, ServerOptions::Ptr sc,
-                  Index sessionIndex)
+    ServerSession(AnyIoExecutor e, Transporting::Ptr&& t, AnyBufferCodec&& c,
+                  ServerContext&& s, ServerOptions::Ptr sc, Key sessionKey)
         : Base(s.logger()),
           executor_(std::move(e)),
-          strand_(std::move(i)),
+          strand_(boost::asio::make_strand(executor_)),
           peer_(std::make_shared<NetworkPeer>(true)),
           transport_(t),
           codec_(std::move(c)),
           server_(std::move(s)),
           ServerOptions_(std::move(sc)),
           uriValidator_(server_.uriValidator()),
-          index_(sessionIndex)
+        key_(sessionKey)
     {
         assert(ServerOptions_ != nullptr);
         auto info = t->connectionInfo();
-        info.setServer({}, ServerOptions_->name(), sessionIndex);
+        info.setServer({}, ServerOptions_->name(), sessionKey);
         Base::connect(std::move(info));
         peer_->listen(this);
     }
 
     ~ServerSession() override = default;
 
-    Index index() const {return index_;}
+    Key index() const {return key_;}
 
     void start()
     {
@@ -167,7 +166,16 @@ public:
         dispatch([this, self]() {startSession();});
     }
 
-    void onChallengeTimeout() {reject(Reason{WampErrc::timeout});}
+    void onChallengeTimeout()
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            void operator()() {self->reject(Reason{WampErrc::timeout});}
+        };
+
+        safelyDispatch<Dispatched>();
+    }
 
     ServerSession(const ServerSession&) = delete;
     ServerSession(ServerSession&&) = delete;
@@ -269,7 +277,7 @@ private:
                                 withHint("Unexpected AUTHENTICATE message"));
         }
 
-        server_.cancelChallengeTimeout(index_);
+        server_.cancelChallengeTimeout(key_);
         authExchange_->setAuthentication({}, std::move(authentication));
         ServerOptions_->authenticator()->authenticate(authExchange_, executor_);
     }
@@ -371,20 +379,7 @@ private:
         // Removing session from server must be done after all cleanup
         // operations to avoid reference count prematurely reaching zero.
         auto self = shared_from_this();
-        post([self]() {self->server_.removeSession(self);});
-    }
-
-    template <typename F, typename... Ts>
-    void post(F&& handler, Ts&&... args)
-    {
-        postAny(strand_, std::forward<F>(handler), std::forward<Ts>(args)...);
-    }
-
-    template <typename F, typename... Ts>
-    void dispatch(F&& handler, Ts&&... args)
-    {
-        dispatchAny(strand_, std::forward<F>(handler),
-                    std::forward<Ts>(args)...);
+        post([self]() {self->server_.removeSession(self->key_);});
     }
 
     void challenge()
@@ -394,7 +389,7 @@ private:
             auto c = authExchange_->challenge();
             report(c.info());
             peer_->send(std::move(c));
-            server_.armChallengeTimeout(index_);
+            server_.armChallengeTimeout(key_);
         }
     }
 
@@ -476,12 +471,24 @@ private:
     }
 
     template <typename F, typename... Ts>
+    void post(F&& handler, Ts&&... args)
+    {
+        postAny(strand_, std::forward<F>(handler), std::forward<Ts>(args)...);
+    }
+
+    template <typename F, typename... Ts>
+    void dispatch(F&& handler, Ts&&... args)
+    {
+        dispatchAny(strand_, std::forward<F>(handler),
+                    std::forward<Ts>(args)...);
+    }
+
+    template <typename F, typename... Ts>
     void safelyDispatch(Ts&&... args)
     {
         dispatch(F{shared_from_this(), std::forward<Ts>(args)...});
     }
 
-    // TODO: Execute independently from server
     AnyIoExecutor executor_;
     IoStrand strand_;
     std::shared_ptr<NetworkPeer> peer_;
@@ -493,7 +500,7 @@ private:
     AuthExchange::Ptr authExchange_;
     RequestIdChecker requestIdChecker_;
     UriValidator::Ptr uriValidator_;
-    Index index_;
+    Key key_;
     bool alreadyStarted_ = false;
 };
 
@@ -531,7 +538,7 @@ public:
     ServerOptions::Ptr config() const {return options_;}
 
 private:
-    using SessionTimeoutScheduler = TimeoutScheduler<ServerSession::Index>;
+    using SessionTimeoutScheduler = TimeoutScheduler<ServerSession::Key>;
 
     RouterServer(AnyIoExecutor e, ServerOptions&& c, RouterContext&& r)
         : executor_(std::move(e)),
@@ -554,7 +561,7 @@ private:
 
         std::weak_ptr<RouterServer> self{shared_from_this()};
         challengeTimeouts_->listen(
-            [self](ServerSession::Index n)
+            [self](ServerSession::Key n)
             {
                 auto me = self.lock();
                 if (me)
@@ -616,37 +623,62 @@ private:
             nextSessionIndex_ = 1u;
         auto index = nextSessionIndex_;
         auto s = std::make_shared<ServerSession>(
-            executor_, boost::asio::make_strand(executor_),
-            std::move(transport), std::move(codec), std::move(ctx),
+            executor_, std::move(transport), std::move(codec), std::move(ctx),
             options_, index);
         sessions_.emplace(index, s);
         s->start();
         listen();
     }
 
-    void onChallengeTimeout(ServerSession::Index n)
+    void onChallengeTimeout(ServerSession::Key key)
     {
-        auto found = sessions_.find(n);
+        auto found = sessions_.find(key);
         if (found == sessions_.end())
             return;
         found->second->onChallengeTimeout();
     }
 
-    void removeSession(const ServerSession::Ptr& s)
+    void removeSession(ServerSession::Key key)
     {
-        sessions_.erase(s->index());
+        struct Dispatched
+        {
+            Ptr self;
+            ServerSessionKey key;
+            void operator()() const {self->sessions_.erase(key);}
+        };
+
+        safelyDispatch<Dispatched>(key);
     }
 
-    void armChallengeTimeout(ServerSessionIndex n)
+    void armChallengeTimeout(ServerSessionKey key)
     {
-        auto timeout = options_->challengeTimeout();
-        if (timeout.count() != 0)
-            challengeTimeouts_->insert(n, timeout);
+        struct Dispatched
+        {
+            Ptr self;
+            ServerSessionKey key;
+
+            void operator()() const
+            {
+                auto me = *self;
+                auto timeout = me.options_->challengeTimeout();
+                if (timeout.count() != 0)
+                    me.challengeTimeouts_->insert(key, timeout);
+            }
+        };
+
+        safelyDispatch<Dispatched>(key);
     }
 
-    void cancelChallengeTimeout(ServerSessionIndex n)
+    void cancelChallengeTimeout(ServerSessionKey key)
     {
-        challengeTimeouts_->erase(n);
+        struct Dispatched
+        {
+            Ptr self;
+            ServerSessionKey key;
+            void operator()() const {self->challengeTimeouts_->erase(key);}
+        };
+
+        safelyDispatch<Dispatched>(key);
     }
 
     void log(LogEntry&& e)
@@ -667,16 +699,23 @@ private:
         log({LogLevel::error, std::move(msg), ec});
     }
 
+    template <typename F, typename... Ts>
+    void safelyDispatch(Ts&&... args)
+    {
+        boost::asio::dispatch(
+            strand_, F{shared_from_this(), std::forward<Ts>(args)...});
+    }
+
     AnyIoExecutor executor_;
     IoStrand strand_;
-    std::unordered_map<ServerSession::Index, ServerSession::Ptr> sessions_;
+    std::unordered_map<ServerSession::Key, ServerSession::Ptr> sessions_;
     SessionTimeoutScheduler::Ptr challengeTimeouts_;
     std::string logSuffix_;
     RouterContext router_;
     ServerOptions::Ptr options_;
     Listening::Ptr listener_;
     RouterLogger::Ptr logger_;
-    ServerSession::Index nextSessionIndex_ = 0;
+    ServerSession::Key nextSessionIndex_ = 0;
 
     friend class ServerContext;
 };
@@ -693,25 +732,25 @@ inline ServerContext::ServerContext(RouterContext r,
 {}
 
 inline void
-ServerContext::removeSession(const std::shared_ptr<ServerSession>& s)
+ServerContext::removeSession(ServerSessionKey key)
 {
     auto server = server_.lock();
     if (server)
-        server->removeSession(s);
+        server->removeSession(key);
 }
 
-inline void ServerContext::armChallengeTimeout(ServerSessionIndex n)
+inline void ServerContext::armChallengeTimeout(ServerSessionKey key)
 {
     auto server = server_.lock();
     if (server)
-        server->armChallengeTimeout(n);
+        server->armChallengeTimeout(key);
 }
 
-inline void ServerContext::cancelChallengeTimeout(ServerSessionIndex n)
+inline void ServerContext::cancelChallengeTimeout(ServerSessionKey key)
 {
     auto server = server_.lock();
     if (server)
-        server->cancelChallengeTimeout(n);
+        server->cancelChallengeTimeout(key);
 }
 
 } // namespace internal
