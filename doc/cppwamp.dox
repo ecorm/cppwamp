@@ -40,6 +40,7 @@ For a **tutorial-style overview**, please consult the @ref Tutorial page.
 
 - @ref examples/chat/main.cpp
 - @ref examples/timeclient/main.cpp
+- @ref examples/timeclientauth/main.cpp
 - @ref examples/timeservice/main.cpp
 - @ref examples/streaming/main.cpp
 
