@@ -98,7 +98,8 @@ int main()
         auto ticketServerOptions =
             wamp::ServerOptions("tcp23456", wamp::TcpEndpoint{23456},
                                 wamp::jsonWithMaxDepth(10))
-                .withAuthenticator(ticketAuth);
+                .withAuthenticator(ticketAuth)
+                .withChallengeTimeout(std::chrono::milliseconds(1000));
 
         logger({wamp::LogLevel::info, "CppWAMP example router launched"});
         wamp::IoContext ioctx;

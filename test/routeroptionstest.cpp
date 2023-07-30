@@ -398,10 +398,12 @@ TEST_CASE( "Router challenge timeout option", "[WAMP][Router]" )
     spawn(ioctx, [&](YieldContext yield)
     {
         s.connect(TcpHost{"localhost", 23456}.withFormat(json), yield).value();
-        auto welcome = s.join(Petition{"cppwamp.authtest"},
-                              [](Challenge) {}, yield);
+        auto petition = Petition{"cppwamp.authtest"}
+                            .withAuthMethods({"ticket"})
+                            .withAuthId("alice");
+        auto welcome = s.join(petition, [](Challenge) {}, yield);
         REQUIRE_FALSE(welcome.has_value());
-        CHECK(welcome.error() == WampErrc::authenticationDenied);
+        CHECK(welcome.error() == WampErrc::timeout);
         s.disconnect();
     });
     ioctx.run();

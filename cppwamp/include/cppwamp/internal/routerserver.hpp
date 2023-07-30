@@ -459,6 +459,7 @@ private:
             return;
 
         close();
+        report({AccessAction::serverAbort, {}, r.options(), r.errorCode()});
         peer_->abort(std::move(r));
     }
 
@@ -701,12 +702,16 @@ ServerContext::removeSession(const std::shared_ptr<ServerSession>& s)
 
 inline void ServerContext::armChallengeTimeout(ServerSessionIndex n)
 {
-
+    auto server = server_.lock();
+    if (server)
+        server->armChallengeTimeout(n);
 }
 
 inline void ServerContext::cancelChallengeTimeout(ServerSessionIndex n)
 {
-
+    auto server = server_.lock();
+    if (server)
+        server->cancelChallengeTimeout(n);
 }
 
 } // namespace internal
