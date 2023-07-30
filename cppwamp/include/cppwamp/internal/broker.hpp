@@ -743,6 +743,11 @@ public:
             publisher->sendRouterCommand(Published{reqId, info.publicationId()},
                                          info.topicUri(), count);
         }
+        else
+        {
+            publisher->report({AccessAction::serverEvent, reqId,
+                               info.topicUri(), Object{{"count", count}}});
+        }
     }
 
     void publishMetaEvent(Pub&& pub, SessionId inhibitedSessionId)
