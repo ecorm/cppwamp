@@ -13,6 +13,7 @@
 #include <string>
 #include <system_error>
 #include <utility>
+#include "boost/asio/steady_timer.hpp"
 #include "../any.hpp"
 #include "../anyhandler.hpp"
 #include "../calleestreaming.hpp"
@@ -365,7 +366,8 @@ private:
           peer_(std::move(peer)),
           readership_(executor_),
           registry_(peer_.get(), executor_),
-          requestor_(peer_.get(), strand_, executor_)
+          requestor_(peer_.get(), strand_, executor_),
+          connectionTimer_(strand_)
     {
         peer_->listen(this);
     }
@@ -659,6 +661,7 @@ private:
                     return;
 
                 auto& me = *locked;
+                me.connectionTimer_.cancel();
                 if (me.isTerminating_)
                     return;
 
@@ -681,17 +684,30 @@ private:
             }
         };
 
-        currentConnector_ = wishes.at(index).makeConnector(strand_);
+        auto& wish = wishes.at(index);
+        currentConnector_ = wish.makeConnector(strand_);
         currentConnector_->establish(
             Established{shared_from_this(), std::move(wishes), index,
                         std::move(handler)});
+
+        if (wish.timeout().count() != 0)
+        {
+            auto self = shared_from_this();
+            connectionTimer_.expires_after(wish.timeout());
+            connectionTimer_.async_wait(
+                [self](boost::system::error_code ec)
+                {
+                    if (!ec && self->currentConnector_ != nullptr)
+                        self->currentConnector_->cancel();
+                });
+        }
     }
 
     void onConnectFailure(ConnectionWishList&& wishes, size_t index,
                           std::error_code ec,
                           std::shared_ptr<CompletionHandler<size_t>> handler)
     {
-        if (ec == TransportErrc::aborted)
+        if ((ec == TransportErrc::aborted) && state() != State::connecting)
         {
             completeNow(*handler, UnexpectedError(ec));
         }
@@ -707,6 +723,8 @@ private:
             {
                 if (wishes.size() > 1)
                     ec = make_error_code(TransportErrc::exhausted);
+                else if (ec == TransportErrc::aborted)
+                    ec = make_error_code(TransportErrc::timeout);
                 peer_->failConnecting();
                 completeNow(*handler, UnexpectedError(ec));
             }
@@ -813,10 +831,11 @@ private:
 
     void doDisconnect()
     {
-        if (state() == State::connecting)
+        auto oldState = state();
+        peer_->disconnect();
+        if (oldState == State::connecting)
             currentConnector_->cancel();
         clear();
-        peer_->disconnect();
     }
 
     void doTerminate()
@@ -1470,6 +1489,7 @@ private:
     Readership readership_;
     ProcedureRegistry registry_;
     Requestor requestor_;
+    boost::asio::steady_timer connectionTimer_;
     IncidentSlot incidentSlot_;
     ChallengeSlot challengeSlot_;
     Connecting::Ptr currentConnector_;

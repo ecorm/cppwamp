@@ -448,6 +448,7 @@ CPPWAMP_INLINE std::string TransportCategory::message(int ev) const
         /* success        */ "Transport operation successful",
         /* aborted        */ "Transport operation aborted",
         /* disconnected   */ "Transport disconnected by other peer",
+        /* timeout        */ "Connection establishment timed out",
         /* failed         */ "Transport operation failed",
         /* exhausted      */ "All transports failed during connection",
         /* tooLong        */ "Incoming message exceeds transport's length limit",

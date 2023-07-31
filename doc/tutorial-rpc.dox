@@ -501,7 +501,7 @@ int main()
             inv.convertTo(message, seconds);
             auto timer = std::make_shared<boost::asio::steady_timer>(ioctx);
             timers.emplace(inv.requestId(), timer);
-            timer->expires_from_now(std::chrono::seconds(seconds);
+            timer->expires_after(std::chrono::seconds(seconds);
             boost::system::error_code ec;
             timer->async_wait(yield[ec]);
             timers.erase(inv.requestId());

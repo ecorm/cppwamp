@@ -310,7 +310,7 @@ GIVEN( "a caller and a callee" )
                 yield).value();
 
             boost::asio::steady_timer timer(ioctx);
-            timer.expires_from_now(std::chrono::milliseconds(50));
+            timer.expires_after(std::chrono::milliseconds(50));
             timer.async_wait(
                 [&cancelSignal](boost::system::error_code)
                 {
@@ -577,7 +577,7 @@ GIVEN( "a caller and a callee" )
                         inv.convertTo(arg);
                         valuesByRequestId[inv.requestId()] = arg;
                         boost::asio::steady_timer timer(ioctx);
-                        timer.expires_from_now(std::chrono::milliseconds(150));
+                        timer.expires_after(std::chrono::milliseconds(150));
                         timer.async_wait(yield);
 
                         bool interrupted =
@@ -707,7 +707,7 @@ GIVEN( "a caller and a callee" )
                 {
                     // Simulate a streaming app that throttles
                     // the intermediary results at a fixed rate.
-                    timer.expires_from_now(std::chrono::milliseconds(25));
+                    timer.expires_after(std::chrono::milliseconds(25));
                     timer.async_wait(yield);
 
                     bool isFinal = (i == input.size() - 1);
@@ -896,7 +896,7 @@ GIVEN( "a caller and a callee" )
 
                 for (unsigned i=0; i<input.size(); ++i)
                 {
-                    timer.expires_from_now(std::chrono::milliseconds(25));
+                    timer.expires_after(std::chrono::milliseconds(25));
                     timer.async_wait(yield);
 
                     bool isFinal = (i == input.size() - 1);
@@ -997,14 +997,14 @@ GIVEN( "a caller and a callee" )
                 // Don't send the final chunk
                 for (unsigned i=0; i<input.size()-1; ++i)
                 {
-                    timer.expires_from_now(std::chrono::milliseconds(25));
+                    timer.expires_after(std::chrono::milliseconds(25));
                     timer.async_wait(yield);
                     channel.send(CalleeOutputChunk(false)
                                       .withArgs(input.at(i))).value();
                 }
 
                 boost::system::error_code ec;
-                timer.expires_from_now(std::chrono::seconds(3));
+                timer.expires_after(std::chrono::seconds(3));
                 timer.async_wait(yield[ec]);
                 if (!callerThrowArmed)
                     CHECK( interruptReceived );
@@ -1144,13 +1144,13 @@ GIVEN( "a caller and a callee" )
                 // Don't mark the last chunk as final
                 for (unsigned i=0; i<input.size(); ++i)
                 {
-                    timer.expires_from_now(std::chrono::milliseconds(25));
+                    timer.expires_after(std::chrono::milliseconds(25));
                     timer.async_wait(yield);
                     channel.send(CalleeOutputChunk()
                                      .withArgs(input.at(i))).value();
                 }
 
-                timer.expires_from_now(std::chrono::seconds(3));
+                timer.expires_after(std::chrono::seconds(3));
                 boost::system::error_code ec;
                 timer.async_wait(yield[ec]);
                 CHECK( interruptReceived );
@@ -1252,13 +1252,13 @@ GIVEN( "a caller and a callee" )
                 // Never send the last chunk
                 for (unsigned i=0; i<input.size()-1; ++i)
                 {
-                    timer.expires_from_now(std::chrono::milliseconds(25));
+                    timer.expires_after(std::chrono::milliseconds(25));
                     timer.async_wait(yield);
                     channel.send(CalleeOutputChunk()
                                      .withArgs(input.at(i))).value();
                 }
 
-                timer.expires_from_now(std::chrono::seconds(3));
+                timer.expires_after(std::chrono::seconds(3));
                 boost::system::error_code ec;
                 timer.async_wait(yield[ec]);
                 CHECK( interruptReceived );
@@ -1449,7 +1449,7 @@ GIVEN( "a caller and a callee" )
                 {
                     // Simulate a streaming app that throttles
                     // the intermediary results at a fixed rate.
-                    timer.expires_from_now(std::chrono::milliseconds(25));
+                    timer.expires_after(std::chrono::milliseconds(25));
                     timer.async_wait(yield);
 
                     bool isFinal = (i == input.size() - 1);
@@ -1588,7 +1588,7 @@ GIVEN( "a caller and a callee" )
                 {
                     // Simulate a streaming app that throttles
                     // the intermediary results at a fixed rate.
-                    timer.expires_from_now(std::chrono::milliseconds(25));
+                    timer.expires_after(std::chrono::milliseconds(25));
                     timer.async_wait(yield);
 
                     bool isFinal = (i == input.size() - 1);
@@ -1716,7 +1716,7 @@ GIVEN( "a caller and a callee" )
                 {
                     // Simulate a streaming app that throttles
                     // the intermediary results at a fixed rate.
-                    timer.expires_from_now(std::chrono::milliseconds(25));
+                    timer.expires_after(std::chrono::milliseconds(25));
                     timer.async_wait(yield);
 
                     bool isFinal = (i == input.size() - 1);
@@ -1851,7 +1851,7 @@ GIVEN( "a caller and a callee" )
                 {
                     // Simulate a streaming app that throttles
                     // the intermediary results at a fixed rate.
-                    timer.expires_from_now(std::chrono::milliseconds(25));
+                    timer.expires_after(std::chrono::milliseconds(25));
                     timer.async_wait(yield);
                    bool isFinal = (i == input.size() - 1);
                     channel.send(CallerOutputChunk(isFinal)

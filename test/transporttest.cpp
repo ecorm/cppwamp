@@ -169,6 +169,8 @@ struct UdsLoopbackFixture :
 //------------------------------------------------------------------------------
 struct CannedHandshakeConfig : internal::DefaultRawsockClientConfig
 {
+    static constexpr bool mockUnresponsiveness() {return false;}
+
     static uint32_t hostOrderHandshakeBytes(int, RawsockMaxLength)
     {
         return cannedHostBytes();

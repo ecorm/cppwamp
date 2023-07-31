@@ -255,15 +255,16 @@ enum class TransportErrc
     success        = 0,  ///< Transport operation successful
     aborted        = 1,  ///< Transport operation aborted
     disconnected   = 2,  ///< Transport disconnected by other peer
-    failed         = 3,  ///< Transport operation failed
-    exhausted      = 4,  ///< All transports failed during connection
-    tooLong        = 5,  ///< Incoming message exceeds transport's length limit
-    badHandshake   = 6,  ///< Received invalid handshake
-    badCommand     = 7,  ///< Received invalid transport command
-    badSerializer  = 8,  ///< Unsupported serialization format
-    badLengthLimit = 9,  ///< Unacceptable maximum message length
-    badFeature     = 10, ///< Unsupported transport feature
-    saturated      = 11, ///< Connection limit reached
+    timeout        = 3,  ///< Connection establishment timed out
+    failed         = 4,  ///< Transport operation failed
+    exhausted      = 5,  ///< All transports failed during connection
+    tooLong        = 6,  ///< Incoming message exceeds transport's length limit
+    badHandshake   = 7,  ///< Received invalid handshake
+    badCommand     = 8,  ///< Received invalid transport command
+    badSerializer  = 9,  ///< Unsupported serialization format
+    badLengthLimit = 10, ///< Unacceptable maximum message length
+    badFeature     = 11, ///< Unsupported transport feature
+    saturated      = 12, ///< Connection limit reached
     count
 };
 

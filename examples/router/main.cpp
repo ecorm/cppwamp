@@ -73,8 +73,6 @@ private:
 //------------------------------------------------------------------------------
 int main()
 {
-    std::cout << sizeof(wamp::internal::RouterSession) << std::endl;
-
     try
     {
         auto ticketAuth = std::make_shared<TicketAuthenticator>();

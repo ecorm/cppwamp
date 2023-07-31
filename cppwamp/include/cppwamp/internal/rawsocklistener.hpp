@@ -28,6 +28,8 @@ struct DefaultRawsockServerOptions
     template <typename TSocket, typename TTraits>
     using TransportType = RawsockTransport<TSocket, TTraits>;
 
+    static constexpr bool mockUnresponsiveness() {return false;}
+
     static uint32_t hostOrderHandshakeBytes(int codecId,
                                             RawsockMaxLength maxRxLength)
     {
@@ -132,7 +134,8 @@ private:
             maxTxLength_ = hs.maxLength();
             auto bytes = TConfig::hostOrderHandshakeBytes(peerCodec,
                                                           maxRxLength_);
-            sendHandshake(Handshake(bytes));
+            if (!TConfig::mockUnresponsiveness())
+                sendHandshake(Handshake(bytes));
         }
         else
         {

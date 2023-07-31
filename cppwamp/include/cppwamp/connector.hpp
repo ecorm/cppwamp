@@ -13,6 +13,7 @@
            a transport. */
 //------------------------------------------------------------------------------
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <system_error>
@@ -64,6 +65,7 @@ public:
 
 //------------------------------------------------------------------------------
 /** Builds a transport connector on demand when needed. */
+// TODO: Move this to internal namespace
 //------------------------------------------------------------------------------
 class CPPWAMP_API ConnectorBuilder
 {
@@ -115,6 +117,9 @@ private:
 class ConnectionWish
 {
 public:
+    /// Duration type used for timeouts.
+    using TimeoutDuration = std::chrono::steady_clock::duration;
+
     /** Constructor taking a @ref TransportSettings instance and a
         @ref CodecFormat instance. */
     template <typename TTransportSettings,
@@ -134,6 +139,16 @@ public:
           codecBuilder_(codecOptions)
     {}
 
+    /** Specifies the connection timeout duration. */
+    ConnectionWish& withTimeout(TimeoutDuration timeout)
+    {
+        timeout_ = timeout;
+        return *this;
+    }
+
+    /** Obtains the connection timeout duration. */
+    TimeoutDuration timeout() const {return timeout_;}
+
     /** Obtains the numeric codec ID of the desired serialization format. */
     int codecId() const {return codecBuilder_.id();}
 
@@ -152,6 +167,7 @@ public:
 private:
     ConnectorBuilder connectorBuilder_;
     BufferCodecBuilder codecBuilder_;
+    TimeoutDuration timeout_ = {};
 };
 
 //------------------------------------------------------------------------------
