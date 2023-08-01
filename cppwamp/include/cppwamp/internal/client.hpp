@@ -716,14 +716,29 @@ private:
                           std::error_code ec,
                           std::shared_ptr<CompletionHandler<size_t>> handler)
     {
-        // TODO: report intermediate connection failures as incidents
-        if ((ec == TransportErrc::aborted) && state() != State::connecting)
+        const bool abortedDueToTimeout =
+            ec == TransportErrc::aborted && state() == State::connecting;
+        if (abortedDueToTimeout)
+            ec = make_error_code(TransportErrc::timeout);
+
+        if (ec == TransportErrc::aborted)
         {
             completeNow(*handler, UnexpectedError(ec));
         }
         else
         {
             auto newIndex = index + 1;
+
+            // Report intermediate connection failures that cannot be
+            // otherwise reported via the API.
+            if (wishes.size() > 1)
+            {
+                report(
+                    {IncidentKind::trouble, ec,
+                     "Connection attempt #" + std::to_string(newIndex) +
+                         " failed"});
+            }
+
             if (newIndex < wishes.size())
             {
                 establishConnection(std::move(wishes), newIndex,
@@ -733,8 +748,6 @@ private:
             {
                 if (wishes.size() > 1)
                     ec = make_error_code(TransportErrc::exhausted);
-                else if (ec == TransportErrc::aborted)
-                    ec = make_error_code(TransportErrc::timeout);
                 peer_->failConnecting();
                 completeNow(*handler, UnexpectedError(ec));
             }

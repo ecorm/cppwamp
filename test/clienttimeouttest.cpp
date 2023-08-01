@@ -84,8 +84,12 @@ TEST_CASE("WAMP Client Connection Timeouts", "[WAMP][Basic]")
                     // Connect
                     CHECK( s.state() == SessionState::disconnected );
                     CHECK( s.connect(wishList, yield).value() == 1 );
-                    CHECK( incidents.empty() );
                     CHECK( s.state() == SS::closed );
+                    REQUIRE_FALSE( incidents.list.empty() );
+                    const auto& incident = incidents.list.back();
+                    CHECK(incident.kind() == IncidentKind::trouble);
+                    CHECK(incident.error() == TransportErrc::timeout);
+                    incidents.list.clear();
 
                     // Join
                     Welcome info = s.join(Petition(testRealm), yield).value();

@@ -392,9 +392,9 @@ enum class IncidentKind
 };
 
 //------------------------------------------------------------------------------
-/** Obtains a human-readable string for the given IncidentKind. */
+/** Obtains a description string for the given IncidentKind. */
 //------------------------------------------------------------------------------
-CPPWAMP_API const std::string& incidentKindLabel(IncidentKind k);
+CPPWAMP_API const std::string& incidentDescription(IncidentKind k);
 
 //------------------------------------------------------------------------------
 /** Contains information on a spontanous Session event. */

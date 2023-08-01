@@ -28,7 +28,7 @@ struct IncidentListener
 {
     void operator()(Incident i) {list.push_back(i);}
 
-    bool empty()
+    bool testIfEmptyThenClear()
     {
         bool isEmpty = list.empty();
         list.clear();
@@ -77,25 +77,25 @@ GIVEN( "a Session and a ConnectionWish" )
                 while (s2.state() == SS::connecting)
                     suspendCoro(yield);
                 CHECK( s2.state() == SS::closed );
-                CHECK( incidents.empty() );
+                CHECK( incidents.testIfEmptyThenClear() );
 
                 CHECK_NOTHROW( s2.disconnect() );
-                CHECK( incidents.empty() );
+                CHECK( incidents.testIfEmptyThenClear() );
                 CHECK( s2.state() == SS::disconnected );
 
                 // Disconnecting again should be harmless
                 CHECK_NOTHROW( s2.disconnect() );
                 CHECK( s2.state() == SS::disconnected );
-                CHECK( incidents.empty() );
+                CHECK( incidents.testIfEmptyThenClear() );
 
                 // Check that we can reconnect.
                 CHECK( s2.connect(where, yield).value() == 0 );
-                CHECK( incidents.empty() );
+                CHECK( incidents.testIfEmptyThenClear() );
 
                 // Disconnect by letting session instance go out of scope.
             }
 
-            CHECK( incidents.empty() );
+            CHECK( incidents.testIfEmptyThenClear() );
             CHECK( s.state() == SS::disconnected );
 
             // Check that another client can connect and disconnect.
@@ -110,10 +110,10 @@ GIVEN( "a Session and a ConnectionWish" )
             while (s.state() == SS::connecting)
                 suspendCoro(yield);
             CHECK( s.state() == SS::closed );
-            CHECK( incidents.empty() );
+            CHECK( incidents.testIfEmptyThenClear() );
 
             CHECK_NOTHROW( s.disconnect() );
-            CHECK( incidents.empty() );
+            CHECK( incidents.testIfEmptyThenClear() );
             CHECK( s.state() == SS::disconnected );
         });
 
@@ -138,7 +138,7 @@ GIVEN( "a Session and a ConnectionWish" )
                 while (welcome.sessionId() == 0)
                     suspendCoro(yield);
                 CHECK( s.state() == SS::established );
-                CHECK( incidents.empty() );
+                CHECK( incidents.testIfEmptyThenClear() );
                 
                 CHECK ( welcome.sessionId() <= 9007199254740992ll );
                 CHECK( welcome.realm()  == testRealm );
@@ -160,13 +160,13 @@ GIVEN( "a Session and a ConnectionWish" )
                 while (reason.uri().empty())
                     suspendCoro(yield);
                 CHECK( s.state() == SS::closed );
-                CHECK( incidents.empty() );
+                CHECK( incidents.testIfEmptyThenClear() );
             }
 
             {
                 // Check that the same client can rejoin and leave.
                 Welcome welcome = s.join(Petition(testRealm), yield).value();
-                CHECK( incidents.empty() );
+                CHECK( incidents.testIfEmptyThenClear() );
                 CHECK( s.state() == SessionState::established );
                 CHECK ( welcome.sessionId() != 0 );
                 CHECK ( welcome.sessionId() <= 9007199254740992ll );
@@ -183,11 +183,11 @@ GIVEN( "a Session and a ConnectionWish" )
                 Reason reason = s.leave(Reason("wamp.error.system_shutdown"),
                                          yield).value();
                 CHECK_FALSE( reason.uri().empty() );
-                CHECK( incidents.empty() );
+                CHECK( incidents.testIfEmptyThenClear() );
             }
 
             CHECK_NOTHROW( s.disconnect() );
-            CHECK( incidents.empty() );
+            CHECK( incidents.testIfEmptyThenClear() );
             CHECK( s.state() == SessionState::disconnected );
         });
 
@@ -216,7 +216,7 @@ GIVEN( "a Session and a ConnectionWish" )
                 // Disconnect
                 CHECK_NOTHROW( s.disconnect() );
                 CHECK( s.state() == SessionState::disconnected );
-                CHECK( incidents.empty() );
+                CHECK( incidents.testIfEmptyThenClear() );
             }
 
             {
@@ -245,7 +245,7 @@ GIVEN( "a Session and a ConnectionWish" )
                 // Disconnect
                 CHECK_NOTHROW( s.disconnect() );
                 CHECK( s.state() == SessionState::disconnected );
-                CHECK( incidents.empty() );
+                CHECK( incidents.testIfEmptyThenClear() );
             }
         });
 
@@ -277,7 +277,6 @@ GIVEN( "a Session and a ConnectionWish" )
         ioctx.restart();
         CHECK( connectHandlerInvoked );
         CHECK( s.state() == SS::disconnected );
-        CHECK( incidents.empty() );
 
         // Depending on how Asio schedules things, the connect operation
         // sometimes completes successfully before the cancellation request
@@ -303,7 +302,7 @@ GIVEN( "a Session and a ConnectionWish" )
             CHECK( ec == TransportErrc::success );
             CHECK( connected );
             CHECK( s.state() == SS::disconnected );
-            CHECK( incidents.empty() );
+            CHECK( incidents.testIfEmptyThenClear() );
         }
     }
 
@@ -337,7 +336,7 @@ GIVEN( "a Session and a ConnectionWish" )
         CHECK_FALSE( joined );
         CHECK( ec == MiscErrc::abandoned );
         CHECK( s.state() == SS::disconnected );
-        CHECK( incidents.empty() );
+        CHECK( incidents.testIfEmptyThenClear() );
     }
 
     WHEN( "terminating during connect" )
@@ -356,7 +355,7 @@ GIVEN( "a Session and a ConnectionWish" )
         ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
-        CHECK( incidents.empty() );
+        CHECK( incidents.testIfEmptyThenClear() );
         CHECK( s.state() == SS::disconnected );
     }
 
@@ -374,7 +373,7 @@ GIVEN( "a Session and a ConnectionWish" )
         ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
-        CHECK( incidents.empty() );
+        CHECK( incidents.testIfEmptyThenClear() );
         CHECK( s.state() == SS::disconnected );
     }
 
@@ -395,7 +394,7 @@ GIVEN( "a Session and a ConnectionWish" )
         ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
-        CHECK( incidents.empty() );
+        CHECK( incidents.testIfEmptyThenClear() );
         CHECK( s.state() == SS::disconnected );
     }
 }}
@@ -531,12 +530,12 @@ GIVEN( "a Session, a valid ConnectionWish, and an invalid ConnectionWish" )
         {
             auto index = s.connect(badWhere, yield);
             CHECK( index == makeUnexpected(TransportErrc::failed) );
-            CHECK( incidents.empty() );
+            CHECK( incidents.testIfEmptyThenClear() );
             CHECK( s.state() == SS::failed );
         });
 
         ioctx.run();
-        CHECK( incidents.empty() );
+        CHECK( incidents.testIfEmptyThenClear() );
     }
 
     WHEN( "connecting with multiple transports" )
@@ -550,12 +549,16 @@ GIVEN( "a Session, a valid ConnectionWish, and an invalid ConnectionWish" )
                 // Connect
                 CHECK( s.state() == SessionState::disconnected );
                 CHECK( s.connect(wishList, yield).value() == 1 );
-                CHECK( incidents.empty() );
                 CHECK( s.state() == SS::closed );
+                REQUIRE_FALSE( incidents.list.empty() );
+                const auto& incident = incidents.list.back();
+                CHECK( incident.kind() == IncidentKind::trouble );
+                CHECK( incident.error() == TransportErrc::failed );
+                incidents.list.clear();
 
                 // Join
                 Welcome info = s.join(Petition(testRealm), yield).value();
-                CHECK( incidents.empty() );
+                CHECK( incidents.testIfEmptyThenClear() );
                 CHECK( s.state() == SS::established );
                 CHECK ( info.sessionId() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
@@ -566,7 +569,7 @@ GIVEN( "a Session, a valid ConnectionWish, and an invalid ConnectionWish" )
 
                 // Disconnect
                 CHECK_NOTHROW( s.disconnect() );
-                CHECK( incidents.empty() );
+                CHECK( incidents.testIfEmptyThenClear() );
                 CHECK( s.state() == SS::disconnected );
             }
         });

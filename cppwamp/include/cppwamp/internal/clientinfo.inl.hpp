@@ -460,11 +460,11 @@ CPPWAMP_INLINE void Challenge::setChallengee(internal::PassKey,
     challengee_ = std::move(challengee);
 }
 
-CPPWAMP_INLINE const std::string& incidentKindLabel(IncidentKind k)
+CPPWAMP_INLINE const std::string& incidentDescription(IncidentKind k)
 {
     static constexpr auto count = static_cast<unsigned>(IncidentKind::count);
 
-    static const std::array<std::string, count> labels{
+    static const std::array<std::string, count> descriptions{
     {
         /* transportDropped */ "Transport connection dropped",
         /* closedByPeer */     "Session killed by remote peer",
@@ -482,7 +482,7 @@ CPPWAMP_INLINE const std::string& incidentKindLabel(IncidentKind k)
     using T = std::underlying_type<IncidentKind>::type;
     auto n = static_cast<T>(k);
     assert(n >= 0);
-    return labels.at(n);
+    return descriptions.at(n);
 }
 
 
@@ -530,7 +530,7 @@ CPPWAMP_INLINE std::string Incident::message() const {return message_;}
 
 CPPWAMP_INLINE LogEntry Incident::toLogEntry() const
 {
-    std::string message = incidentKindLabel(kind_);
+    std::string message = incidentDescription(kind_);
     if (!message_.empty())
         message += ": " + message_;
 
