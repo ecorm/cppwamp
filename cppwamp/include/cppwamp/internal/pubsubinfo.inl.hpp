@@ -26,6 +26,14 @@ CPPWAMP_INLINE const Uri& Topic::uri() const
     return message().as<String>(uriPos_);
 }
 
+CPPWAMP_INLINE Topic& Topic::withTimeout(TimeoutDuration timeout)
+{
+    timeout_ = timeout;
+    return *this;
+}
+
+CPPWAMP_INLINE Topic::TimeoutDuration Topic::timeout() const {return timeout_;}
+
 CPPWAMP_INLINE bool Topic::isMeta() const
 {
     return uri().rfind("wamp.", 0) == 0;
@@ -81,6 +89,14 @@ CPPWAMP_INLINE void Topic::setDisclosed(internal::PassKey, bool)
 CPPWAMP_INLINE Pub::Pub(Uri topic)
     : Base(in_place, 0, Object{}, std::move(topic), Array{}, Object{})
 {}
+
+CPPWAMP_INLINE Pub& Pub::withTimeout(TimeoutDuration timeout)
+{
+    timeout_ = timeout;
+    return *this;
+}
+
+CPPWAMP_INLINE Pub::TimeoutDuration Pub::timeout() const {return timeout_;}
 
 CPPWAMP_INLINE const Uri& Pub::uri() const
 {

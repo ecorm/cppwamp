@@ -45,6 +45,16 @@ template <typename TDerived>
 class ProcedureLike : public Options<TDerived, internal::MessageKind::enroll>
 {
 public:
+    /// Duration type to use for timeouts.
+    using TimeoutDuration = std::chrono::steady_clock::duration;
+
+    /** Specifies the duration after which the registration operation should
+        time out. */
+    TDerived& withTimeout(TimeoutDuration timeout);
+
+    /** Obtains the registration timeout duration. */
+    TimeoutDuration timeout() const;
+
     /** Obtains the procedure URI. */
     const Uri& uri() const;
 
@@ -113,6 +123,8 @@ private:
     using Base = Options<TDerived, internal::MessageKind::enroll>;
 
     TDerived& derived() {return static_cast<TDerived&>(*this);}
+
+    TimeoutDuration timeout_ = {};
 
 public:
     // Internal use only
@@ -631,6 +643,19 @@ public:
 //******************************************************************************
 // ProcedureLike Member Function Definitions
 //******************************************************************************
+
+template <typename D>
+D& ProcedureLike<D>::withTimeout(TimeoutDuration timeout)
+{
+    timeout_ = timeout;
+    return derived();
+}
+
+template <typename D>
+typename ProcedureLike<D>::TimeoutDuration ProcedureLike<D>::timeout() const
+{
+    return timeout_;
+}
 
 template <typename D>
 const Uri& ProcedureLike<D>::uri() const

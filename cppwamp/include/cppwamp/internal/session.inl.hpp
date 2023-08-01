@@ -214,10 +214,10 @@ CPPWAMP_INLINE void Session::doSubscribe(Topic&& t, EventSlot&& s,
     impl_->subscribe(std::move(t), std::move(s), std::move(f));
 }
 
-CPPWAMP_INLINE void Session::doUnsubscribe(const Subscription& s,
-                                           CompletionHandler<bool>&& f)
+CPPWAMP_INLINE void Session::doUnsubscribe(
+    const Subscription& s, TimeoutDuration t, CompletionHandler<bool>&& f)
 {
-    impl_->unsubscribe(s, std::move(f));
+    impl_->unsubscribe(s, t, std::move(f));
 }
 
 CPPWAMP_INLINE void Session::doPublish(
@@ -233,10 +233,10 @@ CPPWAMP_INLINE void Session::doEnroll(
     impl_->enroll(std::move(p), std::move(c), std::move(i), std::move(f));
 }
 
-CPPWAMP_INLINE void Session::doUnregister(const Registration& r,
-                                          CompletionHandler<bool>&& f)
+CPPWAMP_INLINE void Session::doUnregister(
+    const Registration& r, TimeoutDuration t, CompletionHandler<bool>&& f)
 {
-    impl_->unregister(r, std::move(f));
+    impl_->unregister(r, t, std::move(f));
 }
 
 CPPWAMP_INLINE void Session::doCall(Rpc&& r, CompletionHandler<Result>&& f)

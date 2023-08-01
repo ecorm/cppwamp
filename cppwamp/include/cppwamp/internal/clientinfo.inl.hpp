@@ -114,6 +114,17 @@ CPPWAMP_INLINE Petition& Petition::captureAbort(Reason& reason)
     return *this;
 }
 
+CPPWAMP_INLINE Petition& Petition::withTimeout(TimeoutDuration timeout)
+{
+    timeout_ = timeout;
+    return *this;
+}
+
+CPPWAMP_INLINE Petition::TimeoutDuration Petition::timeout() const
+{
+    return timeout_;
+}
+
 CPPWAMP_INLINE const Uri& Petition::uri() const
 {
     return message().as<String>(uriPos_);

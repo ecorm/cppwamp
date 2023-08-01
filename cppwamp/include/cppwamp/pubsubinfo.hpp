@@ -7,6 +7,7 @@
 #ifndef CPPWAMP_PUBSUBINFO_HPP
 #define CPPWAMP_PUBSUBINFO_HPP
 
+#include <chrono>
 #include "accesslogging.hpp"
 #include "api.hpp"
 #include "anyhandler.hpp"
@@ -35,8 +36,18 @@ class CPPWAMP_API Topic
     : public Options<Topic, internal::MessageKind::subscribe>
 {
 public:
+    /// Duration type to use for timeouts.
+    using TimeoutDuration = std::chrono::steady_clock::duration;
+
     /** Converting constructor taking a topic URI. */
     Topic(Uri uri); // NOLINT(google-explicit-constructor)
+
+    /** Specifies the duration after which the subscription operation should
+        time out. */
+    Topic& withTimeout(TimeoutDuration timeout);
+
+    /** Obtains the subscription timeout duration. */
+    TimeoutDuration timeout() const;
 
     /** Obtains the topic URI. */
     const Uri& uri() const;
@@ -64,6 +75,7 @@ private:
 
     using Base = Options<Topic, internal::MessageKind::subscribe>;
 
+    TimeoutDuration timeout_ = {};
     MatchPolicy matchPolicy_ = MatchPolicy::exact;
 
 public:
@@ -83,8 +95,18 @@ public:
 class CPPWAMP_API Pub : public Payload<Pub, internal::MessageKind::publish>
 {
 public:
+    /// Duration type to use for timeouts.
+    using TimeoutDuration = std::chrono::steady_clock::duration;
+
     /** Converting constructor taking a topic URI. */
     Pub(Uri topic); // NOLINT(google-explicit-constructor)
+
+    /** Specifies the duration after which the acknowleged publish operation
+        should time out. */
+    Pub& withTimeout(TimeoutDuration timeout);
+
+    /** Obtains the acknowleged publish timeout duration. */
+    TimeoutDuration timeout() const;
 
     /** Obtains the topic URI. */
     const Uri& uri() const;
@@ -154,6 +176,7 @@ private:
 
     using Base = Payload<Pub, internal::MessageKind::publish>;
 
+    TimeoutDuration timeout_ = {};
     TrustLevel trustLevel_ = 0;
     bool hasTrustLevel_ = false;
     bool disclosed_ = false;

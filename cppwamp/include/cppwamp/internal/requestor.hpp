@@ -166,17 +166,12 @@ public:
                                                ErrorOr<CallerInputChunk>)>;
 
     Requestor(Peer* peer, IoStrand strand, AnyIoExecutor exec)
-        : deadlines_(CallerTimeoutScheduler::create(strand)),
+        : deadlines_(RequestTimeoutScheduler::create(strand)),
           strand_(std::move(strand)),
           executor_(std::move(exec)),
           peer_(peer)
     {
-        deadlines_->listen(
-            [this](RequestId reqId)
-            {
-                cancelCall(reqId, CallCancelMode::killNoWait,
-                           WampErrc::timeout);
-            });
+        deadlines_->listen( [this](RequestKey key) {onTimeout(key);} );
     }
 
     template <typename C>
@@ -229,7 +224,7 @@ public:
         assert(emplaced.second);
 
         if (timeout.count() != 0)
-            deadlines_->insert(channel->id(), timeout);
+            deadlines_->insert({MessageKind::call, channel->id()}, timeout);
 
         return CallerChannel{{}, std::move(channel)};
     }
@@ -245,8 +240,7 @@ public:
             {
                 auto handler = std::move(kv->second);
                 requests_.erase(kv);
-                if (key.first == MessageKind::call)
-                    deadlines_->erase(key.second);
+                deadlines_->erase(key);
                 completeRequest(handler, std::move(msg));
                 return true;
             }
@@ -263,12 +257,12 @@ public:
             {
                 StreamRecord& rec = kv->second;
                 rec.onReply(std::move(msg), executor_);
-                deadlines_->update(key.second, rec.timeout());
+                deadlines_->update(key, rec.timeout());
             }
             else
             {
                 StreamRecord rec{std::move(kv->second)};
-                deadlines_->erase(key.second);
+                deadlines_->erase(key);
                 channels_.erase(kv);
                 rec.onReply(std::move(msg), executor_);
             }
@@ -286,13 +280,13 @@ public:
         // with a WampErrc::cancelled error code.
 
         auto unex = makeUnexpectedError(errc);
+        const RequestKey key{MessageKind::call, requestId};
 
         {
-            const RequestKey key{MessageKind::call, requestId};
             auto kv = requests_.find(key);
             if (kv != requests_.end())
             {
-                deadlines_->erase(requestId);
+                deadlines_->erase(key);
                 if (mode != CallCancelMode::kill)
                 {
                     auto handler = std::move(kv->second);
@@ -308,7 +302,7 @@ public:
             if (kv == channels_.end())
                 return false;
 
-            deadlines_->erase(requestId);
+            deadlines_->erase(key);
             if (mode != CallCancelMode::kill)
             {
                 StreamRecord req{std::move(kv->second)};
@@ -349,7 +343,27 @@ public:
 
 private:
     using RequestKey = typename Message::RequestKey;
-    using CallerTimeoutScheduler = TimeoutScheduler<RequestId>;
+    using RequestTimeoutScheduler = TimeoutScheduler<RequestKey>;
+
+    void onTimeout(RequestKey key)
+    {
+        if (key.first == MessageKind::call)
+        {
+            cancelCall(key.second, CallCancelMode::killNoWait,
+                       WampErrc::timeout);
+        }
+        else
+        {
+            auto kv = requests_.find(key);
+            if (kv != requests_.end())
+            {
+                auto handler = std::move(kv->second);
+                requests_.erase(kv);
+                auto unex = makeUnexpectedError(WampErrc::timeout);
+                completeRequest(handler, unex);
+            }
+        }
+    }
 
     template <typename C>
     ErrorOr<RequestId> doRequest(TrueType, C&& command, TimeoutDuration timeout,
@@ -372,12 +386,12 @@ private:
         if (!handler)
             return requestId;
 
-        auto emplaced = requests_.emplace(command.requestKey({}),
-                                          std::move(handler));
+        const auto key = command.requestKey({});
+        auto emplaced = requests_.emplace(key, std::move(handler));
         assert(emplaced.second);
 
         if (timeout.count() != 0)
-            deadlines_->insert(requestId, timeout);
+            deadlines_->insert(key, timeout);
 
         return requestId;
     }
@@ -388,6 +402,7 @@ private:
                                  RequestHandler&& handler)
     {
         const RequestId requestId = nullId();
+        const auto key = command.requestKey({});
 
         auto sent = peer_->send(std::forward<C>(command));
         if (!sent)
@@ -400,12 +415,11 @@ private:
         if (!handler)
             return requestId;
 
-        auto emplaced = requests_.emplace(command.requestKey({}),
-                                          std::move(handler));
+        auto emplaced = requests_.emplace(key, std::move(handler));
         assert(emplaced.second);
 
         if (timeout.count() != 0)
-            deadlines_->insert(requestId, timeout);
+            deadlines_->insert(key, timeout);
 
         return requestId;
     }
@@ -423,7 +437,7 @@ private:
 
     std::map<RequestKey, RequestHandler> requests_;
     std::map<ChannelId, StreamRecord> channels_;
-    CallerTimeoutScheduler::Ptr deadlines_;
+    RequestTimeoutScheduler::Ptr deadlines_;
     IoStrand strand_;
     AnyIoExecutor executor_;
     Peer* peer_ = nullptr;

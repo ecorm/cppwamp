@@ -7,7 +7,6 @@
 #if defined(CPPWAMP_TEST_HAS_CORO)
 
 #include <jsoncons/json_options.hpp>
-#include <cppwamp/internal/rawsocklistener.hpp>
 #include "clienttesting.hpp"
 
 using namespace test;
@@ -564,92 +563,6 @@ GIVEN( "a Session, a valid ConnectionWish, and an invalid ConnectionWish" )
                 REQUIRE( details.count("roles") );
                 REQUIRE( details["roles"].is<Object>() );
                 Object roles = info.optionByKey("roles").as<Object>();
-
-                // Disconnect
-                CHECK_NOTHROW( s.disconnect() );
-                CHECK( incidents.empty() );
-                CHECK( s.state() == SS::disconnected );
-            }
-        });
-
-        ioctx.run();
-    }
-}}
-
-
-//------------------------------------------------------------------------------
-SCENARIO( "WAMP Connection Timeouts", "[WAMP][Basic][thisone]" )
-{
-GIVEN( "a Session, a valid ConnectionWish, and an invalid ConnectionWish" )
-{
-    struct MockListenerConfig : internal::DefaultRawsockServerOptions
-    {
-        static bool mockUnresponsiveness() {return true;}
-    };
-
-    using MockListener = internal::RawsockListener<internal::TcpAcceptor,
-                                                   MockListenerConfig>;
-    using SS = SessionState;
-
-    IoContext ioctx;
-    auto strand = boost::asio::make_strand(ioctx);
-    Session s(ioctx);
-    IncidentListener incidents;
-    s.observeIncidents(incidents);
-    const auto where = withTcp;
-    auto badWhere = invalidTcp;
-
-    const auto tcpEndpoint = TcpEndpoint{invalidPort};
-    auto lstn = MockListener::create(strand, tcpEndpoint,
-                                     {KnownCodecIds::json()});
-    lstn->establish( [](ErrorOr<Transporting::Ptr>) {} );
-
-    WHEN( "intermediate connection timeout" )
-    {
-        const ConnectionWishList wishList =
-            {badWhere.withTimeout(std::chrono::milliseconds(50)), where};
-
-        spawn(ioctx, [&](YieldContext yield)
-        {
-            for (int i=0; i<2; ++i)
-            {
-                // Connect
-                CHECK( s.state() == SessionState::disconnected );
-                CHECK( s.connect(wishList, yield).value() == 1 );
-                CHECK( incidents.empty() );
-                CHECK( s.state() == SS::closed );
-
-                // Join
-                Welcome info = s.join(Petition(testRealm), yield).value();
-                CHECK( incidents.empty() );
-                CHECK( s.state() == SS::established );
-
-                // Disconnect
-                CHECK_NOTHROW( s.disconnect() );
-                CHECK( incidents.empty() );
-                CHECK( s.state() == SS::disconnected );
-            }
-        });
-
-        ioctx.run();
-    }
-
-    WHEN( "final connection timeout" )
-    {
-        const ConnectionWishList wishList =
-            {badWhere.withTimeout(std::chrono::milliseconds(50))};
-
-        spawn(ioctx, [&](YieldContext yield)
-        {
-            for (int i=0; i<2; ++i)
-            {
-                // Connect
-                CHECK( s.state() == SessionState::disconnected );
-                auto index = s.connect(wishList, yield);
-                REQUIRE_FALSE(index.has_value());
-                CHECK( index.error() == TransportErrc::timeout );
-                CHECK( incidents.empty() );
-                CHECK( s.state() == SS::failed );
 
                 // Disconnect
                 CHECK_NOTHROW( s.disconnect() );

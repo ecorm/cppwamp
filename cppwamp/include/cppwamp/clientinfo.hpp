@@ -7,6 +7,7 @@
 #ifndef CPPWAMP_CLIENTINFO_HPP
 #define CPPWAMP_CLIENTINFO_HPP
 
+#include <chrono>
 #include <memory>
 #include <string>
 #include <vector>
@@ -100,12 +101,22 @@ class CPPWAMP_API Petition : public Options<Petition,
                                             internal::MessageKind::hello>
 {
 public:
+    /// Duration type to use for timeouts.
+    using TimeoutDuration = std::chrono::steady_clock::duration;
+
     /** Converting constructor taking a realm URI. */
     Petition(Uri realm); // NOLINT(google-explicit-constructor)
 
     /** Specifies the Reason object in which to store abort details returned
         by the router. */
     Petition& captureAbort(Reason& reason);
+
+    /** Specifies the duration after which the joining operation should time out
+        and disconnect the session. */
+    Petition& withTimeout(TimeoutDuration timeout);
+
+    /** Obtains the joining operation timeout duration. */
+    TimeoutDuration timeout() const;
 
     /** Obtains the realm URI. */
     const Uri& uri() const;
@@ -146,6 +157,7 @@ private:
     using Base = Options<Petition, internal::MessageKind::hello>;
 
     Reason* abortReason_ = nullptr;
+    TimeoutDuration timeout_ = {};
 
 public:
     // Internal use only

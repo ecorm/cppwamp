@@ -22,6 +22,7 @@ set(SOURCES
     clientpubsubtestadvanced.cpp
     clientrpctest.cpp
     clientrpctestadvanced.cpp
+    clienttimeouttest.cpp
     clientunifiedtest.cpp
     codectestcbor.cpp
     codectestjson.cpp

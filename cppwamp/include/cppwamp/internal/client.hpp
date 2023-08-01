@@ -48,9 +48,10 @@ class Client final : public std::enable_shared_from_this<Client>,
                      public ClientLike, private PeerListener
 {
 public:
-    using Ptr           = std::shared_ptr<Client>;
-    using TransportPtr  = Transporting::Ptr;
-    using State         = SessionState;
+    using Ptr             = std::shared_ptr<Client>;
+    using TransportPtr    = Transporting::Ptr;
+    using State           = SessionState;
+    using TimeoutDuration = std::chrono::steady_clock::duration;
     using EventSlot     = AnyReusableHandler<void (Event)>;
     using CallSlot      = AnyReusableHandler<Outcome (Invocation)>;
     using InterruptSlot = AnyReusableHandler<Outcome (Interruption)>;
@@ -206,18 +207,20 @@ public:
         safelyDispatch<Dispatched>(std::move(t), std::move(s), std::move(f));
     }
 
-    void unsubscribe(Subscription s, CompletionHandler<bool>&& f)
+    void unsubscribe(Subscription s, TimeoutDuration t,
+                     CompletionHandler<bool>&& f)
     {
         struct Dispatched
         {
             Ptr self;
             Subscription s;
+            TimeoutDuration t;
             CompletionHandler<bool> f;
-            void operator()() {self->doUnsubscribe(s, std::move(f));}
+            void operator()() {self->doUnsubscribe(s, t, std::move(f));}
         };
 
         s.disarm({});
-        safelyDispatch<Dispatched>(std::move(s), std::move(f));
+        safelyDispatch<Dispatched>(std::move(s), t, std::move(f));
     }
 
     void publish(Pub&& p)
@@ -286,18 +289,20 @@ public:
         safelyDispatch<Dispatched>(std::move(s), std::move(ss), std::move(f));
     }
 
-    void unregister(Registration r, CompletionHandler<bool>&& f)
+    void unregister(Registration r, TimeoutDuration t,
+                    CompletionHandler<bool>&& f)
     {
         struct Dispatched
         {
             Ptr self;
             Registration r;
+            TimeoutDuration t;
             CompletionHandler<bool> f;
-            void operator()() {self->doUnregister(r, std::move(f));}
+            void operator()() {self->doUnregister(r, t, std::move(f));}
         };
 
         r.disarm({});
-        safelyDispatch<Dispatched>(std::move(r), std::move(f));
+        safelyDispatch<Dispatched>(std::move(r), t, std::move(f));
     }
 
     void call(Rpc&& r, CompletionHandler<Result>&& f)
@@ -357,8 +362,8 @@ public:
     Client& operator=(Client&&) = delete;
 
 private:
-    using RequestKey          = typename Message::RequestKey;
-    using RequestHandler      = AnyCompletionHandler<void (ErrorOr<Message>)>;
+    using RequestKey      = typename Message::RequestKey;
+    using RequestHandler  = AnyCompletionHandler<void (ErrorOr<Message>)>;
 
     Client(Peer::Ptr peer, AnyIoExecutor exec)
         : executor_(std::move(exec)),
@@ -707,6 +712,7 @@ private:
                           std::error_code ec,
                           std::shared_ptr<CompletionHandler<size_t>> handler)
     {
+        // TODO: report intermediate connection failures as incidents
         if ((ec == TransportErrc::aborted) && state() != State::connecting)
         {
             completeNow(*handler, UnexpectedError(ec));
@@ -765,11 +771,12 @@ private:
             return postErrorToHandler(MiscErrc::invalidState, handler);
 
         realm.withOption("agent", Version::agentString())
-            .withOption("roles", ClientFeatures::providedRoles());
+             .withOption("roles", ClientFeatures::providedRoles());
         challengeSlot_ = std::move(onChallenge);
         Requested requested{shared_from_this(), std::move(handler), realm.uri(),
                             realm.abortReason({})};
-        request(std::move(realm), std::move(requested));
+        auto timeout = realm.timeout();
+        request(std::move(realm), timeout, std::move(requested));
     }
 
     void doAuthenticate(Authentication&& auth)
@@ -882,7 +889,8 @@ private:
         {
             Requested requested{shared_from_this(), std::move(matchUri),
                                 std::move(slot), std::move(handler)};
-            request(std::move(topic), std::move(requested));
+            auto timeout = topic.timeout();
+            request(std::move(topic), timeout, std::move(requested));
         }
     }
 
@@ -892,12 +900,12 @@ private:
             sendUnsubscribe(key.first);
     }
 
-    void doUnsubscribe(const Subscription& sub,
+    void doUnsubscribe(const Subscription& sub, TimeoutDuration timeout,
                        CompletionHandler<bool>&& handler)
     {
         if (!sub || !readership_.unsubscribe(sub.key({})))
             return complete(handler, false);
-        sendUnsubscribe(sub.id(), std::move(handler));
+        sendUnsubscribe(sub.id(), timeout, std::move(handler));
     }
 
     void onEventError(Error&& error, SubscriptionId subId) override
@@ -959,7 +967,8 @@ private:
             return;
 
         pub.withOption("acknowledge", true);
-        request(std::move(pub),
+        auto timeout = pub.timeout();
+        request(std::move(pub), timeout,
                 Requested{shared_from_this(), std::move(handler)});
     }
 
@@ -989,7 +998,8 @@ private:
 
         ProcedureRegistration reg{std::move(c), std::move(i), p.uri(),
                                   makeContext()};
-        request(std::move(p),
+        auto timeout = p.timeout();
+        request(std::move(p), timeout,
                 Requested{shared_from_this(), std::move(reg), std::move(f)});
     }
 
@@ -1038,7 +1048,7 @@ private:
             request(Unregister{regId}, Requested{});
     }
 
-    void doUnregister(const Registration& reg,
+    void doUnregister(const Registration& reg, TimeoutDuration t,
                       CompletionHandler<bool>&& handler)
     {
         struct Requested
@@ -1059,7 +1069,7 @@ private:
 
         if (checkState(State::established, handler))
         {
-            request(Unregister{reg.id()},
+            request(Unregister{reg.id()}, t,
                     Requested{shared_from_this(), std::move(handler)});
         }
     }
@@ -1319,6 +1329,14 @@ private:
         return requestor_.request(std::forward<C>(command), std::move(handler));
     }
 
+    template <typename C>
+    ErrorOr<RequestId> request(C&& command, TimeoutDuration timeout,
+                               RequestHandler&& handler)
+    {
+        return requestor_.request(std::forward<C>(command), timeout,
+                                  std::move(handler));
+    }
+
     void abandonPending(std::error_code ec)
     {
         if (isTerminating_)
@@ -1361,7 +1379,7 @@ private:
             request(Unsubscribe{subId}, Requested{});
     }
 
-    void sendUnsubscribe(SubscriptionId subId,
+    void sendUnsubscribe(SubscriptionId subId, TimeoutDuration timeout,
                          CompletionHandler<bool>&& handler)
     {
         struct Requested
@@ -1381,7 +1399,7 @@ private:
 
         if (checkState(State::established, handler))
         {
-            request(Unsubscribe{subId},
+            request(Unsubscribe{subId}, timeout,
                     Requested{shared_from_this(), std::move(handler)});
         }
     }
@@ -1389,6 +1407,12 @@ private:
     template <typename THandler>
     bool checkError(const ErrorOr<Message>& msg, THandler& handler)
     {
+        if (msg == makeUnexpectedError(WampErrc::timeout))
+        {
+            peer_->fail();
+            clear();
+        }
+
         const bool ok = msg.has_value();
         if (!ok)
             dispatchHandler(handler, UnexpectedError(msg.error()));
@@ -1399,13 +1423,25 @@ private:
     bool checkReply(ErrorOr<Message>& reply, MessageKind kind,
                     THandler& handler, Error* errorPtr = nullptr)
     {
+        if (kind != MessageKind::result &&
+            reply == makeUnexpectedError(WampErrc::timeout))
+        {
+            peer_->fail();
+            clear();
+        }
+
+        if (!reply.has_value())
+        {
+            dispatchHandler(handler, UnexpectedError(reply.error()));
+            return false;
+        }
+
         if (!checkError(reply, handler))
             return false;
 
         if (reply->kind() != MessageKind::error)
         {
-            assert((reply->kind() == kind) &&
-                   "Unexpected WAMP message type");
+            assert((reply->kind() == kind) && "Unexpected WAMP message type");
             return true;
         }
 
