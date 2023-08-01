@@ -215,7 +215,7 @@ CPPWAMP_INLINE void Session::doSubscribe(Topic&& t, EventSlot&& s,
 }
 
 CPPWAMP_INLINE void Session::doUnsubscribe(
-    const Subscription& s, TimeoutDuration t, CompletionHandler<bool>&& f)
+    const Subscription& s, Timeout t, CompletionHandler<bool>&& f)
 {
     impl_->unsubscribe(s, t, std::move(f));
 }
@@ -234,7 +234,7 @@ CPPWAMP_INLINE void Session::doEnroll(
 }
 
 CPPWAMP_INLINE void Session::doUnregister(
-    const Registration& r, TimeoutDuration t, CompletionHandler<bool>&& f)
+    const Registration& r, Timeout t, CompletionHandler<bool>&& f)
 {
     impl_->unregister(r, t, std::move(f));
 }

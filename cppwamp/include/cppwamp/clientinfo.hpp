@@ -20,6 +20,7 @@
 #include "features.hpp"
 #include "logging.hpp"
 #include "options.hpp"
+#include "timeout.hpp"
 #include "variant.hpp"
 #include "wampdefs.hpp"
 #include "internal/clientcontext.hpp"
@@ -101,9 +102,6 @@ class CPPWAMP_API Petition : public Options<Petition,
                                             internal::MessageKind::hello>
 {
 public:
-    /// Duration type to use for timeouts.
-    using TimeoutDuration = std::chrono::steady_clock::duration;
-
     /** Converting constructor taking a realm URI. */
     Petition(Uri realm); // NOLINT(google-explicit-constructor)
 
@@ -113,10 +111,10 @@ public:
 
     /** Specifies the duration after which the joining operation should time out
         and disconnect the session. */
-    Petition& withTimeout(TimeoutDuration timeout);
+    Petition& withTimeout(Timeout timeout);
 
     /** Obtains the joining operation timeout duration. */
-    TimeoutDuration timeout() const;
+    Timeout timeout() const;
 
     /** Obtains the realm URI. */
     const Uri& uri() const;
@@ -157,7 +155,7 @@ private:
     using Base = Options<Petition, internal::MessageKind::hello>;
 
     Reason* abortReason_ = nullptr;
-    TimeoutDuration timeout_ = {};
+    Timeout timeout_ = unspecifiedTimeout;
 
 public:
     // Internal use only

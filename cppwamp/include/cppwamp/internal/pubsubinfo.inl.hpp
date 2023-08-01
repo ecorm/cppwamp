@@ -26,13 +26,14 @@ CPPWAMP_INLINE const Uri& Topic::uri() const
     return message().as<String>(uriPos_);
 }
 
-CPPWAMP_INLINE Topic& Topic::withTimeout(TimeoutDuration timeout)
+/** @throws error::Logic if the given timeout duration is negative. */
+CPPWAMP_INLINE Topic& Topic::withTimeout(Timeout timeout)
 {
-    timeout_ = timeout;
+    timeout_ = internal::checkTimeout(timeout);
     return *this;
 }
 
-CPPWAMP_INLINE Topic::TimeoutDuration Topic::timeout() const {return timeout_;}
+CPPWAMP_INLINE Timeout Topic::timeout() const {return timeout_;}
 
 CPPWAMP_INLINE bool Topic::isMeta() const
 {
@@ -90,13 +91,14 @@ CPPWAMP_INLINE Pub::Pub(Uri topic)
     : Base(in_place, 0, Object{}, std::move(topic), Array{}, Object{})
 {}
 
-CPPWAMP_INLINE Pub& Pub::withTimeout(TimeoutDuration timeout)
+/** @throws error::Logic if the given timeout duration is negative. */
+CPPWAMP_INLINE Pub& Pub::withTimeout(Timeout timeout)
 {
-    timeout_ = timeout;
+    timeout_ = internal::checkTimeout(timeout);
     return *this;
 }
 
-CPPWAMP_INLINE Pub::TimeoutDuration Pub::timeout() const {return timeout_;}
+CPPWAMP_INLINE Timeout Pub::timeout() const {return timeout_;}
 
 CPPWAMP_INLINE const Uri& Pub::uri() const
 {

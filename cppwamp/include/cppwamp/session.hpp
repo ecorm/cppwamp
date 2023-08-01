@@ -35,6 +35,7 @@
 #include "rpcinfo.hpp"
 #include "subscription.hpp"
 #include "traits.hpp"
+#include "timeout.hpp"
 #include "wampdefs.hpp"
 
 namespace wamp
@@ -120,9 +121,6 @@ public:
 
     /** Enumerates the possible states that a Session can be in. */
     using State = SessionState;
-
-    /// Duration type to use for timeouts.
-    using TimeoutDuration = std::chrono::steady_clock::duration;
 
     /** Obtains the type returned by [boost::asio::async_initiate]
         (https://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/async_initiate.html)
@@ -259,7 +257,7 @@ public:
         given timeout period for router acknowledgement, if necessary. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<bool>, C>
-    unsubscribe(Subscription sub, TimeoutDuration timeout, C&& completion);
+    unsubscribe(Subscription sub, Timeout timeout, C&& completion);
 
     /** Publishes an event. */
     void publish(Pub pub);
@@ -296,7 +294,7 @@ public:
         timeout period for router acknowledgement. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<bool>, C>
-    unregister(Registration reg, TimeoutDuration timeout, C&& completion);
+    unregister(Registration reg, Timeout timeout, C&& completion);
 
     /** Calls a remote procedure. */
     template <typename C>
@@ -387,12 +385,12 @@ private:
     void doLeave(Reason&& reason, CompletionHandler<Reason>&& f);
     void doSubscribe(Topic&& t, EventSlot&& s,
                      CompletionHandler<Subscription>&& f);
-    void doUnsubscribe(const Subscription& s, TimeoutDuration t,
+    void doUnsubscribe(const Subscription& s, Timeout t,
                        CompletionHandler<bool>&& f);
     void doPublish(Pub&& p, CompletionHandler<PublicationId>&& f);
     void doEnroll(Procedure&& p, CallSlot&& c, InterruptSlot&& i,
                   CompletionHandler<Registration>&& f);
-    void doUnregister(const Registration& r, TimeoutDuration t,
+    void doUnregister(const Registration& r, Timeout t,
                       CompletionHandler<bool>&& f);
     void doCall(Rpc&& r, CompletionHandler<Result>&& f);
     void doEnroll(Stream&& s, StreamSlot&& ss,
@@ -462,7 +460,7 @@ struct Session::UnsubscribeOp
     using ResultValue = bool;
     Session* self;
     Subscription s;
-    TimeoutDuration t;
+    Timeout t;
 
     template <typename F> void operator()(F&& f)
     {
@@ -507,7 +505,7 @@ struct Session::UnregisterOp
     using ResultValue = bool;
     Session* self;
     Registration r;
-    TimeoutDuration t;
+    Timeout t;
 
     template <typename F> void operator()(F&& f)
     {
@@ -826,8 +824,7 @@ Session::unsubscribe(
 {
     CPPWAMP_LOGIC_CHECK(canUnsubscribe(sub),
                         "Session does not own the subscription");
-    return initiate<UnsubscribeOp>(std::forward<C>(completion), sub,
-                                   TimeoutDuration{});
+    return initiate<UnsubscribeOp>(std::forward<C>(completion), sub, Timeout{});
 }
 
 //------------------------------------------------------------------------------
@@ -840,9 +837,9 @@ Deduced<ErrorOr<bool>, C>
 Session::template Deduced<ErrorOr<bool>, C>
 #endif
 Session::unsubscribe(
-    Subscription sub,        ///< The subscription to unsubscribe from.
-    TimeoutDuration timeout, ///< Timeout duration after which to disconnect.
-    C&& completion           ///< Completion handler or token.
+    Subscription sub, ///< The subscription to unsubscribe from.
+    Timeout timeout,  ///< Timeout duration after which to disconnect.
+    C&& completion    ///< Completion handler or token.
     )
 {
     CPPWAMP_LOGIC_CHECK(canUnsubscribe(sub),
@@ -953,8 +950,7 @@ Session::unregister(
 {
     CPPWAMP_LOGIC_CHECK(canUnregister(reg),
                         "Session does not own the registration");
-    return initiate<UnregisterOp>(std::forward<C>(completion), reg,
-                                  TimeoutDuration{});
+    return initiate<UnregisterOp>(std::forward<C>(completion), reg, Timeout{});
 }
 
 //------------------------------------------------------------------------------
@@ -967,9 +963,9 @@ Deduced<ErrorOr<bool>, C>
 Session::template Deduced<ErrorOr<bool>, C>
 #endif
 Session::unregister(
-    Registration reg,        ///< The RPC registration to unregister.
-    TimeoutDuration timeout, ///< Timeout duration after which to disconnect.
-    C&& completion           ///< Completion handler or token.
+    Registration reg, ///< The RPC registration to unregister.
+    Timeout timeout,  ///< Timeout duration after which to disconnect.
+    C&& completion    ///< Completion handler or token.
     )
 {
     CPPWAMP_LOGIC_CHECK(canUnregister(reg),

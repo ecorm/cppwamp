@@ -53,6 +53,7 @@ set(HEADERS
     include/cppwamp/streaming.hpp
     include/cppwamp/subscription.hpp
     include/cppwamp/tagtypes.hpp
+    include/cppwamp/timeout.hpp
     include/cppwamp/traits.hpp
     include/cppwamp/transport.hpp
     include/cppwamp/unpacker.hpp

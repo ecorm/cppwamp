@@ -661,7 +661,7 @@ private:
             {
                 auto me = *self;
                 auto timeout = me.options_->challengeTimeout();
-                if (timeout.count() != 0)
+                if (timeout != unspecifiedTimeout)
                     me.challengeTimeouts_->insert(key, timeout);
             }
         };

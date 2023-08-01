@@ -12,6 +12,7 @@
     @brief Contains type definitions related to WAMP IDs and sessions. */
 //------------------------------------------------------------------------------
 
+#include <chrono>
 #include <cstdint>
 #include <string>
 
@@ -29,6 +30,13 @@ using Uri            = std::string; ///< String type used for URIs
 
 ///< Obtains the value representing a blank ephemeral ID.
 constexpr EphemeralId nullId() {return 0;}
+
+
+//------------------------------------------------------------------------------
+/** Duration type for timeouts delegated to the dealer. */
+//------------------------------------------------------------------------------
+using DealerTimeout = std::chrono::duration<uint64_t, std::milli>;
+
 
 //------------------------------------------------------------------------------
 /** Enumerates the possible states that a client or router session can be in. */

@@ -114,16 +114,14 @@ CPPWAMP_INLINE Petition& Petition::captureAbort(Reason& reason)
     return *this;
 }
 
-CPPWAMP_INLINE Petition& Petition::withTimeout(TimeoutDuration timeout)
+/** @throws error::Logic if the given timeout duration is negative. */
+CPPWAMP_INLINE Petition& Petition::withTimeout(Timeout timeout)
 {
-    timeout_ = timeout;
+    timeout_ = internal::checkTimeout(timeout);
     return *this;
 }
 
-CPPWAMP_INLINE Petition::TimeoutDuration Petition::timeout() const
-{
-    return timeout_;
-}
+CPPWAMP_INLINE Timeout Petition::timeout() const {return timeout_;}
 
 CPPWAMP_INLINE const Uri& Petition::uri() const
 {

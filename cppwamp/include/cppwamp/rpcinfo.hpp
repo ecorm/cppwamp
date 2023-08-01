@@ -21,6 +21,7 @@
 #include "options.hpp"
 #include "payload.hpp"
 #include "tagtypes.hpp"
+#include "timeout.hpp"
 #include "variant.hpp"
 #include "wampdefs.hpp"
 #include "internal/clientcontext.hpp"
@@ -45,15 +46,12 @@ template <typename TDerived>
 class ProcedureLike : public Options<TDerived, internal::MessageKind::enroll>
 {
 public:
-    /// Duration type to use for timeouts.
-    using TimeoutDuration = std::chrono::steady_clock::duration;
-
     /** Specifies the duration after which the registration operation should
         time out. */
-    TDerived& withTimeout(TimeoutDuration timeout);
+    TDerived& withTimeout(Timeout timeout);
 
     /** Obtains the registration timeout duration. */
-    TimeoutDuration timeout() const;
+    Timeout timeout() const;
 
     /** Obtains the procedure URI. */
     const Uri& uri() const;
@@ -124,7 +122,7 @@ private:
 
     TDerived& derived() {return static_cast<TDerived&>(*this);}
 
-    TimeoutDuration timeout_ = {};
+    Timeout timeout_ = unspecifiedTimeout;
 
 public:
     // Internal use only
@@ -162,12 +160,6 @@ class CPPWAMP_API RpcLike
     : public Payload<TDerived, internal::MessageKind::call>
 {
 public:
-    /** The duration type used for caller-initiated timeouts. */
-    using TimeoutDuration = std::chrono::steady_clock::duration;
-
-    /** The duration type used for dealer-initiated timeouts. */
-    using DealerTimeoutDuration = std::chrono::duration<UInt, std::milli>;
-
     /** Specifies the Error object in which to store call errors returned
         by the callee. */
     TDerived& captureError(Error& error);
@@ -190,17 +182,17 @@ public:
     /** Requests that the caller cancel the call after the specified
         timeout duration.
         If negative, the given timeout is clamped to zero. */
-    TDerived& withCallerTimeout(TimeoutDuration timeout);
+    TDerived& withCallerTimeout(Timeout timeout);
 
     /** Obtains the caller timeout duration. */
-    TimeoutDuration callerTimeout() const;
+    Timeout callerTimeout() const;
 
     /** Requests that the dealer cancel the call after the specified
         timeout duration. */
-    TDerived& withDealerTimeout(DealerTimeoutDuration timeout);
+    TDerived& withDealerTimeout(DealerTimeout timeout);
 
     /** Obtains the dealer timeout duration. */
-    ErrorOr<DealerTimeoutDuration> dealerTimeout() const;
+    ErrorOr<DealerTimeout> dealerTimeout() const;
 
     /// @}
 
@@ -251,7 +243,7 @@ private:
 
     CallCancellationSlot cancellationSlot_;
     Error* error_ = nullptr;
-    TimeoutDuration callerTimeout_ = {};
+    Timeout callerTimeout_ = unspecifiedTimeout;
     TrustLevel trustLevel_ = 0;
     CallCancelMode cancelMode_ = defaultCancelMode();
     bool hasTrustLevel_ = false;
@@ -644,18 +636,16 @@ public:
 // ProcedureLike Member Function Definitions
 //******************************************************************************
 
+/** @throws error::Logic if the given timeout duration is negative. */
 template <typename D>
-D& ProcedureLike<D>::withTimeout(TimeoutDuration timeout)
+D& ProcedureLike<D>::withTimeout(Timeout timeout)
 {
-    timeout_ = timeout;
+    timeout_ = internal::checkTimeout(timeout);
     return derived();
 }
 
 template <typename D>
-typename ProcedureLike<D>::TimeoutDuration ProcedureLike<D>::timeout() const
-{
-    return timeout_;
-}
+Timeout ProcedureLike<D>::timeout() const {return timeout_;}
 
 template <typename D>
 const Uri& ProcedureLike<D>::uri() const
@@ -794,39 +784,32 @@ AccessActionInfo RpcLike<D>::info() const
             this->options()};
 }
 
-/** @details
-    If negative, the given timeout is clamped to zero. */
+/** @throws error::Logic if the given timeout duration is negative. */
 template <typename D>
-D& RpcLike<D>::withCallerTimeout(TimeoutDuration timeout)
+D& RpcLike<D>::withCallerTimeout(Timeout timeout)
 {
-    if (timeout.count() < 0)
-        timeout = {};
-    callerTimeout_ = timeout;
+    callerTimeout_ = internal::checkTimeout(timeout);
     return derived();
 }
 
 template <typename D>
-typename RpcLike<D>::TimeoutDuration RpcLike<D>::callerTimeout() const
-{
-    return callerTimeout_;
-}
+Timeout RpcLike<D>::callerTimeout() const {return callerTimeout_;}
 
 /** @details
     This sets the `CALL.Options.timeout|integer` option. */
 template <typename D>
-D& RpcLike<D>::withDealerTimeout(DealerTimeoutDuration timeout)
+D& RpcLike<D>::withDealerTimeout(DealerTimeout timeout)
 {
     return this->withOption("timeout", timeout.count());
 }
 
 template <typename D>
-ErrorOr<typename RpcLike<D>::DealerTimeoutDuration>
-RpcLike<D>::dealerTimeout() const
+ErrorOr<DealerTimeout> RpcLike<D>::dealerTimeout() const
 {
     auto timeout = this->toUnsignedInteger("timeout");
     if (!timeout)
         return makeUnexpected(timeout.error());
-    return DealerTimeoutDuration{*timeout};
+    return DealerTimeout{*timeout};
 }
 
 /** @details

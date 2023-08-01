@@ -117,10 +117,11 @@ ServerOptions::withAuthenticator(Authenticator::Ptr a)
     return *this;
 }
 
+/** @throws error::Logic if the given timeout duration is negative. */
 CPPWAMP_INLINE ServerOptions&
 ServerOptions::withChallengeTimeout(Timeout timeout)
 {
-    challengeTimeout_ = timeout;
+    challengeTimeout_ = internal::checkTimeout(timeout);
     return *this;
 }
 
@@ -131,7 +132,7 @@ CPPWAMP_INLINE Authenticator::Ptr ServerOptions::authenticator() const
     return authenticator_;
 }
 
-CPPWAMP_INLINE ServerOptions::Timeout ServerOptions::challengeTimeout() const
+CPPWAMP_INLINE Timeout ServerOptions::challengeTimeout() const
 {
     return challengeTimeout_;
 }

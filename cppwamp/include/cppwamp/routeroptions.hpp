@@ -23,6 +23,7 @@
 #include "disclosure.hpp"
 #include "listener.hpp"
 #include "logging.hpp"
+#include "timeout.hpp"
 #include "uri.hpp"
 #include "internal/passkey.hpp"
 
@@ -104,7 +105,6 @@ public:
     // TODO: IP filter
     // TODO: Authentication cooldown
     using Ptr = std::shared_ptr<ServerOptions>;
-    using Timeout = std::chrono::steady_clock::duration;
 
     template <typename S, typename F, typename... Fs>
     explicit ServerOptions(String name, S&& transportSettings, F&& format,

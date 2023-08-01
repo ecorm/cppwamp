@@ -29,13 +29,11 @@ namespace internal
 class StreamRecord
 {
 public:
-    using TimeoutDuration = Rpc::TimeoutDuration;
-
     using CompletionHandler =
         AnyCompletionHandler<void (ErrorOr<CallerChannel>)>;
 
     explicit StreamRecord(CallerChannelImpl::Ptr c, Error* errorPtr,
-                          TimeoutDuration timeout, CompletionHandler&& f = {})
+                          Timeout timeout, CompletionHandler&& f = {})
         : handler_(std::move(f)),
           weakChannel_(c),
           errorPtr_(errorPtr),
@@ -74,7 +72,7 @@ public:
 
     bool hasTimeout() const {return timeout_.count() != 0;}
 
-    TimeoutDuration timeout() const {return timeout_;}
+    Timeout timeout() const {return timeout_;}
 
 private:
     explicit StreamRecord(CallerChannelImpl::Ptr c, Error* e,
@@ -151,14 +149,13 @@ private:
     CallerChannelImpl::Ptr channel_;
     CallerChannelImpl::WeakPtr weakChannel_;
     Error* errorPtr_ = nullptr;
-    TimeoutDuration timeout_ = {};
+    Timeout timeout_ = unspecifiedTimeout;
 };
 
 //------------------------------------------------------------------------------
 class Requestor
 {
 public:
-    using TimeoutDuration = typename Rpc::TimeoutDuration;
     using RequestHandler = AnyCompletionHandler<void (ErrorOr<Message>)>;
     using StreamRequestHandler =
         AnyCompletionHandler<void (ErrorOr<CallerChannel>)>;
@@ -177,12 +174,12 @@ public:
     template <typename C>
     ErrorOr<RequestId> request(C&& command, RequestHandler&& handler)
     {
-        return request(std::forward<C>(command), TimeoutDuration{0},
+        return request(std::forward<C>(command), Timeout{0},
                        std::move(handler));
     }
 
     template <typename C>
-    ErrorOr<RequestId> request(C&& command, TimeoutDuration timeout,
+    ErrorOr<RequestId> request(C&& command, Timeout timeout,
                                RequestHandler&& handler)
     {
 
@@ -223,7 +220,7 @@ public:
             StreamRecord{channel, errorPtr, timeout, std::move(handler)});
         assert(emplaced.second);
 
-        if (timeout.count() != 0)
+        if (timeout != unspecifiedTimeout)
             deadlines_->insert({MessageKind::call, channel->id()}, timeout);
 
         return CallerChannel{{}, std::move(channel)};
@@ -366,7 +363,7 @@ private:
     }
 
     template <typename C>
-    ErrorOr<RequestId> doRequest(TrueType, C&& command, TimeoutDuration timeout,
+    ErrorOr<RequestId> doRequest(TrueType, C&& command, Timeout timeout,
                                  RequestHandler&& handler)
     {
         // Will take 285 years to overflow 2^53 at 1 million requests/sec
@@ -390,15 +387,14 @@ private:
         auto emplaced = requests_.emplace(key, std::move(handler));
         assert(emplaced.second);
 
-        if (timeout.count() != 0)
+        if (timeout != unspecifiedTimeout)
             deadlines_->insert(key, timeout);
 
         return requestId;
     }
 
     template <typename C>
-    ErrorOr<RequestId> doRequest(FalseType, C&& command,
-                                 TimeoutDuration timeout,
+    ErrorOr<RequestId> doRequest(FalseType, C&& command, Timeout timeout,
                                  RequestHandler&& handler)
     {
         const RequestId requestId = nullId();
@@ -418,7 +414,7 @@ private:
         auto emplaced = requests_.emplace(key, std::move(handler));
         assert(emplaced.second);
 
-        if (timeout.count() != 0)
+        if (timeout != unspecifiedTimeout)
             deadlines_->insert(key, timeout);
 
         return requestId;

@@ -23,6 +23,7 @@
 #include "asiodefs.hpp"
 #include "codec.hpp"
 #include "erroror.hpp"
+#include "timeout.hpp"
 #include "transport.hpp"
 #include "traits.hpp"
 
@@ -117,9 +118,6 @@ private:
 class ConnectionWish
 {
 public:
-    /// Duration type used for timeouts.
-    using TimeoutDuration = std::chrono::steady_clock::duration;
-
     /** Constructor taking a @ref TransportSettings instance and a
         @ref CodecFormat instance. */
     template <typename TTransportSettings,
@@ -139,15 +137,16 @@ public:
           codecBuilder_(codecOptions)
     {}
 
-    /** Specifies the connection timeout duration. */
-    ConnectionWish& withTimeout(TimeoutDuration timeout)
+    /** Specifies the connection timeout duration.
+        @throws error::Logic if the given timeout duration is negative. */
+    ConnectionWish& withTimeout(Timeout timeout)
     {
-        timeout_ = timeout;
+        timeout_ = internal::checkTimeout(timeout);
         return *this;
     }
 
     /** Obtains the connection timeout duration. */
-    TimeoutDuration timeout() const {return timeout_;}
+    Timeout timeout() const {return timeout_;}
 
     /** Obtains the numeric codec ID of the desired serialization format. */
     int codecId() const {return codecBuilder_.id();}
@@ -167,7 +166,7 @@ public:
 private:
     ConnectorBuilder connectorBuilder_;
     BufferCodecBuilder codecBuilder_;
-    TimeoutDuration timeout_ = {};
+    Timeout timeout_ = unspecifiedTimeout;
 };
 
 //------------------------------------------------------------------------------

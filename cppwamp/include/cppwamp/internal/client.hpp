@@ -48,10 +48,9 @@ class Client final : public std::enable_shared_from_this<Client>,
                      public ClientLike, private PeerListener
 {
 public:
-    using Ptr             = std::shared_ptr<Client>;
-    using TransportPtr    = Transporting::Ptr;
-    using State           = SessionState;
-    using TimeoutDuration = std::chrono::steady_clock::duration;
+    using Ptr           = std::shared_ptr<Client>;
+    using TransportPtr  = Transporting::Ptr;
+    using State         = SessionState;
     using EventSlot     = AnyReusableHandler<void (Event)>;
     using CallSlot      = AnyReusableHandler<Outcome (Invocation)>;
     using InterruptSlot = AnyReusableHandler<Outcome (Interruption)>;
@@ -207,14 +206,13 @@ public:
         safelyDispatch<Dispatched>(std::move(t), std::move(s), std::move(f));
     }
 
-    void unsubscribe(Subscription s, TimeoutDuration t,
-                     CompletionHandler<bool>&& f)
+    void unsubscribe(Subscription s, Timeout t, CompletionHandler<bool>&& f)
     {
         struct Dispatched
         {
             Ptr self;
             Subscription s;
-            TimeoutDuration t;
+            Timeout t;
             CompletionHandler<bool> f;
             void operator()() {self->doUnsubscribe(s, t, std::move(f));}
         };
@@ -289,14 +287,13 @@ public:
         safelyDispatch<Dispatched>(std::move(s), std::move(ss), std::move(f));
     }
 
-    void unregister(Registration r, TimeoutDuration t,
-                    CompletionHandler<bool>&& f)
+    void unregister(Registration r, Timeout t, CompletionHandler<bool>&& f)
     {
         struct Dispatched
         {
             Ptr self;
             Registration r;
-            TimeoutDuration t;
+            Timeout t;
             CompletionHandler<bool> f;
             void operator()() {self->doUnregister(r, t, std::move(f));}
         };
@@ -695,7 +692,7 @@ private:
             Established{shared_from_this(), std::move(wishes), index,
                         std::move(handler)});
 
-        if (wish.timeout().count() != 0)
+        if (wish.timeout() != unspecifiedTimeout)
         {
             auto self = shared_from_this();
             connectionTimer_.expires_after(wish.timeout());
@@ -900,7 +897,7 @@ private:
             sendUnsubscribe(key.first);
     }
 
-    void doUnsubscribe(const Subscription& sub, TimeoutDuration timeout,
+    void doUnsubscribe(const Subscription& sub, Timeout timeout,
                        CompletionHandler<bool>&& handler)
     {
         if (!sub || !readership_.unsubscribe(sub.key({})))
@@ -1048,7 +1045,7 @@ private:
             request(Unregister{regId}, Requested{});
     }
 
-    void doUnregister(const Registration& reg, TimeoutDuration t,
+    void doUnregister(const Registration& reg, Timeout t,
                       CompletionHandler<bool>&& handler)
     {
         struct Requested
@@ -1330,7 +1327,7 @@ private:
     }
 
     template <typename C>
-    ErrorOr<RequestId> request(C&& command, TimeoutDuration timeout,
+    ErrorOr<RequestId> request(C&& command, Timeout timeout,
                                RequestHandler&& handler)
     {
         return requestor_.request(std::forward<C>(command), timeout,
@@ -1379,7 +1376,7 @@ private:
             request(Unsubscribe{subId}, Requested{});
     }
 
-    void sendUnsubscribe(SubscriptionId subId, TimeoutDuration timeout,
+    void sendUnsubscribe(SubscriptionId subId, Timeout timeout,
                          CompletionHandler<bool>&& handler)
     {
         struct Requested
