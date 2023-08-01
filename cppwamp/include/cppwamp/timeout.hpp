@@ -26,7 +26,7 @@ static constexpr Timeout unspecifiedTimeout{0};
 
 /** Special value indicating the operation is to wait indefinitely
     for completion. */
-static constexpr Timeout never{Timeout::max()};
+static constexpr Timeout neverTimeout{Timeout::max()};
 
 
 namespace internal
@@ -36,6 +36,11 @@ inline Timeout checkTimeout(Timeout t)
 {
     CPPWAMP_LOGIC_CHECK(t.count() >= 0, "Timeout cannot be negative");
     return t;
+}
+
+constexpr bool timeoutIsDefinite(Timeout t)
+{
+    return t != unspecifiedTimeout && t != neverTimeout;
 }
 
 } // namespace internal

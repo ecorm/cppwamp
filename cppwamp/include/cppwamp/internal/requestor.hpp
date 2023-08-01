@@ -220,7 +220,7 @@ public:
             StreamRecord{channel, errorPtr, timeout, std::move(handler)});
         assert(emplaced.second);
 
-        if (timeout != unspecifiedTimeout)
+        if (timeoutIsDefinite(timeout))
             deadlines_->insert({MessageKind::call, channel->id()}, timeout);
 
         return CallerChannel{{}, std::move(channel)};
@@ -387,7 +387,7 @@ private:
         auto emplaced = requests_.emplace(key, std::move(handler));
         assert(emplaced.second);
 
-        if (timeout != unspecifiedTimeout)
+        if (timeoutIsDefinite(timeout))
             deadlines_->insert(key, timeout);
 
         return requestId;
@@ -414,7 +414,7 @@ private:
         auto emplaced = requests_.emplace(key, std::move(handler));
         assert(emplaced.second);
 
-        if (timeout != unspecifiedTimeout)
+        if (timeoutIsDefinite(timeout))
             deadlines_->insert(key, timeout);
 
         return requestId;

@@ -90,6 +90,11 @@ public:
 
     void enableTracing(bool enabled) {PeerListener::enableTracing(enabled);}
 
+    void setFallbackTimeout(Timeout timeout)
+    {
+        fallbackTimeout_ = timeout;
+    }
+
     void connect(ConnectionWishList&& w, CompletionHandler<size_t>&& f)
     {
         struct Dispatched
@@ -692,10 +697,11 @@ private:
             Established{shared_from_this(), std::move(wishes), index,
                         std::move(handler)});
 
-        if (wish.timeout() != unspecifiedTimeout)
+        auto timeout = timeoutOrFallback(wish.timeout());
+        if (timeoutIsDefinite(timeout))
         {
             auto self = shared_from_this();
-            connectionTimer_.expires_after(wish.timeout());
+            connectionTimer_.expires_after(timeout);
             connectionTimer_.async_wait(
                 [self](boost::system::error_code ec)
                 {
@@ -772,7 +778,7 @@ private:
         challengeSlot_ = std::move(onChallenge);
         Requested requested{shared_from_this(), std::move(handler), realm.uri(),
                             realm.abortReason({})};
-        auto timeout = realm.timeout();
+        auto timeout = timeoutOrFallback(realm.timeout());
         request(std::move(realm), timeout, std::move(requested));
     }
 
@@ -886,7 +892,7 @@ private:
         {
             Requested requested{shared_from_this(), std::move(matchUri),
                                 std::move(slot), std::move(handler)};
-            auto timeout = topic.timeout();
+            auto timeout = timeoutOrFallback(topic.timeout());
             request(std::move(topic), timeout, std::move(requested));
         }
     }
@@ -902,6 +908,7 @@ private:
     {
         if (!sub || !readership_.unsubscribe(sub.key({})))
             return complete(handler, false);
+        timeout = timeoutOrFallback(timeout);
         sendUnsubscribe(sub.id(), timeout, std::move(handler));
     }
 
@@ -964,7 +971,7 @@ private:
             return;
 
         pub.withOption("acknowledge", true);
-        auto timeout = pub.timeout();
+        auto timeout = timeoutOrFallback(pub.timeout());
         request(std::move(pub), timeout,
                 Requested{shared_from_this(), std::move(handler)});
     }
@@ -995,7 +1002,7 @@ private:
 
         ProcedureRegistration reg{std::move(c), std::move(i), p.uri(),
                                   makeContext()};
-        auto timeout = p.timeout();
+        auto timeout = timeoutOrFallback(p.timeout());
         request(std::move(p), timeout,
                 Requested{shared_from_this(), std::move(reg), std::move(f)});
     }
@@ -1045,7 +1052,7 @@ private:
             request(Unregister{regId}, Requested{});
     }
 
-    void doUnregister(const Registration& reg, Timeout t,
+    void doUnregister(const Registration& reg, Timeout timeout,
                       CompletionHandler<bool>&& handler)
     {
         struct Requested
@@ -1066,7 +1073,8 @@ private:
 
         if (checkState(State::established, handler))
         {
-            request(Unregister{reg.id()}, t,
+            timeout = timeoutOrFallback(timeout);
+            request(Unregister{reg.id()}, timeout,
                     Requested{shared_from_this(), std::move(handler)});
         }
     }
@@ -1516,6 +1524,11 @@ private:
 
     ClientContext makeContext() {return ClientContext{shared_from_this()};}
 
+    Timeout timeoutOrFallback(Timeout t)
+    {
+        return (t == unspecifiedTimeout) ? fallbackTimeout_ : t;
+    }
+
     AnyIoExecutor executor_;
     IoStrand strand_;
     Peer::Ptr peer_;
@@ -1529,6 +1542,7 @@ private:
 #ifdef CPPWAMP_STRICT_INVOCATION_ID_CHECKS
     RequestId inboundRequestIdWatermark_ = 0;
 #endif
+    Timeout fallbackTimeout_ = unspecifiedTimeout;
     bool isTerminating_ = false;
 
     friend class ClientContext;

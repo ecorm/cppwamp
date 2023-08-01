@@ -796,10 +796,12 @@ template <typename D>
 Timeout RpcLike<D>::callerTimeout() const {return callerTimeout_;}
 
 /** @details
-    This sets the `CALL.Options.timeout|integer` option. */
+    This sets the `CALL.Options.timeout|integer` option.
+    @throws error::Logic is the given timeout duration is negative. */
 template <typename D>
 D& RpcLike<D>::withDealerTimeout(DealerTimeout timeout)
 {
+    CPPWAMP_LOGIC_CHECK(timeout.count() >= 0, "Timeout cannot be negative");
     return this->withOption("timeout", timeout.count());
 }
 

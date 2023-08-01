@@ -89,6 +89,16 @@ CPPWAMP_INLINE void Session::enableTracing(bool enabled)
 
 //------------------------------------------------------------------------------
 /** @details
+    The fallback timeout period is indefinite, by default.
+    @throws error::Logic if the given timeout period is negative. */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::setFallbackTimeout(Timeout timeout)
+{
+    impl_->setFallbackTimeout(internal::checkTimeout(timeout));
+}
+
+//------------------------------------------------------------------------------
+/** @details
     Aborts all pending asynchronous operations, invoking their handlers
     with error codes indicating that cancellation has occured.
     @post `this->state() == SessionState::disconnected` */

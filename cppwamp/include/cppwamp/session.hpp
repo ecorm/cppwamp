@@ -195,6 +195,10 @@ public:
 
     /** Enables message tracing incidents. */
     void enableTracing(bool enabled = true);
+
+    /** Sets the default timeout duration to use for an operation without
+        a specified timeout. */
+    void setFallbackTimeout(Timeout timeout);
     /// @}
 
     /// @name Session Management
