@@ -166,6 +166,18 @@ TEST_CASE("WAMP Client Command Timeouts", "[WAMP][Basic]")
                 s.disconnect();
             }
 
+            INFO("leave");
+            {
+                server->load({{{"[2,1,{}]"}}} /* WELCOME */);
+                s.connect(invalidTcp, yield).value();
+                s.join(Petition{testRealm}, yield).value();
+                auto goodbye = s.leave(Reason{}, timeout, yield);
+                REQUIRE_FALSE(goodbye.has_value());
+                CHECK(goodbye.error() == WampErrc::timeout);
+                CHECK(s.state() == SS::failed);
+                s.disconnect();
+            }
+
             INFO("subscribe");
             {
                 server->load({{{"[2,1,{}]"}}} /* WELCOME */);

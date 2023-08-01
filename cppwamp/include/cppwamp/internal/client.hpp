@@ -156,17 +156,18 @@ public:
         safelyDispatch<Dispatched>(std::move(r));
     }
 
-    void leave(Reason&& r, CompletionHandler<Reason>&& f)
+    void leave(Reason&& r, Timeout t, CompletionHandler<Reason>&& f)
     {
         struct Dispatched
         {
             Ptr self;
             Reason r;
+            Timeout t;
             CompletionHandler<Reason> f;
-            void operator()() {self->doLeave(std::move(r), std::move(f));}
+            void operator()() {self->doLeave(std::move(r), t, std::move(f));}
         };
 
-        safelyDispatch<Dispatched>(std::move(r), std::move(f));
+        safelyDispatch<Dispatched>(std::move(r), t, std::move(f));
     }
 
     // NOLINTNEXTLINE(bugprone-exception-escape)
@@ -810,7 +811,8 @@ private:
         }
     }
 
-    void doLeave(Reason&& reason, CompletionHandler<Reason>&& handler)
+    void doLeave(Reason&& reason, Timeout timeout,
+                 CompletionHandler<Reason>&& handler)
     {
         struct Requested
         {
@@ -835,7 +837,8 @@ private:
         if (reason.uri().empty())
             reason.setUri({}, errorCodeToUri(WampErrc::closeRealm));
 
-        request(std::move(reason),
+        timeout = timeoutOrFallback(timeout);
+        request(std::move(reason), timeout,
                 Requested{shared_from_this(), std::move(handler)});
     }
 

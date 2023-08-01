@@ -213,9 +213,10 @@ CPPWAMP_INLINE void Session::doJoin(Petition&& p, ChallengeSlot&& s,
     impl_->join(std::move(p), std::move(s), std::move(f));
 }
 
-CPPWAMP_INLINE void Session::doLeave(Reason&& r, CompletionHandler<Reason>&& f)
+CPPWAMP_INLINE void Session::doLeave(Reason&& r, Timeout t,
+                                     CompletionHandler<Reason>&& f)
 {
-    impl_->leave(std::move(r), std::move(f));
+    impl_->leave(std::move(r), t, std::move(f));
 }
 
 CPPWAMP_INLINE void Session::doSubscribe(Topic&& t, EventSlot&& s,

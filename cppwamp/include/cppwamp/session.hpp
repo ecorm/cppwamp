@@ -234,6 +234,12 @@ public:
     CPPWAMP_NODISCARD Deduced<ErrorOr<Reason>, C>
     leave(Reason reason, C&& completion);
 
+    /** Asynchronously leaves the WAMP session with the given reason and
+        timeout duration. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<Reason>, C>
+    leave(Reason reason, Timeout timeout, C&& completion);
+
     /** Disconnects the transport between the client and router. */
     void disconnect();
 
@@ -386,7 +392,7 @@ private:
     void doConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f);
     void doJoin(Petition&& p, ChallengeSlot&& s,
                 CompletionHandler<Welcome>&& f);
-    void doLeave(Reason&& reason, CompletionHandler<Reason>&& f);
+    void doLeave(Reason&& reason, Timeout t, CompletionHandler<Reason>&& f);
     void doSubscribe(Topic&& t, EventSlot&& s,
                      CompletionHandler<Subscription>&& f);
     void doUnsubscribe(const Subscription& s, Timeout t,
@@ -435,10 +441,11 @@ struct Session::LeaveOp
     using ResultValue = Reason;
     Session* self;
     Reason r;
+    Timeout t;
 
     template <typename F> void operator()(F&& f)
     {
-        self->doLeave(std::move(r),
+        self->doLeave(std::move(r), t,
                       self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
@@ -759,11 +766,31 @@ Deduced<ErrorOr<Reason>, C>
 Session::template Deduced<ErrorOr<Reason>, C>
 #endif
 Session::leave(
-    Reason reason, ///< %Reason URI and other options
+    Reason reason, ///< %Reason URI and other options.
     C&& completion ///< Completion handler or token.
     )
 {
-    return initiate<LeaveOp>(std::forward<C>(completion), std::move(reason));
+    return initiate<LeaveOp>(std::forward<C>(completion), std::move(reason),
+                             unspecifiedTimeout);
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::leave(Reason, C&&) */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<Reason>, C>
+#else
+Session::template Deduced<ErrorOr<Reason>, C>
+#endif
+Session::leave(
+    Reason reason,   ///< %Reason URI and other options.
+    Timeout timeout, ///< Timeout duration.
+    C&& completion   ///< Completion handler or token.
+    )
+{
+    return initiate<LeaveOp>(std::forward<C>(completion), std::move(reason),
+                             timeout);
 }
 
 //------------------------------------------------------------------------------
@@ -828,7 +855,8 @@ Session::unsubscribe(
 {
     CPPWAMP_LOGIC_CHECK(canUnsubscribe(sub),
                         "Session does not own the subscription");
-    return initiate<UnsubscribeOp>(std::forward<C>(completion), sub, Timeout{});
+    return initiate<UnsubscribeOp>(std::forward<C>(completion), sub,
+                                   unspecifiedTimeout);
 }
 
 //------------------------------------------------------------------------------
@@ -954,7 +982,8 @@ Session::unregister(
 {
     CPPWAMP_LOGIC_CHECK(canUnregister(reg),
                         "Session does not own the registration");
-    return initiate<UnregisterOp>(std::forward<C>(completion), reg, Timeout{});
+    return initiate<UnregisterOp>(std::forward<C>(completion), reg,
+                                  unspecifiedTimeout);
 }
 
 //------------------------------------------------------------------------------
