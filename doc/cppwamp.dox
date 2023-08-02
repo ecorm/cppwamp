@@ -124,5 +124,6 @@ For a brief **architectural overview** of the library, see @ref Architecture.
 @example examples/stacklesstimeservice/main.cpp
 @example examples/streaming/main.cpp
 @example examples/timeclient/main.cpp
+@example examples/timeclientauth/main.cpp
 @example examples/timeservice/main.cpp
 */

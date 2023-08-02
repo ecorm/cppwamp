@@ -137,6 +137,7 @@ private:
     void onConnect(Transporting::Ptr t, AnyBufferCodec c) override
     {
         transport_ = std::move(t);
+        ++transportId_;
         codec_ = std::move(c);
         maxTxLength_ = transport_->info().maxTxLength;
     }
@@ -145,20 +146,21 @@ private:
     {
         if (!transport_->isRunning())
         {
+            auto id = transportId_;
             const std::weak_ptr<NetworkPeer> weakSelf =
                 std::static_pointer_cast<NetworkPeer>(shared_from_this());
             transport_->start(
-                [weakSelf](const ErrorOr<MessageBuffer>& buffer)
+                [weakSelf, id](const ErrorOr<MessageBuffer>& buffer)
                 {
                     auto self = weakSelf.lock();
                     if (self)
-                        self->onTransportRx(buffer);
+                        self->onTransportRx(buffer, id);
                 },
-                [weakSelf](std::error_code ec)
+                [weakSelf, id](std::error_code ec)
                 {
                     auto self = weakSelf.lock();
                     if (self)
-                        self->onTransportTxError(ec);
+                        self->onTransportTxError(ec, id);
                 });
         }
     }
@@ -174,19 +176,29 @@ private:
         }
     }
 
-    void onTransportRx(const ErrorOr<MessageBuffer>& buffer)
+    void onTransportRx(const ErrorOr<MessageBuffer>& buffer,
+                       std::size_t transportId)
     {
+        // Ignore queued events from former transport instances
+        if (!transport_ || (transportId != transportId_))
+            return;
+
         // Ignore transport cancellation errors when disconnecting.
         if (buffer.has_value())
-            onTransportRx(*buffer);
+            onTransportRxData(*buffer);
         else if (buffer.error() == TransportErrc::disconnected)
             onRemoteDisconnect();
         else if (state() != State::disconnected)
             fail("Transport receive failure", buffer.error());
     }
 
-    void onTransportTxError(std::error_code ec)
+    void onTransportTxError(std::error_code ec,
+                            std::size_t transportId)
     {
+        // Ignore queued events from former transport instances
+        if (!transport_ || (transportId != transportId_))
+            return;
+
         // Ignore transport cancellation errors when disconnecting.
         if (state() != State::disconnected)
             fail("Transport send failure", ec);
@@ -198,7 +210,7 @@ private:
         return sendMessage(command.message({}));
     }
 
-    void onTransportRx(const MessageBuffer& buffer)
+    void onTransportRxData(const MessageBuffer& buffer)
     {
         // Ignore messages that may have been already posted by the transport
         // when disconnection occurred.
@@ -362,6 +374,7 @@ private:
     Transporting::Ptr transport_;
     AnyBufferCodec codec_;
     std::size_t maxTxLength_ = 0;
+    std::size_t transportId_ = 0;
 };
 
 } // namespace internal
