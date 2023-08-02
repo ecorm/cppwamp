@@ -27,30 +27,24 @@ namespace internal
 {
     class PassKey
     {
-        constexpr PassKey() = default;
+        constexpr PassKey() {};
 
-        // TODO: Verify these are all needed before next release
-        friend class wamp::AuthExchange;
         friend class wamp::AuthorizationRequest;
         friend class wamp::CalleeInputChunk;
         friend class wamp::DirectRouterLink;
-        friend class wamp::DirectSession;
         friend class wamp::Error;
         friend class wamp::Event;
-        friend class wamp::Interruption;
-        friend class wamp::Invocation;
         friend class wamp::Outcome;
         friend class wamp::Session;
-        friend class wamp::SessionInfo;
         template <typename> friend class BasicCalleeChannelImpl;
         template <typename> friend class BasicCallerChannelImpl;
         friend class Broker;
+        friend class BrokerImpl;
         friend class BrokerPublication;
         friend class BrokerSubscribeRequest;
         friend class Client;
         friend class Dealer;
-        friend class DealerInvocation;
-        friend class DealerRegistration;
+        friend class DealerImpl;
         friend class DealerJob;
         friend class DealerJobMap;
         friend class DirectPeer;
@@ -61,20 +55,15 @@ namespace internal
         friend class MockServer;
         friend class NetworkPeer;
         friend class Peer;
-        friend class PeerListener;
         friend class ProcedureRegistry;
-        friend class Readership;
         friend class RequestIdChecker;
         friend class Requestor;
         friend class RouterImpl;
-        friend class RouterRealm;
-        friend class RouterServer;
         friend class RouterSession;
         friend class SessionInfoImpl;
         friend class ServerSession;
         friend class StreamRecord;
         friend class SubscriptionRecord;
-        friend class UriChecker;
     };
 
 } // namespace internal
