@@ -38,7 +38,7 @@ ConsoleLoggerOptions::withColor(bool enabled)
     return *this;
 }
 
-CPPWAMP_INLINE const std::string ConsoleLoggerOptions::originLabel() const
+CPPWAMP_INLINE const std::string& ConsoleLoggerOptions::originLabel() const
 {
     return originLabel_;
 }
@@ -61,7 +61,7 @@ CPPWAMP_INLINE bool ConsoleLoggerOptions::colorEnabled() const
 //------------------------------------------------------------------------------
 struct ConsoleLogger::Impl
 {
-    Impl(ConsoleLoggerOptions options) : options(std::move(options)) {}
+    explicit Impl(ConsoleLoggerOptions options) : options(std::move(options)) {}
 
     ConsoleLoggerOptions options;
 };

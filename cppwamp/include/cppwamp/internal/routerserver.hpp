@@ -559,7 +559,7 @@ private:
         listener_ = options_->makeListener(strand_);
         inform("Starting server listening on " + listener_->where());
 
-        std::weak_ptr<RouterServer> self{shared_from_this()};
+        const std::weak_ptr<RouterServer> self{shared_from_this()};
         challengeTimeouts_->listen(
             [self](ServerSession::Key n)
             {

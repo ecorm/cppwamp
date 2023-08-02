@@ -66,6 +66,7 @@ CPPWAMP_INLINE Uri&& Topic::uri(internal::PassKey) &&
     return std::move(message().as<String>(uriPos_));
 }
 
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 CPPWAMP_INLINE bool Topic::disclosed(internal::PassKey) const
 {
     // Not applicable; return false

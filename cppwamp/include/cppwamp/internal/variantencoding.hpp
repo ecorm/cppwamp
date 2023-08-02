@@ -7,6 +7,7 @@
 #ifndef CPPWAMP_INTERNAL_VARIANTENCODING_HPP
 #define CPPWAMP_INTERNAL_VARIANTENCODING_HPP
 
+#include <cassert>
 #include <deque>
 #include <jsoncons/byte_string.hpp>
 #include <jsoncons/sink.hpp>
@@ -173,6 +174,7 @@ public:
             }
 
             using K = VariantKind;
+            assert(variant != nullptr);
             switch (variant->kind())
             {
             case K::null:
@@ -214,8 +216,7 @@ public:
             {
                 const auto& array = variant->template as<VariantKind::array>();
                 encoder_.begin_array(array.size());
-                stack_.emplace_back(Context{variant,
-                                            typename Context::ArrayTag{}});
+                stack_.emplace_back(variant, typename Context::ArrayTag{});
                 break;
             }
 
@@ -223,8 +224,7 @@ public:
             {
                 const auto& object = variant->template as<VariantKind::object>();
                 encoder_.begin_object(object.size());
-                stack_.emplace_back(Context{variant,
-                                            typename Context::ObjectTag{}});
+                stack_.emplace_back(variant, typename Context::ObjectTag{});
                 break;
             }
             }

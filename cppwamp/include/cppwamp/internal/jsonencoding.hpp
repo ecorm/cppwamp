@@ -257,8 +257,7 @@ private:
         static constexpr char prefix[] = "\"\\u0000";
         if (!stack_.empty() && stack_.back().needsArraySeparator())
             sink.push_back(',');
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-        sink.append(prefix, sizeof(prefix) - 1);
+        sink.append(static_cast<const char*>(prefix), sizeof(prefix) - 1);
         Base64::encode(b.bytes().data(), b.bytes().size(), sink);
         sink.push_back('\"');
     }

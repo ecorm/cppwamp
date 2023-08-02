@@ -1084,7 +1084,10 @@ Variant& Variant::operator=(T&& value)
 {
     using FieldType = typename ArgTraits<ValueTypeOf<T>>::FieldType;
     if (is<FieldType>())
+    {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
         as<FieldType>() = std::forward<T>(value);
+    }
     else
     {
         destruct();

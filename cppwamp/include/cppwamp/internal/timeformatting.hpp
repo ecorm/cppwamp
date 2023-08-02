@@ -152,7 +152,7 @@ inline std::istream& inputRfc3339Timestamp(
 
     double seconds = 0;
     in >> seconds;
-    if (seconds >= 61.0)
+    if (seconds >= 61.0) // NOLINT(cppcoreguidelines-avoid-magic-numbers)
         return fail();
 
     char zone = 0;

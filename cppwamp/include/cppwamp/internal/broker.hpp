@@ -1039,7 +1039,8 @@ private:
 
     void bypassAuthorization(const RouterSession::Ptr& publisher, Pub&& pub)
     {
-        bool disclosed = publisherDisclosure_.compute(pub.disclosed({}), false);
+        const bool disclosed = publisherDisclosure_.compute(pub.disclosed({}),
+                                                            false);
         pub.setDisclosed({}, disclosed);
         impl_.publish(publisher, std::move(pub));
     }

@@ -177,11 +177,11 @@ void AuthorizationRequest::grantAuthorization(
     const std::shared_ptr<Originator>& originator,
     internal::AuthorizationListener& listener)
 {
-    bool producerDisclosure = command.disclosed(internal::PassKey{});
+    const bool producerDisclosure = command.disclosed(internal::PassKey{});
     internal::DisclosureMode disclosureMode{auth.disclosure()};
-    bool disclosed = disclosureMode.compute(producerDisclosure,
-                                            consumerDisclosure_,
-                                            realmDisclosure_);
+    const bool disclosed = disclosureMode.compute(producerDisclosure,
+                                                  consumerDisclosure_,
+                                                  realmDisclosure_);
     command.setDisclosed({}, disclosed);
     listener.onAuthorized(originator, std::forward<C>(command));
 }

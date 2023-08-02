@@ -136,7 +136,7 @@ private:
     ListenerBuilder listenerBuilder_;
     std::vector<BufferCodecBuilder> codecBuilders_;
     Authenticator::Ptr authenticator_;
-    Timeout challengeTimeout_;
+    Timeout challengeTimeout_ = unspecifiedTimeout;
 
     friend class internal::RouterServer;
 };

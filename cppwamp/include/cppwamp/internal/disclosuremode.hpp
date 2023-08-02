@@ -20,9 +20,8 @@ namespace internal
 class DisclosureMode
 {
 public:
-    DisclosureMode(Disclosure disclosure)
-        : disclosure_(disclosure)
-    {}
+    // NOLINTNEXTLINE(google-explicit-constructor)
+    DisclosureMode(Disclosure disclosure) : disclosure_(disclosure) {}
 
     Disclosure disclosure() const {return disclosure_;}
 
@@ -30,7 +29,7 @@ public:
     {
         switch (disclosure_)
         {
-        case Disclosure::preset:   return producerDisclosure;
+        case Disclosure::preset: // fall through
         case Disclosure::producer: return producerDisclosure;
         case Disclosure::consumer: return consumerDisclosure;
         case Disclosure::either:   return producerDisclosure || consumerDisclosure;

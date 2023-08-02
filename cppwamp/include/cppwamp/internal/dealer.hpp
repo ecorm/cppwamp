@@ -695,7 +695,7 @@ public:
     }
 
     void call(const RouterSession::Ptr& caller, Rpc&& rpc,
-              DealerRegistration* reg = nullptr)
+              const DealerRegistration* reg = nullptr)
     {
         const auto reqId = rpc.requestId({});
         const auto done = callProcedure(caller, std::move(rpc), reg);
@@ -798,7 +798,7 @@ private:
     using MutexGuard = std::lock_guard<std::mutex>;
 
     ErrorOrDone callProcedure(const RouterSession::Ptr& caller, Rpc&& rpc,
-                              DealerRegistration* reg)
+                              const DealerRegistration* reg)
     {
         if (reg == nullptr)
             reg = registry_.find(rpc.uri());
@@ -1032,8 +1032,8 @@ private:
         if (!uriValidator_->checkProcedure(call.uri(), false))
             return caller->abort({WampErrc::invalidUri});
 
-        auto reg = impl_.findProcedure(call.uri());
-        if (!reg && !impl_.hasMetaProcedure(call.uri()))
+        const auto* reg = impl_.findProcedure(call.uri());
+        if ((reg == nullptr) && !impl_.hasMetaProcedure(call.uri()))
         {
             caller->sendRouterCommandError(call, WampErrc::noSuchProcedure);
             return;
@@ -1087,10 +1087,11 @@ private:
     }
 
     void bypassAuthorization(const RouterSession::Ptr& caller, Rpc&& rpc,
-                             bool consumerDisclosure, DealerRegistration* reg)
+                             bool consumerDisclosure,
+                             const DealerRegistration* reg)
     {
-        bool disclosed = callerDisclosure_.compute(rpc.disclosed({}),
-                                                   consumerDisclosure);
+        const bool disclosed = callerDisclosure_.compute(rpc.disclosed({}),
+                                                         consumerDisclosure);
         rpc.setDisclosed({}, disclosed);
         impl_.call(caller, std::move(rpc), reg);
     }

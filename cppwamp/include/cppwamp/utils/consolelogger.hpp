@@ -41,7 +41,7 @@ public:
     ConsoleLoggerOptions& withColor(bool enabled = true);
 
     /** Obtains the origin label. */
-    const std::string originLabel() const;
+    const std::string& originLabel() const;
 
     /** Determines if flush-on-write was enabled. */
     bool flushOnWriteEnabled() const;
