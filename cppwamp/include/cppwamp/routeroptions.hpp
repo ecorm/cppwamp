@@ -12,6 +12,18 @@
     @brief Contains the API used by a _router_ peer in WAMP applications. */
 //------------------------------------------------------------------------------
 
+/* Security options wishlist:
+    - Pending call quota
+    - Progressive calls quota
+    - Publication quota
+    - Subscription quota
+    - Registration quota
+    - IP allow/block lists
+    - Authentication lockout/cooldown
+    - Bandwidth throttling/limiting
+    - Connection limits
+*/
+
 #include <memory>
 #include <utility>
 #include <vector>
@@ -65,9 +77,6 @@ public:
 
     RealmOptions& withMetaTopicPublicationAllowed(bool allowed = true);
 
-    // TODO: Progressive calls quota
-    // TODO: Pending call quota
-
     const Uri& uri() const;
 
     Authorizer::Ptr authorizer() const;
@@ -102,8 +111,6 @@ namespace internal { class Challenger; } // Forward declaration
 class CPPWAMP_API ServerOptions
 {
 public:
-    // TODO: IP filter
-    // TODO: Authentication cooldown
     using Ptr = std::shared_ptr<ServerOptions>;
 
     template <typename S, typename F, typename... Fs>
