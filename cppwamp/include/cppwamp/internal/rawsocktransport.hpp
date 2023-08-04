@@ -111,6 +111,7 @@ private:
 //------------------------------------------------------------------------------
 struct DefaultRawsockTransportConfig
 {
+    // Allows altering transport frames for test purposes.
     static RawsockFrame::Ptr enframe(RawsockMsgType type,
                                      MessageBuffer&& payload)
     {

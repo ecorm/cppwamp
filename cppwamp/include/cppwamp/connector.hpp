@@ -65,53 +65,6 @@ public:
 
 
 //------------------------------------------------------------------------------
-/** Builds a transport connector on demand when needed. */
-// TODO: Move this to internal namespace
-//------------------------------------------------------------------------------
-class CPPWAMP_API ConnectorBuilder
-{
-private:
-    template <typename S>
-    static constexpr bool isNotSelf()
-    {
-        return !isSameType<ValueTypeOf<S>, ConnectorBuilder>();
-    }
-
-public:
-    /** Constructor taking transport settings (e.g. TcpHost) */
-    template <typename S, CPPWAMP_NEEDS((isNotSelf<S>())) = 0>
-    explicit ConnectorBuilder(S&& transportSettings)
-        : builder_(makeBuilder(std::forward<S>(transportSettings)))
-    {}
-
-    /** Builds a connector appropriate for the transport settings given
-        in the constructor. */
-    Connecting::Ptr operator()(IoStrand s, int codecId) const
-    {
-        return builder_(std::move(s), codecId);
-    }
-
-private:
-    using Function = std::function<Connecting::Ptr (IoStrand s, int codecId)>;
-
-    template <typename S>
-    static Function makeBuilder(S&& transportSettings)
-    {
-        using Settings = Decay<S>;
-        using Protocol = typename Settings::Protocol;
-        using ConcreteConnector = Connector<Protocol>;
-        return Function{
-            [transportSettings](IoStrand s, int codecId)
-            {
-                return Connecting::Ptr(new ConcreteConnector(
-                    std::move(s), transportSettings, codecId));
-            }};
-    }
-
-    Function builder_;
-};
-
-//------------------------------------------------------------------------------
 /** Couples desired transport settings together with a desired serialization
     format, to allow the generation of connectors and codecs on demand. */
 //------------------------------------------------------------------------------
@@ -164,7 +117,48 @@ public:
     }
 
 private:
-    ConnectorBuilder connectorBuilder_;
+    class Builder
+    {
+    private:
+        template <typename S>
+        static constexpr bool isNotSelf()
+        {
+            return !isSameType<ValueTypeOf<S>, Builder>();
+        }
+
+    public:
+        template <typename S, CPPWAMP_NEEDS((isNotSelf<S>())) = 0>
+        explicit Builder(S&& transportSettings)
+            : builder_(makeBuilder(std::forward<S>(transportSettings)))
+        {}
+
+        Connecting::Ptr operator()(IoStrand s, int codecId) const
+        {
+            return builder_(std::move(s), codecId);
+        }
+
+    private:
+        using Function =
+            std::function<Connecting::Ptr (IoStrand s, int codecId)>;
+
+        template <typename S>
+        static Function makeBuilder(S&& transportSettings)
+        {
+            using Settings = Decay<S>;
+            using Protocol = typename Settings::Protocol;
+            using ConcreteConnector = Connector<Protocol>;
+            return Function{
+                [transportSettings](IoStrand s, int codecId)
+                {
+                    return Connecting::Ptr(new ConcreteConnector(
+                        std::move(s), transportSettings, codecId));
+                }};
+        }
+
+        Function builder_;
+    };
+
+    Builder connectorBuilder_;
     BufferCodecBuilder codecBuilder_;
     Timeout timeout_ = unspecifiedTimeout;
 };
