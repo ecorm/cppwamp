@@ -112,8 +112,6 @@ public:
         onDisconnect(oldState);
     }
 
-    ErrorOrDone ping(Variant payload) {return onPing(std::move(payload));}
-
     virtual ErrorOrDone send(Error&&) = 0;
 
     virtual ErrorOrDone send(Reason&&) = 0;
@@ -172,8 +170,6 @@ protected:
     virtual void onEstablish() = 0;
 
     virtual void onClose() = 0;
-
-    virtual ErrorOrDone onPing(Variant payload) = 0;
 
     virtual void onDisconnect(State previousState) = 0;
 

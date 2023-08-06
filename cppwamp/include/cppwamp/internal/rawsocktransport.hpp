@@ -8,6 +8,7 @@
 #define CPPWAMP_INTERNAL_RAWSOCKTRANSPORT_HPP
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <deque>
 #include <functional>
@@ -131,6 +132,7 @@ public:
     using SocketPtr      = std::unique_ptr<Socket>;
     using RxHandler      = typename Transporting::RxHandler;
     using TxErrorHandler = typename Transporting::TxErrorHandler;
+    using PingHandler    = typename Transporting::PingHandler;
 
     static Ptr create(SocketPtr&& s, TransportInfo info)
     {
@@ -141,13 +143,11 @@ public:
 
     bool isRunning() const override {return running_;}
 
-    void start(TxErrorHandler txErrorHandler, RxHandler rxHandler,
-               PongHandler pongHandler) override
+    void start(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
     {
         assert(!isRunning());
-        txErrorHandler_ = std::move(txErrorHandler);
-        rxHandler_ = std::move(rxHandler);
-        pongHandler_ = std::move(pongHandler);
+        rxHandler_ = rxHandler;
+        txErrorHandler_ = txErrorHandler;
         receive();
         running_ = true;
     }
@@ -160,8 +160,8 @@ public:
         if (!isRunning())
             return;
 
-        auto frame = enframe(RawsockMsgType::wamp, std::move(message));
-        sendFrame(std::move(frame));
+        auto buf = enframe(RawsockMsgType::wamp, std::move(message));
+        sendFrame(std::move(buf));
     }
 
     void sendNowAndStop(MessageBuffer message) override
@@ -182,13 +182,6 @@ public:
         running_ = false;
     }
 
-    void ping(MessageBuffer message) override
-    {
-        assert(isRunning());
-        auto frame = enframe(RawsockMsgType::ping, std::move(message));
-        sendFrame(frame);
-    }
-
     void stop() override
     {
         rxHandler_ = nullptr;
@@ -197,6 +190,15 @@ public:
         running_ = false;
         if (socket_)
             socket_->close();
+    }
+
+    void ping(MessageBuffer message, PingHandler handler) override
+    {
+        assert(isRunning());
+        pingHandler_ = std::move(handler);
+        pingFrame_ = enframe(RawsockMsgType::ping, std::move(message));
+        sendFrame(pingFrame_);
+        pingStart_ = std::chrono::high_resolution_clock::now();
     }
 
     ConnectionInfo connectionInfo() const override
@@ -209,6 +211,7 @@ public:
 private:
     using Base = Transporting;
     using TransmitQueue = std::deque<RawsockFrame::Ptr>;
+    using TimePoint     = std::chrono::high_resolution_clock::time_point;
 
     RawsockTransport(SocketPtr&& socket, TransportInfo info)
         : strand_(boost::asio::make_strand(socket->get_executor())),
@@ -343,9 +346,7 @@ private:
                         break;
 
                     case RawsockMsgType::pong:
-                        if (pongHandler_)
-                            post(pongHandler_, std::move(rxFrame_).payload());
-                        receive();
+                        receivePong();
                         break;
 
                     default:
@@ -364,6 +365,29 @@ private:
                               std::move(rxFrame_).payload());
         sendFrame(std::move(frame));
         receive();
+    }
+
+    // NOLINTNEXTLINE(misc-no-recursion)
+    void receivePong()
+    {
+        if (canProcessPong())
+        {
+            namespace chrn = std::chrono;
+            pingStop_ = chrn::high_resolution_clock::now();
+            using Fms = chrn::duration<float, chrn::milliseconds::period>;
+            const Fms fms{pingStop_ - pingStart_};
+            const float elapsed = fms.count();
+            post(pingHandler_, elapsed);
+            pingHandler_ = nullptr;
+        }
+        pingFrame_.reset();
+        receive();
+    }
+
+    bool canProcessPong() const
+    {
+        return pingHandler_ && pingFrame_ &&
+               (rxFrame_.payload() == pingFrame_->payload());
     }
 
     template <typename F, typename... Ts>
@@ -402,12 +426,13 @@ private:
 
     void cleanup()
     {
-        txErrorHandler_ = nullptr;
         rxHandler_ = nullptr;
-        pongHandler_ = nullptr;
+        txErrorHandler_ = nullptr;
+        pingHandler_ = nullptr;
         rxFrame_.clear();
         txQueue_.clear();
         txFrame_ = nullptr;
+        pingFrame_ = nullptr;
         socket_.reset();
         running_ = false;
     }
@@ -415,12 +440,15 @@ private:
     IoStrand strand_;
     std::unique_ptr<TSocket> socket_;
     TransportInfo info_;
-    TxErrorHandler txErrorHandler_;
     RxHandler rxHandler_;
-    PongHandler pongHandler_;
+    TxErrorHandler txErrorHandler_;
+    PingHandler pingHandler_;
     RawsockFrame rxFrame_;
     TransmitQueue txQueue_;
     RawsockFrame::Ptr txFrame_;
+    RawsockFrame::Ptr pingFrame_;
+    TimePoint pingStart_;
+    TimePoint pingStop_;
     bool running_ = false;
 };
 

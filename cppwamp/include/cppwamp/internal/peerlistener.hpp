@@ -12,7 +12,6 @@
 #include <string>
 #include <utility>
 #include "../clientinfo.hpp"
-#include "../erroror.hpp"
 #include "message.hpp"
 
 namespace wamp
@@ -25,8 +24,6 @@ namespace internal
 class PeerListener
 {
 public:
-    using PongDelay = std::chrono::high_resolution_clock::duration;
-
     virtual ~PeerListener() = default;
 
     virtual void onPeerDisconnect() = 0;
@@ -47,8 +44,6 @@ public:
     virtual void onPeerGoodbye(Reason&&, bool wasShuttingDown) = 0;
 
     virtual void onPeerMessage(Message&& m) = 0;
-
-    virtual void onPeerPong(ErrorOr<Variant>&& payload) = 0;
 
     void enableTracing(bool enabled = true) {traceEnabled_.store(enabled);}
 

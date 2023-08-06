@@ -513,11 +513,6 @@ private:
         }
     }
 
-    void onPeerPong(ErrorOr<Variant>&& payload) override
-    {
-
-    }
-
     void onEvent(Message& msg)
     {
         const Event event{{}, std::move(msg)};
