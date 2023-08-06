@@ -7,6 +7,7 @@
 #ifndef CPPWAMP_INTERNAL_DIRECTPEER_HPP
 #define CPPWAMP_INTERNAL_DIRECTPEER_HPP
 
+#include <cassert>
 #include <memory>
 #include "../asiodefs.hpp"
 #include "../errorcodes.hpp"
@@ -107,6 +108,8 @@ private:
     void onEstablish() override {/* Nothing to do*/}
 
     void onClose() override {session_->close();}
+
+    ErrorOrDone onPing(Variant) override {assert(false);}
 
     void onDisconnect(State previousState) override
     {

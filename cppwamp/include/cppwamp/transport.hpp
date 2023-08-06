@@ -14,7 +14,6 @@
 #include "connectioninfo.hpp"
 #include "erroror.hpp"
 #include "messagebuffer.hpp"
-#include "variant.hpp"
 
 namespace wamp
 {
@@ -39,11 +38,11 @@ public:
     /// Handler type used for message received events.
     using RxHandler = std::function<void (ErrorOr<MessageBuffer>)>;
 
+    /// Handler type used for pong received events.
+    using PongHandler = std::function<void (MessageBuffer)>;
+
     /// Handler type used for transmission error events.
     using TxErrorHandler = std::function<void (std::error_code)>;
-
-    /// Handler type used for ping response events.
-    using PingHandler = std::function<void (float)>;
 
     /** @name Non-copyable and non-movable. */
     /// @{
@@ -63,7 +62,8 @@ public:
     virtual bool isRunning() const = 0;
 
     /** Starts the transport's I/O operations. */
-    virtual void start(RxHandler rxHandler, TxErrorHandler txHandler) = 0;
+    virtual void start(TxErrorHandler txHandler, RxHandler rxHandler,
+                       PongHandler pongHandler) = 0;
 
     /** Sends the given serialized message via the transport. */
     virtual void send(MessageBuffer message) = 0;
@@ -72,11 +72,11 @@ public:
         then closes the underlying socket. */
     virtual void sendNowAndStop(MessageBuffer message) = 0;
 
+    /** Sends a transport-level ping message. */
+    virtual void ping(MessageBuffer message) = 0;
+
     /** Stops I/O operations and closes the underlying socket. */
     virtual void stop() = 0;
-
-    /** Sends a transport-level ping message. */
-    virtual void ping(MessageBuffer message, PingHandler handler) = 0;
 
     /** Obtains connection information. */
     virtual ConnectionInfo connectionInfo() const = 0;

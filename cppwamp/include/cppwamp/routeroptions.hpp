@@ -22,6 +22,7 @@
     - Authentication lockout/cooldown
     - Bandwidth throttling/limiting
     - Connection limits
+    - Ping limits
 */
 
 #include <memory>

@@ -7,6 +7,7 @@
 #ifndef CPPWAMP_INTERNAL_NETWORKPEER_HPP
 #define CPPWAMP_INTERNAL_NETWORKPEER_HPP
 
+#include <chrono>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -116,6 +117,8 @@ public:
 
 private:
     using Base = Peer;
+    using PingClock = std::chrono::high_resolution_clock;
+    using PingTimePoint = PingClock::time_point;
 
     ErrorOrDone send(Error&& error) override
     {
@@ -147,25 +150,45 @@ private:
         if (!transport_->isRunning())
         {
             auto id = transportId_;
-            const std::weak_ptr<NetworkPeer> weakSelf =
+            const std::weak_ptr<NetworkPeer> self =
                 std::static_pointer_cast<NetworkPeer>(shared_from_this());
             transport_->start(
-                [weakSelf, id](const ErrorOr<MessageBuffer>& buffer)
+                [self, id](std::error_code ec)
                 {
-                    auto self = weakSelf.lock();
-                    if (self)
-                        self->onTransportRx(buffer, id);
+                    auto me = self.lock();
+                    if (me)
+                        me->onTransportTxError(ec, id);
                 },
-                [weakSelf, id](std::error_code ec)
+                [self, id](const ErrorOr<MessageBuffer>& buffer)
                 {
-                    auto self = weakSelf.lock();
-                    if (self)
-                        self->onTransportTxError(ec, id);
+                    auto me = self.lock();
+                    if (me)
+                        me->onTransportRx(buffer, id);
+                },
+                [self, id](const MessageBuffer& buffer)
+                {
+                    auto me = self.lock();
+                    if (me)
+                        me->onTransportPong(buffer, id);
                 });
         }
     }
 
     void onClose() override {/* Nothing to do*/}
+
+    ErrorOrDone onPing(Variant payload) override
+    {
+        if (!transport_)
+            return false;
+
+        MessageBuffer buffer;
+        codec_.encode(payload, buffer);
+        if (buffer.size() > maxTxLength_)
+            return makeUnexpectedError(WampErrc::payloadSizeExceeded);
+
+        transport_->ping(std::move(buffer));
+        return true;
+    }
 
     void onDisconnect(State) override
     {
@@ -192,8 +215,26 @@ private:
             fail("Transport receive failure", buffer.error());
     }
 
-    void onTransportTxError(std::error_code ec,
-                            std::size_t transportId)
+    void onTransportPong(const MessageBuffer& buffer, std::size_t transportId)
+    {
+        // Ignore queued events from former transport instances
+        if (!transport_ || (transportId != transportId_))
+            return;
+
+        // Ignore pongs that may have been already posted by the transport
+        // when disconnection occurred.
+        auto s = state();
+        if (s == State::disconnected || s == State::failed)
+            return;
+
+        Variant payload;
+        auto ec = codec_.decode(buffer, payload);
+        if (ec)
+            listener().onPeerPong(makeUnexpected(ec));
+        listener().onPeerPong(std::move(payload));
+    }
+
+    void onTransportTxError(std::error_code ec, std::size_t transportId)
     {
         // Ignore queued events from former transport instances
         if (!transport_ || (transportId != transportId_))

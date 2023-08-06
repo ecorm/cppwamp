@@ -41,13 +41,14 @@ public:
         alreadyStarted_ = true;
         std::weak_ptr<MockServerSession> self = shared_from_this();
         transport_->start(
+            [](std::error_code) {},
             [self](ErrorOr<MessageBuffer> b)
             {
                 auto me = self.lock();
                 if (me)
                     me->onMessage(std::move(b));
             },
-            [](std::error_code) {});
+            nullptr);
     }
     
     void close() {transport_->stop();}

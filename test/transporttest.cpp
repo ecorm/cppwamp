@@ -269,6 +269,7 @@ void checkSendReply(TFixture& f,
     bool receivedReply = false;
 
     receiver->start(
+        nullptr,
         [&](ErrorOr<MessageBuffer> buf)
         {
             if (buf.has_value())
@@ -285,6 +286,7 @@ void checkSendReply(TFixture& f,
         nullptr);
 
     sender->start(
+        nullptr,
         [&](ErrorOr<MessageBuffer> buf)
         {
             if (buf.has_value())
@@ -326,6 +328,7 @@ void checkConsecutiveSendReceive(TFixture& f, Transporting::Ptr& sender,
         messages.emplace_back(i, 'A' + i);
 
     sender->start(
+        nullptr,
         [&](ErrorOr<MessageBuffer> buf)
         {
             REQUIRE( !buf );
@@ -336,6 +339,7 @@ void checkConsecutiveSendReceive(TFixture& f, Transporting::Ptr& sender,
     size_t count = 0;
 
     receiver->start(
+        nullptr,
         [&](ErrorOr<MessageBuffer> buf)
         {
             if (buf.has_value())
@@ -519,6 +523,7 @@ TEMPLATE_TEST_CASE( "Normal communications", "[Transport]",
     bool receivedReply = false;
 
     receiver->start(
+        nullptr,
         [&](ErrorOr<MessageBuffer> buf)
         {
             if (buf.has_value())
@@ -535,6 +540,7 @@ TEMPLATE_TEST_CASE( "Normal communications", "[Transport]",
         nullptr);
 
     sender->start(
+        nullptr,
         [&](ErrorOr<MessageBuffer> buf)
         {
             if (buf.has_value())
@@ -608,6 +614,7 @@ TEMPLATE_TEST_CASE( "Normal communications", "[Transport]",
 
     // The two client/server pairs communicate independently
     receiver2->start(
+        nullptr,
         [&](ErrorOr<MessageBuffer> buf)
         {
             if (buf.has_value())
@@ -624,6 +631,7 @@ TEMPLATE_TEST_CASE( "Normal communications", "[Transport]",
         nullptr);
 
     sender2->start(
+        nullptr,
         [&](ErrorOr<MessageBuffer> buf)
         {
             if (buf.has_value())
@@ -699,51 +707,36 @@ TEMPLATE_TEST_CASE( "Ping/pong messages", "[Transport]",
                     TcpLoopbackFixture, UdsLoopbackFixture )
 {
     TestType f;
-    constexpr int sleepMs = 50;
+    auto payload = makeMessageBuffer("hello");
+    MessageBuffer pong;
 
     f.client->start(
-        [&](ErrorOr<MessageBuffer>)
+        nullptr,
+        [&](ErrorOr<MessageBuffer>) {FAIL( "unexpected receive or error");},
+        [&](MessageBuffer pongMessage)
         {
-            FAIL( "unexpected receive or error");
-        },
-        nullptr);
+            pong = pongMessage;
+            f.stop();
+        });
 
     f.server->start(
-        [&](ErrorOr<MessageBuffer>)
+        nullptr,
+        [&](ErrorOr<MessageBuffer>) {FAIL( "unexpected receive or error");},
+        [&](MessageBuffer pongMessage)
         {
-            FAIL( "unexpected receive or error");
-        },
-        nullptr);
+            pong = pongMessage;
+            f.stop();
+        });
 
-    bool pingCompleted = false;
-    auto payload = makeMessageBuffer("hello");
-    f.client->ping(payload, [&](float elapsed)
-    {
-        CHECK( elapsed > sleepMs );
-        pingCompleted = true;
-        f.stop();
-    });
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(sleepMs));
-
+    f.client->ping(payload);
     CHECK_NOTHROW( f.run() );
+    CHECK_THAT(pong, Catch::Matchers::Equals(payload));
 
-    CHECK( pingCompleted );
-
-    pingCompleted = false;
+    pong.clear();
     payload = makeMessageBuffer("bonjour");
-    f.server->ping(payload, [&](float elapsed)
-    {
-        CHECK( elapsed > sleepMs );
-        pingCompleted = true;
-        f.stop();
-    });
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(sleepMs));
-
+    f.server->ping(payload);
     CHECK_NOTHROW( f.run() );
-
-    CHECK( pingCompleted );
+    CHECK_THAT(pong, Catch::Matchers::Equals(payload));
 }
 
 //------------------------------------------------------------------------------
@@ -828,6 +821,7 @@ TEMPLATE_TEST_CASE( "Cancel receive", "[Transport]",
     TestType f;
     bool clientHandlerInvoked = false;
     f.client->start(
+        nullptr,
         [&](ErrorOr<MessageBuffer> buf)
         {
             clientHandlerInvoked = true;
@@ -836,6 +830,7 @@ TEMPLATE_TEST_CASE( "Cancel receive", "[Transport]",
 
     std::error_code serverError;
     f.server->start(
+        nullptr,
         [&](ErrorOr<MessageBuffer> buf)
         {
             REQUIRE( !buf );
@@ -877,6 +872,7 @@ TEMPLATE_TEST_CASE( "Cancel send", "[Transport]",
     // Start a send operation
     bool handlerInvoked = false;
     f.client->start(
+        nullptr,
         [&](ErrorOr<MessageBuffer> buf)
         {
             handlerInvoked = true;
@@ -1024,6 +1020,7 @@ GIVEN ( "a mock server under-reporting its maximum receive length" )
         bool clientFailed = false;
         bool serverFailed = false;
         client->start(
+            nullptr,
             [&](ErrorOr<MessageBuffer> message)
             {
                 REQUIRE( !message );
@@ -1032,6 +1029,7 @@ GIVEN ( "a mock server under-reporting its maximum receive length" )
             nullptr);
 
         server->start(
+            nullptr,
             [&](ErrorOr<MessageBuffer> message)
             {
                 REQUIRE( !message );
@@ -1091,6 +1089,7 @@ GIVEN ( "a mock client under-reporting its maximum receive length" )
         bool clientFailed = false;
         bool serverFailed = false;
         client->start(
+            nullptr,
             [&](ErrorOr<MessageBuffer> message)
             {
                 REQUIRE( !message );
@@ -1100,6 +1099,7 @@ GIVEN ( "a mock client under-reporting its maximum receive length" )
             nullptr);
 
         server->start(
+            nullptr,
             [&](ErrorOr<MessageBuffer> message)
             {
                 REQUIRE( !message );
@@ -1157,6 +1157,7 @@ GIVEN ( "A mock client that sends an invalid message type" )
         bool clientFailed = false;
         bool serverFailed = false;
         client->start(
+            nullptr,
             [&](ErrorOr<MessageBuffer> message)
             {
                 REQUIRE( !message );
@@ -1165,6 +1166,7 @@ GIVEN ( "A mock client that sends an invalid message type" )
             nullptr);
 
         server->start(
+            nullptr,
             [&](ErrorOr<MessageBuffer> message)
             {
                 REQUIRE( !message );
@@ -1224,6 +1226,7 @@ GIVEN ( "A mock server that sends an invalid message type" )
         bool clientFailed = false;
         bool serverFailed = false;
         client->start(
+            nullptr,
             [&](ErrorOr<MessageBuffer> message)
             {
                 REQUIRE( !message );
@@ -1233,6 +1236,7 @@ GIVEN ( "A mock server that sends an invalid message type" )
             nullptr);
 
         server->start(
+            nullptr,
             [&](ErrorOr<MessageBuffer> message)
             {
                 REQUIRE( !message );

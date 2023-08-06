@@ -319,6 +319,11 @@ private:
         }
     }
 
+    void onPeerPong(ErrorOr<Variant>&&) override
+    {
+        //* Do nothing; the server never sends pings.
+    }
+
     State state() const {return peer_->state();}
 
     void startSession()

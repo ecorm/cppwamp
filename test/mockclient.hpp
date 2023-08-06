@@ -91,13 +91,14 @@ private:
         transport_ = std::move(transport);
         auto self = std::weak_ptr<MockClient>(shared_from_this());
         transport_->start(
+            [](std::error_code) {},
             [self](ErrorOr<MessageBuffer> b)
             {
                 auto me = self.lock();
                 if (me)
                     me->onMessage(std::move(b));
             },
-            [](std::error_code) {});
+            nullptr);
 
         assert(!requests_.empty());
         sendNextRequestBatch();
