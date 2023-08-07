@@ -7,6 +7,7 @@
 #ifndef CPPWAMP_TRANSPORT_HPP
 #define CPPWAMP_TRANSPORT_HPP
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <system_error>
@@ -14,17 +15,21 @@
 #include "connectioninfo.hpp"
 #include "erroror.hpp"
 #include "messagebuffer.hpp"
-#include "variant.hpp"
+#include "timeout.hpp"
 
 namespace wamp
 {
 
+//------------------------------------------------------------------------------
+// Contains information pertaining to a transport.
 //------------------------------------------------------------------------------
 struct TransportInfo
 {
     int codecId;
     std::size_t maxTxLength;
     std::size_t maxRxLength;
+    Timeout heartbeatInterval;
+    uint64_t randomId;
 };
 
 //------------------------------------------------------------------------------
@@ -41,9 +46,6 @@ public:
 
     /// Handler type used for transmission error events.
     using TxErrorHandler = std::function<void (std::error_code)>;
-
-    /// Handler type used for ping response events.
-    using PingHandler = std::function<void (float)>;
 
     /** @name Non-copyable and non-movable. */
     /// @{
@@ -74,9 +76,6 @@ public:
 
     /** Stops I/O operations and closes the underlying socket. */
     virtual void stop() = 0;
-
-    /** Sends a transport-level ping message. */
-    virtual void ping(MessageBuffer message, PingHandler handler) = 0;
 
     /** Obtains connection information. */
     virtual ConnectionInfo connectionInfo() const = 0;

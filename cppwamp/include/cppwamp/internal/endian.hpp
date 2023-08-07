@@ -34,6 +34,21 @@ inline uint32_t flip(uint32_t n)
     // NOLINTEND(cppcoreguidelines-avoid-magic-numbers)
 }
 
+inline uint64_t flip(uint64_t n) noexcept
+{
+    // This usually optimizes to a single byte swap instruction.
+    // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
+    return ((n & 0xFF00000000000000u) >> 56u) |
+           ((n & 0x00FF000000000000u) >> 40u) |
+           ((n & 0x0000FF0000000000u) >> 24u) |
+           ((n & 0x000000FF00000000u) >> 8u) |
+           ((n & 0x00000000FF000000u) << 8u) |
+           ((n & 0x0000000000FF0000u) << 24u) |
+           ((n & 0x000000000000FF00u) << 40u) |
+           ((n & 0x00000000000000FFu) << 56u);
+    // NOLINTEND(cppcoreguidelines-avoid-magic-numbers)
+}
+
 constexpr bool nativeIsLittle()
 {
 #ifdef CPPWAMP_HAS_STD_ENDIAN
@@ -49,7 +64,7 @@ constexpr bool nativeIsLittle()
 #else
 #warning Cannot detect endianness; assuming little endian
 #warning Please define either CPPWAMP_ASSUME_LITTLE_ENDIAN or CPPWAMP_ASSUME_BIG_ENDIAN
-    return little_endian;
+    return true;
 #endif
 }
 
@@ -63,6 +78,15 @@ inline uint32_t bigToNative32(uint32_t big)
     return nativeIsLittle() ? flip(big) : big;
 }
 
+inline uint64_t nativeToBig64(uint64_t native)
+{
+    return nativeIsLittle() ? flip(native) : native;
+}
+
+inline uint64_t bigToNative64(uint64_t big)
+{
+    return nativeIsLittle() ? flip(big) : big;
+}
 
 } // namespace endian
 

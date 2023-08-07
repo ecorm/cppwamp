@@ -252,19 +252,20 @@ CPPWAMP_API std::error_condition make_error_condition(DecodingErrc errc);
 //------------------------------------------------------------------------------
 enum class TransportErrc
 {
-    success        = 0,  ///< Transport operation successful
-    aborted        = 1,  ///< Transport operation aborted
-    disconnected   = 2,  ///< Transport disconnected by other peer
-    timeout        = 3,  ///< Connection establishment timed out
-    failed         = 4,  ///< Transport operation failed
-    exhausted      = 5,  ///< All transports failed during connection
-    tooLong        = 6,  ///< Incoming message exceeds transport's length limit
-    badHandshake   = 7,  ///< Received invalid handshake
-    badCommand     = 8,  ///< Received invalid transport command
-    badSerializer  = 9,  ///< Unsupported serialization format
-    badLengthLimit = 10, ///< Unacceptable maximum message length
-    badFeature     = 11, ///< Unsupported transport feature
-    saturated      = 12, ///< Connection limit reached
+    success          = 0,  ///< Transport operation successful
+    aborted          = 1,  ///< Transport operation aborted
+    disconnected     = 2,  ///< Transport disconnected by other peer
+    timeout          = 3,  ///< Connection establishment timed out
+    failed           = 4,  ///< Transport operation failed
+    exhausted        = 5,  ///< All transports failed during connection
+    tooLong          = 6,  ///< Incoming message exceeds transport's length limit
+    badHandshake     = 7,  ///< Received invalid handshake
+    badCommand       = 8,  ///< Received invalid transport command
+    badSerializer    = 9,  ///< Unsupported serialization format
+    badLengthLimit   = 10, ///< Unacceptable maximum message length
+    badFeature       = 11, ///< Unsupported transport feature
+    saturated        = 12, ///< Connection limit reached
+    heartbeatTimeout = 13, ///< Keep-alive heartbeat echo timed out
     count
 };
 

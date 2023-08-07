@@ -445,19 +445,20 @@ CPPWAMP_INLINE std::string TransportCategory::message(int ev) const
 
     static const std::array<std::string, count> msg{
     {
-        /* success        */ "Transport operation successful",
-        /* aborted        */ "Transport operation aborted",
-        /* disconnected   */ "Transport disconnected by other peer",
-        /* timeout        */ "Connection establishment timed out",
-        /* failed         */ "Transport operation failed",
-        /* exhausted      */ "All transports failed during connection",
-        /* tooLong        */ "Incoming message exceeds transport's length limit",
-        /* badHandshake   */ "Received invalid handshake",
-        /* badCommand     */ "Received invalid transport command",
-        /* badSerializer  */ "Unsupported serialization format",
-        /* badLengthLimit */ "Unacceptable maximum message length",
-        /* badFeature     */ "Unsupported transport feature",
-        /* saturated      */ "Connection limit reached"
+        /* success          */ "Transport operation successful",
+        /* aborted          */ "Transport operation aborted",
+        /* disconnected     */ "Transport disconnected by other peer",
+        /* timeout          */ "Connection establishment timed out",
+        /* failed           */ "Transport operation failed",
+        /* exhausted        */ "All transports failed during connection",
+        /* tooLong          */ "Incoming message exceeds transport's length limit",
+        /* badHandshake     */ "Received invalid handshake",
+        /* badCommand       */ "Received invalid transport command",
+        /* badSerializer    */ "Unsupported serialization format",
+        /* badLengthLimit   */ "Unacceptable maximum message length",
+        /* badFeature       */ "Unsupported transport feature",
+        /* saturated        */ "Connection limit reached",
+        /* heartbeatTimeout */ "Keep-alive heartbeat echo timed out"
     }};
 
     return internal::lookupErrorMessage<TransportErrc>(
