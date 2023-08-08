@@ -17,6 +17,7 @@
 #include "../api.hpp"
 #include "../connector.hpp"
 #include "../rawsockoptions.hpp"
+#include "../timeout.hpp"
 #include "tcpprotocol.hpp"
 
 namespace wamp
@@ -44,6 +45,9 @@ public:
 
     /** Specifies the maximum length permitted for incoming messages. */
     TcpHost& withMaxRxLength(RawsockMaxLength length);
+
+    /** Enables keep-alive PING messages with the given interval. */
+    TcpHost& withHearbeatInterval(Timeout interval);
 
     /** Couples a serialization format with these transport settings to
         produce a ConnectionWish that can be passed to Session::connect. */
@@ -73,10 +77,14 @@ public:
     /** Obtains the specified maximum incoming message length. */
     RawsockMaxLength maxRxLength() const;
 
+    /** Obtains the keep-alive PING message interval. */
+    Timeout heartbeatInterval() const;
+
 private:
     std::string hostName_;
     std::string serviceName_;
     TcpOptions options_;
+    Timeout heartbeatInterval_ = unspecifiedTimeout;
     RawsockMaxLength maxRxLength_ = RawsockMaxLength::MB_16;
 };
 

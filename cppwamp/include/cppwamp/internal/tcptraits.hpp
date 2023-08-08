@@ -9,6 +9,9 @@
 
 #include <sstream>
 #include "../connectioninfo.hpp"
+#include "../timeout.hpp"
+#include "../transports/tcphost.hpp"
+#include "../transports/tcpendpoint.hpp"
 
 namespace wamp
 {
@@ -45,6 +48,16 @@ struct TcpTraits
         }
 
         return {std::move(details), oss.str()};
+    }
+
+    static Timeout heartbeatInterval(const TcpHost& settings)
+    {
+        return settings.heartbeatInterval();
+    }
+
+    static Timeout heartbeatInterval(const TcpEndpoint&)
+    {
+        return unspecifiedTimeout;
     }
 };
 

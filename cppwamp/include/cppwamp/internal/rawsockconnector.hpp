@@ -96,6 +96,7 @@ private:
     RawsockConnector(IoStrand i, Settings s, int codecId)
         : opener_(std::move(i), std::move(s)),
           codecId_(codecId),
+          heartbeatInterval_(Traits::heartbeatInterval(opener_.settings())),
           maxRxLength_(opener_.settings().maxRxLength())
     {}
 
@@ -163,7 +164,8 @@ private:
     {
         const TransportInfo i{codecId_,
                               hs.maxLengthInBytes(),
-                              Handshake::byteLengthOf(maxRxLength_)};
+                              Handshake::byteLengthOf(maxRxLength_),
+                              heartbeatInterval_};
         Transporting::Ptr transport{Transport::create(std::move(socket_), i)};
         socket_.reset();
         dispatchHandler(std::move(transport));
@@ -187,6 +189,7 @@ private:
     SocketPtr socket_;
     Handler handler_;
     int codecId_ = 0;
+    Timeout heartbeatInterval_ = unspecifiedTimeout;
     uint32_t handshake_ = 0;
     RawsockMaxLength maxRxLength_ = {};
 };

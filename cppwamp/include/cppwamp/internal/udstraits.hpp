@@ -9,6 +9,7 @@
 
 #include <sstream>
 #include "../connectioninfo.hpp"
+#include "../transports/udspath.hpp"
 
 namespace wamp
 {
@@ -33,6 +34,11 @@ struct UdsTraits
         };
 
         return {std::move(details), oss.str()};
+    }
+
+    static Timeout heartbeatInterval(const UdsPath&)
+    {
+        return unspecifiedTimeout;
     }
 };
 

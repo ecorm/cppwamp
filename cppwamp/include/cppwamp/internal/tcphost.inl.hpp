@@ -33,6 +33,12 @@ CPPWAMP_INLINE TcpHost& TcpHost::withMaxRxLength(RawsockMaxLength length)
     return *this;
 }
 
+CPPWAMP_INLINE TcpHost& TcpHost::withHearbeatInterval(Timeout interval)
+{
+    heartbeatInterval_ = interval;
+    return *this;
+}
+
 CPPWAMP_INLINE const std::string& TcpHost::hostName() const
 {
     return hostName_;
@@ -48,6 +54,11 @@ CPPWAMP_INLINE const TcpOptions& TcpHost::options() const {return options_;}
 CPPWAMP_INLINE RawsockMaxLength TcpHost::maxRxLength() const
 {
     return maxRxLength_;
+}
+
+CPPWAMP_INLINE Timeout TcpHost::heartbeatInterval() const
+{
+    return heartbeatInterval_;
 }
 
 } // namespace wamp
