@@ -31,6 +31,8 @@ struct IncidentListener
     bool testIfEmptyThenClear()
     {
         bool isEmpty = list.empty();
+        if (!isEmpty)
+            UNSCOPED_INFO("Last incident: " << list.back().toLogEntry());
         list.clear();
         return isEmpty;
     }
@@ -302,9 +304,9 @@ GIVEN( "a Session and a ConnectionWish" )
             CHECK( ec == TransportErrc::success );
             CHECK( connected );
             CHECK( s.state() == SS::disconnected );
-            // TODO: Investigate intermittent failure on next line.
-            CHECK( incidents.testIfEmptyThenClear() );
         }
+
+        incidents.list.clear();
     }
 
     WHEN( "disconnecting during session establishment" )

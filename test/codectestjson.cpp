@@ -128,7 +128,7 @@ void checkError(JsonStringDecoder& decoder, const std::string& json, TErrc errc)
 } // anonymous namespace
 
 //------------------------------------------------------------------------------
-SCENARIO( "JSON serialization", "[Variant][Codec][JSON][thisone]" )
+SCENARIO( "JSON serialization", "[Variant][Codec][JSON]" )
 {
 GIVEN( "valid JSON numeric strings" )
 {
