@@ -11,22 +11,14 @@
 namespace wamp
 {
 
-CPPWAMP_INLINE TcpHost::TcpHost(std::string hostName, std::string serviceName,
-                                TcpOptions options,
-                                RawsockMaxLength maxRxLength)
+CPPWAMP_INLINE TcpHost::TcpHost(std::string hostName, std::string serviceName)
     : hostName_(std::move(hostName)),
-      serviceName_(std::move(serviceName)),
-      options_(std::move(options)),
-      maxRxLength_(maxRxLength)
+      serviceName_(std::move(serviceName))
 {}
 
-CPPWAMP_INLINE TcpHost::TcpHost(std::string hostName, unsigned short port,
-                                TcpOptions options,
-                                RawsockMaxLength maxRxLength)
+CPPWAMP_INLINE TcpHost::TcpHost(std::string hostName, unsigned short port)
     : hostName_(std::move(hostName)),
-      serviceName_(std::to_string(port)),
-      options_(std::move(options)),
-      maxRxLength_(maxRxLength)
+      serviceName_(std::to_string(port))
 {}
 
 CPPWAMP_INLINE TcpHost& TcpHost::withOptions(TcpOptions options)

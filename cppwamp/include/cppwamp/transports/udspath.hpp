@@ -33,18 +33,8 @@ public:
     /// Transport protocol tag associated with these settings.
     using Protocol = Uds;
 
-    /// The default maximum length permitted for incoming messages.
-    static constexpr RawsockMaxLength defaultMaxRxLength =
-        RawsockMaxLength::MB_16;
-
     /** Constructor taking a path name. */
-    explicit UdsPath(
-        std::string pathName,        ///< Path name of the Unix domain socket.
-        UdsOptions options = {},     ///< Socket options.
-        RawsockMaxLength maxRxLength
-            = defaultMaxRxLength,    ///< Maximum inbound message length.
-        bool deletePath = true       ///< Delete existing path before listening.
-    );
+    explicit UdsPath(std::string pathName);
 
     /** Specifies the socket options to use. */
     UdsPath& withOptions(UdsOptions options);
@@ -81,8 +71,8 @@ public:
 private:
     std::string pathName_;
     UdsOptions options_;
-    RawsockMaxLength maxRxLength_;
-    bool deletePathEnabled_;
+    RawsockMaxLength maxRxLength_ = RawsockMaxLength::MB_16;
+    bool deletePathEnabled_ = true;
 };
 
 } // namespace wamp

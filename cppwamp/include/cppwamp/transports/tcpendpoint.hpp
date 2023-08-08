@@ -34,26 +34,11 @@ public:
     /// Numeric port type
     using Port = uint_least16_t;
 
-    /// The default maximum length permitted for incoming messages.
-    static constexpr RawsockMaxLength defaultMaxRxLength =
-        RawsockMaxLength::MB_16;
-
     /** Constructor taking a port number. */
-    explicit TcpEndpoint(
-        Port port,                   ///< Port number.
-        TcpOptions options = {},     ///< TCP socket options.
-        RawsockMaxLength maxRxLength
-            = defaultMaxRxLength     ///< Maximum inbound message length
-        );
+    explicit TcpEndpoint(Port port);
 
     /** Constructor taking an address string and a port number. */
-    TcpEndpoint(
-        std::string address,         ///< Address string.
-        unsigned short port,         ///< Port number.
-        TcpOptions options = {},     ///< TCP socket options.
-        RawsockMaxLength maxRxLength
-            = defaultMaxRxLength     ///< Maximum inbound message length
-    );
+    TcpEndpoint(std::string address, unsigned short port);
 
     /** Specifies the socket options to use. */
     TcpEndpoint& withOptions(TcpOptions options);
@@ -79,7 +64,7 @@ public:
 private:
     std::string address_;
     TcpOptions options_;
-    RawsockMaxLength maxRxLength_ = {};
+    RawsockMaxLength maxRxLength_ = RawsockMaxLength::MB_16;
     Port port_ = 0;
 };
 

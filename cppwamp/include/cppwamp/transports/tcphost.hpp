@@ -33,27 +33,11 @@ public:
     /// Transport protocol tag associated with these settings.
     using Protocol = Tcp;
 
-    /// The default maximum length permitted for incoming messages.
-    static constexpr RawsockMaxLength defaultMaxRxLength =
-        RawsockMaxLength::MB_16;
+    /** Constructor taking an URL/IP and a service string. */
+    TcpHost(std::string hostName, std::string serviceName);
 
-    /** Constructor taking a service string. */
-    TcpHost(
-        std::string hostName,     ///< URL or IP of the router to connect to.
-        std::string serviceName,  ///< Service name or stringified port number.
-        TcpOptions options = {},  ///< Socket options.
-        RawsockMaxLength maxRxLength
-            = defaultMaxRxLength  ///< Maximum inbound message length
-    );
-
-    /** Constructor taking a numeric port number. */
-    TcpHost(
-        std::string hostName,     ///< URL or IP of the router to connect to.
-        unsigned short port,      ///< Port number.
-        TcpOptions options = {},  ///< TCP socket options.
-        RawsockMaxLength maxRxLength
-            = defaultMaxRxLength  ///< Maximum inbound message length
-    );
+    /** Constructor taking an URL/IP and a numeric port number. */
+    TcpHost(std::string hostName, unsigned short port);
 
     /** Specifies the socket options to use. */
     TcpHost& withOptions(TcpOptions options);
@@ -93,7 +77,7 @@ private:
     std::string hostName_;
     std::string serviceName_;
     TcpOptions options_;
-    RawsockMaxLength maxRxLength_;
+    RawsockMaxLength maxRxLength_ = RawsockMaxLength::MB_16;
 };
 
 } // namespace wamp

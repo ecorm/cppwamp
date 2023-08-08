@@ -302,6 +302,7 @@ GIVEN( "a Session and a ConnectionWish" )
             CHECK( ec == TransportErrc::success );
             CHECK( connected );
             CHECK( s.state() == SS::disconnected );
+            // TODO: Investigate intermittent failure on next line.
             CHECK( incidents.testIfEmptyThenClear() );
         }
     }
