@@ -10,30 +10,65 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <system_error>
 #include <vector>
 #include "connectioninfo.hpp"
 #include "erroror.hpp"
 #include "messagebuffer.hpp"
 #include "timeout.hpp"
+#include "internal/random.hpp"
+#include "internal/passkey.hpp"
 
 namespace wamp
 {
 
 //------------------------------------------------------------------------------
-// Contains information pertaining to a transport.
+/** Contains information pertaining to a transport. */
 //------------------------------------------------------------------------------
-struct TransportInfo
+class TransportInfo
 {
-    int codecId;
-    std::size_t maxTxLength;
-    std::size_t maxRxLength;
-    Timeout heartbeatInterval;
-    uint64_t randomId;
+public:
+    /** Default constructor. */
+    TransportInfo() = default;
+
+    /** Constructor taking information. */
+    TransportInfo(int codecId, std::size_t maxTxLength, std::size_t maxRxLength,
+                  Timeout heartbeatInterval = {})
+        : codecId_(codecId),
+          maxTxLength_(maxTxLength),
+          maxRxLength_(maxRxLength),
+          heartbeatInterval_(heartbeatInterval)
+    {}
+
+    /** Obtains the random transport instance ID. */
+    uint64_t transportId() const {return transportId_;}
+
+    /** Obtains the codec numeric ID. */
+    int codecId() const {return codecId_;}
+
+    /** Obtains the maximum allowable transmit message length. */
+    std::size_t maxTxLength() const {return maxTxLength_;}
+
+    /** Obtains the maximum allowable receive message length. */
+    std::size_t maxRxLength() const {return maxRxLength_;}
+
+    /** Obtains the keep-alive heartbeat interval period. */
+    Timeout heartbeatInterval() const {return heartbeatInterval_;}
+
+private:
+    uint64_t transportId_ = 0;
+    int codecId_ = 0;
+    std::size_t maxTxLength_ = 0;
+    std::size_t maxRxLength_ = 0;
+    Timeout heartbeatInterval_ = {};
+
+public: // Internal use only
+    void setTransportId(internal::PassKey, uint64_t id) {transportId_ = id;}
 };
 
 //------------------------------------------------------------------------------
-// Interface class for transports.
+/** Interface class for transports. */
 //------------------------------------------------------------------------------
 class Transporting : public std::enable_shared_from_this<Transporting>
 {
@@ -59,7 +94,10 @@ public:
     virtual ~Transporting() = default;
 
     /** Obtains information pertaining to this transport. */
-    virtual TransportInfo info() const = 0;
+    const TransportInfo& info() const {return info_;}
+
+    /** Obtains connection information. */
+    const ConnectionInfo& connectionInfo() const {return connectionInfo_;}
 
     /** Returns true if the transport is running. */
     virtual bool isRunning() const = 0;
@@ -77,11 +115,25 @@ public:
     /** Stops I/O operations and closes the underlying socket. */
     virtual void stop() = 0;
 
-    /** Obtains connection information. */
-    virtual ConnectionInfo connectionInfo() const = 0;
-
 protected:
-    Transporting() = default;
+    /** Constructor. */
+    explicit Transporting(TransportInfo ti, ConnectionInfo ci)
+        : info_(ti),
+          connectionInfo_(std::move(ci))
+    {
+        static std::mutex theMutex;
+        static internal::DefaultPRNG64 theGenerator;
+
+        std::lock_guard<std::mutex> guard{theMutex};
+        info_.setTransportId({}, theGenerator());
+    }
+
+    /** Should be called be derived classes when the transport disconnects. */
+    void clearConnectionInfo() {connectionInfo_ = {};}
+
+private:
+    TransportInfo info_;
+    ConnectionInfo connectionInfo_;
 };
 
 } // namespace wamp

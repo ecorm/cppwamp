@@ -149,8 +149,8 @@ public:
 
     RawsockPinger(IoStrand strand, const TransportInfo& info)
         : timer_(strand),
-          frame_(info.randomId),
-          interval_(info.heartbeatInterval)
+        frame_(info.transportId()),
+        interval_(info.heartbeatInterval())
     {}
 
     void start(Handler handler)
@@ -246,8 +246,6 @@ public:
         return Ptr(new RawsockTransport(std::move(s), info));
     }
 
-    TransportInfo info() const override {return info_;}
-
     bool isRunning() const override {return running_;}
 
     void start(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
@@ -294,7 +292,7 @@ public:
 
         assert(socket_ && "Attempting to send on bad transport");
         auto frame = enframe(RawsockMsgType::wamp, std::move(message));
-        assert((frame->payload().size() <= info_.maxTxLength) &&
+        assert((frame->payload().size() <= info().maxTxLength()) &&
                "Outgoing message is longer than allowed by peer");
         frame->poison();
         txQueue_.push_front(std::move(frame));
@@ -304,6 +302,7 @@ public:
 
     void stop() override
     {
+        Base::clearConnectionInfo();
         rxHandler_ = nullptr;
         txErrorHandler_ = nullptr;
         txQueue_.clear();
@@ -314,25 +313,18 @@ public:
             pinger_->stop();
     }
 
-    ConnectionInfo connectionInfo() const override
-    {
-        if (!socket_)
-            return {};
-        return TTraits::connectionInfo(socket_->remote_endpoint());
-    }
-
 private:
     using Base = Transporting;
     using TransmitQueue = std::deque<RawsockFrame::Ptr>;
     using TimePoint     = std::chrono::high_resolution_clock::time_point;
 
     RawsockTransport(SocketPtr&& socket, TransportInfo info)
-        : strand_(boost::asio::make_strand(socket->get_executor())),
-          info_(info),
+        : Base(info, TTraits::connectionInfo(socket->remote_endpoint())),
+          strand_(boost::asio::make_strand(socket->get_executor())),
           socket_(std::move(socket))
     {
-        if (timeoutIsDefinite(info_.heartbeatInterval))
-            pinger_.reset(new RawsockPinger(strand_, info_));
+        if (timeoutIsDefinite(info.heartbeatInterval()))
+            pinger_.reset(new RawsockPinger(strand_, info));
     }
 
     void onPingFrame(ErrorOr<RawsockPingBytes> pingBytes)
@@ -358,7 +350,7 @@ private:
     void sendFrame(RawsockFrame::Ptr frame)
     {
         assert(socket_ && "Attempting to send on bad transport");
-        assert((frame->payload().size() <= info_.maxTxLength) &&
+        assert((frame->payload().size() <= info().maxTxLength()) &&
                "Outgoing message is longer than allowed by peer");
         txQueue_.push_back(std::move(frame));
         transmit();
@@ -445,7 +437,7 @@ private:
         const auto hdr = rxFrame_.header();
         const auto len  = hdr.length();
         const bool ok =
-            check(len <= info_.maxRxLength, TransportErrc::tooLong) &&
+            check(len <= info().maxRxLength(), TransportErrc::tooLong) &&
             check(hdr.msgTypeIsValid(), TransportErrc::badCommand);
         if (ok)
             receivePayload(hdr.msgType(), len);
@@ -552,6 +544,7 @@ private:
 
     void cleanup()
     {
+        Base::clearConnectionInfo();
         rxHandler_ = nullptr;
         txErrorHandler_ = nullptr;
         rxFrame_.clear();
@@ -564,7 +557,6 @@ private:
     }
 
     IoStrand strand_;
-    TransportInfo info_;
     RxHandler rxHandler_;
     TxErrorHandler txErrorHandler_;
     RawsockFrame rxFrame_;

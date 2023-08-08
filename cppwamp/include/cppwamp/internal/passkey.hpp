@@ -10,18 +10,14 @@
 namespace wamp
 {
 
-class AuthExchange;
 class AuthorizationRequest;
 class CalleeInputChunk;
 class DirectRouterLink;
-class DirectSession;
 class Error;
 class Event;
-class Interruption;
-class Invocation;
 class Outcome;
 class Session;
-class SessionInfo;
+class Transporting;
 
 namespace internal
 {
@@ -36,6 +32,7 @@ namespace internal
         friend class wamp::Event;
         friend class wamp::Outcome;
         friend class wamp::Session;
+        friend class wamp::Transporting;
         template <typename> friend class BasicCalleeChannelImpl;
         template <typename> friend class BasicCallerChannelImpl;
         friend class Broker;

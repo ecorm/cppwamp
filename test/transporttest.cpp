@@ -75,7 +75,7 @@ struct LoopbackFixture
             [&](ErrorOr<Transporting::Ptr> transportOrError)
             {
                 auto transport = transportOrError.value();
-                serverCodec = transport->info().codecId;
+                serverCodec = transport->info().codecId();
                 server = std::move(transport);
             });
 
@@ -83,7 +83,7 @@ struct LoopbackFixture
             [&](ErrorOr<Transporting::Ptr> transportOrError)
             {
                 auto transport = transportOrError.value();
-                clientCodec = transport->info().codecId;
+                clientCodec = transport->info().codecId();
                 client = std::move(transport);
             });
 
@@ -235,9 +235,9 @@ void checkConnection(TFixture& f, int expectedCodec,
         REQUIRE( transportOrError.has_value() );
         auto transport = *transportOrError;
         REQUIRE( transport );
-        CHECK( transport->info().codecId == expectedCodec );
-        CHECK( transport->info().maxRxLength == serverMaxRxLength );
-        CHECK( transport->info().maxTxLength == clientMaxRxLength );
+        CHECK( transport->info().codecId() == expectedCodec );
+        CHECK( transport->info().maxRxLength() == serverMaxRxLength );
+        CHECK( transport->info().maxTxLength() == clientMaxRxLength );
         f.server = transport;
     });
 
@@ -246,9 +246,9 @@ void checkConnection(TFixture& f, int expectedCodec,
         REQUIRE( transportOrError.has_value() );
         auto transport = *transportOrError;
         REQUIRE( transport );
-        CHECK( transport->info().codecId == expectedCodec );
-        CHECK( transport->info().maxRxLength == clientMaxRxLength );
-        CHECK( transport->info().maxTxLength == serverMaxRxLength );
+        CHECK( transport->info().codecId() == expectedCodec );
+        CHECK( transport->info().maxRxLength() == clientMaxRxLength );
+        CHECK( transport->info().maxTxLength() == serverMaxRxLength );
         f.client = transport;
     });
 
@@ -577,9 +577,9 @@ TEMPLATE_TEST_CASE( "Normal communications", "[Transport]",
             REQUIRE( transportOrError.has_value() );
             auto transport = *transportOrError;
             REQUIRE( transport );
-            CHECK( transport->info().codecId == KnownCodecIds::json() );
-            CHECK( transport->info().maxRxLength == 64*1024 );
-            CHECK( transport->info().maxTxLength == 64*1024 );
+            CHECK( transport->info().codecId() == KnownCodecIds::json() );
+            CHECK( transport->info().maxRxLength() == 64*1024 );
+            CHECK( transport->info().maxTxLength() == 64*1024 );
             server2 = transport;
             f.sctx.stop();
         });
@@ -590,9 +590,9 @@ TEMPLATE_TEST_CASE( "Normal communications", "[Transport]",
             REQUIRE( transportOrError.has_value() );
             auto transport = *transportOrError;
             REQUIRE( transport );
-            CHECK( transport->info().codecId == KnownCodecIds::json() );
-            CHECK( transport->info().maxRxLength == 64*1024 );
-            CHECK( transport->info().maxTxLength == 64*1024 );
+            CHECK( transport->info().codecId() == KnownCodecIds::json() );
+            CHECK( transport->info().maxRxLength() == 64*1024 );
+            CHECK( transport->info().maxTxLength() == 64*1024 );
             client2 = transport;
             f.cctx.stop();
         });
@@ -676,8 +676,8 @@ TEMPLATE_TEST_CASE( "Maximum length messages", "[Transport]",
                     TcpLoopbackFixture, UdsLoopbackFixture )
 {
     TestType f;
-    const MessageBuffer message(f.client->info().maxRxLength, 'm');
-    const MessageBuffer reply(f.server->info().maxRxLength, 'r');;
+    const MessageBuffer message(f.client->info().maxRxLength(), 'm');
+    const MessageBuffer reply(f.server->info().maxRxLength(), 'r');;
     checkSendReply(f, message, reply);
 }
 
@@ -843,7 +843,7 @@ TEMPLATE_TEST_CASE( "Cancel send", "[Transport]",
     {
         REQUIRE(transport.has_value());
         f.client = *transport;
-        CHECK( f.client->info().maxTxLength == 16*1024*1024 );
+        CHECK( f.client->info().maxTxLength() == 16*1024*1024 );
     });
     f.run();
 
@@ -855,7 +855,7 @@ TEMPLATE_TEST_CASE( "Cancel send", "[Transport]",
             handlerInvoked = true;
         },
         nullptr);
-    MessageBuffer message(f.client->info().maxTxLength, 'a');
+    MessageBuffer message(f.client->info().maxTxLength(), 'a');
     f.client->send(message);
     REQUIRE_NOTHROW( f.cctx.poll() );
     f.cctx.reset();

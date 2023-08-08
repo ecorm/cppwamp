@@ -616,7 +616,7 @@ private:
 
     void onEstablished(Transporting::Ptr transport)
     {
-        auto codec = options_->makeCodec(transport->info().codecId);
+        auto codec = options_->makeCodec(transport->info().codecId());
         auto self = std::static_pointer_cast<RouterServer>(shared_from_this());
         ServerContext ctx{router_, self};
         if (++nextSessionIndex_ == 0u)
