@@ -761,33 +761,6 @@ TEMPLATE_TEST_CASE( "Zero length messages", "[Transport]",
 }
 
 //------------------------------------------------------------------------------
-TEMPLATE_TEST_CASE( "Ping/pong messages", "[Transport]",
-                    TcpLoopbackFixture, UdsLoopbackFixture )
-{
-    // TODO: Write me
-
-//    TestType f;
-//    constexpr int sleepMs = 50;
-
-//    f.client->start(
-//        [&](ErrorOr<MessageBuffer>)
-//        {
-//            FAIL( "unexpected receive or error");
-//        },
-//        nullptr);
-
-//    f.server->start(
-//        [&](ErrorOr<MessageBuffer>)
-//        {
-//            FAIL( "unexpected receive or error");
-//        },
-//        nullptr);
-
-    // Use sleep to simulate pong timeout
-    // std::this_thread::sleep_for(std::chrono::milliseconds(sleepMs));
-}
-
-//------------------------------------------------------------------------------
 TEMPLATE_TEST_CASE( "Cancel listen", "[Transport]",
                     TcpLoopbackFixture, UdsLoopbackFixture )
 {
