@@ -7,6 +7,7 @@
 #include <set>
 #include <thread>
 #include <vector>
+#include <boost/asio/steady_timer.hpp>
 #include <catch2/catch.hpp>
 #include <cppwamp/asiodefs.hpp>
 #include <cppwamp/codec.hpp>
@@ -184,35 +185,102 @@ struct CannedHandshakeConfig : internal::DefaultRawsockClientConfig
 };
 
 //------------------------------------------------------------------------------
-struct BadMsgTypeTransportConfig : internal::DefaultRawsockTransportConfig
+struct BadMsgKindTransportConfig : internal::DefaultRawsockTransportConfig
 {
-    static void alter(internal::RawsockMsgType& type, MessageBuffer&)
+    static void preProcess(internal::RawsockMsgKind& kind, MessageBuffer&)
     {
-        auto badType = internal::RawsockMsgType(
-            (int)internal::RawsockMsgType::pong + 1);
-        type = badType;
+        auto badKind = internal::RawsockMsgKind(
+            (int)internal::RawsockMsgKind::pong + 1);
+        kind = badKind;
     }
 };
 
 //------------------------------------------------------------------------------
-using BadMsgTypeTransport =
+using BadMsgKindTransport =
     internal::RawsockTransport<boost::asio::ip::tcp::socket,
                                internal::TcpTraits,
-                               BadMsgTypeTransportConfig>;
+                               BadMsgKindTransportConfig>;
 
 //------------------------------------------------------------------------------
 struct FakeTransportClientConfig : internal::DefaultRawsockClientConfig
 {
     template <typename, typename>
-    using TransportType = BadMsgTypeTransport;
+    using TransportType = BadMsgKindTransport;
 
 };
 
 //------------------------------------------------------------------------------
-struct FakeTransportServerOptions : internal::DefaultRawsockServerOptions
+struct FakeTransportServerOptions : internal::DefaultRawsockServerConfig
 {
     template <typename, typename>
-    using TransportType = BadMsgTypeTransport;
+    using TransportType = BadMsgKindTransport;
+
+};
+
+//------------------------------------------------------------------------------
+struct MonitorPingPong
+{
+    static void preProcess(internal::RawsockMsgKind& kind, MessageBuffer& buf)
+    {
+        if (kind == internal::RawsockMsgKind::ping)
+        {
+            pings().push_back(buf);
+        }
+        else if (kind == internal::RawsockMsgKind::pong)
+        {
+            if (!cannedPong().empty())
+                buf = cannedPong();
+            pongs().push_back(buf);
+        }
+    }
+
+    using BufferList = std::vector<MessageBuffer>;
+
+    static void clear()
+    {
+        pings().clear();
+        pongs().clear();
+        cannedPong().clear();
+    }
+
+    static BufferList& pings()
+    {
+        static BufferList pingList;
+        return pingList;
+    }
+
+    static BufferList& pongs()
+    {
+        static BufferList pongList;
+        return pongList;
+    }
+
+    static MessageBuffer& cannedPong()
+    {
+        static MessageBuffer cannedPongBuffer;
+        return cannedPongBuffer;
+    }
+};
+
+//------------------------------------------------------------------------------
+using PingPongTransport =
+    internal::RawsockTransport<boost::asio::ip::tcp::socket,
+                               internal::TcpTraits,
+                               MonitorPingPong>;
+
+//------------------------------------------------------------------------------
+struct PingPongClientConfig : internal::DefaultRawsockClientConfig
+{
+    template <typename, typename>
+    using TransportType = PingPongTransport;
+
+};
+
+//------------------------------------------------------------------------------
+struct PingPongServerConfig : internal::DefaultRawsockServerConfig
+{
+    template <typename, typename>
+    using TransportType = PingPongTransport;
 
 };
 
@@ -1164,11 +1232,11 @@ SCENARIO( "Server sending an invalid message type", "[Transport]" )
 {
 GIVEN ( "A mock server that sends an invalid message type" )
 {
-    IoContext ioctx;
-    IoStrand strand{ioctx.get_executor()};
-
     using MockListener = internal::RawsockListener<internal::TcpAcceptor,
                                                    FakeTransportServerOptions>;
+
+    IoContext ioctx;
+    IoStrand strand{ioctx.get_executor()};
     auto lstn = MockListener::create(strand, tcpEndpoint, {jsonId});
     Transporting::Ptr server;
     lstn->establish(
@@ -1224,4 +1292,94 @@ GIVEN ( "A mock server that sends an invalid message type" )
         }
     }
 }
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "TCP rawsocket heartbeat", "[Transport]" )
+{
+    IoContext ioctx;
+    IoStrand strand{ioctx.get_executor()};
+    boost::asio::steady_timer timer{ioctx};
+
+    using MockListener = internal::RawsockListener<internal::TcpAcceptor,
+                                                   PingPongServerConfig>;
+
+    auto lstn = MockListener::create(strand, tcpEndpoint, {jsonId});
+    Transporting::Ptr server;
+    lstn->establish(
+        [&](ErrorOr<Transporting::Ptr> transport)
+        {
+            REQUIRE( transport.has_value() );
+            server = std::move(*transport);
+        });
+
+    using MockConnector =
+        internal::RawsockConnector<internal::TcpOpener, PingPongClientConfig>;
+
+    const std::chrono::milliseconds interval{50};
+    const auto where = TcpHost{tcpLoopbackAddr, tcpTestPort}
+                           .withHearbeatInterval(interval);
+
+    MonitorPingPong::clear();
+
+    auto cnct = MockConnector::create(strand, where, jsonId);
+    Transporting::Ptr client;
+    cnct->establish(
+        [&](ErrorOr<Transporting::Ptr> transport)
+        {
+            REQUIRE( transport.has_value() );
+            client = *transport;
+        });
+
+    CHECK_NOTHROW( ioctx.run() );
+    ioctx.restart();
+    REQUIRE( server );
+    REQUIRE( client );
+
+    std::error_code clientError;
+    client->start(
+        [&clientError](ErrorOr<MessageBuffer> m)
+        {
+            if (!m)
+            {
+                clientError = m.error();
+                UNSCOPED_INFO("client error code: " << m.error());
+            }
+        },
+        nullptr);
+
+    std::error_code serverError;
+    server->start(
+        [&serverError](ErrorOr<MessageBuffer> m)
+        {
+            if (!m)
+            {
+                serverError = m.error();
+                UNSCOPED_INFO("server error code: " << m.error());
+            }
+        },
+        nullptr);
+
+    // Wait the expected time for 3 ping/pong exchanges and check that
+    // they actually occurred.
+    timer.expires_after(3*interval + interval/2);
+    timer.async_wait([&ioctx](boost::system::error_code) {ioctx.stop();});
+    ioctx.run();
+    ioctx.restart();
+
+    CHECK(!clientError);
+    CHECK(!serverError);
+    CHECK(MonitorPingPong::pings().size() == 3);
+    CHECK(MonitorPingPong::pongs().size() == 3);
+    CHECK_THAT(MonitorPingPong::pings(),
+               Catch::Matchers::Equals(MonitorPingPong::pongs()));
+
+    // Make the server stop echoing the correct pong and check that the client
+    // fails due to heartbeat timeout.
+    MonitorPingPong::cannedPong() = MessageBuffer{0x12, 0x34, 0x56};
+    timer.expires_after(2*interval);
+    timer.async_wait([&ioctx](boost::system::error_code) {ioctx.stop();});
+    ioctx.run();
+    CHECK(clientError == TransportErrc::heartbeatTimeout);
+    CHECK(serverError == TransportErrc::disconnected);
 }

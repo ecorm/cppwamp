@@ -48,7 +48,7 @@ std::vector<Incident> IncidentListener::list;
 //------------------------------------------------------------------------------
 TEST_CASE("WAMP Client Connection Timeouts", "[WAMP][Basic]")
 {
-    struct MockListenerConfig : internal::DefaultRawsockServerOptions
+    struct MockListenerConfig : internal::DefaultRawsockServerConfig
     {
         static bool mockUnresponsiveness() {return true;}
     };

@@ -39,7 +39,12 @@ public:
           maxTxLength_(maxTxLength),
           maxRxLength_(maxRxLength),
           heartbeatInterval_(heartbeatInterval)
-    {}
+    {
+        static std::mutex theMutex;
+        static internal::DefaultPRNG64 theGenerator;
+        std::lock_guard<std::mutex> guard{theMutex};
+        transportId_ = theGenerator();
+    }
 
     /** Obtains the random transport instance ID. */
     uint64_t transportId() const {return transportId_;}
@@ -62,9 +67,6 @@ private:
     std::size_t maxTxLength_ = 0;
     std::size_t maxRxLength_ = 0;
     Timeout heartbeatInterval_ = {};
-
-public: // Internal use only
-    void setTransportId(internal::PassKey, uint64_t id) {transportId_ = id;}
 };
 
 //------------------------------------------------------------------------------
@@ -120,13 +122,7 @@ protected:
     explicit Transporting(TransportInfo ti, ConnectionInfo ci)
         : info_(ti),
           connectionInfo_(std::move(ci))
-    {
-        static std::mutex theMutex;
-        static internal::DefaultPRNG64 theGenerator;
-
-        std::lock_guard<std::mutex> guard{theMutex};
-        info_.setTransportId({}, theGenerator());
-    }
+    {}
 
     /** Should be called be derived classes when the transport disconnects. */
     void clearConnectionInfo() {connectionInfo_ = {};}

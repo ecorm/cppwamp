@@ -18,7 +18,7 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-enum class RawsockMsgType
+enum class RawsockMsgKind
 {
     wamp,
     ping,
@@ -38,15 +38,15 @@ public:
 
     bool msgTypeIsValid() const
     {
-        auto type = msgType();
-        return type == RawsockMsgType::wamp ||
-               type == RawsockMsgType::ping ||
-               type == RawsockMsgType::pong;
+        auto kind = msgKind();
+        return kind == RawsockMsgKind::wamp ||
+               kind == RawsockMsgKind::ping ||
+               kind == RawsockMsgKind::pong;
     }
 
-    RawsockMsgType msgType() const
+    RawsockMsgKind msgKind() const
     {
-        return get<RawsockMsgType>(msgTypeMask_, msgTypePos_);
+        return get<RawsockMsgKind>(msgKindMask_, msgKindPos_);
     }
 
     std::size_t length() const {return get<std::size_t>(lengthMask_);}
@@ -55,17 +55,21 @@ public:
 
     uint32_t toHostOrder() const {return hdr_;}
 
-    RawsockHeader& setMsgType(RawsockMsgType msgType)
-        {return put(msgType, msgTypePos_);}
+    RawsockHeader& setMsgKind(RawsockMsgKind kind)
+    {
+        return put(kind, msgKindPos_);
+    }
 
     RawsockHeader& setLength(std::size_t length)
-        {return put(length, lengthPos_);}
+    {
+        return put(length, lengthPos_);
+    }
 
 private:
-    static constexpr uint32_t msgTypeMask_  = 0xff000000;
-    static constexpr uint32_t lengthMask_   = 0x00ffffff;
-    static constexpr int msgTypePos_        = 24;
-    static constexpr int lengthPos_         = 0;
+    static constexpr uint32_t msgKindMask_ = 0xff000000;
+    static constexpr uint32_t lengthMask_  = 0x00ffffff;
+    static constexpr int msgKindPos_       = 24;
+    static constexpr int lengthPos_        = 0;
 
     template <typename T = uint32_t>
     T get(uint32_t mask, int pos = 0) const

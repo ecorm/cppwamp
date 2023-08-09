@@ -51,9 +51,9 @@ public:
 
     RawsockFrame() = default;
 
-    RawsockFrame(RawsockMsgType type, MessageBuffer&& payload)
+    RawsockFrame(RawsockMsgKind kind, MessageBuffer&& payload)
         : payload_(std::move(payload)),
-          header_(computeHeader(type, payload_))
+          header_(computeHeader(kind, payload_))
     {}
 
     void clear()
@@ -65,9 +65,9 @@ public:
 
     void resize(size_t length) {payload_.resize(length);}
 
-    void prepare(RawsockMsgType type, MessageBuffer&& payload)
+    void prepare(RawsockMsgKind kind, MessageBuffer&& payload)
     {
-        header_ = computeHeader(type, payload);
+        header_ = computeHeader(kind, payload);
         payload_ = std::move(payload);
     }
 
@@ -98,10 +98,10 @@ public:
     }
 
 private:
-    static Header computeHeader(RawsockMsgType type,
+    static Header computeHeader(RawsockMsgKind kind,
                                 const MessageBuffer& payload)
     {
-        return RawsockHeader().setMsgType(type)
+        return RawsockHeader().setMsgKind(kind)
                               .setLength(payload.size())
                               .toBigEndian();
     }
@@ -149,8 +149,8 @@ public:
 
     RawsockPinger(IoStrand strand, const TransportInfo& info)
         : timer_(strand),
-        frame_(info.transportId()),
-        interval_(info.heartbeatInterval())
+          frame_(info.transportId()),
+          interval_(info.heartbeatInterval())
     {}
 
     void start(Handler handler)
@@ -224,8 +224,8 @@ private:
 //------------------------------------------------------------------------------
 struct DefaultRawsockTransportConfig
 {
-    // Allows altering transport frame payloads for test purposes.
-    static void alter(RawsockMsgType&, MessageBuffer&) {}
+    // Allows pre-processing transport frame payloads for test purposes.
+    static void preProcess(RawsockMsgKind&, MessageBuffer&) {}
 };
 
 //------------------------------------------------------------------------------
@@ -278,7 +278,7 @@ public:
         if (!isRunning())
             return;
 
-        auto buf = enframe(RawsockMsgType::wamp, std::move(message));
+        auto buf = enframe(RawsockMsgKind::wamp, std::move(message));
         sendFrame(std::move(buf));
     }
 
@@ -291,7 +291,7 @@ public:
             return;
 
         assert(socket_ && "Attempting to send on bad transport");
-        auto frame = enframe(RawsockMsgType::wamp, std::move(message));
+        auto frame = enframe(RawsockMsgKind::wamp, std::move(message));
         assert((frame->payload().size() <= info().maxTxLength()) &&
                "Outgoing message is longer than allowed by peer");
         frame->poison();
@@ -323,8 +323,8 @@ private:
           strand_(boost::asio::make_strand(socket->get_executor())),
           socket_(std::move(socket))
     {
-        if (timeoutIsDefinite(info.heartbeatInterval()))
-            pinger_.reset(new RawsockPinger(strand_, info));
+        if (timeoutIsDefinite(Base::info().heartbeatInterval()))
+            pinger_ = std::make_shared<RawsockPinger>(strand_, Base::info());
     }
 
     void onPingFrame(ErrorOr<RawsockPingBytes> pingBytes)
@@ -333,18 +333,20 @@ private:
             return;
 
         if (!pingBytes.has_value())
+        {
             return fail(pingBytes.error());
+        }
 
         MessageBuffer message{pingBytes->begin(), pingBytes->end()};
-        auto buf = enframe(RawsockMsgType::wamp, std::move(message));
+        auto buf = enframe(RawsockMsgKind::ping, std::move(message));
         sendFrame(std::move(buf));
     }
 
-    RawsockFrame::Ptr enframe(RawsockMsgType type, MessageBuffer&& payload)
+    RawsockFrame::Ptr enframe(RawsockMsgKind kind, MessageBuffer&& payload)
     {
-        Config::alter(type, payload);
+        Config::preProcess(kind, payload);
         // TODO: Pool/reuse frames somehow
-        return std::make_shared<RawsockFrame>(type, std::move(payload));
+        return std::make_shared<RawsockFrame>(kind, std::move(payload));
     }
 
     void sendFrame(RawsockFrame::Ptr frame)
@@ -440,35 +442,35 @@ private:
             check(len <= info().maxRxLength(), TransportErrc::tooLong) &&
             check(hdr.msgTypeIsValid(), TransportErrc::badCommand);
         if (ok)
-            receivePayload(hdr.msgType(), len);
+            receivePayload(hdr.msgKind(), len);
     }
 
     // NOLINTBEGIN(misc-no-recursion)
-    void receivePayload(RawsockMsgType msgType, size_t length)
+    void receivePayload(RawsockMsgKind kind, size_t length)
     {
         rxFrame_.resize(length);
         auto self = this->shared_from_this();
         boost::asio::async_read(*socket_, rxFrame_.payloadBuffer(),
-            [this, self, msgType](boost::system::error_code ec, size_t)
+            [this, self, kind](boost::system::error_code ec, size_t)
             {
                 if (ec)
                     rxFrame_.clear();
 
                 if (check(ec) && running_)
                 {
-                    switch (msgType)
+                    switch (kind)
                     {
-                    case RawsockMsgType::wamp:
+                    case RawsockMsgKind::wamp:
                         if (rxHandler_)
                             post(rxHandler_, std::move(rxFrame_).payload());
                         receive();
                         break;
 
-                    case RawsockMsgType::ping:
+                    case RawsockMsgKind::ping:
                         sendPong();
                         break;
 
-                    case RawsockMsgType::pong:
+                    case RawsockMsgKind::pong:
                         receivePong();
                         break;
 
@@ -484,9 +486,8 @@ private:
     // NOLINTNEXTLINE(misc-no-recursion)
     void sendPong()
     {
-        auto frame = enframe(RawsockMsgType::pong,
-                             std::move(rxFrame_).payload());
-        sendFrame(std::move(frame));
+        auto f = enframe(RawsockMsgKind::pong, std::move(rxFrame_).payload());
+        sendFrame(std::move(f));
         receive();
     }
 
@@ -565,7 +566,7 @@ private:
     RawsockFrame::Ptr txFrame_;
     RawsockFrame::Ptr pingFrame_;
     std::unique_ptr<TSocket> socket_;
-    std::unique_ptr<RawsockPinger> pinger_;
+    std::shared_ptr<RawsockPinger> pinger_;
     uint64_t pingId_ = 0;
     bool running_ = false;
     bool matchingPongReceived_ = false;
