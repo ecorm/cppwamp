@@ -19,8 +19,10 @@
 #include "../asiodefs.hpp"
 #include "../connector.hpp"
 #include "../listener.hpp"
-//#include "tcpendpoint.hpp"
-//#include "tcphost.hpp"
+#include "websocketendpoint.hpp"
+#include "websockethost.hpp"
+
+// TODO: Websocket over TLS
 
 namespace wamp
 {
@@ -31,8 +33,6 @@ namespace internal
 struct WebsocketConnectorImpl;
 struct WebsocketListenerImpl;
 }
-
-#if 0
 
 //------------------------------------------------------------------------------
 /** Connector specialization that establishes a client-side Websocket transport.
@@ -108,8 +108,6 @@ public:
 private:
     std::unique_ptr<internal::WebsocketListenerImpl> impl_;
 };
-
-#endif
 
 } // namespace wamp
 

@@ -125,6 +125,9 @@ set(HEADERS
     include/cppwamp/internal/variantencoding.hpp
     include/cppwamp/internal/varianttraits.hpp
     include/cppwamp/internal/variantvisitors.hpp
+    include/cppwamp/internal/websocketconnector.hpp
+    include/cppwamp/internal/websocketlistener.hpp
+    include/cppwamp/internal/websockettransport.hpp
     include/cppwamp/transports/tcp.hpp
     include/cppwamp/transports/tcpendpoint.hpp
     include/cppwamp/transports/tcphost.hpp
@@ -133,6 +136,9 @@ set(HEADERS
     include/cppwamp/transports/udspath.hpp
     include/cppwamp/transports/udsprotocol.hpp
     include/cppwamp/transports/websocket.hpp
+    include/cppwamp/transports/websocketendpoint.hpp
+    include/cppwamp/transports/websockethost.hpp
+    include/cppwamp/transports/websocketprotocol.hpp
     include/cppwamp/types/array.hpp
     include/cppwamp/types/boostoptional.hpp
     include/cppwamp/types/optional.hpp
@@ -199,6 +205,8 @@ set(INLINES
     include/cppwamp/internal/variant.inl.hpp
     include/cppwamp/internal/version.inl.hpp
     include/cppwamp/internal/websocket.inl.hpp
+    include/cppwamp/internal/websocketendpoint.inl.hpp
+    include/cppwamp/internal/websockethost.inl.hpp
     include/cppwamp/internal/wildcarduri.inl.hpp
 )
 

@@ -22,6 +22,8 @@
 #include "tcpendpoint.hpp"
 #include "tcphost.hpp"
 
+// TODO: TLS Transport
+
 namespace wamp
 {
 

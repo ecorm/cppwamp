@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_RAWSOCKCONNECTOR_HPP
-#define CPPWAMP_RAWSOCKCONNECTOR_HPP
+#ifndef CPPWAMP_INTERNAL_RAWSOCKCONNECTOR_HPP
+#define CPPWAMP_INTERNAL_RAWSOCKCONNECTOR_HPP
 
 #include <cassert>
 #include <memory>
@@ -198,4 +198,4 @@ private:
 
 } // namespace wamp
 
-#endif // CPPWAMP_RAWSOCKCONNECTOR_HPP
+#endif // CPPWAMP_INTERNAL_RAWSOCKCONNECTOR_HPP

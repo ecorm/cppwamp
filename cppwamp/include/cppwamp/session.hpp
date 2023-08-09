@@ -38,6 +38,8 @@
 #include "timeout.hpp"
 #include "wampdefs.hpp"
 
+// TODO: Default completion token
+
 namespace wamp
 {
 

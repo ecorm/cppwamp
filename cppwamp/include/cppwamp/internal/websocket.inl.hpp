@@ -5,15 +5,11 @@
 ------------------------------------------------------------------------------*/
 
 #include "../transports/websocket.hpp"
-#include "rawsockconnector.hpp"
-#include "rawsocklistener.hpp"
-//#include "tcpacceptor.hpp"
-//#include "tcpopener.hpp"
+#include "websocketconnector.hpp"
+#include "websocketlistener.hpp"
 
 namespace wamp
 {
-
-#if 0
 
 namespace internal
 {
@@ -24,13 +20,11 @@ namespace internal
 //------------------------------------------------------------------------------
 struct WebsocketConnectorImpl
 {
-    using RawsockConnector = internal::RawsockConnector<internal::WebsocketOpener>;
-
     WebsocketConnectorImpl(IoStrand i, WebsocketHost s, int codecId)
-        : cnct(RawsockConnector::create(std::move(i), std::move(s), codecId))
+        : cnct(WebsocketConnector::create(std::move(i), std::move(s), codecId))
     {}
 
-    RawsockConnector::Ptr cnct;
+    WebsocketConnector::Ptr cnct;
 };
 
 //------------------------------------------------------------------------------
@@ -39,14 +33,12 @@ struct WebsocketConnectorImpl
 //------------------------------------------------------------------------------
 struct WebsocketListenerImpl
 {
-    using RawsockListener = internal::RawsockListener<internal::WebsocketAcceptor>;
-
     WebsocketListenerImpl(IoStrand i, WebsocketEndpoint s, std::set<int> codecIds)
-        : lstn(RawsockListener::create(std::move(i), std::move(s),
-                                       std::move(codecIds)))
+        : lstn(WebsocketListener::create(std::move(i), std::move(s),
+                                         std::move(codecIds)))
     {}
 
-    RawsockListener::Ptr lstn;
+    WebsocketListener::Ptr lstn;
 };
 
 } // namespace internal
@@ -57,8 +49,10 @@ struct WebsocketListenerImpl
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Connector<Websocket>::Connector(IoStrand i, Settings s, int codecId)
-    : impl_(new internal::WebsocketConnectorImpl(std::move(i), std::move(s), codecId))
+CPPWAMP_INLINE Connector<Websocket>::Connector(IoStrand i, Settings s,
+                                               int codecId)
+    : impl_(new internal::WebsocketConnectorImpl(std::move(i), std::move(s),
+                                                 codecId))
 {}
 
 //------------------------------------------------------------------------------
@@ -101,7 +95,5 @@ CPPWAMP_INLINE void Listener<Websocket>::establish(Handler&& handler)
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Listener<Websocket>::cancel() {impl_->lstn->cancel();}
-
-#endif
 
 } // namespace wamp

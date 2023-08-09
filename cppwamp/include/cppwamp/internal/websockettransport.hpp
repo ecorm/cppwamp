@@ -1,37 +1,25 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_INTERNAL_RAWSOCKTRANSPORT_HPP
-#define CPPWAMP_INTERNAL_RAWSOCKTRANSPORT_HPP
+#ifndef CPPWAMP_INTERNAL_WEBSOCKETTRANSPORT_HPP
+#define CPPWAMP_INTERNAL_WEBSOCKETTRANSPORT_HPP
 
 #include <array>
-#include <chrono>
-#include <cstdint>
-#include <cstring>
 #include <deque>
-#include <functional>
 #include <memory>
-#include <sstream>
-#include <stdexcept>
-#include <utility>
-#include <vector>
 #include <boost/asio/buffer.hpp>
-#include <boost/asio/executor.hpp>
-#include <boost/asio/post.hpp>
-#include <boost/asio/read.hpp>
-#include <boost/asio/steady_timer.hpp>
-#include <boost/asio/strand.hpp>
-#include <boost/asio/write.hpp>
-#include <boost/system/error_code.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/beast/core/flat_buffer.hpp>
+#include <boost/beast/websocket/rfc6455.hpp>
+#include <boost/beast/websocket/stream.hpp>
 #include "../asiodefs.hpp"
 #include "../errorcodes.hpp"
 #include "../messagebuffer.hpp"
 #include "../transport.hpp"
 #include "endian.hpp"
-#include "rawsockheader.hpp"
 
 namespace wamp
 {
@@ -40,38 +28,34 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-// Combines a raw socket transport header with an encoded message payload.
+enum class WebsocketMsgKind
+{
+    wamp,
+    ping,
+    pong
+};
+
 //------------------------------------------------------------------------------
-class RawsockFrame
+class WebsocketFrame
 {
 public:
-    using Ptr        = std::shared_ptr<RawsockFrame>;
-    using Header     = uint32_t;
-    using GatherBufs = std::array<boost::asio::const_buffer, 2>;
+    using Ptr = std::shared_ptr<WebsocketFrame>;
 
-    RawsockFrame() = default;
+    WebsocketFrame() = default;
 
-    RawsockFrame(RawsockMsgKind kind, MessageBuffer&& payload)
+    WebsocketFrame(WebsocketMsgKind kind, MessageBuffer&& payload)
         : payload_(std::move(payload)),
-          header_(computeHeader(kind, payload_))
+          kind_(kind)
     {}
 
     void clear()
     {
-        header_ = 0;
         payload_.clear();
-        isPoisoned_ =false;
+        kind_ = {};
+        isPoisoned_ = false;
     }
 
-    void resize(size_t length) {payload_.resize(length);}
-
-    void prepare(RawsockMsgKind kind, MessageBuffer&& payload)
-    {
-        header_ = computeHeader(kind, payload);
-        payload_ = std::move(payload);
-    }
-
-    RawsockHeader header() const {return RawsockHeader::fromBigEndian(header_);}
+    WebsocketMsgKind kind() const {return kind_;}
 
     const MessageBuffer& payload() const & {return payload_;}
 
@@ -81,51 +65,32 @@ public:
 
     bool isPoisoned() const {return isPoisoned_;}
 
-    GatherBufs gatherBuffers()
-    {
-        return GatherBufs{{ {&header_, sizeof(header_)},
-                            {payload_.data(), payload_.size()} }};
-    }
-
-    boost::asio::mutable_buffer headerBuffer()
-    {
-        return boost::asio::buffer(&header_, sizeof(header_));
-    }
-
-    boost::asio::mutable_buffer payloadBuffer()
+    boost::asio::const_buffer payloadBuffer() const
     {
         return boost::asio::buffer(&payload_.front(), payload_.size());
     }
 
 private:
-    static Header computeHeader(RawsockMsgKind kind,
-                                const MessageBuffer& payload)
-    {
-        return RawsockHeader().setMsgKind(kind)
-                              .setLength(payload.size())
-                              .toBigEndian();
-    }
-
     MessageBuffer payload_;
-    Header header_ = 0;
+    WebsocketMsgKind kind_;
     bool isPoisoned_ = false;
 };
 
 //------------------------------------------------------------------------------
-using RawsockPingBytes = std::array<MessageBuffer::value_type,
-                                    2*sizeof(uint64_t)>;
+using WebsocketPingBytes = std::array<MessageBuffer::value_type,
+                                      2*sizeof(uint64_t)>;
 
 //------------------------------------------------------------------------------
-class RawsockPingFrame
+class WebsocketPingFrame
 {
 public:
-    explicit RawsockPingFrame(uint64_t randomId)
+    explicit WebsocketPingFrame(uint64_t randomId)
         : baseId_(endian::nativeToBig64(randomId))
     {}
 
     uint64_t count() const {return sequentialId_;}
 
-    void serialize(RawsockPingBytes& bytes) const
+    void serialize(WebsocketPingBytes& bytes) const
     {
         auto* ptr = bytes.data();
         std::memcpy(ptr, &baseId_, sizeof(baseId_));
@@ -142,12 +107,15 @@ private:
 };
 
 //------------------------------------------------------------------------------
-class RawsockPinger : public std::enable_shared_from_this<RawsockPinger>
+// TODO: Consolidate with RawsockPinger
+//------------------------------------------------------------------------------
+class WebsocketPinger
+    : public std::enable_shared_from_this<WebsocketPinger>
 {
 public:
-    using Handler = std::function<void (ErrorOr<RawsockPingBytes>)>;
+    using Handler = std::function<void (ErrorOr<WebsocketPingBytes>)>;
 
-    RawsockPinger(IoStrand strand, const TransportInfo& info)
+    WebsocketPinger(IoStrand strand, const TransportInfo& info)
         : timer_(strand),
           frame_(info.transportId()),
           interval_(info.heartbeatInterval())
@@ -180,7 +148,7 @@ public:
 private:
     void startTimer()
     {
-        std::weak_ptr<RawsockPinger> self = shared_from_this();
+        std::weak_ptr<WebsocketPinger> self = shared_from_this();
         timer_.expires_after(interval_);
         timer_.async_wait(
             [self, this](boost::system::error_code ec)
@@ -215,35 +183,26 @@ private:
 
     boost::asio::steady_timer timer_;
     Handler handler_;
-    RawsockPingFrame frame_;
-    RawsockPingBytes frameBytes_ = {};
+    WebsocketPingFrame frame_;
+    WebsocketPingBytes frameBytes_ = {};
     Timeout interval_ = {};
     bool matchingPongReceived_ = false;
 };
 
 //------------------------------------------------------------------------------
-struct DefaultRawsockTransportConfig
-{
-    // Allows pre-processing transport frame payloads for test purposes.
-    static void preProcess(RawsockMsgKind&, MessageBuffer&) {}
-};
-
-//------------------------------------------------------------------------------
-template <typename TSocket, typename TTraits,
-          typename TConfig = DefaultRawsockTransportConfig>
-class RawsockTransport : public Transporting
+class WebsocketTransport : public Transporting
 {
 public:
-    using Ptr            = std::shared_ptr<RawsockTransport>;
-    using Socket         = TSocket;
-    using Config         = TConfig;
+    using Ptr            = std::shared_ptr<WebsocketTransport>;
+    using TcpSocket      = boost::asio::ip::tcp::socket;
+    using Socket         = boost::beast::websocket::stream<TcpSocket>;
     using SocketPtr      = std::unique_ptr<Socket>;
     using RxHandler      = typename Transporting::RxHandler;
     using TxErrorHandler = typename Transporting::TxErrorHandler;
 
     static Ptr create(SocketPtr&& s, TransportInfo info)
     {
-        return Ptr(new RawsockTransport(std::move(s), info));
+        return Ptr(new WebsocketTransport(std::move(s), info));
     }
 
     bool isRunning() const override {return running_;}
@@ -253,19 +212,6 @@ public:
         assert(!isRunning());
         rxHandler_ = rxHandler;
         txErrorHandler_ = txErrorHandler;
-        std::weak_ptr<Transporting> self = shared_from_this();
-
-        if (pinger_)
-        {
-            pinger_->start(
-                [self, this](ErrorOr<RawsockPingBytes> pingBytes)
-                {
-                    auto me = self.lock();
-                    if (me)
-                        onPingFrame(pingBytes);
-                });
-        }
-
         receive();
         running_ = true;
     }
@@ -278,7 +224,7 @@ public:
         if (!isRunning())
             return;
 
-        auto buf = enframe(RawsockMsgKind::wamp, std::move(message));
+        auto buf = enframe(WebsocketMsgKind::wamp, std::move(message));
         sendFrame(std::move(buf));
     }
 
@@ -291,7 +237,7 @@ public:
             return;
 
         assert(socket_ && "Attempting to send on bad transport");
-        auto frame = enframe(RawsockMsgKind::wamp, std::move(message));
+        auto frame = enframe(WebsocketMsgKind::wamp, std::move(message));
         assert((frame->payload().size() <= info().maxTxLength()) &&
                "Outgoing message is longer than allowed by peer");
         frame->poison();
@@ -308,48 +254,38 @@ public:
         txQueue_.clear();
         running_ = false;
         if (socket_)
-            socket_->close();
+            socket_->close(boost::beast::websocket::normal);
         if (pinger_)
             pinger_->stop();
     }
 
 private:
     using Base = Transporting;
-    using TransmitQueue = std::deque<RawsockFrame::Ptr>;
+    using TransmitQueue = std::deque<WebsocketFrame::Ptr>;
     using TimePoint     = std::chrono::high_resolution_clock::time_point;
 
-    RawsockTransport(SocketPtr&& socket, TransportInfo info)
-        : Base(info, TTraits::connectionInfo(socket->remote_endpoint())),
+    static ConnectionInfo makeConnectionInfo(const Socket& socket)
+    {
+        // TODO
+        return {};
+    }
+
+    WebsocketTransport(SocketPtr&& socket, TransportInfo info)
+        : Base(info, makeConnectionInfo(*socket)),
           strand_(boost::asio::make_strand(socket->get_executor())),
           socket_(std::move(socket))
     {
         if (timeoutIsDefinite(Base::info().heartbeatInterval()))
-            pinger_ = std::make_shared<RawsockPinger>(strand_, Base::info());
+            pinger_ = std::make_shared<WebsocketPinger>(strand_, Base::info());
     }
 
-    void onPingFrame(ErrorOr<RawsockPingBytes> pingBytes)
+    WebsocketFrame::Ptr enframe(WebsocketMsgKind kind, MessageBuffer&& payload)
     {
-        if (!isRunning())
-            return;
-
-        if (!pingBytes.has_value())
-        {
-            return fail(pingBytes.error());
-        }
-
-        MessageBuffer message{pingBytes->begin(), pingBytes->end()};
-        auto buf = enframe(RawsockMsgKind::ping, std::move(message));
-        sendFrame(std::move(buf));
-    }
-
-    RawsockFrame::Ptr enframe(RawsockMsgKind kind, MessageBuffer&& payload)
-    {
-        Config::preProcess(kind, payload);
         // TODO: Pool/reuse frames somehow
-        return std::make_shared<RawsockFrame>(kind, std::move(payload));
+        return std::make_shared<WebsocketFrame>(kind, std::move(payload));
     }
 
-    void sendFrame(RawsockFrame::Ptr frame)
+    void sendFrame(WebsocketFrame::Ptr frame)
     {
         assert(socket_ && "Attempting to send on bad transport");
         assert((frame->payload().size() <= info().maxTxLength()) &&
@@ -367,7 +303,8 @@ private:
             txQueue_.pop_front();
 
             auto self = this->shared_from_this();
-            boost::asio::async_write(*socket_, txFrame_->gatherBuffers(),
+            socket_->async_write(
+                txFrame_->payloadBuffer(),
                 [this, self](boost::system::error_code asioEc, size_t)
                 {
                     const bool frameWasPoisoned = txFrame_ &&
@@ -409,7 +346,8 @@ private:
         {
             rxFrame_.clear();
             auto self = this->shared_from_this();
-            boost::asio::async_read(*socket_, rxFrame_.headerBuffer(),
+            socket_->async_read(
+                rxFrame_,
                 [this, self](boost::system::error_code ec, size_t)
                 {
                     if (ec == boost::asio::error::connection_reset ||
@@ -419,7 +357,7 @@ private:
                     }
                     else if (check(ec))
                     {
-                        processHeader();
+                        processPayload();
                     }
                 });
         }
@@ -433,74 +371,15 @@ private:
         cleanup();
     }
 
-    // NOLINTNEXTLINE(misc-no-recursion)
-    void processHeader()
-    {
-        const auto hdr = rxFrame_.header();
-        const auto len  = hdr.length();
-        const bool ok =
-            check(len <= info().maxRxLength(), TransportErrc::tooLong) &&
-            check(hdr.msgTypeIsValid(), TransportErrc::badCommand);
-        if (ok)
-            receivePayload(hdr.msgKind(), len);
-    }
-
     // NOLINTBEGIN(misc-no-recursion)
-    void receivePayload(RawsockMsgKind kind, size_t length)
+    void processPayload()
     {
-        rxFrame_.resize(length);
-        auto self = this->shared_from_this();
-        boost::asio::async_read(*socket_, rxFrame_.payloadBuffer(),
-            [this, self, kind](boost::system::error_code ec, size_t)
-            {
-                if (ec)
-                    rxFrame_.clear();
-
-                if (check(ec) && running_)
-                {
-                    switch (kind)
-                    {
-                    case RawsockMsgKind::wamp:
-                        if (rxHandler_)
-                            post(rxHandler_, std::move(rxFrame_).payload());
-                        receive();
-                        break;
-
-                    case RawsockMsgKind::ping:
-                        sendPong();
-                        break;
-
-                    case RawsockMsgKind::pong:
-                        receivePong();
-                        break;
-
-                    default:
-                        assert(false);
-                        break;
-                    }
-                }
-            });
+        using Byte = MessageBuffer::value_type;
+        const auto* ptr = reinterpret_cast<const Byte*>(rxFrame_.cdata().data());
+        MessageBuffer buffer{ptr, ptr + rxFrame_.cdata().size()};
+        post(rxHandler_, std::move(buffer));
     }
     // NOLINTEND(misc-no-recursion)
-
-    // NOLINTNEXTLINE(misc-no-recursion)
-    void sendPong()
-    {
-        auto f = enframe(RawsockMsgKind::pong, std::move(rxFrame_).payload());
-        sendFrame(std::move(f));
-        receive();
-    }
-
-    // NOLINTNEXTLINE(misc-no-recursion)
-    void receivePong()
-    {
-        // Unsolicited pongs may serve as unidirectional heartbeats.
-        // https://github.com/wamp-proto/wamp-proto/issues/274#issuecomment-288626150
-        if (pinger_ != nullptr)
-            pinger_->pong(rxFrame_.payload());
-
-        receive();
-    }
 
     template <typename F, typename... Ts>
     void post(F&& handler, Ts&&... args)
@@ -560,13 +439,13 @@ private:
     IoStrand strand_;
     RxHandler rxHandler_;
     TxErrorHandler txErrorHandler_;
-    RawsockFrame rxFrame_;
+    boost::beast::flat_buffer rxFrame_;
     TransmitQueue txQueue_;
     MessageBuffer pingBuffer_;
-    RawsockFrame::Ptr txFrame_;
-    RawsockFrame::Ptr pingFrame_;
-    std::unique_ptr<TSocket> socket_;
-    std::shared_ptr<RawsockPinger> pinger_;
+    WebsocketFrame::Ptr txFrame_;
+    WebsocketFrame::Ptr pingFrame_;
+    std::unique_ptr<Socket> socket_;
+    std::shared_ptr<WebsocketPinger> pinger_;
     bool running_ = false;
 };
 
@@ -574,4 +453,4 @@ private:
 
 } // namespace wamp
 
-#endif // CPPWAMP_INTERNAL_RAWSOCKTRANSPORT_HPP
+#endif // CPPWAMP_INTERNAL_WEBSOCKETTRANSPORT_HPP
