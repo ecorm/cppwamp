@@ -10,7 +10,6 @@
 #include <array>
 #include <deque>
 #include <memory>
-#include <boost/asio/buffer.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/beast/core/flat_buffer.hpp>
 #include <boost/beast/websocket/rfc6455.hpp>
@@ -19,7 +18,7 @@
 #include "../errorcodes.hpp"
 #include "../messagebuffer.hpp"
 #include "../transport.hpp"
-#include "endian.hpp"
+#include "pinger.hpp"
 
 namespace wamp
 {
@@ -31,8 +30,7 @@ namespace internal
 enum class WebsocketMsgKind
 {
     wamp,
-    ping,
-    pong
+    ping
 };
 
 //------------------------------------------------------------------------------
@@ -77,119 +75,6 @@ private:
 };
 
 //------------------------------------------------------------------------------
-using WebsocketPingBytes = std::array<MessageBuffer::value_type,
-                                      2*sizeof(uint64_t)>;
-
-//------------------------------------------------------------------------------
-class WebsocketPingFrame
-{
-public:
-    explicit WebsocketPingFrame(uint64_t randomId)
-        : baseId_(endian::nativeToBig64(randomId))
-    {}
-
-    uint64_t count() const {return sequentialId_;}
-
-    void serialize(WebsocketPingBytes& bytes) const
-    {
-        auto* ptr = bytes.data();
-        std::memcpy(ptr, &baseId_, sizeof(baseId_));
-        ptr += sizeof(baseId_);
-        uint64_t n = endian::nativeToBig64(sequentialId_);
-        std::memcpy(ptr, &n, sizeof(sequentialId_));
-    }
-
-    void increment() {++sequentialId_;}
-
-private:
-    uint64_t baseId_ = 0;
-    uint64_t sequentialId_ = 0;
-};
-
-//------------------------------------------------------------------------------
-// TODO: Consolidate with RawsockPinger
-//------------------------------------------------------------------------------
-class WebsocketPinger
-    : public std::enable_shared_from_this<WebsocketPinger>
-{
-public:
-    using Handler = std::function<void (ErrorOr<WebsocketPingBytes>)>;
-
-    WebsocketPinger(IoStrand strand, const TransportInfo& info)
-        : timer_(strand),
-          frame_(info.transportId()),
-          interval_(info.heartbeatInterval())
-    {}
-
-    void start(Handler handler)
-    {
-        handler_ = std::move(handler);
-        startTimer();
-    }
-
-    void stop()
-    {
-        handler_ = nullptr;
-        interval_ = {};
-        timer_.cancel();
-    }
-
-    void pong(const MessageBuffer& payload)
-    {
-        if (frame_.count() == 0 || payload.size() != frameBytes_.size())
-            return;
-
-        auto cmp = std::memcmp(payload.data(), frameBytes_.data(),
-                               frameBytes_.size());
-        if (cmp == 0)
-            matchingPongReceived_ = true;
-    }
-
-private:
-    void startTimer()
-    {
-        std::weak_ptr<WebsocketPinger> self = shared_from_this();
-        timer_.expires_after(interval_);
-        timer_.async_wait(
-            [self, this](boost::system::error_code ec)
-            {
-                static constexpr auto cancelled =
-                    boost::asio::error::operation_aborted;
-                auto me = self.lock();
-
-                if (!me || ec == cancelled || !handler_)
-                    return;
-
-                if (ec)
-                {
-                    handler_(makeUnexpected(static_cast<std::error_code>(ec)));
-                    return;
-                }
-
-                if ((frame_.count() > 0) && !matchingPongReceived_)
-                {
-                    handler_(makeUnexpectedError(
-                        TransportErrc::heartbeatTimeout));
-                    return;
-                }
-
-                matchingPongReceived_ = false;
-                frame_.increment();
-                frame_.serialize(frameBytes_);
-                handler_(frameBytes_);
-                startTimer();
-            });
-    }
-
-    boost::asio::steady_timer timer_;
-    Handler handler_;
-    WebsocketPingFrame frame_;
-    WebsocketPingBytes frameBytes_ = {};
-    Timeout interval_ = {};
-    bool matchingPongReceived_ = false;
-};
-
-//------------------------------------------------------------------------------
 class WebsocketTransport : public Transporting
 {
 public:
@@ -212,6 +97,29 @@ public:
         assert(!isRunning());
         rxHandler_ = rxHandler;
         txErrorHandler_ = txErrorHandler;
+
+        if (pinger_)
+        {
+            std::weak_ptr<Transporting> self = shared_from_this();
+
+            socket_->control_callback(
+                [self, this](boost::beast::websocket::frame_type type,
+                             boost::beast::string_view msg)
+                {
+                    auto me = self.lock();
+                    if (me && type == boost::beast::websocket::frame_type::pong)
+                        onPong(msg);
+                });
+
+            pinger_->start(
+                [self, this](ErrorOr<PingBytes> pingBytes)
+                {
+                    auto me = self.lock();
+                    if (me)
+                        onPingFrame(pingBytes);
+                });
+        }
+
         receive();
         running_ = true;
     }
@@ -254,20 +162,45 @@ public:
         txQueue_.clear();
         running_ = false;
         if (socket_)
+        {
+            socket_->control_callback();
             socket_->close(boost::beast::websocket::normal);
+        }
         if (pinger_)
             pinger_->stop();
     }
 
 private:
-    using Base = Transporting;
+    using Base          = Transporting;
     using TransmitQueue = std::deque<WebsocketFrame::Ptr>;
-    using TimePoint     = std::chrono::high_resolution_clock::time_point;
+    using Byte          = MessageBuffer::value_type;
 
     static ConnectionInfo makeConnectionInfo(const Socket& socket)
     {
-        // TODO
-        return {};
+        static constexpr unsigned ipv4VersionNo = 4;
+        static constexpr unsigned ipv6VersionNo = 6;
+
+        const auto& ep = socket.next_layer().remote_endpoint();
+        std::ostringstream oss;
+        oss << ep;
+        const auto addr = ep.address();
+        const bool isIpv6 = addr.is_v6();
+
+        Object details
+        {
+            {"address", addr.to_string()},
+            {"ip_version", isIpv6 ? ipv6VersionNo : ipv4VersionNo},
+            {"endpoint", oss.str()},
+            {"port", ep.port()},
+            {"protocol", "WS"},
+        };
+
+        if (!isIpv6)
+        {
+            details.emplace("numeric_address", addr.to_v4().to_uint());
+        }
+
+        return {std::move(details), oss.str()};
     }
 
     WebsocketTransport(SocketPtr&& socket, TransportInfo info)
@@ -276,7 +209,31 @@ private:
           socket_(std::move(socket))
     {
         if (timeoutIsDefinite(Base::info().heartbeatInterval()))
-            pinger_ = std::make_shared<WebsocketPinger>(strand_, Base::info());
+            pinger_ = std::make_shared<Pinger>(strand_, Base::info());
+    }
+
+    void onPong(boost::beast::string_view msg)
+    {
+        if (pinger_)
+        {
+            const auto* bytes = reinterpret_cast<const Byte*>(msg.data());
+            pinger_->pong(bytes, msg.size());
+        }
+    }
+
+    void onPingFrame(ErrorOr<PingBytes> pingBytes)
+    {
+        if (!isRunning())
+            return;
+
+        if (!pingBytes.has_value())
+        {
+            return fail(pingBytes.error());
+        }
+
+        MessageBuffer message{pingBytes->begin(), pingBytes->end()};
+        auto buf = enframe(WebsocketMsgKind::ping, std::move(message));
+        sendFrame(std::move(buf));
     }
 
     WebsocketFrame::Ptr enframe(WebsocketMsgKind kind, MessageBuffer&& payload)
@@ -294,43 +251,86 @@ private:
         transmit();
     }
 
-    // NOLINTBEGIN(misc-no-recursion)
     void transmit()
     {
         if (isReadyToTransmit())
         {
             txFrame_ = txQueue_.front();
             txQueue_.pop_front();
-
-            auto self = this->shared_from_this();
-            socket_->async_write(
-                txFrame_->payloadBuffer(),
-                [this, self](boost::system::error_code asioEc, size_t)
-                {
-                    const bool frameWasPoisoned = txFrame_ &&
-                                                  txFrame_->isPoisoned();
-                    txFrame_.reset();
-                    if (asioEc)
-                    {
-                        if (txErrorHandler_)
-                        {
-                            auto ec = static_cast<std::error_code>(asioEc);
-                            txErrorHandler_(ec);
-                        }
-                        cleanup();
-                    }
-                    else if (frameWasPoisoned)
-                    {
-                        stop();
-                    }
-                    else
-                    {
-                        transmit();
-                    }
-                });
+            auto kind = txFrame_->kind();
+            if (kind == WebsocketMsgKind::ping)
+            {
+                sendPing();
+            }
+            else
+            {
+                assert(kind == WebsocketMsgKind::wamp);
+                sendWampMessage();
+            }
         }
     }
-    // NOLINTEND(misc-no-recursion)
+
+    void sendPing()
+    {
+        using PingData = boost::beast::websocket::ping_data;
+
+        const auto size = txFrame_->payload().size();
+        assert(size <= PingData::static_capacity);
+        const auto* data = txFrame_->payload().data();
+        const auto* ptr = reinterpret_cast<const PingData::value_type*>(data);
+        PingData buffer{ptr, ptr + size};
+        auto self = this->shared_from_this();
+
+        socket_->async_ping(
+            buffer,
+            [this, self](boost::system::error_code asioEc)
+            {
+                txFrame_.reset();
+                if (asioEc)
+                {
+                    if (txErrorHandler_)
+                    {
+                        auto ec = static_cast<std::error_code>(asioEc);
+                        txErrorHandler_(ec);
+                    }
+                    cleanup();
+                }
+                else
+                {
+                    transmit();
+                }
+            });
+    }
+
+    void sendWampMessage()
+    {
+        auto self = this->shared_from_this();
+        socket_->async_write(
+            txFrame_->payloadBuffer(),
+            [this, self](boost::system::error_code asioEc, size_t)
+            {
+                const bool frameWasPoisoned = txFrame_ &&
+                                              txFrame_->isPoisoned();
+                txFrame_.reset();
+                if (asioEc)
+                {
+                    if (txErrorHandler_)
+                    {
+                        auto ec = static_cast<std::error_code>(asioEc);
+                        txErrorHandler_(ec);
+                    }
+                    cleanup();
+                }
+                else if (frameWasPoisoned)
+                {
+                    stop();
+                }
+                else
+                {
+                    transmit();
+                }
+            });
+    }
 
     bool isReadyToTransmit() const
     {
@@ -339,7 +339,6 @@ private:
                !txQueue_.empty();  // One or more messages are enqueued
     }
 
-    // NOLINTBEGIN(misc-no-recursion)
     void receive()
     {
         if (socket_)
@@ -362,7 +361,6 @@ private:
                 });
         }
     }
-    // NOLINTEND(misc-no-recursion)
 
     void onRemoteDisconnect()
     {
@@ -371,15 +369,14 @@ private:
         cleanup();
     }
 
-    // NOLINTBEGIN(misc-no-recursion)
     void processPayload()
     {
         using Byte = MessageBuffer::value_type;
         const auto* ptr = reinterpret_cast<const Byte*>(rxFrame_.cdata().data());
         MessageBuffer buffer{ptr, ptr + rxFrame_.cdata().size()};
         post(rxHandler_, std::move(buffer));
+        receive();
     }
-    // NOLINTEND(misc-no-recursion)
 
     template <typename F, typename... Ts>
     void post(F&& handler, Ts&&... args)
@@ -445,7 +442,7 @@ private:
     WebsocketFrame::Ptr txFrame_;
     WebsocketFrame::Ptr pingFrame_;
     std::unique_ptr<Socket> socket_;
-    std::shared_ptr<WebsocketPinger> pinger_;
+    std::shared_ptr<Pinger> pinger_;
     bool running_ = false;
 };
 

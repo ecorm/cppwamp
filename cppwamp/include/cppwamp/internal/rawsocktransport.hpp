@@ -8,29 +8,19 @@
 #define CPPWAMP_INTERNAL_RAWSOCKTRANSPORT_HPP
 
 #include <array>
-#include <chrono>
 #include <cstdint>
-#include <cstring>
 #include <deque>
 #include <functional>
 #include <memory>
-#include <sstream>
-#include <stdexcept>
 #include <utility>
-#include <vector>
 #include <boost/asio/buffer.hpp>
-#include <boost/asio/executor.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/read.hpp>
-#include <boost/asio/steady_timer.hpp>
-#include <boost/asio/strand.hpp>
 #include <boost/asio/write.hpp>
-#include <boost/system/error_code.hpp>
 #include "../asiodefs.hpp"
 #include "../errorcodes.hpp"
-#include "../messagebuffer.hpp"
 #include "../transport.hpp"
-#include "endian.hpp"
+#include "pinger.hpp"
 #include "rawsockheader.hpp"
 
 namespace wamp
@@ -112,116 +102,6 @@ private:
 };
 
 //------------------------------------------------------------------------------
-using RawsockPingBytes = std::array<MessageBuffer::value_type,
-                                    2*sizeof(uint64_t)>;
-
-//------------------------------------------------------------------------------
-class RawsockPingFrame
-{
-public:
-    explicit RawsockPingFrame(uint64_t randomId)
-        : baseId_(endian::nativeToBig64(randomId))
-    {}
-
-    uint64_t count() const {return sequentialId_;}
-
-    void serialize(RawsockPingBytes& bytes) const
-    {
-        auto* ptr = bytes.data();
-        std::memcpy(ptr, &baseId_, sizeof(baseId_));
-        ptr += sizeof(baseId_);
-        uint64_t n = endian::nativeToBig64(sequentialId_);
-        std::memcpy(ptr, &n, sizeof(sequentialId_));
-    }
-
-    void increment() {++sequentialId_;}
-
-private:
-    uint64_t baseId_ = 0;
-    uint64_t sequentialId_ = 0;
-};
-
-//------------------------------------------------------------------------------
-class RawsockPinger : public std::enable_shared_from_this<RawsockPinger>
-{
-public:
-    using Handler = std::function<void (ErrorOr<RawsockPingBytes>)>;
-
-    RawsockPinger(IoStrand strand, const TransportInfo& info)
-        : timer_(strand),
-          frame_(info.transportId()),
-          interval_(info.heartbeatInterval())
-    {}
-
-    void start(Handler handler)
-    {
-        handler_ = std::move(handler);
-        startTimer();
-    }
-
-    void stop()
-    {
-        handler_ = nullptr;
-        interval_ = {};
-        timer_.cancel();
-    }
-
-    void pong(const MessageBuffer& payload)
-    {
-        if (frame_.count() == 0 || payload.size() != frameBytes_.size())
-            return;
-
-        auto cmp = std::memcmp(payload.data(), frameBytes_.data(),
-                               frameBytes_.size());
-        if (cmp == 0)
-            matchingPongReceived_ = true;
-    }
-
-private:
-    void startTimer()
-    {
-        std::weak_ptr<RawsockPinger> self = shared_from_this();
-        timer_.expires_after(interval_);
-        timer_.async_wait(
-            [self, this](boost::system::error_code ec)
-            {
-                static constexpr auto cancelled =
-                    boost::asio::error::operation_aborted;
-                auto me = self.lock();
-
-                if (!me || ec == cancelled || !handler_)
-                    return;
-
-                if (ec)
-                {
-                    handler_(makeUnexpected(static_cast<std::error_code>(ec)));
-                    return;
-                }
-
-                if ((frame_.count() > 0) && !matchingPongReceived_)
-                {
-                    handler_(makeUnexpectedError(
-                        TransportErrc::heartbeatTimeout));
-                    return;
-                }
-
-                matchingPongReceived_ = false;
-                frame_.increment();
-                frame_.serialize(frameBytes_);
-                handler_(frameBytes_);
-                startTimer();
-            });
-    }
-
-    boost::asio::steady_timer timer_;
-    Handler handler_;
-    RawsockPingFrame frame_;
-    RawsockPingBytes frameBytes_ = {};
-    Timeout interval_ = {};
-    bool matchingPongReceived_ = false;
-};
-
-//------------------------------------------------------------------------------
 struct DefaultRawsockTransportConfig
 {
     // Allows pre-processing transport frame payloads for test purposes.
@@ -253,12 +133,12 @@ public:
         assert(!isRunning());
         rxHandler_ = rxHandler;
         txErrorHandler_ = txErrorHandler;
-        std::weak_ptr<Transporting> self = shared_from_this();
 
         if (pinger_)
         {
+            std::weak_ptr<Transporting> self = shared_from_this();
             pinger_->start(
-                [self, this](ErrorOr<RawsockPingBytes> pingBytes)
+                [self, this](ErrorOr<PingBytes> pingBytes)
                 {
                     auto me = self.lock();
                     if (me)
@@ -316,7 +196,6 @@ public:
 private:
     using Base = Transporting;
     using TransmitQueue = std::deque<RawsockFrame::Ptr>;
-    using TimePoint     = std::chrono::high_resolution_clock::time_point;
 
     RawsockTransport(SocketPtr&& socket, TransportInfo info)
         : Base(info, TTraits::connectionInfo(socket->remote_endpoint())),
@@ -324,10 +203,10 @@ private:
           socket_(std::move(socket))
     {
         if (timeoutIsDefinite(Base::info().heartbeatInterval()))
-            pinger_ = std::make_shared<RawsockPinger>(strand_, Base::info());
+            pinger_ = std::make_shared<Pinger>(strand_, Base::info());
     }
 
-    void onPingFrame(ErrorOr<RawsockPingBytes> pingBytes)
+    void onPingFrame(ErrorOr<PingBytes> pingBytes)
     {
         if (!isRunning())
             return;
@@ -497,7 +376,7 @@ private:
         // Unsolicited pongs may serve as unidirectional heartbeats.
         // https://github.com/wamp-proto/wamp-proto/issues/274#issuecomment-288626150
         if (pinger_ != nullptr)
-            pinger_->pong(rxFrame_.payload());
+            pinger_->pong(rxFrame_.payload().data(), rxFrame_.payload().size());
 
         receive();
     }
@@ -566,7 +445,7 @@ private:
     RawsockFrame::Ptr txFrame_;
     RawsockFrame::Ptr pingFrame_;
     std::unique_ptr<TSocket> socket_;
-    std::shared_ptr<RawsockPinger> pinger_;
+    std::shared_ptr<Pinger> pinger_;
     bool running_ = false;
 };
 
