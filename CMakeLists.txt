@@ -79,8 +79,13 @@ directed by defining <dependency>_ROOT variables. If the dependent targets are \
 already imported by a superproject, find_package calls will be skipped."
 OFF)
 
+option(CPPWAMP_OPT_WITH_WEB
+"Adds the Boost.Beast dependency and builds tests/examples \
+that depend on it"
+ON)
+
 option(CPPWAMP_OPT_WITH_CORO
-"Adds the Boost.Coroutine dependency and build tests and examples \
+"Adds the Boost.Coroutine dependency and builds tests/examples \
 that depend on it"
 ON)
 
@@ -136,6 +141,10 @@ include(CppWAMPDependencies)
 cppwamp_resolve_dependencies()
 
 add_subdirectory(cppwamp)
+
+if(CPPWAMP_OPT_WITH_WEB)
+    add_subdirectory(cppwamp-web)
+endif()
 
 if(CPPWAMP_OPT_WITH_CORO)
     add_subdirectory(cppwamp-coro)

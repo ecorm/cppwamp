@@ -9,8 +9,7 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains facilities for creating Unix domain socket
-           transport connectors. */
+    @brief Contains facilities for establishing Unix domain socket transports. */
 //------------------------------------------------------------------------------
 
 #include <memory>

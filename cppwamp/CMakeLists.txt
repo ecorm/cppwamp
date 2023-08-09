@@ -132,6 +132,7 @@ set(HEADERS
     include/cppwamp/transports/uds.hpp
     include/cppwamp/transports/udspath.hpp
     include/cppwamp/transports/udsprotocol.hpp
+    include/cppwamp/transports/websocket.hpp
     include/cppwamp/types/array.hpp
     include/cppwamp/types/boostoptional.hpp
     include/cppwamp/types/optional.hpp
@@ -197,6 +198,7 @@ set(INLINES
     include/cppwamp/internal/udsprotocol.inl.hpp
     include/cppwamp/internal/variant.inl.hpp
     include/cppwamp/internal/version.inl.hpp
+    include/cppwamp/internal/websocket.inl.hpp
     include/cppwamp/internal/wildcarduri.inl.hpp
 )
 
@@ -226,7 +228,7 @@ add_library(CppWAMP::core-headers ALIAS cppwamp-core-headers)
 if(CPPWAMP_OPT_HEADERS_ONLY)
     # Add dummy custom target so that sources are at least listed in IDEs.
     add_custom_target(cppwamp-core-sources
-                      SOURCES ${HEADERS} ${INLINES})
+                      SOURCES ${SOURCES} ${HEADERS} ${INLINES})
 else()
     if(NOT APPLE)
         set(CMAKE_INSTALL_RPATH $ORIGIN)
@@ -260,6 +262,7 @@ else()
             "$<TARGET_NAME_IF_EXISTS:Threads::Threads>"
         PRIVATE
             "$<TARGET_NAME_IF_EXISTS:jsoncons>")
+
     set_target_properties(cppwamp-core PROPERTIES
         EXPORT_NAME core
         VERSION ${CppWAMP_VERSION}

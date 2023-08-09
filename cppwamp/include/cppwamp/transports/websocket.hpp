@@ -1,15 +1,15 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_TRANSPORTS_TCP_HPP
-#define CPPWAMP_TRANSPORTS_TCP_HPP
+#ifndef CPPWAMP_TRANSPORTS_WEBSOCKET_HPP
+#define CPPWAMP_TRANSPORTS_WEBSOCKET_HPP
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains facilities for establishing TCP transports. */
+    @brief Contains facilities for establishing Websocket transports. */
 //------------------------------------------------------------------------------
 
 #include <memory>
@@ -19,8 +19,8 @@
 #include "../asiodefs.hpp"
 #include "../connector.hpp"
 #include "../listener.hpp"
-#include "tcpendpoint.hpp"
-#include "tcphost.hpp"
+//#include "tcpendpoint.hpp"
+//#include "tcphost.hpp"
 
 namespace wamp
 {
@@ -28,21 +28,23 @@ namespace wamp
 // Forward declatations
 namespace internal
 {
-struct TcpConnectorImpl;
-struct TcpListenerImpl;
+struct WebsocketConnectorImpl;
+struct WebsocketListenerImpl;
 }
 
+#if 0
+
 //------------------------------------------------------------------------------
-/** Connector specialization that establishes a client-side TCP transport.
+/** Connector specialization that establishes a client-side Websocket transport.
     Users do not need to use this class directly and should use
     ConnectionWish instead. */
 //------------------------------------------------------------------------------
 template <>
-class CPPWAMP_API Connector<Tcp> : public Connecting
+class CPPWAMP_API Connector<Websocket> : public Connecting
 {
 public:
     /** Type containing the transport settings. */
-    using Settings = TcpHost;
+    using Settings = WebsocketHost;
 
     /** Constructor. */
     Connector(IoStrand i, Settings s, int codecId);
@@ -67,20 +69,20 @@ public:
     /// @}
 
 private:
-    std::unique_ptr<internal::TcpConnectorImpl> impl_;
+    std::unique_ptr<internal::WebsocketConnectorImpl> impl_;
 };
 
 //------------------------------------------------------------------------------
-/** Listener specialization that establishes a server-side TCP transport.
+/** Listener specialization that establishes a server-side Websocket transport.
     Users do not need to use this class directly and should use
     ConnectionWish instead. */
 //------------------------------------------------------------------------------
 template <>
-class CPPWAMP_API Listener<Tcp> : public Listening
+class CPPWAMP_API Listener<Websocket> : public Listening
 {
 public:
     /** Type containing the transport settings. */
-    using Settings = TcpEndpoint;
+    using Settings = WebsocketEndpoint;
 
     /** Collection type used for codec IDs. */
     using CodecIds = std::set<int>;
@@ -104,13 +106,15 @@ public:
     /// @}
 
 private:
-    std::unique_ptr<internal::TcpListenerImpl> impl_;
+    std::unique_ptr<internal::WebsocketListenerImpl> impl_;
 };
+
+#endif
 
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "../internal/tcp.inl.hpp"
+#include "../internal/websocket.inl.hpp"
 #endif
 
-#endif // CPPWAMP_TRANSPORTS_TCP_HPP
+#endif // CPPWAMP_TRANSPORTS_WEBSOCKET_HPP

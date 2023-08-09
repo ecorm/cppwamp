@@ -23,17 +23,15 @@ string(CONCAT CPPWAMP_BOOST_URL
     "${CPPWAMP_VENDORIZED_BOOST_VERSION}/source/${CPPWAMP_BOOST_FILE_STEM}.tar.bz2")
 
 if(CPPWAMP_OPT_WITH_CORO)
-    list(APPEND CPPWAMP_BOOST_COMPONENTS coroutine context thread system)
+    list(APPEND CPPWAMP_BOOST_COMPONENTS coroutine context thread)
     list(APPEND CPPWAMP_BOOST_BUILD_COMPONENT_ARGS
         "--with-context"
         "--with-coroutine"
-        "--with-thread"
-        "--with-system")
-else()
-    list(APPEND CPPWAMP_BOOST_COMPONENTS system)
-    list(APPEND CPPWAMP_BOOST_BUILD_COMPONENT_ARGS
-        "--with-system")
+        "--with-thread")
 endif()
+list(APPEND CPPWAMP_BOOST_COMPONENTS system)
+list(APPEND CPPWAMP_BOOST_BUILD_COMPONENT_ARGS
+    "--with-system")
 
 set(CPPWAMP_VENDORIZED_JSONCONS_VERSION 0.170.2)
 set(CPPWAMP_VENDORIZED_JSONCONS_GIT_TAG
