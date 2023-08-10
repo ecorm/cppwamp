@@ -264,8 +264,10 @@ enum class TransportErrc
     badSerializer    = 9,  ///< Unsupported serialization format
     badLengthLimit   = 10, ///< Unacceptable maximum message length
     badFeature       = 11, ///< Unsupported transport feature
-    saturated        = 12, ///< Connection limit reached
-    heartbeatTimeout = 13, ///< Keep-alive heartbeat echo timed out
+    expectedBinary   = 12, ///< Expected text but got binary
+    expectedText     = 13, ///< Expected binary but got text
+    saturated        = 14, ///< Connection limit reached
+    heartbeatTimeout = 15, ///< Keep-alive heartbeat echo timed out
     count
 };
 

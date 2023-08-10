@@ -37,9 +37,10 @@ namespace wamp
 //------------------------------------------------------------------------------
 struct CPPWAMP_API KnownCodecIds
 {
-    static constexpr int json() {return 1;}
+    static constexpr int json()    {return 1;}
     static constexpr int msgpack() {return 2;}
-    static constexpr int cbor() {return 3;}
+    static constexpr int cbor()    {return 3;}
+    static constexpr int count()   {return 3;}
 };
 
 //------------------------------------------------------------------------------

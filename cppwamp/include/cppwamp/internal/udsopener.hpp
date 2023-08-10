@@ -61,7 +61,8 @@ public:
         socket_->open();
         settings_.options().applyTo(*socket_);
 
-        // RawsockConnector will keep this object alive until completion.
+        // RawsockConnector will keep this UdsOpener object alive until
+        // completion.
         socket_->async_connect(settings_.pathName(),
                                Connected{this, std::forward<F>(callback)});
     }

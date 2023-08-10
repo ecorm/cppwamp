@@ -457,6 +457,8 @@ CPPWAMP_INLINE std::string TransportCategory::message(int ev) const
         /* badSerializer    */ "Unsupported serialization format",
         /* badLengthLimit   */ "Unacceptable maximum message length",
         /* badFeature       */ "Unsupported transport feature",
+        /* expectedBinary   */ "Expected text but got binary",
+        /* expectedText     */ "Expected binary but got text",
         /* saturated        */ "Connection limit reached",
         /* heartbeatTimeout */ "Keep-alive heartbeat echo timed out"
     }};

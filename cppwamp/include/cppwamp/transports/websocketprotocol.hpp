@@ -12,7 +12,10 @@
     @brief Contains basic Websocket protocol facilities. */
 //------------------------------------------------------------------------------
 
+#include <array>
+#include <string>
 #include "../api.hpp"
+#include "../codec.hpp"
 
 namespace wamp
 {
@@ -24,6 +27,28 @@ struct CPPWAMP_API Websocket
 {
     constexpr Websocket() = default;
 };
+
+//------------------------------------------------------------------------------
+inline const std::string& websocketSubprotocolString(int codecId)
+{
+    static const std::array<std::string, KnownCodecIds::count() + 1> ids =
+    {
+        "",
+        "wamp.2.json",
+        "wamp.2.msgpack",
+        "wamp.2.cbor"
+    };
+
+    if (codecId > KnownCodecIds::count())
+        return ids[0];
+    return ids.at(codecId);
+}
+
+//------------------------------------------------------------------------------
+inline bool websocketSubprotocolIsText(int codecId)
+{
+    return codecId == KnownCodecIds::json();
+}
 
 } // namespace wamp
 

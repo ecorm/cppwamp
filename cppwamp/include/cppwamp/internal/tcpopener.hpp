@@ -49,18 +49,17 @@ public:
             typename std::decay<F>::type callback;
 
             void operator()(boost::system::error_code asioEc,
-                            tcp::resolver::iterator iterator)
+                            tcp::resolver::results_type endpoints)
             {
                 if (self->checkError(asioEc, callback))
-                    self->connect(iterator, std::move(callback));
+                    self->connect(endpoints, std::move(callback));
             }
         };
 
-        // RawsockConnector will keep this object alive until completion.
-        using Query = boost::asio::ip::tcp::resolver::query;
-        const Query query{settings_.hostName(), settings_.serviceName()};
-        resolver_.async_resolve(
-            query, Resolved{this, std::forward<F>(callback)});
+        // RawsockConnector will keep this TcpOpener object alive until
+        // completion.
+        resolver_.async_resolve(settings_.hostName(), settings_.serviceName(),
+                                Resolved{this, std::forward<F>(callback)});
     }
 
     void cancel()
@@ -87,7 +86,7 @@ private:
     }
 
     template <typename F>
-    void connect(tcp::resolver::iterator iterator, F&& callback)
+    void connect(const tcp::resolver::results_type& endpoints, F&& callback)
     {
         struct Connected
         {
@@ -95,7 +94,7 @@ private:
             typename std::decay<F>::type callback;
 
             void operator()(boost::system::error_code asioEc,
-                            const tcp::resolver::iterator&)
+                            const tcp::endpoint&)
             {
                 SocketPtr socket{std::move(self->socket_)};
                 self->socket_.reset();
@@ -110,7 +109,7 @@ private:
         settings_.options().applyTo(*socket_);
 
         // RawsockConnector will keep this object alive until completion.
-        boost::asio::async_connect(*socket_, iterator,
+        boost::asio::async_connect(*socket_, endpoints,
                                    Connected{this, std::forward<F>(callback)});
     }
 

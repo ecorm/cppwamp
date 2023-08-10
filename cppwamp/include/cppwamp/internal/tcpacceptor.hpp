@@ -61,7 +61,8 @@ public:
 
         socket_ = SocketPtr{new Socket(strand_)};
 
-        // RawsockListener will keep this object alive until completion.
+        // RawsockListener will keep this TcpAcceptor object alive until
+        // completion.
         acceptor_.async_accept(*socket_,
                                Accepted{this, std::forward<F>(callback)});
     }

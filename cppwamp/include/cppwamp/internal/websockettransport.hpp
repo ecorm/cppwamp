@@ -371,6 +371,18 @@ private:
 
     void processPayload()
     {
+        if (socket_->text() && socket_->got_binary())
+        {
+            socket_->close(boost::beast::websocket::unknown_data);
+            return fail(make_error_code(TransportErrc::expectedText));
+        }
+
+        if (socket_->binary() && socket_->got_text())
+        {
+            socket_->close(boost::beast::websocket::unknown_data);
+            return fail(make_error_code(TransportErrc::expectedBinary));
+        }
+
         using Byte = MessageBuffer::value_type;
         const auto* ptr = reinterpret_cast<const Byte*>(rxFrame_.cdata().data());
         MessageBuffer buffer{ptr, ptr + rxFrame_.cdata().size()};
