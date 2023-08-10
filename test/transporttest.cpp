@@ -1353,6 +1353,6 @@ TEST_CASE( "TCP rawsocket heartbeat", "[Transport]" )
     timer.expires_after(2*interval);
     timer.async_wait([&ioctx](boost::system::error_code) {ioctx.stop();});
     ioctx.run();
-    CHECK(clientError == TransportErrc::heartbeatTimeout);
+    CHECK(clientError == TransportErrc::unresponsive);
     CHECK(serverError == TransportErrc::disconnected);
 }

@@ -258,16 +258,17 @@ enum class TransportErrc
     timeout          = 3,  ///< Connection establishment timed out
     failed           = 4,  ///< Transport operation failed
     exhausted        = 5,  ///< All transports failed during connection
-    tooLong          = 6,  ///< Incoming message exceeds transport's length limit
-    badHandshake     = 7,  ///< Received invalid handshake
-    badCommand       = 8,  ///< Received invalid transport command
-    badSerializer    = 9,  ///< Unsupported serialization format
-    badLengthLimit   = 10, ///< Unacceptable maximum message length
-    badFeature       = 11, ///< Unsupported transport feature
-    expectedBinary   = 12, ///< Expected text but got binary
-    expectedText     = 13, ///< Expected binary but got text
-    saturated        = 14, ///< Connection limit reached
-    heartbeatTimeout = 15, ///< Keep-alive heartbeat echo timed out
+    saturated        = 6,  ///< Connection limit reached
+    unresponsive     = 7,  ///< The other peer is unresponsive
+    tooLong          = 8,  ///< Incoming message exceeds transport's length limit
+    badHandshake     = 9,  ///< Received invalid handshake
+    badCommand       = 10, ///< Received invalid transport command
+    badSerializer    = 11, ///< Unsupported serialization format
+    badLengthLimit   = 12, ///< Unacceptable maximum message length
+    badFeature       = 13, ///< Unsupported transport feature
+    expectedBinary   = 14, ///< Expected text but got binary
+    expectedText     = 15, ///< Expected binary but got text
+    noSerializer     = 16, ///< Missing serializer information
     count
 };
 

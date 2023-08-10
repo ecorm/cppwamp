@@ -33,8 +33,10 @@ struct CPPWAMP_API Tcp
 // Forward declarations
 namespace internal
 {
+class TcpAcceptor;
 class TcpOpener;
 class WebsocketConnector;
+class WebsocketListener;
 }
 
 //------------------------------------------------------------------------------
@@ -102,8 +104,10 @@ private:
 
     internal::SocketOptionList<boost::asio::ip::tcp> options_;
 
+    friend class internal::TcpAcceptor;
     friend class internal::TcpOpener;
     friend class internal::WebsocketConnector;
+    friend class internal::WebsocketListener;
 
     /* Implementation note: Explicit template instantiation does not seem
        to play nice with CRTP, so it was not feasible to factor out the

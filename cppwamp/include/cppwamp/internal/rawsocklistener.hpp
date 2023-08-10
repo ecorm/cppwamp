@@ -105,6 +105,7 @@ private:
 
     void receiveHandshake()
     {
+        // TODO: Timeout waiting for handshake
         handshake_ = 0;
         auto self = this->shared_from_this();
         boost::asio::async_read(

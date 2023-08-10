@@ -50,10 +50,14 @@ public:
 
             void operator()(boost::system::error_code asioEc)
             {
-                SocketPtr socket{std::move(self->socket_)};
-                self->socket_.reset();
-                if (self->checkError(asioEc, callback))
+                auto& me = *self;
+                SocketPtr socket{std::move(me.socket_)};
+                me.socket_.reset();
+                if (me.checkError(asioEc, callback))
+                {
+                    me.settings_.options().applyTo(*socket);
                     callback(std::move(socket));
+                }
             }
         };
 

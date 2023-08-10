@@ -18,6 +18,7 @@
 #include "../errorcodes.hpp"
 #include "../messagebuffer.hpp"
 #include "../transport.hpp"
+#include "../transports/websocketprotocol.hpp"
 #include "pinger.hpp"
 
 namespace wamp
@@ -102,7 +103,7 @@ public:
         {
             std::weak_ptr<Transporting> self = shared_from_this();
 
-            socket_->control_callback(
+            websocket_->control_callback(
                 [self, this](boost::beast::websocket::frame_type type,
                              boost::beast::string_view msg)
                 {
@@ -144,7 +145,7 @@ public:
         if (!isRunning())
             return;
 
-        assert(socket_ && "Attempting to send on bad transport");
+        assert(websocket_ && "Attempting to send on bad transport");
         auto frame = enframe(WebsocketMsgKind::wamp, std::move(message));
         assert((frame->payload().size() <= info().maxTxLength()) &&
                "Outgoing message is longer than allowed by peer");
@@ -161,10 +162,10 @@ public:
         txErrorHandler_ = nullptr;
         txQueue_.clear();
         running_ = false;
-        if (socket_)
+        if (websocket_)
         {
-            socket_->control_callback();
-            socket_->close(boost::beast::websocket::normal);
+            websocket_->control_callback();
+            websocket_->close(boost::beast::websocket::normal);
         }
         if (pinger_)
             pinger_->stop();
@@ -206,7 +207,7 @@ private:
     WebsocketTransport(SocketPtr&& socket, TransportInfo info)
         : Base(info, makeConnectionInfo(*socket)),
           strand_(boost::asio::make_strand(socket->get_executor())),
-          socket_(std::move(socket))
+        websocket_(std::move(socket))
     {
         if (timeoutIsDefinite(Base::info().heartbeatInterval()))
             pinger_ = std::make_shared<Pinger>(strand_, Base::info());
@@ -244,7 +245,7 @@ private:
 
     void sendFrame(WebsocketFrame::Ptr frame)
     {
-        assert(socket_ && "Attempting to send on bad transport");
+        assert(websocket_ && "Attempting to send on bad transport");
         assert((frame->payload().size() <= info().maxTxLength()) &&
                "Outgoing message is longer than allowed by peer");
         txQueue_.push_back(std::move(frame));
@@ -281,9 +282,9 @@ private:
         PingData buffer{ptr, ptr + size};
         auto self = this->shared_from_this();
 
-        socket_->async_ping(
+        websocket_->async_ping(
             buffer,
-            [this, self](boost::system::error_code asioEc)
+            [this, self](boost::beast::error_code asioEc)
             {
                 txFrame_.reset();
                 if (asioEc)
@@ -305,9 +306,9 @@ private:
     void sendWampMessage()
     {
         auto self = this->shared_from_this();
-        socket_->async_write(
+        websocket_->async_write(
             txFrame_->payloadBuffer(),
-            [this, self](boost::system::error_code asioEc, size_t)
+            [this, self](boost::beast::error_code asioEc, size_t)
             {
                 const bool frameWasPoisoned = txFrame_ &&
                                               txFrame_->isPoisoned();
@@ -334,25 +335,29 @@ private:
 
     bool isReadyToTransmit() const
     {
-        return socket_ &&          // Socket is still open
+        return websocket_ &&       // Socket is still open
                !txFrame_ &&        // No async_write is in progress
                !txQueue_.empty();  // One or more messages are enqueued
     }
 
     void receive()
     {
-        if (socket_)
+        if (websocket_)
         {
             rxFrame_.clear();
             auto self = this->shared_from_this();
-            socket_->async_read(
+            websocket_->async_read(
                 rxFrame_,
-                [this, self](boost::system::error_code ec, size_t)
+                [this, self](boost::beast::error_code ec, size_t)
                 {
                     if (ec == boost::asio::error::connection_reset ||
                         ec == boost::asio::error::eof)
                     {
                         onRemoteDisconnect();
+                    }
+                    else if (ec == boost::beast::websocket::error::closed)
+                    {
+                        onRemoteClose();
                     }
                     else if (check(ec))
                     {
@@ -369,22 +374,41 @@ private:
         cleanup();
     }
 
+    void onRemoteClose()
+    {
+        if (rxHandler_)
+        {
+            std::error_code ec = make_error_code(TransportErrc::disconnected);
+            auto reasonCode = websocket_->reason().code;
+            if (reasonCode != boost::beast::websocket::close_code::normal)
+            {
+                auto value = static_cast<int>(reasonCode);
+                auto msg = websocketCloseCategory().message(value);
+                if (!msg.empty())
+                    ec = std::error_code{value, websocketCloseCategory()};
+            }
+            post(rxHandler_, makeUnexpected(ec));
+        }
+        cleanup();
+    }
+
     void processPayload()
     {
-        if (socket_->text() && socket_->got_binary())
+        if (websocket_->text() && websocket_->got_binary())
         {
-            socket_->close(boost::beast::websocket::unknown_data);
+            websocket_->close(boost::beast::websocket::unknown_data);
             return fail(make_error_code(TransportErrc::expectedText));
         }
 
-        if (socket_->binary() && socket_->got_text())
+        if (websocket_->binary() && websocket_->got_text())
         {
-            socket_->close(boost::beast::websocket::unknown_data);
+            websocket_->close(boost::beast::websocket::unknown_data);
             return fail(make_error_code(TransportErrc::expectedBinary));
         }
 
         using Byte = MessageBuffer::value_type;
-        const auto* ptr = reinterpret_cast<const Byte*>(rxFrame_.cdata().data());
+        const auto* ptr =
+            reinterpret_cast<const Byte*>(rxFrame_.cdata().data());
         MessageBuffer buffer{ptr, ptr + rxFrame_.cdata().size()};
         post(rxHandler_, std::move(buffer));
         receive();
@@ -398,7 +422,7 @@ private:
                                              std::forward<Ts>(args)...));
     }
 
-    bool check(boost::system::error_code asioEc)
+    bool check(boost::beast::error_code asioEc)
     {
         if (asioEc)
         {
@@ -440,7 +464,7 @@ private:
         txQueue_.clear();
         txFrame_ = nullptr;
         pingFrame_ = nullptr;
-        socket_.reset();
+        websocket_.reset();
         pinger_.reset();
         running_ = false;
     }
@@ -453,7 +477,7 @@ private:
     MessageBuffer pingBuffer_;
     WebsocketFrame::Ptr txFrame_;
     WebsocketFrame::Ptr pingFrame_;
-    std::unique_ptr<Socket> socket_;
+    std::unique_ptr<Socket> websocket_;
     std::shared_ptr<Pinger> pinger_;
     bool running_ = false;
 };

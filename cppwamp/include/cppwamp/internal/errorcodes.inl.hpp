@@ -26,7 +26,7 @@ namespace internal
 //------------------------------------------------------------------------------
 template <typename TEnum, std::size_t N>
 std::string lookupErrorMessage(const char* categoryName, int errorCodeValue,
-                               const std::array<std::string, N>& table)
+                               const std::array<const char*, N>& table)
 {
     static_assert(N == static_cast<unsigned>(TEnum::count), "");
     if (errorCodeValue >= 0 && errorCodeValue < static_cast<int>(N))
@@ -50,7 +50,7 @@ CPPWAMP_INLINE std::string MiscCategory::message(int ev) const
 {
     static constexpr auto count = static_cast<unsigned>(MiscErrc::count);
 
-    static const std::array<std::string, count> msg{
+    static const std::array<const char*, count> msg{
     {
         /* success          */ "Operation successful",
         /* abandoned        */ "Operation abandoned by this peer",
@@ -107,7 +107,7 @@ CPPWAMP_INLINE std::string WampCategory::message(int ev) const
 {
     static constexpr auto count = static_cast<unsigned>(WampErrc::count);
 
-    static const std::array<std::string, count> msg =
+    static const std::array<const char*, count> msg =
     {
 /* success                */ "Operation successful",
 /* unknown                */ "Unknown error URI",
@@ -370,7 +370,7 @@ CPPWAMP_INLINE std::string DecodingCategory::message(int ev) const
 {
     static constexpr auto count = static_cast<unsigned>(DecodingErrc::count);
 
-    static const std::array<std::string, count> msg{
+    static const std::array<const char*, count> msg{
     {
         /* success           */ "Decoding succesful",
         /* failed            */ "Decoding failed",
@@ -443,24 +443,25 @@ CPPWAMP_INLINE std::string TransportCategory::message(int ev) const
 {
     static constexpr auto count = static_cast<unsigned>(TransportErrc::count);
 
-    static const std::array<std::string, count> msg{
+    static const std::array<const char*, count> msg{
     {
-        /* success          */ "Transport operation successful",
-        /* aborted          */ "Transport operation aborted",
-        /* disconnected     */ "Transport disconnected by other peer",
-        /* timeout          */ "Connection establishment timed out",
-        /* failed           */ "Transport operation failed",
-        /* exhausted        */ "All transports failed during connection",
-        /* tooLong          */ "Incoming message exceeds transport's length limit",
-        /* badHandshake     */ "Received invalid handshake",
-        /* badCommand       */ "Received invalid transport command",
-        /* badSerializer    */ "Unsupported serialization format",
-        /* badLengthLimit   */ "Unacceptable maximum message length",
-        /* badFeature       */ "Unsupported transport feature",
-        /* expectedBinary   */ "Expected text but got binary",
-        /* expectedText     */ "Expected binary but got text",
-        /* saturated        */ "Connection limit reached",
-        /* heartbeatTimeout */ "Keep-alive heartbeat echo timed out"
+        /* success        */ "Transport operation successful",
+        /* aborted        */ "Transport operation aborted",
+        /* disconnected   */ "Transport disconnected by other peer",
+        /* timeout        */ "Connection establishment timed out",
+        /* failed         */ "Transport operation failed",
+        /* exhausted      */ "All transports failed during connection",
+        /* saturated      */ "Connection limit reached",
+        /* unresponsive   */ "The other peer is unresponsive",
+        /* tooLong        */ "Incoming message exceeds transport's length limit",
+        /* badHandshake   */ "Received invalid handshake",
+        /* badCommand     */ "Received invalid transport command",
+        /* badSerializer  */ "Unsupported serialization format",
+        /* badLengthLimit */ "Unacceptable maximum message length",
+        /* badFeature     */ "Unsupported transport feature",
+        /* expectedBinary */ "Expected text but got binary",
+        /* expectedText   */ "Expected binary but got text",
+        /* noSerializer   */ "Missing serializer information"
     }};
 
     return internal::lookupErrorMessage<TransportErrc>(

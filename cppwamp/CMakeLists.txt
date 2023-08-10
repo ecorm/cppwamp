@@ -208,6 +208,7 @@ set(INLINES
     include/cppwamp/internal/websocket.inl.hpp
     include/cppwamp/internal/websocketendpoint.inl.hpp
     include/cppwamp/internal/websockethost.inl.hpp
+    include/cppwamp/internal/websocketprotocol.inl.hpp
     include/cppwamp/internal/wildcarduri.inl.hpp
 )
 

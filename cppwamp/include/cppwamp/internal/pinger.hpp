@@ -113,7 +113,7 @@ private:
                 if ((frame_.count() > 0) && !matchingPongReceived_)
                 {
                     handler_(makeUnexpectedError(
-                        TransportErrc::heartbeatTimeout));
+                        TransportErrc::unresponsive));
                     return;
                 }
 

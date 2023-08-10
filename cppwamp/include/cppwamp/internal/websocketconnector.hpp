@@ -7,7 +7,9 @@
 #ifndef CPPWAMP_INTERNAL_WEBSOCKETCONNECTOR_HPP
 #define CPPWAMP_INTERNAL_WEBSOCKETCONNECTOR_HPP
 
+#include <array>
 #include <limits>
+#include <string>
 #include <memory>
 #include <boost/asio/connect.hpp>
 #include "../asiodefs.hpp"
@@ -47,7 +49,7 @@ public:
         auto self = shared_from_this();
         resolver_.async_resolve(
             settings_.hostName(), settings_.serviceName(),
-            [this, self](boost::system::error_code asioEc,
+            [this, self](boost::beast::error_code asioEc,
                          tcp::resolver::results_type endpoints)
             {
                 if (check(asioEc))
@@ -57,14 +59,34 @@ public:
 
     void cancel()
     {
-        if (socket_)
-            socket_->close(boost::beast::websocket::going_away);
+        if (websocket_)
+            websocket_->close(boost::beast::websocket::going_away);
         else
-            ;// TODO: Cancel resolver
+            resolver_.cancel();
     }
 
 private:
     using tcp = boost::asio::ip::tcp;
+
+    static const std::string& subprotocolString(int codecId)
+    {
+        static const std::array<std::string, KnownCodecIds::count() + 1> ids =
+        {
+            "",
+            "wamp.2.json",
+            "wamp.2.msgpack",
+            "wamp.2.cbor"
+        };
+
+        if (codecId > KnownCodecIds::count())
+            return ids[0];
+        return ids.at(codecId);
+    }
+
+    static bool subprotocolIsText(int codecId)
+    {
+        return codecId == KnownCodecIds::json();
+    }
 
     WebsocketConnector(IoStrand i, Settings s, int codecId)
         : strand_(std::move(i)),
@@ -75,16 +97,16 @@ private:
 
     void connect(const tcp::resolver::results_type& endpoints)
     {
-        assert(!socket_);
-        socket_ = SocketPtr{new Socket(strand_)};
-        auto& tcpSocket = socket_->next_layer();
+        assert(!websocket_);
+        websocket_ = SocketPtr{new Socket(strand_)};
+        auto& tcpSocket = websocket_->next_layer();
         tcpSocket.open(boost::asio::ip::tcp::v4());
         settings_.options().applyTo(tcpSocket);
 
         auto self = shared_from_this();
         boost::asio::async_connect(
             tcpSocket, endpoints,
-            [this, self](boost::system::error_code asioEc,
+            [this, self](boost::beast::error_code asioEc,
                          const tcp::endpoint& ep)
             {
                 if (check(asioEc))
@@ -100,24 +122,20 @@ private:
         std::string host = settings_.hostName() + ':' +
                            std::to_string(ep.port());
 
-        namespace websocket = boost::beast::websocket;
-        namespace http = boost::beast::http;
-
         // Set the User-Agent field of the handshake
-        setWebsocketHandshakeField(http::field::user_agent,
-                                   Version::agentString());
+        using boost::beast::http::field;
+        setWebsocketHandshakeField(field::user_agent, Version::agentString());
 
         // Set the Sec-WebSocket-Protocol field of the handshake to match
         // the desired codec
-        const auto& subprotocol = websocketSubprotocolString(codecId_);
+        const auto& subprotocol = subprotocolString(codecId_);
         assert(!subprotocol.empty());
-        setWebsocketHandshakeField(http::field::sec_websocket_protocol,
-                                   subprotocol);
+        setWebsocketHandshakeField(field::sec_websocket_protocol, subprotocol);
 
         auto self = shared_from_this();
-        socket_->async_handshake(
+        websocket_->async_handshake(
             host, "/",
-            [this, self](boost::system::error_code asioEc)
+            [this, self](boost::beast::error_code asioEc)
             {
                 if (check(asioEc))
                     complete();
@@ -140,36 +158,40 @@ private:
             }
         };
 
-        socket_->set_option(websocket::stream_base::decorator(
+        websocket_->set_option(websocket::stream_base::decorator(
             Decorator{std::forward<T>(value), field}));
     }
 
     void complete()
     {
-        if (websocketSubprotocolIsText(codecId_))
-            socket_->text(true);
+        if (subprotocolIsText(codecId_))
+            websocket_->text(true);
         else
-            socket_->binary(true);
+            websocket_->binary(true);
 
-        socket_->read_message_max(settings_.maxRxLength());
+        websocket_->read_message_max(settings_.maxRxLength());
 
         const TransportInfo i{codecId_,
                               std::numeric_limits<std::size_t>::max(),
                               settings_.maxRxLength(),
                               settings_.heartbeatInterval()};
-        Transporting::Ptr transport{Transport::create(std::move(socket_), i)};
-        socket_.reset();
+        Transporting::Ptr transport{Transport::create(std::move(websocket_),
+                                                      i)};
+        websocket_.reset();
         dispatchHandler(std::move(transport));
     }
 
-    bool check(boost::system::error_code asioEc)
+    bool check(boost::beast::error_code asioEc)
     {
         if (asioEc)
         {
-            socket_.reset();
+            websocket_.reset();
             auto ec = static_cast<std::error_code>(asioEc);
-            if (asioEc == boost::asio::error::operation_aborted)
+            if (asioEc == std::errc::operation_canceled ||
+                asioEc == boost::asio::error::operation_aborted)
+            {
                 ec = make_error_code(TransportErrc::aborted);
+            }
             dispatchHandler(makeUnexpected(ec));
         }
         return !asioEc;
@@ -186,7 +208,7 @@ private:
     IoStrand strand_;
     Settings settings_;
     boost::asio::ip::tcp::resolver resolver_;
-    SocketPtr socket_;
+    SocketPtr websocket_;
     Handler handler_;
     int codecId_ = 0;
 };
