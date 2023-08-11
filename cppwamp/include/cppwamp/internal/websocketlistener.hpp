@@ -49,9 +49,9 @@ public:
         auto self = this->shared_from_this();
         acceptor_.async_accept(
             tcpSocket_,
-            [this, self](boost::system::error_code asioEc)
+            [this, self](boost::system::error_code bec)
             {
-                if (check(asioEc))
+                if (check(bec))
                     receiveUpgrade();
             });
     }
@@ -116,9 +116,9 @@ private:
         auto self = shared_from_this();
         boost::beast::http::async_read(
             tcpSocket_, buffer_, upgrade_,
-            [this, self] (const boost::beast::error_code& asioEc, std::size_t)
+            [this, self] (const boost::beast::error_code& bec, std::size_t)
             {
-                if (check(asioEc))
+                if (check(bec))
                     acceptHandshake();
             });
     }
@@ -161,9 +161,9 @@ private:
         // Complete the handshake
         auto self = shared_from_this();
         websocket_->async_accept(upgrade_,
-            [this, self, codecId](boost::beast::error_code asioEc)
+            [this, self, codecId](boost::beast::error_code bec)
             {
-                if (check(asioEc))
+                if (check(bec))
                     complete(codecId);
             });
     }
@@ -174,7 +174,7 @@ private:
         auto self = shared_from_this();
         http::async_write(
             tcpSocket_, response,
-            [this, self, errc](boost::beast::error_code asioEc, std::size_t)
+            [this, self, errc](boost::beast::error_code bec, std::size_t)
             {
                 fail(errc);
             });
@@ -183,20 +183,20 @@ private:
     template <typename T>
     void setWebsocketHandshakeField(boost::beast::http::field field, T&& value)
     {
-        namespace websocket = boost::beast::websocket;
+        namespace http = boost::beast::http;
 
         struct Decorator
         {
             ValueTypeOf<T> value;
-            boost::beast::http::field field;
+            http::field field;
 
-            void operator()(websocket::request_type& req)
+            void operator()(http::response_header<>& header)
             {
-                req.set(field, std::move(value));
+                header.set(field, std::move(value));
             }
         };
 
-        websocket_->set_option(websocket::stream_base::decorator(
+        websocket_->set_option(boost::beast::websocket::stream_base::decorator(
             Decorator{std::forward<T>(value), field}));
     }
 
@@ -218,21 +218,21 @@ private:
         dispatchHandler(std::move(transport));
     }
 
-    bool check(boost::beast::error_code asioEc)
+    bool check(boost::beast::error_code bec)
     {
-        if (asioEc)
+        if (bec)
         {
             websocket_.reset();
             tcpSocket_.close();
-            auto ec = static_cast<std::error_code>(asioEc);
-            if (asioEc == std::errc::operation_canceled ||
-                asioEc == boost::asio::error::operation_aborted)
+            auto ec = static_cast<std::error_code>(bec);
+            if (bec == std::errc::operation_canceled ||
+                bec == boost::asio::error::operation_aborted)
             {
                 ec = make_error_code(TransportErrc::aborted);
             }
             dispatchHandler(UnexpectedError(ec));
         }
-        return !asioEc;
+        return !bec;
     }
 
     template <typename TErrc>

@@ -445,23 +445,25 @@ CPPWAMP_INLINE std::string TransportCategory::message(int ev) const
 
     static const std::array<const char*, count> msg{
     {
-        /* success        */ "Transport operation successful",
-        /* aborted        */ "Transport operation aborted",
-        /* disconnected   */ "Transport disconnected by other peer",
-        /* timeout        */ "Connection establishment timed out",
-        /* failed         */ "Transport operation failed",
-        /* exhausted      */ "All transports failed during connection",
-        /* saturated      */ "Connection limit reached",
-        /* unresponsive   */ "The other peer is unresponsive",
-        /* tooLong        */ "Incoming message exceeds transport's length limit",
-        /* badHandshake   */ "Received invalid handshake",
-        /* badCommand     */ "Received invalid transport command",
-        /* badSerializer  */ "Unsupported serialization format",
-        /* badLengthLimit */ "Unacceptable maximum message length",
-        /* badFeature     */ "Unsupported transport feature",
-        /* expectedBinary */ "Expected text but got binary",
-        /* expectedText   */ "Expected binary but got text",
-        /* noSerializer   */ "Missing serializer information"
+        /* success           */ "Transport operation successful",
+        /* aborted           */ "Transport operation aborted",
+        /* disconnected      */ "Transport disconnected by other peer",
+        /* timeout           */ "Connection establishment timed out",
+        /* failed            */ "Transport operation failed",
+        /* exhausted         */ "All transports failed during connection",
+        /* saturated         */ "Connection limit reached",
+        /* unresponsive      */ "The other peer is unresponsive",
+        /* inboundTooLong    */ "Inbound message exceeds transport's length limit",
+        /* outboundTooLong   */ "Outbound message exceeds peer's length limit",
+        /* handshakeDeclined */ "Handshake declined by other peer",
+        /* badHandshake      */ "Received invalid handshake",
+        /* badCommand        */ "Received invalid transport command",
+        /* badSerializer     */ "Unsupported serialization format",
+        /* badLengthLimit    */ "Unacceptable maximum message length",
+        /* badFeature        */ "Unsupported transport feature",
+        /* expectedBinary    */ "Expected text but got binary",
+        /* expectedText      */ "Expected binary but got text",
+        /* noSerializer      */ "Missing serializer information"
     }};
 
     return internal::lookupErrorMessage<TransportErrc>(

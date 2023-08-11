@@ -91,6 +91,19 @@ CPPWAMP_API std::error_condition make_error_condition(WebsocketCloseErrc errc);
 
 } // namespace wamp
 
+//------------------------------------------------------------------------------
+#if !defined CPPWAMP_FOR_DOXYGEN
+namespace std
+{
+
+template <>
+struct CPPWAMP_API is_error_condition_enum<wamp::WebsocketCloseErrc>
+    : public true_type
+{};
+
+} // namespace std
+#endif // CPPWAMP_FOR_DOXYGEN
+
 #ifndef CPPWAMP_COMPILED_LIB
 #include "../internal/websocketprotocol.inl.hpp"
 #endif

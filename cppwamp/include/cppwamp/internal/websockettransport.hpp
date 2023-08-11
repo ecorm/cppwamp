@@ -296,16 +296,13 @@ websocketErrorToCloseCode(boost::beast::error_code ec)
 
         websocket_->async_ping(
             buffer,
-            [this, self](boost::beast::error_code asioEc)
+            [this, self](boost::beast::error_code bec)
             {
                 txFrame_.reset();
-                if (asioEc)
+                if (bec)
                 {
                     if (txErrorHandler_)
-                    {
-                        auto ec = static_cast<std::error_code>(asioEc);
-                        txErrorHandler_(ec);
-                    }
+                        txErrorHandler_(static_cast<std::error_code>(bec));
                     cleanup();
                 }
                 else
@@ -320,16 +317,16 @@ websocketErrorToCloseCode(boost::beast::error_code ec)
         auto self = this->shared_from_this();
         websocket_->async_write(
             txFrame_->payloadBuffer(),
-            [this, self](boost::beast::error_code asioEc, size_t)
+            [this, self](boost::beast::error_code bec, size_t)
             {
                 const bool frameWasPoisoned = txFrame_ &&
                                               txFrame_->isPoisoned();
                 txFrame_.reset();
-                if (asioEc)
+                if (bec)
                 {
                     if (txErrorHandler_)
                     {
-                        auto ec = static_cast<std::error_code>(asioEc);
+                        auto ec = static_cast<std::error_code>(bec);
                         txErrorHandler_(ec);
                     }
                     cleanup();
@@ -362,19 +359,13 @@ websocketErrorToCloseCode(boost::beast::error_code ec)
                 rxFrame_,
                 [this, self](boost::beast::error_code ec, size_t)
                 {
-                    if (ec == boost::asio::error::connection_reset ||
-                        ec == boost::asio::error::eof)
-                    {
+                    namespace bae = boost::asio::error;
+                    if (ec == bae::connection_reset || ec == bae::eof)
                         onRemoteDisconnect();
-                    }
                     else if (ec == boost::beast::websocket::error::closed)
-                    {
                         onRemoteClose();
-                    }
                     else if (check(ec))
-                    {
                         processPayload();
-                    }
                 });
         }
     }
@@ -398,6 +389,8 @@ websocketErrorToCloseCode(boost::beast::error_code ec)
                 auto msg = websocketCloseCategory().message(value);
                 if (!msg.empty())
                     ec = std::error_code{value, websocketCloseCategory()};
+                if (ec == WebsocketCloseErrc::tooBig)
+                    ec = make_error_code(TransportErrc::outboundTooLong);
             }
             post(rxHandler_, makeUnexpected(ec));
         }
@@ -444,19 +437,22 @@ websocketErrorToCloseCode(boost::beast::error_code ec)
                                              std::forward<Ts>(args)...));
     }
 
-    bool check(boost::beast::error_code asioEc)
+    bool check(boost::beast::error_code bec)
     {
-        if (asioEc)
+        if (bec)
         {
             if (rxHandler_)
             {
-                auto ec = static_cast<std::error_code>(asioEc);
+                using BWE = boost::beast::websocket::error;
+                auto ec = static_cast<std::error_code>(bec);
+                if (bec == BWE::message_too_big || bec == BWE::buffer_overflow)
+                    ec = make_error_code(TransportErrc::inboundTooLong);
                 post(rxHandler_, UnexpectedError(ec));
             }
-            closeWebsocket(websocketErrorToCloseCode(asioEc));
+            closeWebsocket(websocketErrorToCloseCode(bec));
             cleanup();
         }
-        return !asioEc;
+        return !bec;
     }
 
     template <typename TErrc>

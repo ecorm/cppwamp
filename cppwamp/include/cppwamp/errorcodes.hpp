@@ -252,23 +252,25 @@ CPPWAMP_API std::error_condition make_error_condition(DecodingErrc errc);
 //------------------------------------------------------------------------------
 enum class TransportErrc
 {
-    success          = 0,  ///< Transport operation successful
-    aborted          = 1,  ///< Transport operation aborted
-    disconnected     = 2,  ///< Transport disconnected by other peer
-    timeout          = 3,  ///< Connection establishment timed out
-    failed           = 4,  ///< Transport operation failed
-    exhausted        = 5,  ///< All transports failed during connection
-    saturated        = 6,  ///< Connection limit reached
-    unresponsive     = 7,  ///< The other peer is unresponsive
-    tooLong          = 8,  ///< Incoming message exceeds transport's length limit
-    badHandshake     = 9,  ///< Received invalid handshake
-    badCommand       = 10, ///< Received invalid transport command
-    badSerializer    = 11, ///< Unsupported serialization format
-    badLengthLimit   = 12, ///< Unacceptable maximum message length
-    badFeature       = 13, ///< Unsupported transport feature
-    expectedBinary   = 14, ///< Expected text but got binary
-    expectedText     = 15, ///< Expected binary but got text
-    noSerializer     = 16, ///< Missing serializer information
+    success           = 0,  ///< Transport operation successful
+    aborted           = 1,  ///< Transport operation aborted
+    disconnected      = 2,  ///< Transport disconnected by other peer
+    timeout           = 3,  ///< Connection establishment timed out
+    failed            = 4,  ///< Transport operation failed
+    exhausted         = 5,  ///< All transports failed during connection
+    saturated         = 6,  ///< Connection limit reached
+    unresponsive      = 7,  ///< The other peer is unresponsive
+    inboundTooLong    = 8,  ///< Inbound message exceeds transport's length limit
+    outboundTooLong   = 9,  ///< Outbound message exceeds peer's length limit
+    handshakeDeclined = 10, ///< Handshake declined by other peer
+    badHandshake      = 11, ///< Received invalid handshake
+    badCommand        = 12, ///< Received invalid transport command
+    badSerializer     = 13, ///< Unsupported serialization format
+    badLengthLimit    = 14, ///< Unacceptable maximum message length
+    badFeature        = 15, ///< Unsupported transport feature
+    expectedBinary    = 16, ///< Expected text but got binary
+    expectedText      = 17, ///< Expected binary but got text
+    noSerializer      = 18, ///< Missing serializer information
     count
 };
 

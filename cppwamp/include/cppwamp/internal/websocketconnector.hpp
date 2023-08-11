@@ -49,10 +49,10 @@ public:
         auto self = shared_from_this();
         resolver_.async_resolve(
             settings_.hostName(), settings_.serviceName(),
-            [this, self](boost::beast::error_code asioEc,
+            [this, self](boost::beast::error_code bec,
                          tcp::resolver::results_type endpoints)
             {
-                if (check(asioEc))
+                if (check(bec))
                     connect(endpoints);
             });
     }
@@ -106,10 +106,10 @@ private:
         auto self = shared_from_this();
         boost::asio::async_connect(
             tcpSocket, endpoints,
-            [this, self](boost::beast::error_code asioEc,
+            [this, self](boost::beast::error_code bec,
                          const tcp::endpoint& ep)
             {
-                if (check(asioEc))
+                if (check(bec))
                     handshake(ep);
             });
     }
@@ -135,9 +135,9 @@ private:
         auto self = shared_from_this();
         websocket_->async_handshake(
             host, settings_.target(),
-            [this, self](boost::beast::error_code asioEc)
+            [this, self](boost::beast::error_code bec)
             {
-                if (check(asioEc))
+                if (check(bec))
                     complete();
             });
     }
@@ -181,20 +181,24 @@ private:
         dispatchHandler(std::move(transport));
     }
 
-    bool check(boost::beast::error_code asioEc)
+    bool check(boost::beast::error_code bec)
     {
-        if (asioEc)
+        if (bec)
         {
             websocket_.reset();
-            auto ec = static_cast<std::error_code>(asioEc);
-            if (asioEc == std::errc::operation_canceled ||
-                asioEc == boost::asio::error::operation_aborted)
+            auto ec = static_cast<std::error_code>(bec);
+            if (bec == std::errc::operation_canceled ||
+                bec == boost::asio::error::operation_aborted)
             {
                 ec = make_error_code(TransportErrc::aborted);
             }
+            else if (bec == boost::beast::websocket::error::upgrade_declined)
+            {
+                ec = make_error_code(TransportErrc::handshakeDeclined);
+            }
             dispatchHandler(makeUnexpected(ec));
         }
-        return !asioEc;
+        return !bec;
     }
 
     template <typename TArg>

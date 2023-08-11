@@ -1108,7 +1108,7 @@ GIVEN ( "a mock client under-reporting its maximum receive length" )
             [&](ErrorOr<MessageBuffer> message)
             {
                 REQUIRE( !message );
-                CHECK( message.error() == TransportErrc::tooLong );
+                CHECK( message.error() == TransportErrc::inboundTooLong );
                 clientFailed = true;
             },
             nullptr);

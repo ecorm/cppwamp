@@ -248,7 +248,7 @@ void checkConsecutiveSendReceive(LoopbackFixture& f, Transporting::Ptr& sender,
             else
             {
                 UNSCOPED_INFO( "error message: " << buf.error().message() );
-                CHECK( buf.error() == TransportErrc::aborted );
+                CHECK( buf.error() == TransportErrc::disconnected );
             }
         },
         nullptr);
@@ -264,12 +264,16 @@ void checkUnsupportedSerializer(LoopbackFixture& f)
 {
     f.lstn->establish([&](ErrorOr<Transporting::Ptr> transport)
     {
-        CHECK( transport == makeUnexpectedError(TransportErrc::badSerializer) );
+        REQUIRE_FALSE(transport.has_value());
+        UNSCOPED_INFO("error message: " << transport.error().message());
+        CHECK( transport.error() == TransportErrc::badSerializer );
     });
 
     f.cnct->establish([&](ErrorOr<Transporting::Ptr> transport)
     {
-        CHECK( transport == makeUnexpectedError(TransportErrc::badSerializer) );
+        REQUIRE_FALSE(transport.has_value());
+        UNSCOPED_INFO("error message: " << transport.error().message());
+        CHECK(transport.error() == TransportErrc::handshakeDeclined);
     });
 
     CHECK_NOTHROW( f.run() );
@@ -460,11 +464,11 @@ TEST_CASE( "Normal websocket communications", "[Transport][Websocket]" )
 TEST_CASE( "Consecutive websocket send/receive", "[Transport][Websocket]" )
 {
     {
-        LoopbackFixture f;
+        LoopbackFixture f{true, msgpackId, {msgpackId}};
         checkConsecutiveSendReceive(f, f.client, f.server);
     }
     {
-        LoopbackFixture f;
+        LoopbackFixture f{true, msgpackId, {msgpackId}};
         checkConsecutiveSendReceive(f, f.server, f.client);
     }
 }
@@ -608,9 +612,13 @@ TEST_CASE( "Cancel websocket send", "[Transport][Websocket]" )
     {
         REQUIRE(transport.has_value());
         f.client = *transport;
-        CHECK( f.client->info().maxTxLength() == 16*1024*1024 );
+        CHECK( f.client->info().maxTxLength() == maxSize );
     });
     f.run();
+
+    f.server->start(
+        [&](ErrorOr<MessageBuffer> buf) {},
+        nullptr);
 
     // Start a send operation
     bool handlerInvoked = false;
@@ -620,7 +628,7 @@ TEST_CASE( "Cancel websocket send", "[Transport][Websocket]" )
             handlerInvoked = true;
         },
         nullptr);
-    MessageBuffer message(f.client->info().maxTxLength(), 'a');
+    MessageBuffer message(f.server->info().maxRxLength(), 'a');
     f.client->send(message);
     REQUIRE_NOTHROW( f.cctx.poll() );
     f.cctx.reset();
@@ -655,13 +663,13 @@ TEST_CASE( "Peer sending a websocket message longer than maximum",
     Transporting::Ptr server = f.server;
     MessageBuffer tooLong(64*1024 + 1, 'A');
 
-    bool clientFailed = false;
-    bool serverFailed = false;
+    std::error_code clientError;
+    std::error_code serverError;
     client->start(
         [&](ErrorOr<MessageBuffer> message)
         {
             REQUIRE( !message );
-            clientFailed = true;
+            clientError = message.error();
         },
         nullptr);
 
@@ -669,17 +677,20 @@ TEST_CASE( "Peer sending a websocket message longer than maximum",
         [&](ErrorOr<MessageBuffer> message)
         {
             REQUIRE( !message );
-            serverFailed = true;
+            serverError = message.error();
         },
         nullptr);
 
+    // TODO: Also check error codes in corresponding rawsocket test
     SECTION("Client sending overly long message")
     {
         client->send(std::move(tooLong));
 
         CHECK_NOTHROW( f.run() );
-        CHECK( clientFailed );
-        CHECK( serverFailed );
+        UNSCOPED_INFO("client error message:" << clientError.message());
+        UNSCOPED_INFO("server error message:" << serverError.message());
+        CHECK( clientError == TransportErrc::outboundTooLong );
+        CHECK( serverError == TransportErrc::inboundTooLong );
     }
 
     SECTION("Server sending overly long message")
@@ -687,8 +698,10 @@ TEST_CASE( "Peer sending a websocket message longer than maximum",
         server->send(std::move(tooLong));
 
         CHECK_NOTHROW( f.run() );
-        CHECK( clientFailed );
-        CHECK( serverFailed );
+        UNSCOPED_INFO("client error message:" << clientError.message());
+        UNSCOPED_INFO("server error message:" << serverError.message());
+        CHECK( clientError == TransportErrc::inboundTooLong );
+        CHECK( serverError == TransportErrc::outboundTooLong );
     }
 }
 

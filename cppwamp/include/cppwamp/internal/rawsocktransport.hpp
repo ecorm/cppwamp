@@ -318,7 +318,7 @@ private:
         const auto hdr = rxFrame_.header();
         const auto len  = hdr.length();
         const bool ok =
-            check(len <= info().maxRxLength(), TransportErrc::tooLong) &&
+            check(len <= info().maxRxLength(), TransportErrc::inboundTooLong) &&
             check(hdr.msgTypeIsValid(), TransportErrc::badCommand);
         if (ok)
             receivePayload(hdr.msgKind(), len);
