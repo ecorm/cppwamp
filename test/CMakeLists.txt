@@ -30,6 +30,7 @@ set(SOURCES
     errortest.cpp
     flagstest.cpp
     payloadtest.cpp
+    rawsocktest.cpp
     routerauthorizertest.cpp
     routeroptionstest.cpp
     routerfixture.cpp
@@ -37,7 +38,6 @@ set(SOURCES
     routermetaapitest.cpp
     routerprotocolerrors.cpp
     timeoutschedulertest.cpp
-    transporttest.cpp
     uritest.cpp
     varianttestconvert.cpp
     varianttestconverter.cpp
@@ -46,6 +46,7 @@ set(SOURCES
     varianttestinit.cpp
     varianttestproperties.cpp
     varianttestvisitation.cpp
+    websockettest.cpp
     main.cpp
 )
 

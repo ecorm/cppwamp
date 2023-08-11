@@ -59,7 +59,7 @@ public:
     void cancel()
     {
         if (websocket_)
-            websocket_->close(boost::beast::websocket::going_away);
+            websocket_->next_layer().close();
         else if (tcpSocket_.is_open())
             tcpSocket_.close();
         else
@@ -68,7 +68,16 @@ public:
 
 private:
     using TcpSocket = boost::asio::ip::tcp::socket;
+    using Response =
+        boost::beast::http::response<boost::beast::http::string_body>;
 
+
+    static boost::asio::ip::tcp::endpoint makeEndpoint(const Settings& s)
+    {
+        if (s.address().empty())
+            return {boost::asio::ip::tcp::v4(), s.port()};
+        return {boost::asio::ip::make_address(s.address()), s.port()};
+    }
     static bool subprotocolIsText(int codecId)
     {
         return codecId == KnownCodecIds::json();
@@ -87,9 +96,13 @@ private:
 
     WebsocketListener(IoStrand i, Settings s, CodecIds codecIds)
         : strand_(std::move(i)),
-          acceptor_(i),
           settings_(std::move(s)),
+          acceptor_(strand_, makeEndpoint(settings_)),
           codecIds_(std::move(codecIds)),
+          noSubprotocolResponse_(boost::beast::http::status::bad_request,
+                                 11, "No subprotocol was provided"),
+          badSubprotocolResponse_(boost::beast::http::status::bad_request,
+                                  11, "The given subprotocol is not supported"),
           tcpSocket_(strand_)
     {}
 
@@ -112,17 +125,28 @@ private:
 
     void acceptHandshake()
     {
+        // TODO: Multiplex websocket listeners with same port but different
+        //       request-target URIs.
+
         // Check that we actually received a websocket upgrade request
         if (!boost::beast::websocket::is_upgrade(upgrade_))
             return fail(boost::beast::websocket::error::no_connection_upgrade);
 
-        // Parse the websocket protocol to determine the peer's desired codec
-        auto found = upgrade_.base().find("Sec-WebSocket-Protocol");
+        // Parse the subprotocol to determine the peer's desired codec
+        using boost::beast::http::field;
+        auto found = upgrade_.base().find(field::sec_websocket_protocol);
         if (found == upgrade_.base().end())
-            return fail(TransportErrc::noSerializer);
-        auto codecId = parseSubprotocol(found->value());
+        {
+            return respondThenFail(noSubprotocolResponse_,
+                                   TransportErrc::noSerializer);
+        }
+        auto subprotocol = found->value();
+        auto codecId = parseSubprotocol(subprotocol);
         if (codecIds_.count(codecId) == 0)
-            return fail(TransportErrc::badSerializer);
+        {
+            return respondThenFail(badSubprotocolResponse_,
+                                   TransportErrc::badSerializer);
+        }
 
         // Transfer the TCP socket to a new websocket stream
         websocket_ = SocketPtr{new Socket(std::move(tcpSocket_))};
@@ -131,6 +155,9 @@ private:
         using boost::beast::http::field;
         setWebsocketHandshakeField(field::server, Version::agentString());
 
+        // Set the Sec-WebSocket-Protocol field of the handshake
+        setWebsocketHandshakeField(field::sec_websocket_protocol, subprotocol);
+
         // Complete the handshake
         auto self = shared_from_this();
         websocket_->async_accept(upgrade_,
@@ -138,6 +165,18 @@ private:
             {
                 if (check(asioEc))
                     complete(codecId);
+            });
+    }
+
+    void respondThenFail(const Response& response, TransportErrc errc)
+    {
+        namespace http = boost::beast::http;
+        auto self = shared_from_this();
+        http::async_write(
+            tcpSocket_, response,
+            [this, self, errc](boost::beast::error_code asioEc, std::size_t)
+            {
+                fail(errc);
             });
     }
 
@@ -213,11 +252,13 @@ private:
     }
 
     IoStrand strand_;
-    boost::asio::ip::tcp::acceptor acceptor_;
     Settings settings_;
+    boost::asio::ip::tcp::acceptor acceptor_;
     CodecIds codecIds_;
     Handler handler_;
     boost::beast::flat_buffer buffer_;
+    Response noSubprotocolResponse_;
+    Response badSubprotocolResponse_;
     boost::beast::http::request<boost::beast::http::string_body> upgrade_;
     TcpSocket tcpSocket_;
     SocketPtr websocket_;

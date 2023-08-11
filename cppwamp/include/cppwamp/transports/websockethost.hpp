@@ -40,6 +40,9 @@ public:
     /** Constructor taking an URL/IP and a numeric port number. */
     WebsocketHost(std::string hostName, unsigned short port);
 
+    /** Specifies the request-target (default is "/"). */
+    WebsocketHost& withTarget(std::string target);
+
     /** Specifies the underlying TCP socket options to use. */
     WebsocketHost& withOptions(TcpOptions options);
 
@@ -71,6 +74,9 @@ public:
     /** Obtains the Websocket service name, or stringified port number. */
     const std::string& serviceName() const;
 
+    /** Obtains the request-target. */
+    const std::string& target() const;
+
     /** Obtains the underlying TCP socket options. */
     const TcpOptions& options() const;
 
@@ -83,6 +89,7 @@ public:
 private:
     std::string hostName_;
     std::string serviceName_;
+    std::string target_ = "/";
     TcpOptions options_;
     Timeout heartbeatInterval_ = unspecifiedTimeout;
     std::size_t maxRxLength_ = 16*1024*1024;

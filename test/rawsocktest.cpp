@@ -54,18 +54,17 @@ struct LoopbackFixture
     using ServerSettings = typename TListener::Settings;
     using Transport      = typename Connector::Transport;
 
-    template <typename TServerCodecIds>
     LoopbackFixture(ClientSettings clientSettings,
                     int clientCodec,
                     ServerSettings serverSettings,
-                    TServerCodecIds&& serverCodecs,
+                    CodecIds serverCodecs,
                     bool connected = true)
     {
-        cnct = Connector::create(IoStrand{cctx.get_executor()},
+        cnct = Connector::create(boost::asio::make_strand(cctx),
                                  std::move(clientSettings), clientCodec);
-        lstn = Listener::create(IoStrand{sctx.get_executor()},
+        lstn = Listener::create(boost::asio::make_strand(sctx),
                                 std::move(serverSettings),
-                                std::forward<TServerCodecIds>(serverCodecs));
+                                std::move(serverCodecs));
         if (connected)
             connect();
     }
@@ -516,7 +515,7 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
 } // anonymous namespace
 
 //------------------------------------------------------------------------------
-SCENARIO( "Normal connection", "[Transport]" )
+SCENARIO( "Normal connection", "[Transport][Rawsock]" )
 {
 GIVEN( "an unconnected TCP connector/listener pair" )
 {
@@ -573,7 +572,7 @@ GIVEN( "an unconnected UDS connector/listener pair" )
 }
 
 //------------------------------------------------------------------------------
-TEMPLATE_TEST_CASE( "Normal communications", "[Transport]",
+TEMPLATE_TEST_CASE( "Normal communications", "[Transport][Rawsock]",
                     TcpLoopbackFixture, UdsLoopbackFixture )
 {
     TestType f;
@@ -726,7 +725,7 @@ TEMPLATE_TEST_CASE( "Normal communications", "[Transport]",
     REQUIRE_NOTHROW( f.run() );}
 
 //------------------------------------------------------------------------------
-TEMPLATE_TEST_CASE( "Consecutive send/receive", "[Transport]",
+TEMPLATE_TEST_CASE( "Consecutive send/receive", "[Transport][Rawsock]",
                     TcpLoopbackFixture, UdsLoopbackFixture )
 {
     {
@@ -740,7 +739,7 @@ TEMPLATE_TEST_CASE( "Consecutive send/receive", "[Transport]",
 }
 
 //------------------------------------------------------------------------------
-TEMPLATE_TEST_CASE( "Maximum length messages", "[Transport]",
+TEMPLATE_TEST_CASE( "Maximum length messages", "[Transport][Rawsock]",
                     TcpLoopbackFixture, UdsLoopbackFixture )
 {
     TestType f;
@@ -750,7 +749,7 @@ TEMPLATE_TEST_CASE( "Maximum length messages", "[Transport]",
 }
 
 //------------------------------------------------------------------------------
-TEMPLATE_TEST_CASE( "Zero length messages", "[Transport]",
+TEMPLATE_TEST_CASE( "Zero length messages", "[Transport][Rawsock]",
                     TcpLoopbackFixture, UdsLoopbackFixture )
 {
     const MessageBuffer message;
@@ -761,7 +760,7 @@ TEMPLATE_TEST_CASE( "Zero length messages", "[Transport]",
 }
 
 //------------------------------------------------------------------------------
-TEMPLATE_TEST_CASE( "Cancel listen", "[Transport]",
+TEMPLATE_TEST_CASE( "Cancel listen", "[Transport][Rawsock]",
                     TcpLoopbackFixture, UdsLoopbackFixture )
 {
     auto message = makeMessageBuffer("Hello");
@@ -781,7 +780,7 @@ TEMPLATE_TEST_CASE( "Cancel listen", "[Transport]",
 }
 
 //------------------------------------------------------------------------------
-TEMPLATE_TEST_CASE( "Cancel connect", "[Transport]",
+TEMPLATE_TEST_CASE( "Cancel connect", "[Transport][Rawsock]",
                     TcpLoopbackFixture, UdsLoopbackFixture )
 {
     bool listenCompleted = false;
@@ -836,7 +835,7 @@ TEMPLATE_TEST_CASE( "Cancel connect", "[Transport]",
 }
 
 //------------------------------------------------------------------------------
-TEMPLATE_TEST_CASE( "Cancel receive", "[Transport]",
+TEMPLATE_TEST_CASE( "Cancel receive", "[Transport][Rawsock]",
                     TcpLoopbackFixture, UdsLoopbackFixture )
 {
     TestType f;
@@ -869,7 +868,7 @@ TEMPLATE_TEST_CASE( "Cancel receive", "[Transport]",
 }
 
 //------------------------------------------------------------------------------
-TEMPLATE_TEST_CASE( "Cancel send", "[Transport]",
+TEMPLATE_TEST_CASE( "Cancel send", "[Transport][Rawsock]",
                     TcpLoopbackFixture, UdsLoopbackFixture )
 {
     // The size of transmission is set to maximum to increase the likelyhood
@@ -908,7 +907,7 @@ TEMPLATE_TEST_CASE( "Cancel send", "[Transport]",
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Unsupported serializer", "[Transport]" )
+SCENARIO( "Unsupported serializer", "[Transport][Rawsock]" )
 {
 GIVEN( "a TCP JSON client and a TCP Msgpack server" )
 {
@@ -933,7 +932,7 @@ GIVEN( "a UDS Msgpack client and a UDS JSON server" )
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Connection denied by server", "[Transport]" )
+SCENARIO( "Connection denied by server", "[Transport][Rawsock]" )
 {
 GIVEN( "max length is unacceptable" )
 {
@@ -954,7 +953,7 @@ GIVEN( "future error code" )
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Invalid server handshake", "[Transport]" )
+SCENARIO( "Invalid server handshake", "[Transport][Rawsock]" )
 {
 GIVEN( "a server that uses an invalid magic octet" )
 {
@@ -979,7 +978,7 @@ GIVEN( "a server that uses reserved bits" )
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Invalid client handshake", "[Transport]" )
+SCENARIO( "Invalid client handshake", "[Transport][Rawsock]" )
 {
 GIVEN( "a client that uses invalid magic octet" )
 {
@@ -999,7 +998,7 @@ GIVEN( "a client that uses reserved bits" )
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Client sending a message longer than maximum", "[Transport]" )
+SCENARIO( "Client sending a message longer than maximum", "[Transport][Rawsock]" )
 {
 GIVEN ( "a mock server under-reporting its maximum receive length" )
 {
@@ -1066,7 +1065,8 @@ GIVEN ( "a mock server under-reporting its maximum receive length" )
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Server sending a message longer than maximum", "[Transport]" )
+SCENARIO( "Server sending a message longer than maximum",
+         "[Transport][Rawsock]" )
 {
 GIVEN ( "a mock client under-reporting its maximum receive length" )
 {
@@ -1134,7 +1134,7 @@ GIVEN ( "a mock client under-reporting its maximum receive length" )
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Client sending an invalid message type", "[Transport]" )
+SCENARIO( "Client sending an invalid message type", "[Transport][Rawsock]" )
 {
 GIVEN ( "A mock client that sends an invalid message type" )
 {
@@ -1201,7 +1201,7 @@ GIVEN ( "A mock client that sends an invalid message type" )
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Server sending an invalid message type", "[Transport]" )
+SCENARIO( "Server sending an invalid message type", "[Transport][Rawsock]" )
 {
 GIVEN ( "A mock server that sends an invalid message type" )
 {
@@ -1268,7 +1268,7 @@ GIVEN ( "A mock server that sends an invalid message type" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "TCP rawsocket heartbeat", "[Transport]" )
+TEST_CASE( "TCP rawsocket heartbeat", "[Transport][Rawsock]" )
 {
     IoContext ioctx;
     IoStrand strand{ioctx.get_executor()};

@@ -165,7 +165,7 @@ public:
         if (websocket_)
         {
             websocket_->control_callback();
-            websocket_->close(boost::beast::websocket::normal);
+            closeWebsocket(boost::beast::websocket::normal);
         }
         if (pinger_)
             pinger_->stop();
@@ -204,10 +204,24 @@ private:
         return {std::move(details), oss.str()};
     }
 
+static boost::beast::websocket::close_code
+websocketErrorToCloseCode(boost::beast::error_code ec)
+{
+    using boost::beast::websocket::close_code;
+    using boost::beast::websocket::condition;
+    using boost::beast::websocket::error;
+
+    if (ec == condition::protocol_violation)
+        return close_code::protocol_error;
+    if (ec == error::buffer_overflow || ec == error::message_too_big)
+        return close_code::too_big;
+    return close_code::internal_error;
+}
+
     WebsocketTransport(SocketPtr&& socket, TransportInfo info)
         : Base(info, makeConnectionInfo(*socket)),
           strand_(boost::asio::make_strand(socket->get_executor())),
-        websocket_(std::move(socket))
+          websocket_(std::move(socket))
     {
         if (timeoutIsDefinite(Base::info().heartbeatInterval()))
             pinger_ = std::make_shared<Pinger>(strand_, Base::info());
@@ -228,9 +242,7 @@ private:
             return;
 
         if (!pingBytes.has_value())
-        {
-            return fail(pingBytes.error());
-        }
+            return fail(pingBytes.error(), boost::beast::websocket::going_away);
 
         MessageBuffer message{pingBytes->begin(), pingBytes->end()};
         auto buf = enframe(WebsocketMsgKind::ping, std::move(message));
@@ -396,14 +408,14 @@ private:
     {
         if (websocket_->text() && websocket_->got_binary())
         {
-            websocket_->close(boost::beast::websocket::unknown_data);
-            return fail(make_error_code(TransportErrc::expectedText));
+            return fail(TransportErrc::expectedText,
+                        boost::beast::websocket::unknown_data);
         }
 
         if (websocket_->binary() && websocket_->got_text())
         {
-            websocket_->close(boost::beast::websocket::unknown_data);
-            return fail(make_error_code(TransportErrc::expectedBinary));
+            return fail(TransportErrc::expectedBinary,
+                        boost::beast::websocket::unknown_data);
         }
 
         using Byte = MessageBuffer::value_type;
@@ -412,6 +424,16 @@ private:
         MessageBuffer buffer{ptr, ptr + rxFrame_.cdata().size()};
         post(rxHandler_, std::move(buffer));
         receive();
+    }
+
+    void closeWebsocket(boost::beast::websocket::close_code reason)
+    {
+        if (websocket_ == nullptr)
+            return;
+        auto self = shared_from_this();
+        websocket_->async_close(
+            reason,
+            [this, self](boost::beast::error_code) {websocket_.reset();});
     }
 
     template <typename F, typename... Ts>
@@ -431,27 +453,23 @@ private:
                 auto ec = static_cast<std::error_code>(asioEc);
                 post(rxHandler_, UnexpectedError(ec));
             }
+            closeWebsocket(websocketErrorToCloseCode(asioEc));
             cleanup();
         }
         return !asioEc;
     }
 
     template <typename TErrc>
-    bool check(bool condition, TErrc errc)
+    void fail(TErrc errc, boost::beast::websocket::close_code closeCode)
     {
-        if (!condition)
-        {
-            if (rxHandler_)
-                post(rxHandler_, makeUnexpectedError(errc));
-            cleanup();
-        }
-        return condition;
+        fail(make_error_code(errc), closeCode);
     }
 
-    void fail(std::error_code ec)
+    void fail(std::error_code ec, boost::beast::websocket::close_code closeCode)
     {
         if (rxHandler_)
             post(rxHandler_, makeUnexpected(ec));
+        closeWebsocket(closeCode);
         cleanup();
     }
 
@@ -464,7 +482,6 @@ private:
         txQueue_.clear();
         txFrame_ = nullptr;
         pingFrame_ = nullptr;
-        websocket_.reset();
         pinger_.reset();
         running_ = false;
     }
@@ -479,7 +496,7 @@ private:
     WebsocketFrame::Ptr pingFrame_;
     std::unique_ptr<Socket> websocket_;
     std::shared_ptr<Pinger> pinger_;
-    bool running_ = false;
+    bool running_ = false; // TODO: Use ready/running/stopped enumerators
 };
 
 } // namespace internal

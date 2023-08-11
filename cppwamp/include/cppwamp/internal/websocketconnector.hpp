@@ -60,7 +60,7 @@ public:
     void cancel()
     {
         if (websocket_)
-            websocket_->close(boost::beast::websocket::going_away);
+            websocket_->next_layer().close();
         else
             resolver_.cancel();
     }
@@ -134,7 +134,7 @@ private:
 
         auto self = shared_from_this();
         websocket_->async_handshake(
-            host, "/",
+            host, settings_.target(),
             [this, self](boost::beast::error_code asioEc)
             {
                 if (check(asioEc))
