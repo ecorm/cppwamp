@@ -1,50 +1,50 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_TRANSPORTS_TCPENDPOINT_HPP
-#define CPPWAMP_TRANSPORTS_TCPENDPOINT_HPP
+#ifndef CPPWAMP_TRANSPORTS_HTTPENDPOINT_HPP
+#define CPPWAMP_TRANSPORTS_HTTPENDPOINT_HPP
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains facilities for specifying TCP server parameters and
+    @brief Contains facilities for specifying HTTP server parameters and
            options. */
 //------------------------------------------------------------------------------
 
 #include <cstdint>
 #include <string>
 #include "../api.hpp"
-#include "../rawsockoptions.hpp"
 #include "tcpprotocol.hpp"
+#include "httpprotocol.hpp"
 
 namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** Contains TCP server address information, as well as other socket options. */
+/** Contains HTTP host address information, as well as other socket options. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API TcpEndpoint
+class CPPWAMP_API HttpEndpoint
 {
 public:
     /// Transport protocol tag associated with these settings.
-    using Protocol = Tcp;
+    using Protocol = Http;
 
     /// Numeric port type
     using Port = uint_least16_t;
 
     /** Constructor taking a port number. */
-    explicit TcpEndpoint(Port port);
+    explicit HttpEndpoint(Port port);
 
     /** Constructor taking an address string and a port number. */
-    TcpEndpoint(std::string address, unsigned short port);
+    HttpEndpoint(std::string address, unsigned short port);
 
-    /** Specifies the socket options to use. */
-    TcpEndpoint& withOptions(TcpOptions options);
+    /** Specifies the underlying TCP socket options to use. */
+    HttpEndpoint& withOptions(TcpOptions options);
 
     /** Specifies the maximum length permitted for incoming messages. */
-    TcpEndpoint& withMaxRxLength(RawsockMaxLength length);
+    HttpEndpoint& withMaxRxLength(std::size_t length);
 
     /** Obtains the endpoint address. */
     const std::string& address() const;
@@ -56,22 +56,22 @@ public:
     const TcpOptions& options() const;
 
     /** Obtains the specified maximum incoming message length. */
-    RawsockMaxLength maxRxLength() const;
+    std::size_t maxRxLength() const;
 
-    /** Generates a human-friendly string of the TCP address/port. */
+    /** Generates a human-friendly string of the HTTP address/port. */
     std::string label() const;
 
 private:
     std::string address_;
     TcpOptions options_;
-    RawsockMaxLength maxRxLength_ = RawsockMaxLength::MB_16;
+    std::size_t maxRxLength_ = 16*1024*1024;
     Port port_ = 0;
 };
 
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "../internal/tcpendpoint.inl.hpp"
+#include "../internal/httpendpoint.inl.hpp"
 #endif
 
-#endif // CPPWAMP_TRANSPORTS_TCPENDPOINT_HPP
+#endif // CPPWAMP_TRANSPORTS_HTTPENDPOINT_HPP

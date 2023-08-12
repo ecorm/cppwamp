@@ -33,6 +33,7 @@ struct CPPWAMP_API Tcp
 // Forward declarations
 namespace internal
 {
+class HttpListener;
 class TcpAcceptor;
 class TcpOpener;
 class WebsocketConnector;
@@ -104,6 +105,7 @@ private:
 
     internal::SocketOptionList<boost::asio::ip::tcp> options_;
 
+    friend class internal::HttpListener;
     friend class internal::TcpAcceptor;
     friend class internal::TcpOpener;
     friend class internal::WebsocketConnector;
