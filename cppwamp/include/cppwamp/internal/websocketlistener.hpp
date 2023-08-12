@@ -112,7 +112,7 @@ private:
 
         // websocket::stream does not provide a means to inspect request
         // headers, so use the workaround suggested here:
-        // https://github.com/boostorg/beast/issues/2549
+        // https://www.boost.org/doc/libs/release/libs/beast/doc/html/beast/using_websocket/handshaking.html#beast.using_websocket.handshaking.inspecting_http_requests
         auto self = shared_from_this();
         boost::beast::http::async_read(
             tcpSocket_, buffer_, upgrade_,

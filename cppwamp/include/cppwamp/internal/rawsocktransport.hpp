@@ -126,11 +126,21 @@ public:
         return Ptr(new RawsockTransport(std::move(s), info));
     }
 
-    bool isRunning() const override {return running_;}
+private:
+    using Base = Transporting;
+    using TransmitQueue = std::deque<RawsockFrame::Ptr>;
 
-    void start(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
+    RawsockTransport(SocketPtr&& socket, TransportInfo info)
+        : Base(info, TTraits::connectionInfo(socket->remote_endpoint())),
+          strand_(boost::asio::make_strand(socket->get_executor())),
+          socket_(std::move(socket))
     {
-        assert(!isRunning());
+        if (timeoutIsDefinite(Base::info().heartbeatInterval()))
+            pinger_ = std::make_shared<Pinger>(strand_, Base::info());
+    }
+
+    void onStart(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
+    {
         rxHandler_ = rxHandler;
         txErrorHandler_ = txErrorHandler;
 
@@ -147,68 +157,42 @@ public:
         }
 
         receive();
-        running_ = true;
     }
 
-    void send(MessageBuffer message) override
+    void onSend(MessageBuffer message) override
     {
-        // Due to the handler being posted, the caller may not be aware of a
-        // network error having already occurred by time this is called.
-        // So do nothing if the transport is already closed.
-        if (!isRunning())
+        if (!socket_)
             return;
-
         auto buf = enframe(RawsockMsgKind::wamp, std::move(message));
         sendFrame(std::move(buf));
     }
 
-    void sendNowAndStop(MessageBuffer message) override
+    void onSendNowAndStop(MessageBuffer message) override
     {
-        // Due to the handler being posted, the caller may not be aware of a
-        // network error having already occurred by time this is called.
-        // So do nothing if the transport is already closed.
-        if (!isRunning())
+        if (!socket_)
             return;
-
-        assert(socket_ && "Attempting to send on bad transport");
         auto frame = enframe(RawsockMsgKind::wamp, std::move(message));
         assert((frame->payload().size() <= info().maxTxLength()) &&
                "Outgoing message is longer than allowed by peer");
         frame->poison();
         txQueue_.push_front(std::move(frame));
         transmit();
-        running_ = false;
     }
 
-    void stop() override
+    void onStop() override
     {
-        Base::clearConnectionInfo();
         rxHandler_ = nullptr;
         txErrorHandler_ = nullptr;
         txQueue_.clear();
-        running_ = false;
         if (socket_)
             socket_->close();
         if (pinger_)
             pinger_->stop();
     }
 
-private:
-    using Base = Transporting;
-    using TransmitQueue = std::deque<RawsockFrame::Ptr>;
-
-    RawsockTransport(SocketPtr&& socket, TransportInfo info)
-        : Base(info, TTraits::connectionInfo(socket->remote_endpoint())),
-          strand_(boost::asio::make_strand(socket->get_executor())),
-          socket_(std::move(socket))
-    {
-        if (timeoutIsDefinite(Base::info().heartbeatInterval()))
-            pinger_ = std::make_shared<Pinger>(strand_, Base::info());
-    }
-
     void onPingFrame(ErrorOr<PingBytes> pingBytes)
     {
-        if (!isRunning())
+        if (state() != Transporting::State::running)
             return;
 
         if (!pingBytes.has_value())
@@ -230,7 +214,6 @@ private:
 
     void sendFrame(RawsockFrame::Ptr frame)
     {
-        assert(socket_ && "Attempting to send on bad transport");
         assert((frame->payload().size() <= info().maxTxLength()) &&
                "Outgoing message is longer than allowed by peer");
         txQueue_.push_back(std::move(frame));
@@ -263,7 +246,7 @@ private:
                     }
                     else if (frameWasPoisoned)
                     {
-                        stop();
+                        onStop();
                     }
                     else
                     {
@@ -335,7 +318,7 @@ private:
                 if (ec)
                     rxFrame_.clear();
 
-                if (check(ec) && running_)
+                if (check(ec) && state() == Transporting::State::running)
                 {
                     switch (kind)
                     {
@@ -424,7 +407,7 @@ private:
 
     void cleanup()
     {
-        Base::clearConnectionInfo();
+        Base::shutdown();
         rxHandler_ = nullptr;
         txErrorHandler_ = nullptr;
         rxFrame_.clear();
@@ -433,7 +416,6 @@ private:
         pingFrame_ = nullptr;
         socket_.reset();
         pinger_.reset();
-        running_ = false;
     }
 
     IoStrand strand_;
@@ -446,7 +428,6 @@ private:
     RawsockFrame::Ptr pingFrame_;
     std::unique_ptr<TSocket> socket_;
     std::shared_ptr<Pinger> pinger_;
-    bool running_ = false;
 };
 
 } // namespace internal

@@ -218,7 +218,6 @@ GIVEN( "a Session with a registered challenge handler" )
             CHECK( incidents.at(0).error() == WampErrc::authenticationFailed );
         }
     }
-
 }}
 
 #endif // defined(CPPWAMP_TEST_HAS_CORO)

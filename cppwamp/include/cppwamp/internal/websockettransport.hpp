@@ -91,86 +91,6 @@ public:
         return Ptr(new WebsocketTransport(std::move(s), info));
     }
 
-    bool isRunning() const override {return running_;}
-
-    void start(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
-    {
-        assert(!isRunning());
-        rxHandler_ = rxHandler;
-        txErrorHandler_ = txErrorHandler;
-
-        if (pinger_)
-        {
-            std::weak_ptr<Transporting> self = shared_from_this();
-
-            websocket_->control_callback(
-                [self, this](boost::beast::websocket::frame_type type,
-                             boost::beast::string_view msg)
-                {
-                    auto me = self.lock();
-                    if (me && type == boost::beast::websocket::frame_type::pong)
-                        onPong(msg);
-                });
-
-            pinger_->start(
-                [self, this](ErrorOr<PingBytes> pingBytes)
-                {
-                    auto me = self.lock();
-                    if (me)
-                        onPingFrame(pingBytes);
-                });
-        }
-
-        receive();
-        running_ = true;
-    }
-
-    void send(MessageBuffer message) override
-    {
-        // Due to the handler being posted, the caller may not be aware of a
-        // network error having already occurred by time this is called.
-        // So do nothing if the transport is already closed.
-        if (!isRunning())
-            return;
-
-        auto buf = enframe(WebsocketMsgKind::wamp, std::move(message));
-        sendFrame(std::move(buf));
-    }
-
-    void sendNowAndStop(MessageBuffer message) override
-    {
-        // Due to the handler being posted, the caller may not be aware of a
-        // network error having already occurred by time this is called.
-        // So do nothing if the transport is already closed.
-        if (!isRunning())
-            return;
-
-        assert(websocket_ && "Attempting to send on bad transport");
-        auto frame = enframe(WebsocketMsgKind::wamp, std::move(message));
-        assert((frame->payload().size() <= info().maxTxLength()) &&
-               "Outgoing message is longer than allowed by peer");
-        frame->poison();
-        txQueue_.push_front(std::move(frame));
-        transmit();
-        running_ = false;
-    }
-
-    void stop() override
-    {
-        Base::clearConnectionInfo();
-        rxHandler_ = nullptr;
-        txErrorHandler_ = nullptr;
-        txQueue_.clear();
-        running_ = false;
-        if (websocket_)
-        {
-            websocket_->control_callback();
-            closeWebsocket(boost::beast::websocket::normal);
-        }
-        if (pinger_)
-            pinger_->stop();
-    }
-
 private:
     using Base          = Transporting;
     using TransmitQueue = std::deque<WebsocketFrame::Ptr>;
@@ -204,19 +124,83 @@ private:
         return {std::move(details), oss.str()};
     }
 
-static boost::beast::websocket::close_code
-websocketErrorToCloseCode(boost::beast::error_code ec)
-{
-    using boost::beast::websocket::close_code;
-    using boost::beast::websocket::condition;
-    using boost::beast::websocket::error;
+    static boost::beast::websocket::close_code
+    websocketErrorToCloseCode(boost::beast::error_code ec)
+    {
+        using boost::beast::websocket::close_code;
+        using boost::beast::websocket::condition;
+        using boost::beast::websocket::error;
 
-    if (ec == condition::protocol_violation)
-        return close_code::protocol_error;
-    if (ec == error::buffer_overflow || ec == error::message_too_big)
-        return close_code::too_big;
-    return close_code::internal_error;
-}
+        if (ec == condition::protocol_violation)
+            return close_code::protocol_error;
+        if (ec == error::buffer_overflow || ec == error::message_too_big)
+            return close_code::too_big;
+        return close_code::internal_error;
+    }
+
+    void onStart(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
+    {
+        rxHandler_ = rxHandler;
+        txErrorHandler_ = txErrorHandler;
+
+        if (pinger_)
+        {
+            std::weak_ptr<Transporting> self = shared_from_this();
+
+            websocket_->control_callback(
+                [self, this](boost::beast::websocket::frame_type type,
+                             boost::beast::string_view msg)
+                {
+                    auto me = self.lock();
+                    if (me && type == boost::beast::websocket::frame_type::pong)
+                        onPong(msg);
+                });
+
+            pinger_->start(
+                [self, this](ErrorOr<PingBytes> pingBytes)
+                {
+                    auto me = self.lock();
+                    if (me)
+                        onPingFrame(pingBytes);
+                });
+        }
+
+        receive();
+    }
+
+    void onSend(MessageBuffer message) override
+    {
+        if (!websocket_)
+            return;
+        auto buf = enframe(WebsocketMsgKind::wamp, std::move(message));
+        sendFrame(std::move(buf));
+    }
+
+    void onSendNowAndStop(MessageBuffer message) override
+    {
+        if (!websocket_)
+            return;
+        auto frame = enframe(WebsocketMsgKind::wamp, std::move(message));
+        assert((frame->payload().size() <= info().maxTxLength()) &&
+               "Outgoing message is longer than allowed by peer");
+        frame->poison();
+        txQueue_.push_front(std::move(frame));
+        transmit();
+    }
+
+    void onStop() override
+    {
+        rxHandler_ = nullptr;
+        txErrorHandler_ = nullptr;
+        txQueue_.clear();
+        if (websocket_)
+        {
+            websocket_->control_callback();
+            closeWebsocket(boost::beast::websocket::normal);
+        }
+        if (pinger_)
+            pinger_->stop();
+    }
 
     WebsocketTransport(SocketPtr&& socket, TransportInfo info)
         : Base(info, makeConnectionInfo(*socket)),
@@ -238,7 +222,7 @@ websocketErrorToCloseCode(boost::beast::error_code ec)
 
     void onPingFrame(ErrorOr<PingBytes> pingBytes)
     {
-        if (!isRunning())
+        if (state() != Transporting::State::running)
             return;
 
         if (!pingBytes.has_value())
@@ -333,7 +317,7 @@ websocketErrorToCloseCode(boost::beast::error_code ec)
                 }
                 else if (frameWasPoisoned)
                 {
-                    stop();
+                    onStop();
                 }
                 else
                 {
@@ -471,7 +455,7 @@ websocketErrorToCloseCode(boost::beast::error_code ec)
 
     void cleanup()
     {
-        Base::clearConnectionInfo();
+        Base::shutdown();
         rxHandler_ = nullptr;
         txErrorHandler_ = nullptr;
         rxFrame_.clear();
@@ -479,7 +463,6 @@ websocketErrorToCloseCode(boost::beast::error_code ec)
         txFrame_ = nullptr;
         pingFrame_ = nullptr;
         pinger_.reset();
-        running_ = false;
     }
 
     IoStrand strand_;
@@ -492,7 +475,6 @@ websocketErrorToCloseCode(boost::beast::error_code ec)
     WebsocketFrame::Ptr pingFrame_;
     std::unique_ptr<Socket> websocket_;
     std::shared_ptr<Pinger> pinger_;
-    bool running_ = false; // TODO: Use ready/running/stopped enumerators
 };
 
 } // namespace internal

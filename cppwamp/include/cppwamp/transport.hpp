@@ -75,6 +75,14 @@ private:
 class Transporting : public std::enable_shared_from_this<Transporting>
 {
 public:
+    /// Enumerates the possible transport states
+    enum class State
+    {
+        ready,
+        running,
+        stopped
+    };
+
     /// Shared pointer to a Transporting object.
     using Ptr = std::shared_ptr<Transporting>;
 
@@ -95,27 +103,54 @@ public:
     /** Destructor. */
     virtual ~Transporting() = default;
 
+    /** Obtains the current transport state. */
+    State state() const {return state_;}
+
     /** Obtains information pertaining to this transport. */
     const TransportInfo& info() const {return info_;}
 
     /** Obtains connection information. */
     const ConnectionInfo& connectionInfo() const {return connectionInfo_;}
 
-    /** Returns true if the transport is running. */
-    virtual bool isRunning() const = 0;
+    /** Starts the transport's I/O operations.
+        @pre this->state() == Transporting::State::ready
+        @post this->state() == Transporting::State::running */
+    void start(RxHandler rxHandler, TxErrorHandler txHandler)
+    {
+        assert(state_ == State::ready);
+        onStart(std::move(rxHandler), std::move(txHandler));
+        state_ = State::running;
+    }
 
-    /** Starts the transport's I/O operations. */
-    virtual void start(RxHandler rxHandler, TxErrorHandler txHandler) = 0;
-
-    /** Sends the given serialized message via the transport. */
-    virtual void send(MessageBuffer message) = 0;
+    /** Sends the given serialized message via the transport.
+        @pre this->state() != Transporting::State::ready */
+    void send(MessageBuffer message)
+    {
+        assert(state_ != State::ready);
+        if (state_ == State::running)
+            onSend(std::move(message));
+    }
 
     /** Sends the given serialized message, placing it at the top of the queue,
-        then closes the underlying socket. */
-    virtual void sendNowAndStop(MessageBuffer message) = 0;
+        then closes the underlying socket.
+        @pre this->state() != Transporting::State::ready
+        @post this->state() == Transporting::State::stopped */
+    virtual void sendNowAndStop(MessageBuffer message)
+    {
+        assert(state_ != Transporting::State::ready);
+        if (state_ == State::running)
+            onSendNowAndStop(std::move(message));
+        state_ = State::stopped;
+    }
 
-    /** Stops I/O operations and closes the underlying socket. */
-    virtual void stop() = 0;
+    /** Stops I/O operations and closes the underlying socket.
+        @post this->state() == Transporting::State::stopped */
+    virtual void stop()
+    {
+        if (state_ == State::running)
+            onStop();
+        state_ = State::stopped;
+    }
 
 protected:
     /** Constructor. */
@@ -124,12 +159,30 @@ protected:
           connectionInfo_(std::move(ci))
     {}
 
+    /** Must be overridden to start the transport's I/O operations. */
+    virtual void onStart(RxHandler rxHandler, TxErrorHandler txHandler) = 0;
+
+    /** Must be overridden to send the given serialized message. */
+    virtual void onSend(MessageBuffer message) = 0;
+
+    /** Must be overriden to send the given serialized message ASAP and then
+        disconnect. */
+    virtual void onSendNowAndStop(MessageBuffer message) = 0;
+
+    /** Must be overriden to stop I/O operations and disconnect. */
+    virtual void onStop() = 0;
+
     /** Should be called be derived classes when the transport disconnects. */
-    void clearConnectionInfo() {connectionInfo_ = {};}
+    void shutdown()
+    {
+        connectionInfo_ = {};
+        state_ = State::stopped;
+    }
 
 private:
     TransportInfo info_;
     ConnectionInfo connectionInfo_;
+    State state_ = State::ready;
 };
 
 } // namespace wamp
