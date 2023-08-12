@@ -8,6 +8,7 @@
 #define CPPWAMP_TEST_TESTROUTER_HPP
 
 #include <memory>
+#include <thread>
 #include <cppwamp/accesslogging.hpp>
 #include <cppwamp/realm.hpp>
 #include <cppwamp/router.hpp>
@@ -56,6 +57,8 @@ struct RouterLogLevelGuard
 
     ~RouterLogLevelGuard()
     {
+        // Allow time for realm to close before restoring log level.
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
         RouterFixture::instance().router().setLogLevel(level_);
     }
 
