@@ -147,7 +147,7 @@ public:
           server_(std::move(s)),
           ServerOptions_(std::move(sc)),
           uriValidator_(server_.uriValidator()),
-        key_(sessionKey)
+          key_(sessionKey)
     {
         assert(ServerOptions_ != nullptr);
         auto info = t->connectionInfo();
@@ -599,7 +599,7 @@ private:
             [this, self](ErrorOr<Transporting::Ptr> transport)
             {
                 auto me = self.lock();
-                if (!me)
+                if (!me || !me->listener_)
                     return;
 
                 if (transport)
