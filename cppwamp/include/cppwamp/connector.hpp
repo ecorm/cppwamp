@@ -150,8 +150,9 @@ private:
             return Function{
                 [transportSettings](IoStrand s, int codecId)
                 {
-                    return Connecting::Ptr(new ConcreteConnector(
-                        std::move(s), transportSettings, codecId));
+                    auto cnct = std::make_shared<ConcreteConnector>(
+                        std::move(s), transportSettings, codecId);
+                    return std::static_pointer_cast<Connecting>(cnct);
                 }};
         }
 

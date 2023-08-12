@@ -90,7 +90,7 @@ private:
         else if (field == "wamp.2.msgpack")
             return KnownCodecIds::msgpack();
         else if (field == "wamp.2.cbor")
-            return KnownCodecIds::msgpack();
+            return KnownCodecIds::cbor();
         return 0;
     }
 

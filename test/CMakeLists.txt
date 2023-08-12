@@ -65,7 +65,9 @@ target_compile_options(cppwamp-test PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/W4>)
 target_compile_definitions(cppwamp-test PRIVATE
 #    CATCH_CONFIG_NO_POSIX_SIGNALS
-    "$<$<TARGET_EXISTS:CppWAMP::coro-usage>:CPPWAMP_TEST_HAS_CORO=1>")
+    "$<$<TARGET_EXISTS:CppWAMP::coro-usage>:CPPWAMP_TEST_HAS_CORO=1>"
+    "$<$<TARGET_EXISTS:CppWAMP::web-headers>:CPPWAMP_TEST_HAS_WEB=1>"
+)
 
 # Copy Crossbar node configuration to build directory
 configure_file(

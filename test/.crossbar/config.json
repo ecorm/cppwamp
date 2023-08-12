@@ -59,6 +59,20 @@
                         "msgpack"
                     ],
                     "debug": true
+                },
+                {
+                    "type": "websocket",
+                    "endpoint": {
+                        "type": "tcp",
+                        "port": 34567
+                    },
+                    "options": {
+                        "max_message_size": 16777216
+                    },
+                    "serializers": [
+                        "cbor"
+                    ],
+                    "debug": true
                 }
             ]
         },

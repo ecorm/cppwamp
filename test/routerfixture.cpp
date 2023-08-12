@@ -10,11 +10,16 @@
 #include <thread>
 #include <cppwamp/anyhandler.hpp>
 #include <cppwamp/router.hpp>
+#include <cppwamp/codecs/cbor.hpp>
 #include <cppwamp/codecs/json.hpp>
 #include <cppwamp/codecs/msgpack.hpp>
 #include <cppwamp/transports/tcp.hpp>
 #include <cppwamp/transports/uds.hpp>
 #include <cppwamp/utils/consolelogger.hpp>
+
+#if defined(CPPWAMP_TEST_HAS_WEB)
+#include <cppwamp/transports/websocket.hpp>
+#endif
 
 namespace test
 {
@@ -125,6 +130,14 @@ private:
                                    wamp::msgpack);
     }
 
+#if defined(CPPWAMP_TEST_HAS_WEB)
+    static wamp::ServerOptions websocketOptions()
+    {
+        return wamp::ServerOptions("websocket", wamp::WebsocketEndpoint{34567},
+                                   wamp::cbor);
+    }
+#endif
+
     void run()
     {
         try
@@ -135,6 +148,9 @@ private:
             router_.openServer(tcpOptions());
             router_.openServer(tcpTicketOptions());
             router_.openServer(udsOptions());
+#if defined(CPPWAMP_TEST_HAS_WEB)
+            router_.openServer(websocketOptions());
+#endif
             ioctx_.run();
         }
         catch (const std::exception& e)

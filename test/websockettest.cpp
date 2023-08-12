@@ -4,11 +4,20 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
+#if defined(CPPWAMP_TEST_HAS_WEB)
+
 #include <limits>
 #include <catch2/catch.hpp>
 #include <cppwamp/asiodefs.hpp>
+#include <cppwamp/session.hpp>
+#include <cppwamp/codecs/cbor.hpp>
 #include <cppwamp/internal/websocketconnector.hpp>
 #include <cppwamp/internal/websocketlistener.hpp>
+#include <cppwamp/transports/websocket.hpp>
+
+#if defined(CPPWAMP_TEST_HAS_CORO)
+#include <cppwamp/spawn.hpp>
+#endif
 
 using namespace wamp;
 using namespace wamp::internal;
@@ -119,6 +128,13 @@ struct LoopbackFixture
     Transporting::Ptr client;
     Transporting::Ptr server;
 };
+
+//------------------------------------------------------------------------------
+void suspendCoro(YieldContext yield)
+{
+    auto exec = boost::asio::get_associated_executor(yield);
+    boost::asio::post(exec, yield);
+}
 
 //------------------------------------------------------------------------------
 MessageBuffer makeMessageBuffer(const std::string& str)
@@ -748,3 +764,59 @@ TEST_CASE( "Websocket heartbeat", "[Transport][Websocket]" )
     CHECK(!clientError);
     CHECK(!serverError);
 }
+
+#if defined(CPPWAMP_TEST_HAS_CORO)
+
+//------------------------------------------------------------------------------
+TEST_CASE( "WAMP session using Websocket transport",
+           "[WAMP][Basic][Websocket]" )
+{
+    IoContext ioctx;
+    Session s(ioctx);
+    const auto wish = WebsocketHost{tcpLoopbackAddr, 34567}.withFormat(cbor);
+
+    Invocation invocation;
+    Event event;
+
+    auto rpc =
+        [&invocation](Invocation i) -> Outcome
+        {
+            invocation = i;
+            return Result{i.args().at(0)};
+        };
+
+    auto onEvent = [&event](Event e) {event = e;};
+
+    spawn(ioctx, [&](YieldContext yield)
+    {
+        s.connect(wish, yield).value();
+        s.join(Petition{"cppwamp.test"}, yield).value();
+        auto reg = s.enroll(Procedure{"rpc"}, rpc, yield).value();
+        auto sub = s.subscribe(Topic{"topic"}, onEvent, yield).value();
+
+        auto result = s.call(Rpc{"rpc"}.withArgs(42), yield).value();
+        REQUIRE(result.args().size() == 1);
+        CHECK(result.args().front() == 42);
+        REQUIRE(invocation.args().size() == 1);
+        CHECK(invocation.args().front() == 42);
+
+        s.publish(Pub{"topic"}.withArgs("foo").withExcludeMe(false),
+                  yield).value();
+        while (event.args().empty())
+            suspendCoro(yield);
+        REQUIRE(event.args().size() == 1);
+        CHECK(event.args().front() == "foo");
+
+        s.unregister(reg, yield).value();
+        s.unsubscribe(sub, yield).value();
+
+        s.leave(yield).value();
+        s.disconnect();
+    });
+
+    ioctx.run();
+}
+
+#endif // defined(CPPWAMP_TEST_HAS_CORO)
+
+#endif // defined(CPPWAMP_TEST_HAS_WEB)
