@@ -104,7 +104,13 @@ private:
           badSubprotocolResponse_(boost::beast::http::status::bad_request,
                                   11, "The given subprotocol is not supported"),
           tcpSocket_(strand_)
-    {}
+    {
+        static constexpr auto serverField = boost::beast::http::field::server;
+        noSubprotocolResponse_.set(serverField, Version::agentString());
+        noSubprotocolResponse_.prepare_payload();
+        badSubprotocolResponse_.set(serverField, Version::agentString());
+        badSubprotocolResponse_.prepare_payload();
+    }
 
     void receiveUpgrade()
     {
@@ -125,7 +131,7 @@ private:
 
     void acceptHandshake()
     {
-        // TODO: Multiplex websocket listeners with same port but different
+        // TODO: Multiplex websocket transports with same port but different
         //       request-target URIs.
 
         // Check that we actually received a websocket upgrade request
