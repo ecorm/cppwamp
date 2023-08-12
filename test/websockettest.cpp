@@ -681,7 +681,6 @@ TEST_CASE( "Peer sending a websocket message longer than maximum",
         },
         nullptr);
 
-    // TODO: Also check error codes in corresponding rawsocket test
     SECTION("Client sending overly long message")
     {
         client->send(std::move(tooLong));

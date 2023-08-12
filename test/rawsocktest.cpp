@@ -998,7 +998,8 @@ GIVEN( "a client that uses reserved bits" )
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Client sending a message longer than maximum", "[Transport][Rawsock]" )
+SCENARIO( "Client sending a message longer than maximum",
+          "[Transport][Rawsock]" )
 {
 GIVEN ( "a mock server under-reporting its maximum receive length" )
 {
@@ -1034,13 +1035,13 @@ GIVEN ( "a mock server under-reporting its maximum receive length" )
 
     WHEN( "the client sends a message that exceeds the server's maximum" )
     {
-        bool clientFailed = false;
-        bool serverFailed = false;
+        std::error_code clientError;
+        std::error_code serverError;
         client->start(
             [&](ErrorOr<MessageBuffer> message)
             {
                 REQUIRE( !message );
-                clientFailed = true;
+                clientError = message.error();
             },
             nullptr);
 
@@ -1048,7 +1049,7 @@ GIVEN ( "a mock server under-reporting its maximum receive length" )
             [&](ErrorOr<MessageBuffer> message)
             {
                 REQUIRE( !message );
-                serverFailed = true;
+                serverError = message.error();
             },
             nullptr);
 
@@ -1057,8 +1058,10 @@ GIVEN ( "a mock server under-reporting its maximum receive length" )
         THEN( "the server obtains an error while receiving" )
         {
             CHECK_NOTHROW( ioctx.run() );
-            CHECK( clientFailed );
-            CHECK( serverFailed );
+            UNSCOPED_INFO("client error message:" << clientError.message());
+            UNSCOPED_INFO("server error message:" << serverError.message());
+            CHECK( clientError == TransportErrc::disconnected );
+            CHECK( serverError == TransportErrc::inboundTooLong );
         }
     }
 }
@@ -1066,7 +1069,7 @@ GIVEN ( "a mock server under-reporting its maximum receive length" )
 
 //------------------------------------------------------------------------------
 SCENARIO( "Server sending a message longer than maximum",
-         "[Transport][Rawsock]" )
+          "[Transport][Rawsock]" )
 {
 GIVEN ( "a mock client under-reporting its maximum receive length" )
 {
@@ -1102,14 +1105,13 @@ GIVEN ( "a mock client under-reporting its maximum receive length" )
 
     WHEN( "the server sends a message that exceeds the client's maximum" )
     {
-        bool clientFailed = false;
-        bool serverFailed = false;
+        std::error_code clientError;
+        std::error_code serverError;
         client->start(
             [&](ErrorOr<MessageBuffer> message)
             {
                 REQUIRE( !message );
-                CHECK( message.error() == TransportErrc::inboundTooLong );
-                clientFailed = true;
+                clientError = message.error();
             },
             nullptr);
 
@@ -1117,7 +1119,7 @@ GIVEN ( "a mock client under-reporting its maximum receive length" )
             [&](ErrorOr<MessageBuffer> message)
             {
                 REQUIRE( !message );
-                serverFailed = true;
+                serverError = message.error();
             },
             nullptr);
 
@@ -1126,8 +1128,10 @@ GIVEN ( "a mock client under-reporting its maximum receive length" )
         THEN( "the client obtains an error while receiving" )
         {
             CHECK_NOTHROW( ioctx.run() );
-            CHECK( clientFailed );
-            CHECK( serverFailed );
+            UNSCOPED_INFO("client error message:" << clientError.message());
+            UNSCOPED_INFO("server error message:" << serverError.message());
+            CHECK( clientError == TransportErrc::inboundTooLong );
+            CHECK( serverError == TransportErrc::disconnected );
         }
     }
 }
