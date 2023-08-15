@@ -71,13 +71,13 @@ private:
     using Response =
         boost::beast::http::response<boost::beast::http::string_body>;
 
-
     static boost::asio::ip::tcp::endpoint makeEndpoint(const Settings& s)
     {
         if (s.address().empty())
             return {boost::asio::ip::tcp::v4(), s.port()};
         return {boost::asio::ip::make_address(s.address()), s.port()};
     }
+
     static bool subprotocolIsText(int codecId)
     {
         return codecId == KnownCodecIds::json();

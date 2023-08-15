@@ -52,14 +52,14 @@ public:
             [this, self](boost::system::error_code bec)
             {
                 if (check(bec))
-                    receiveUpgrade();
+                    readRequest();
             });
     }
 
     void cancel()
     {
-        if (http_)
-            http_->next_layer().close();
+        if (websocket_)
+            websocket_->next_layer().close();
         else if (tcpSocket_.is_open())
             tcpSocket_.close();
         else
@@ -71,13 +71,13 @@ private:
     using Response =
         boost::beast::http::response<boost::beast::http::string_body>;
 
-
     static boost::asio::ip::tcp::endpoint makeEndpoint(const Settings& s)
     {
         if (s.address().empty())
             return {boost::asio::ip::tcp::v4(), s.port()};
         return {boost::asio::ip::make_address(s.address()), s.port()};
     }
+
     static bool subprotocolIsText(int codecId)
     {
         return codecId == KnownCodecIds::json();
@@ -112,7 +112,7 @@ private:
         badSubprotocolResponse_.prepare_payload();
     }
 
-    void receiveUpgrade()
+    void readRequest()
     {
         settings_.options().applyTo(tcpSocket_);
 
@@ -121,7 +121,7 @@ private:
         // https://www.boost.org/doc/libs/release/libs/beast/doc/html/beast/using_http/handshaking.html#beast.using_http.handshaking.inspecting_http_requests
         auto self = shared_from_this();
         boost::beast::http::async_read(
-            tcpSocket_, buffer_, upgrade_,
+            tcpSocket_, buffer_, request_,
             [this, self] (const boost::beast::error_code& bec, std::size_t)
             {
                 if (check(bec))
@@ -131,17 +131,14 @@ private:
 
     void acceptHandshake()
     {
-        // TODO: Multiplex http transports with same port but different
-        //       request-target URIs.
-
         // Check that we actually received a http upgrade request
-        if (!boost::beast::websocket::is_upgrade(upgrade_))
+        if (!boost::beast::websocket::is_upgrade(request_))
             return fail(boost::beast::websocket::error::no_connection_upgrade);
 
         // Parse the subprotocol to determine the peer's desired codec
         using boost::beast::http::field;
-        auto found = upgrade_.base().find(field::sec_websocket_protocol);
-        if (found == upgrade_.base().end())
+        auto found = request_.base().find(field::sec_websocket_protocol);
+        if (found == request_.base().end())
         {
             return respondThenFail(noSubprotocolResponse_,
                                    TransportErrc::noSerializer);
@@ -155,7 +152,7 @@ private:
         }
 
         // Transfer the TCP socket to a new http stream
-        http_ = SocketPtr{new Socket(std::move(tcpSocket_))};
+        websocket_ = SocketPtr{new Socket(std::move(tcpSocket_))};
 
         // Set the Server field of the handshake
         using boost::beast::http::field;
@@ -166,7 +163,7 @@ private:
 
         // Complete the handshake
         auto self = shared_from_this();
-        http_->async_accept(upgrade_,
+        websocket_->async_accept(request_,
             [this, self, codecId](boost::beast::error_code bec)
             {
                 if (check(bec))
@@ -202,25 +199,25 @@ private:
             }
         };
 
-        http_->set_option(boost::beast::websocket::stream_base::decorator(
+        websocket_->set_option(boost::beast::websocket::stream_base::decorator(
             Decorator{std::forward<T>(value), field}));
     }
 
     void complete(int codecId)
     {
         if (subprotocolIsText(codecId))
-            http_->text(true);
+            websocket_->text(true);
         else
-            http_->binary(true);
+            websocket_->binary(true);
 
-        http_->read_message_max(settings_.maxRxLength());
+        websocket_->read_message_max(settings_.maxRxLength());
 
         const TransportInfo i{codecId,
                               std::numeric_limits<std::size_t>::max(),
                               settings_.maxRxLength()};
-        Transporting::Ptr transport{Transport::create(std::move(http_),
+        Transporting::Ptr transport{Transport::create(std::move(websocket_),
                                                       i)};
-        http_.reset();
+        websocket_.reset();
         dispatchHandler(std::move(transport));
     }
 
@@ -228,7 +225,7 @@ private:
     {
         if (bec)
         {
-            http_.reset();
+            websocket_.reset();
             tcpSocket_.close();
             auto ec = static_cast<std::error_code>(bec);
             if (bec == std::errc::operation_canceled ||
@@ -244,7 +241,7 @@ private:
     template <typename TErrc>
     void fail(TErrc errc)
     {
-        http_.reset();
+        websocket_.reset();
         tcpSocket_.close();
         dispatchHandler(makeUnexpectedError(errc));
     }
@@ -265,9 +262,9 @@ private:
     boost::beast::flat_buffer buffer_;
     Response noSubprotocolResponse_;
     Response badSubprotocolResponse_;
-    boost::beast::http::request<boost::beast::http::string_body> upgrade_;
+    boost::beast::http::request<boost::beast::http::string_body> request_;
     TcpSocket tcpSocket_;
-    SocketPtr http_;
+    SocketPtr websocket_;
 };
 
 } // namespace internal
