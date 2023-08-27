@@ -107,7 +107,7 @@ TEST_CASE( "WAMP protocol violation detection by client", "[WAMP][Advanced]" )
 {
     IoContext ioctx;
     Session session{ioctx};
-    auto server = internal::MockServer::create(ioctx, testPort);
+    auto server = internal::MockServer::create(ioctx.get_executor(), testPort);
     server->start();
 
     {

@@ -62,7 +62,8 @@ struct LoopbackFixture
     {
         cnct = Connector::create(boost::asio::make_strand(cctx),
                                  std::move(clientSettings), clientCodec);
-        lstn = Listener::create(boost::asio::make_strand(sctx),
+        lstn = Listener::create(sctx.get_executor(),
+                                boost::asio::make_strand(sctx),
                                 std::move(serverSettings),
                                 std::move(serverCodecs));
         if (connected)
@@ -71,13 +72,14 @@ struct LoopbackFixture
 
     void connect()
     {
-        lstn->establish(
-            [&](ErrorOr<Transporting::Ptr> transportOrError)
+        lstn->observe(
+            [&](ListenResult result)
             {
-                auto transport = transportOrError.value();
+                auto transport = result.transport();
                 serverCodec = transport->info().codecId();
                 server = std::move(transport);
             });
+        lstn->establish();
 
         cnct->establish(
             [&](ErrorOr<Transporting::Ptr> transportOrError)
@@ -297,22 +299,23 @@ void checkConnection(TFixture& f, int expectedCodec,
                      size_t clientMaxRxLength = 64*1024,
                      size_t serverMaxRxLength = 64*1024)
 {
-    f.lstn->establish([&](ErrorOr<Transporting::Ptr> transportOrError)
+    f.lstn->observe([&](ListenResult result)
     {
-        REQUIRE( transportOrError.has_value() );
-        auto transport = *transportOrError;
-        REQUIRE( transport );
+        REQUIRE( result.ok() );
+        auto transport = result.transport();
+        REQUIRE( transport != nullptr );
         CHECK( transport->info().codecId() == expectedCodec );
         CHECK( transport->info().maxRxLength() == serverMaxRxLength );
         CHECK( transport->info().maxTxLength() == clientMaxRxLength );
         f.server = transport;
     });
+    f.lstn->establish();
 
     f.cnct->establish([&](ErrorOr<Transporting::Ptr> transportOrError)
     {
         REQUIRE( transportOrError.has_value() );
         auto transport = *transportOrError;
-        REQUIRE( transport );
+        REQUIRE( transport != nullptr );
         CHECK( transport->info().codecId() == expectedCodec );
         CHECK( transport->info().maxRxLength() == clientMaxRxLength );
         CHECK( transport->info().maxTxLength() == serverMaxRxLength );
@@ -324,11 +327,9 @@ void checkConnection(TFixture& f, int expectedCodec,
 
 //------------------------------------------------------------------------------
 template <typename TFixture>
-void checkSendReply(TFixture& f,
-                    Transporting::Ptr sender,
-                    Transporting::Ptr receiver,
-                    const MessageBuffer& message,
-                    const MessageBuffer& reply)
+void checkSendReply(
+    TFixture& f, Transporting::Ptr sender, Transporting::Ptr receiver,
+    const MessageBuffer& message, const MessageBuffer& reply)
 {
     bool receivedMessage = false;
     bool receivedReply = false;
@@ -428,10 +429,12 @@ void checkConsecutiveSendReceive(TFixture& f, Transporting::Ptr& sender,
 template <typename TFixture>
 void checkUnsupportedSerializer(TFixture& f)
 {
-    f.lstn->establish([&](ErrorOr<Transporting::Ptr> transport)
+    f.lstn->observe([&](ListenResult result)
     {
-        CHECK( transport == makeUnexpectedError(TransportErrc::badSerializer) );
+        REQUIRE_FALSE( result.ok() );
+        CHECK( result.error() == TransportErrc::badSerializer );
     });
+    f.lstn->establish();
 
     f.cnct->establish([&](ErrorOr<Transporting::Ptr> transport)
     {
@@ -484,17 +487,19 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
                                 TErrorCode expectedClientCode)
 {
     IoContext ioctx;
-    IoStrand strand{ioctx.get_executor()};
+    auto exec = ioctx.get_executor();
+    auto strand = boost::asio::make_strand(exec);
 
     bool serverAborted = false;
-    auto lstn = TcpRawsockListener::create(strand, tcpEndpoint, {jsonId});
-    lstn->establish(
-        [&](ErrorOr<Transporting::Ptr> transport)
+    auto lstn = TcpRawsockListener::create(exec, strand, tcpEndpoint, {jsonId});
+    lstn->observe(
+        [&](ListenResult result)
         {
-            REQUIRE_FALSE( transport.has_value() );
-            CHECK( transport.error() == expectedServerCode );
+            REQUIRE_FALSE( result.ok() );
+            CHECK( result.error() == expectedServerCode );
             serverAborted = true;
         });
+    lstn->establish();
 
     using MockConnector = internal::RawsockConnector<internal::TcpOpener,
                                                      CannedHandshakeConfig>;
@@ -640,18 +645,19 @@ TEMPLATE_TEST_CASE( "Normal communications", "[Transport][Rawsock]",
     receivedMessage = false;
     receivedReply = false;
 
-    f.lstn->establish(
-        [&](ErrorOr<Transporting::Ptr> transportOrError)
+    f.lstn->observe(
+        [&](ListenResult result)
         {
-            REQUIRE( transportOrError.has_value() );
-            auto transport = *transportOrError;
-            REQUIRE( transport );
+            REQUIRE( result.ok() );
+            auto transport = result.transport();
+            REQUIRE( transport != nullptr );
             CHECK( transport->info().codecId() == KnownCodecIds::json() );
             CHECK( transport->info().maxRxLength() == 64*1024 );
             CHECK( transport->info().maxTxLength() == 64*1024 );
             server2 = transport;
             f.sctx.stop();
         });
+    f.lstn->establish();
 
     f.cnct->establish(
         [&](ErrorOr<Transporting::Ptr> transportOrError)
@@ -769,10 +775,12 @@ TEMPLATE_TEST_CASE( "Cancel listen", "[Transport][Rawsock]",
     auto reply = makeMessageBuffer("World");
 
     TestType f(false);
-    f.lstn->establish([&](ErrorOr<Transporting::Ptr> transport)
+    f.lstn->observe([&](ListenResult result)
     {
-        CHECK( transport == makeUnexpectedError(TransportErrc::aborted) );
+        REQUIRE_FALSE( result.ok() );
+        CHECK( result.error() == TransportErrc::aborted );
     });
+    f.lstn->establish();
     f.lstn->cancel();
     CHECK_NOTHROW( f.run() );
 
@@ -787,12 +795,13 @@ TEMPLATE_TEST_CASE( "Cancel connect", "[Transport][Rawsock]",
 {
     bool listenCompleted = false;
     TestType f(false);
-    f.lstn->establish([&](ErrorOr<Transporting::Ptr> transport)
+    f.lstn->observe([&](ListenResult result)
     {
-        if (transport.has_value())
-            f.server = *transport;
+        if (result.ok())
+            f.server = result.transport();
         listenCompleted = true;
     });
+    f.lstn->establish();
 
     bool connectCanceled = false;
     bool connectCompleted = false;
@@ -876,11 +885,12 @@ TEMPLATE_TEST_CASE( "Cancel send", "[Transport][Rawsock]",
     // The size of transmission is set to maximum to increase the likelyhood
     // of the operation being aborted, rather than completed.
     TestType f(false, jsonId, {jsonId}, RML::MB_16, RML::MB_16);
-    f.lstn->establish([&](ErrorOr<Transporting::Ptr> transport)
+    f.lstn->observe([&](ListenResult result)
     {
-        REQUIRE(transport.has_value());
-        f.server = *transport;
+        REQUIRE(result.ok());
+        f.server = result.transport();
     });
+    f.lstn->establish();
     f.cnct->establish([&](ErrorOr<Transporting::Ptr> transport)
     {
         REQUIRE(transport.has_value());
@@ -1006,20 +1016,22 @@ SCENARIO( "Client sending a message longer than maximum",
 GIVEN ( "a mock server under-reporting its maximum receive length" )
 {
     IoContext ioctx;
-    IoStrand strand{ioctx.get_executor()};
+    auto exec = ioctx.get_executor();
+    auto strand = boost::asio::make_strand(exec);
     MessageBuffer tooLong(64*1024 + 1, 'A');
 
     using MockListener = internal::RawsockListener<internal::TcpAcceptor,
                                                    CannedHandshakeConfig>;
     Transporting::Ptr server;
-    auto lstn = MockListener::create(strand, tcpEndpoint, {jsonId});
+    auto lstn = MockListener::create(exec, strand, tcpEndpoint, {jsonId});
     CannedHandshakeConfig::cannedHostBytes() = 0x7F810000;
-    lstn->establish(
-        [&](ErrorOr<Transporting::Ptr> transport)
+    lstn->observe(
+        [&](ListenResult result)
         {
-            REQUIRE( transport.has_value() );
-            server = std::move(*transport);
+            REQUIRE( result.ok() );
+            server = result.transport();
         });
+    lstn->establish();
 
     Transporting::Ptr client;
     auto cnct = TcpRawsockConnector::create(strand, tcpHost, jsonId);
@@ -1076,17 +1088,19 @@ SCENARIO( "Server sending a message longer than maximum",
 GIVEN ( "a mock client under-reporting its maximum receive length" )
 {
     IoContext ioctx;
-    IoStrand strand{ioctx.get_executor()};
+    auto exec = ioctx.get_executor();
+    auto strand = boost::asio::make_strand(exec);
     MessageBuffer tooLong(64*1024 + 1, 'A');
 
     Transporting::Ptr server;
-    auto lstn = TcpRawsockListener::create(strand, tcpEndpoint, {jsonId});
-    lstn->establish(
-        [&](ErrorOr<Transporting::Ptr> transport)
+    auto lstn = TcpRawsockListener::create(exec, strand, tcpEndpoint, {jsonId});
+    lstn->observe(
+        [&](ListenResult result)
         {
-            REQUIRE( transport.has_value() );
-            server = std::move(*transport);
+            REQUIRE( result.ok() );
+            server = result.transport();
         });
+    lstn->establish();
 
     using MockConnector = internal::RawsockConnector<internal::TcpOpener,
                                                      CannedHandshakeConfig>;
@@ -1145,16 +1159,18 @@ SCENARIO( "Client sending an invalid message type", "[Transport][Rawsock]" )
 GIVEN ( "A mock client that sends an invalid message type" )
 {
     IoContext ioctx;
-    IoStrand strand{ioctx.get_executor()};
+    auto exec = ioctx.get_executor();
+    auto strand = boost::asio::make_strand(exec);
 
-    auto lstn = TcpRawsockListener::create(strand, tcpEndpoint, {jsonId});
+    auto lstn = TcpRawsockListener::create(exec, strand, tcpEndpoint, {jsonId});
     Transporting::Ptr server;
-    lstn->establish(
-        [&](ErrorOr<Transporting::Ptr> transport)
+    lstn->observe(
+        [&](ListenResult result)
         {
-            REQUIRE( transport.has_value() );
-            server = std::move(*transport);
+            REQUIRE( result.ok() );
+            server = result.transport();
         });
+    lstn->establish();
 
     using MockConnector = internal::RawsockConnector<internal::TcpOpener,
                                                      FakeTransportClientConfig>;
@@ -1215,15 +1231,17 @@ GIVEN ( "A mock server that sends an invalid message type" )
                                                    FakeTransportServerOptions>;
 
     IoContext ioctx;
-    IoStrand strand{ioctx.get_executor()};
-    auto lstn = MockListener::create(strand, tcpEndpoint, {jsonId});
+    auto exec = ioctx.get_executor();
+    auto strand = boost::asio::make_strand(exec);
+    auto lstn = MockListener::create(exec, strand, tcpEndpoint, {jsonId});
     Transporting::Ptr server;
-    lstn->establish(
-        [&](ErrorOr<Transporting::Ptr> transport)
+    lstn->observe(
+        [&](ListenResult result)
         {
-            REQUIRE( transport.has_value() );
-            server = *transport;
+            REQUIRE( result.ok() );
+            server = result.transport();
         });
+    lstn->establish();
 
     auto cnct = TcpRawsockConnector::create(strand, tcpHost, jsonId);
     Transporting::Ptr client;
@@ -1277,20 +1295,22 @@ GIVEN ( "A mock server that sends an invalid message type" )
 TEST_CASE( "TCP rawsocket heartbeat", "[Transport][Rawsock]" )
 {
     IoContext ioctx;
-    IoStrand strand{ioctx.get_executor()};
+    auto exec = ioctx.get_executor();
+    auto strand = boost::asio::make_strand(exec);
     boost::asio::steady_timer timer{ioctx};
 
     using MockListener = internal::RawsockListener<internal::TcpAcceptor,
                                                    PingPongServerConfig>;
 
-    auto lstn = MockListener::create(strand, tcpEndpoint, {jsonId});
+    auto lstn = MockListener::create(exec, strand, tcpEndpoint, {jsonId});
     Transporting::Ptr server;
-    lstn->establish(
-        [&](ErrorOr<Transporting::Ptr> transport)
+    lstn->observe(
+        [&](ListenResult result)
         {
-            REQUIRE( transport.has_value() );
-            server = std::move(*transport);
+            REQUIRE( result.ok() );
+            server = result.transport();
         });
+    lstn->establish();
 
     using MockConnector =
         internal::RawsockConnector<internal::TcpOpener, PingPongClientConfig>;

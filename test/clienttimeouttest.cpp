@@ -58,7 +58,8 @@ TEST_CASE("WAMP Client Connection Timeouts", "[WAMP][Basic]")
     using SS = SessionState;
 
     IoContext ioctx;
-    auto strand = boost::asio::make_strand(ioctx);
+    auto exec = ioctx.get_executor();
+    auto strand = boost::asio::make_strand(exec);
     Session s(ioctx);
     IncidentListener incidents;
     s.observeIncidents(incidents);
@@ -66,9 +67,9 @@ TEST_CASE("WAMP Client Connection Timeouts", "[WAMP][Basic]")
     auto badWhere = invalidTcp;
 
     const auto tcpEndpoint = TcpEndpoint{invalidPort};
-    auto lstn = MockListener::create(strand, tcpEndpoint,
+    auto lstn = MockListener::create(exec, strand, tcpEndpoint,
                                      {KnownCodecIds::json()});
-    lstn->establish( [](ErrorOr<Transporting::Ptr>) {} );
+    lstn->establish();
 
     auto check = [&](Timeout timeout)
     {
@@ -152,7 +153,8 @@ TEST_CASE("WAMP Client Command Timeouts", "[WAMP][Basic]")
     using SS = SessionState;
     IoContext ioctx;
     Session s{ioctx};
-    auto server = internal::MockServer::create(ioctx, invalidPort);
+    auto server = internal::MockServer::create(ioctx.get_executor(),
+                                               invalidPort);
     server->start();
 
     auto check = [&](Timeout timeout)

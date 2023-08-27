@@ -137,7 +137,7 @@ public:
     Timeout challengeTimeout() const;
 
 private:
-    Listening::Ptr makeListener(IoStrand s) const;
+    Listening::Ptr makeListener(AnyIoExecutor e, IoStrand s) const;
 
     AnyBufferCodec makeCodec(int codecId) const;
 

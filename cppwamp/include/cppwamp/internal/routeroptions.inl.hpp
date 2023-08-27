@@ -137,12 +137,13 @@ CPPWAMP_INLINE Timeout ServerOptions::challengeTimeout() const
     return challengeTimeout_;
 }
 
-CPPWAMP_INLINE Listening::Ptr ServerOptions::makeListener(IoStrand s) const
+CPPWAMP_INLINE Listening::Ptr ServerOptions::makeListener(
+    AnyIoExecutor e, IoStrand s) const
 {
     std::set<int> codecIds;
     for (const auto& c: codecBuilders_)
         codecIds.emplace(c.id());
-    return listenerBuilder_(std::move(s), std::move(codecIds));
+    return listenerBuilder_(std::move(e), std::move(s), std::move(codecIds));
 }
 
 CPPWAMP_INLINE AnyBufferCodec ServerOptions::makeCodec(int codecId) const

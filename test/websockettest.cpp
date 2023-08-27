@@ -54,7 +54,8 @@ struct LoopbackFixture
     {
         cnct = Connector::create(boost::asio::make_strand(cctx),
                                  std::move(clientSettings), clientCodec);
-        lstn = Listener::create(boost::asio::make_strand(sctx),
+        lstn = Listener::create(sctx.get_executor(),
+                                boost::asio::make_strand(sctx),
                                 std::move(serverSettings),
                                 std::move(serverCodecs));
         if (connected)
@@ -75,13 +76,14 @@ struct LoopbackFixture
 
     void connect()
     {
-        lstn->establish(
-            [&](ErrorOr<Transporting::Ptr> transportOrError)
+        lstn->observe(
+            [&](ListenResult result)
             {
-                auto transport = transportOrError.value();
+                auto transport = result.transport();
                 serverCodec = transport->info().codecId();
                 server = std::move(transport);
             });
+        lstn->establish();
 
         cnct->establish(
             [&](ErrorOr<Transporting::Ptr> transportOrError)
@@ -149,16 +151,17 @@ void checkConnection(LoopbackFixture& f, int expectedCodec,
                      size_t clientMaxRxLength = 64*1024,
                      size_t serverMaxRxLength = 64*1024)
 {
-    f.lstn->establish([&](ErrorOr<Transporting::Ptr> transportOrError)
+    f.lstn->observe([&](ListenResult result)
     {
-        REQUIRE( transportOrError.has_value() );
-        auto transport = *transportOrError;
+        REQUIRE( result.ok() );
+        auto transport = result.transport();
         REQUIRE( transport );
         CHECK( transport->info().codecId() == expectedCodec );
         CHECK( transport->info().maxRxLength() == serverMaxRxLength );
         CHECK( transport->info().maxTxLength() == maxSize );
         f.server = transport;
     });
+    f.lstn->establish();
 
     f.cnct->establish([&](ErrorOr<Transporting::Ptr> transportOrError)
     {
@@ -278,12 +281,13 @@ void checkConsecutiveSendReceive(LoopbackFixture& f, Transporting::Ptr& sender,
 //------------------------------------------------------------------------------
 void checkUnsupportedSerializer(LoopbackFixture& f)
 {
-    f.lstn->establish([&](ErrorOr<Transporting::Ptr> transport)
+    f.lstn->observe([&](ListenResult result)
     {
-        REQUIRE_FALSE(transport.has_value());
-        UNSCOPED_INFO("error message: " << transport.error().message());
-        CHECK( transport.error() == TransportErrc::badSerializer );
+        REQUIRE_FALSE(result.ok());
+        UNSCOPED_INFO("error message: " << result.error().message());
+        CHECK( result.error() == TransportErrc::badSerializer );
     });
+    f.lstn->establish();
 
     f.cnct->establish([&](ErrorOr<Transporting::Ptr> transport)
     {
@@ -390,11 +394,11 @@ TEST_CASE( "Normal websocket communications", "[Transport][Websocket]" )
     receivedMessage = false;
     receivedReply = false;
 
-    f.lstn->establish(
-        [&](ErrorOr<Transporting::Ptr> transportOrError)
+    f.lstn->observe(
+        [&](ListenResult result)
         {
-            REQUIRE( transportOrError.has_value() );
-            auto transport = *transportOrError;
+            REQUIRE( result.ok() );
+            auto transport = result.transport();
             REQUIRE( transport );
             CHECK( transport->info().codecId() == KnownCodecIds::json() );
             CHECK( transport->info().maxRxLength() == 64*1024 );
@@ -402,6 +406,7 @@ TEST_CASE( "Normal websocket communications", "[Transport][Websocket]" )
             server2 = transport;
             f.sctx.stop();
         });
+    f.lstn->establish();
 
     f.cnct->establish(
         [&](ErrorOr<Transporting::Ptr> transportOrError)
@@ -515,10 +520,12 @@ TEST_CASE( "Cancel websocket listen", "[Transport][Websocket]" )
     auto reply = makeMessageBuffer("World");
 
     LoopbackFixture f(false);
-    f.lstn->establish([&](ErrorOr<Transporting::Ptr> transport)
+    f.lstn->observe([&](ListenResult result)
     {
-        CHECK( transport == makeUnexpectedError(TransportErrc::aborted) );
+        REQUIRE_FALSE( result.ok() );
+        CHECK( result.error() == TransportErrc::aborted );
     });
+    f.lstn->establish();
     f.lstn->cancel();
     CHECK_NOTHROW( f.run() );
 
@@ -532,12 +539,13 @@ TEST_CASE( "Cancel websocket connect", "[Transport][Websocket]" )
 {
     bool listenCompleted = false;
     LoopbackFixture f(false);
-    f.lstn->establish([&](ErrorOr<Transporting::Ptr> transport)
+    f.lstn->observe([&](ListenResult result)
     {
-        if (transport.has_value())
-            f.server = *transport;
+        if (result.ok())
+            f.server = result.transport();
         listenCompleted = true;
     });
+    f.lstn->establish();
 
     bool connectCanceled = false;
     bool connectCompleted = false;
@@ -619,11 +627,12 @@ TEST_CASE( "Cancel websocket send", "[Transport][Websocket]" )
     // The size of transmission is set large to increase the likelyhood
     // of the operation being aborted, rather than completed.
     LoopbackFixture f(false, jsonId, {jsonId}, 16*1024*1024, 16*1024*1024);
-    f.lstn->establish([&](ErrorOr<Transporting::Ptr> transport)
+    f.lstn->observe([&](ListenResult result)
     {
-        REQUIRE(transport.has_value());
-        f.server = *transport;
+        REQUIRE(result.ok());
+        f.server = result.transport();
     });
+    f.lstn->establish();
     f.cnct->establish([&](ErrorOr<Transporting::Ptr> transport)
     {
         REQUIRE(transport.has_value());

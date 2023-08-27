@@ -98,10 +98,9 @@ public:
     using Responses = MockServerSession::Responses;
     using MessageList = std::vector<Message>;
 
-    template <typename E>
-    static Ptr create(E&& exec, uint16_t port)
+    static Ptr create(AnyIoExecutor exec, uint16_t port)
     {
-        return Ptr(new MockServer(std::forward<E>(exec), port));
+        return Ptr(new MockServer(std::move(exec), port));
     }
 
     void load(Responses cannedResponses)
@@ -146,8 +145,7 @@ public:
     static C toCommand(Message&& m) {return C{PassKey{}, std::move(m)};}
 
 private:
-    template <typename E>
-    MockServer(E&& exec, uint16_t port)
+    MockServer(AnyIoExecutor exec, uint16_t port)
         : listener_(exec, boost::asio::make_strand(exec), TcpEndpoint{port},
                     {Json::id()})
     {}

@@ -555,7 +555,7 @@ private:
     void startListening()
     {
         assert(!listener_);
-        listener_ = options_->makeListener(strand_);
+        listener_ = options_->makeListener(executor_, strand_);
         inform("Starting server listening on " + listener_->where());
 
         const std::weak_ptr<RouterServer> self{shared_from_this()};

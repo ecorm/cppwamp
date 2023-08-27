@@ -25,7 +25,7 @@
 
 #include "api.hpp"
 #include "asiodefs.hpp"
-#include "erroror.hpp"
+#include "exceptions.hpp"
 #include "transport.hpp"
 #include "traits.hpp"
 
@@ -171,7 +171,11 @@ public:
 
     /** Obtains the new transport instance if the listen attempt
         was successful. */
-    const Transporting::Ptr transport() const {return transport_;}
+    const Transporting::Ptr transport() const
+    {
+        CPPWAMP_LOGIC_CHECK(ok(), "No transport available");
+        return transport_;
+    }
 
     /** Obtains the error code if the listen attempt failed. */
     std::error_code error() const {return error_;}
@@ -254,13 +258,15 @@ public:
 
     /** Builds a listener appropriate for the transport settings given
         in the constructor. */
-    Listening::Ptr operator()(IoStrand s, CodecIds codecIds) const
+    Listening::Ptr operator()(AnyIoExecutor e, IoStrand s,
+                              CodecIds codecIds) const
     {
-        return builder_(std::move(s), std::move(codecIds));
+        return builder_(std::move(e), std::move(s), std::move(codecIds));
     }
 
 private:
-    using Function = std::function<Listening::Ptr (IoStrand s, CodecIds)>;
+    using Function =
+        std::function<Listening::Ptr (AnyIoExecutor e, IoStrand s, CodecIds)>;
 
     template <typename S>
     static Function makeBuilder(S&& transportSettings)
@@ -269,10 +275,11 @@ private:
         using Protocol = typename Settings::Protocol;
         using ConcreteListener = Listener<Protocol>;
         return Function{
-            [transportSettings](IoStrand s, CodecIds codecIds)
+            [transportSettings](AnyIoExecutor e, IoStrand s, CodecIds codecIds)
             {
                 return Listening::Ptr(new ConcreteListener(
-                    std::move(s), transportSettings, std::move(codecIds)));
+                    std::move(e), std::move(s), transportSettings,
+                    std::move(codecIds)));
             }};
     }
 
