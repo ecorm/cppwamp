@@ -111,6 +111,7 @@ namespace internal { class Challenger; } // Forward declaration
 //------------------------------------------------------------------------------
 class CPPWAMP_API ServerOptions
 {
+    // TODO: Connection limit
 public:
     using Ptr = std::shared_ptr<ServerOptions>;
 

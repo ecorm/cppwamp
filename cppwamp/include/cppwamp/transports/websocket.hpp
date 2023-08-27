@@ -36,8 +36,8 @@ struct WebsocketListenerImpl;
 
 //------------------------------------------------------------------------------
 /** Connector specialization that establishes a client-side Websocket transport.
-    Users do not need to use this class directly and should use
-    ConnectionWish instead. */
+    Users do not need to use this class directly and should pass
+    wamp::ConnectionWish instead to wamp::Session::connect. */
 //------------------------------------------------------------------------------
 template <>
 class CPPWAMP_API Connector<Websocket> : public Connecting
@@ -54,7 +54,7 @@ public:
 
     /** Starts establishing the transport connection, emitting a
         Transportable::Ptr via the given handler if successful. */
-    void establish(Handler&& handler) override;
+    void establish(Handler handler) override;
 
     /** Cancels transport connection in progress, emitting an error code
         via the handler passed to the establish method. */
@@ -74,8 +74,9 @@ private:
 
 //------------------------------------------------------------------------------
 /** Listener specialization that establishes a server-side Websocket transport.
-    Users do not need to use this class directly and should use
-    ConnectionWish instead. */
+    Users do not need to use this class directly and should instead pass
+    wamp::WebsocketEndpoint to wamp::Router::openServer via
+    wamp::ServerOptions. */
 //------------------------------------------------------------------------------
 template <>
 class CPPWAMP_API Listener<Websocket> : public Listening
@@ -88,12 +89,14 @@ public:
     using CodecIds = std::set<int>;
 
     /** Constructor. */
-    Listener(IoStrand i, Settings s, CodecIds codecIds);
+    Listener(AnyIoExecutor e, IoStrand i, Settings s, CodecIds codecIds);
 
     /** Destructor. */
     ~Listener() override;
 
-    void establish(Handler&& handler) override;
+    void observe(Handler handler) override;
+
+    void establish() override;
 
     void cancel() override;
 

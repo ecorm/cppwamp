@@ -230,16 +230,16 @@ private:
 
             auto self = this->shared_from_this();
             boost::asio::async_write(*socket_, txFrame_->gatherBuffers(),
-                [this, self](boost::system::error_code asioEc, size_t)
+                [this, self](boost::system::error_code netEc, size_t)
                 {
                     const bool frameWasPoisoned = txFrame_ &&
                                                   txFrame_->isPoisoned();
                     txFrame_.reset();
-                    if (asioEc)
+                    if (netEc)
                     {
                         if (txErrorHandler_)
                         {
-                            auto ec = static_cast<std::error_code>(asioEc);
+                            auto ec = static_cast<std::error_code>(netEc);
                             txErrorHandler_(ec);
                         }
                         cleanup();
@@ -372,18 +372,18 @@ private:
                                              std::forward<Ts>(args)...));
     }
 
-    bool check(boost::system::error_code asioEc)
+    bool check(boost::system::error_code netEc)
     {
-        if (asioEc)
+        if (netEc)
         {
             if (rxHandler_)
             {
-                auto ec = static_cast<std::error_code>(asioEc);
+                auto ec = static_cast<std::error_code>(netEc);
                 post(rxHandler_, UnexpectedError(ec));
             }
             cleanup();
         }
-        return !asioEc;
+        return !netEc;
     }
 
     template <typename TErrc>

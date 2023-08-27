@@ -280,13 +280,13 @@ private:
 
         websocket_->async_ping(
             buffer,
-            [this, self](boost::beast::error_code bec)
+            [this, self](boost::beast::error_code netEc)
             {
                 txFrame_.reset();
-                if (bec)
+                if (netEc)
                 {
                     if (txErrorHandler_)
-                        txErrorHandler_(static_cast<std::error_code>(bec));
+                        txErrorHandler_(static_cast<std::error_code>(netEc));
                     cleanup();
                 }
                 else
@@ -301,16 +301,16 @@ private:
         auto self = this->shared_from_this();
         websocket_->async_write(
             txFrame_->payloadBuffer(),
-            [this, self](boost::beast::error_code bec, size_t)
+            [this, self](boost::beast::error_code netEc, size_t)
             {
                 const bool frameWasPoisoned = txFrame_ &&
                                               txFrame_->isPoisoned();
                 txFrame_.reset();
-                if (bec)
+                if (netEc)
                 {
                     if (txErrorHandler_)
                     {
-                        auto ec = static_cast<std::error_code>(bec);
+                        auto ec = static_cast<std::error_code>(netEc);
                         txErrorHandler_(ec);
                     }
                     cleanup();
@@ -421,31 +421,28 @@ private:
                                              std::forward<Ts>(args)...));
     }
 
-    bool check(boost::beast::error_code bec)
+    bool check(boost::beast::error_code netEc)
     {
-        if (bec)
+        if (netEc)
         {
-            if (rxHandler_)
-            {
-                using BWE = boost::beast::websocket::error;
-                auto ec = static_cast<std::error_code>(bec);
-                if (bec == BWE::message_too_big || bec == BWE::buffer_overflow)
-                    ec = make_error_code(TransportErrc::inboundTooLong);
-                post(rxHandler_, UnexpectedError(ec));
-            }
-            closeWebsocket(websocketErrorToCloseCode(bec));
-            cleanup();
+            auto ec = static_cast<std::error_code>(netEc);
+            using BWE = boost::beast::websocket::error;
+            if (netEc == BWE::message_too_big || netEc == BWE::buffer_overflow)
+                ec = make_error_code(TransportErrc::inboundTooLong);
+            fail(ec, websocketErrorToCloseCode(netEc));
         }
-        return !bec;
+        return !netEc;
     }
 
     template <typename TErrc>
-    void fail(TErrc errc, boost::beast::websocket::close_code closeCode)
+    void fail(TErrc errc, boost::beast::websocket::close_code closeCode,
+              bool bad = false)
     {
         fail(make_error_code(errc), closeCode);
     }
 
-    void fail(std::error_code ec, boost::beast::websocket::close_code closeCode)
+    void fail(std::error_code ec, boost::beast::websocket::close_code closeCode,
+              bool bad = false)
     {
         if (rxHandler_)
             post(rxHandler_, makeUnexpected(ec));

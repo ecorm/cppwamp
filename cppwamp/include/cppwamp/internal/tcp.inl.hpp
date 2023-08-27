@@ -39,8 +39,9 @@ struct TcpListenerImpl
 {
     using RawsockListener = internal::RawsockListener<internal::TcpAcceptor>;
 
-    TcpListenerImpl(IoStrand i, TcpEndpoint s, std::set<int> codecIds)
-        : lstn(RawsockListener::create(std::move(i), std::move(s),
+    TcpListenerImpl(AnyIoExecutor e, IoStrand i, TcpEndpoint s,
+                    std::set<int> codecIds)
+        : lstn(RawsockListener::create(std::move(e), std::move(i), std::move(s),
                                        std::move(codecIds)))
     {}
 
@@ -65,7 +66,7 @@ CPPWAMP_INLINE Connector<Tcp>::Connector(IoStrand i, Settings s, int codecId)
 CPPWAMP_INLINE Connector<Tcp>::~Connector() = default;
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Connector<Tcp>::establish(Handler&& handler)
+CPPWAMP_INLINE void Connector<Tcp>::establish(Handler handler)
 {
     impl_->cnct->establish(std::move(handler));
 }
@@ -79,11 +80,11 @@ CPPWAMP_INLINE void Connector<Tcp>::cancel() {impl_->cnct->cancel();}
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Listener<Tcp>::Listener(IoStrand i, Settings s,
+CPPWAMP_INLINE Listener<Tcp>::Listener(AnyIoExecutor e, IoStrand i, Settings s,
                                        std::set<int> codecIds)
     : Listening(s.label()),
-      impl_(new internal::TcpListenerImpl(std::move(i), std::move(s),
-                                          std::move(codecIds)))
+    impl_(new internal::TcpListenerImpl(std::move(e), std::move(i),
+                                        std::move(s), std::move(codecIds)))
 {}
 
 //------------------------------------------------------------------------------
@@ -92,10 +93,13 @@ CPPWAMP_INLINE Listener<Tcp>::Listener(IoStrand i, Settings s,
 CPPWAMP_INLINE Listener<Tcp>::~Listener() = default;
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Listener<Tcp>::establish(Handler&& handler)
+CPPWAMP_INLINE void Listener<Tcp>::observe(Handler handler)
 {
-    impl_->lstn->establish(std::move(handler));
+    impl_->lstn->observe(std::move(handler));
 }
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Listener<Tcp>::establish() {impl_->lstn->establish();}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Listener<Tcp>::cancel() {impl_->lstn->cancel();}

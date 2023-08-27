@@ -33,9 +33,10 @@ struct WebsocketConnectorImpl
 //------------------------------------------------------------------------------
 struct WebsocketListenerImpl
 {
-    WebsocketListenerImpl(IoStrand i, WebsocketEndpoint s, std::set<int> codecIds)
-        : lstn(WebsocketListener::create(std::move(i), std::move(s),
-                                         std::move(codecIds)))
+    WebsocketListenerImpl(AnyIoExecutor e, IoStrand i, WebsocketEndpoint s,
+                          std::set<int> codecIds)
+        : lstn(WebsocketListener::create(std::move(e), std::move(i),
+                                         std::move(s), std::move(codecIds)))
     {}
 
     WebsocketListener::Ptr lstn;
@@ -61,7 +62,7 @@ CPPWAMP_INLINE Connector<Websocket>::Connector(IoStrand i, Settings s,
 CPPWAMP_INLINE Connector<Websocket>::~Connector() = default;
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Connector<Websocket>::establish(Handler&& handler)
+CPPWAMP_INLINE void Connector<Websocket>::establish(Handler handler)
 {
     impl_->cnct->establish(std::move(handler));
 }
@@ -75,11 +76,11 @@ CPPWAMP_INLINE void Connector<Websocket>::cancel() {impl_->cnct->cancel();}
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Listener<Websocket>::Listener(IoStrand i, Settings s,
-                                       std::set<int> codecIds)
+CPPWAMP_INLINE Listener<Websocket>::Listener(AnyIoExecutor e, IoStrand i,
+                                             Settings s, std::set<int> codecIds)
     : Listening(s.label()),
-      impl_(new internal::WebsocketListenerImpl(std::move(i), std::move(s),
-                                          std::move(codecIds)))
+    impl_(new internal::WebsocketListenerImpl(
+          std::move(e), std::move(i), std::move(s), std::move(codecIds)))
 {}
 
 //------------------------------------------------------------------------------
@@ -88,9 +89,15 @@ CPPWAMP_INLINE Listener<Websocket>::Listener(IoStrand i, Settings s,
 CPPWAMP_INLINE Listener<Websocket>::~Listener() = default;
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Listener<Websocket>::establish(Handler&& handler)
+CPPWAMP_INLINE void Listener<Websocket>::observe(Handler handler)
 {
-    impl_->lstn->establish(std::move(handler));
+    impl_->lstn->observe(std::move(handler));
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Listener<Websocket>::establish()
+{
+    impl_->lstn->establish();
 }
 
 //------------------------------------------------------------------------------

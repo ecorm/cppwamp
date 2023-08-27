@@ -48,10 +48,10 @@ public:
             TcpOpener* self;
             typename std::decay<F>::type callback;
 
-            void operator()(boost::system::error_code asioEc,
+            void operator()(boost::system::error_code netEc,
                             tcp::resolver::results_type endpoints)
             {
-                if (self->checkError(asioEc, callback))
+                if (self->checkError(netEc, callback))
                     self->connect(endpoints, std::move(callback));
             }
         };
@@ -75,14 +75,14 @@ private:
     using tcp = boost::asio::ip::tcp;
 
     template <typename F>
-    bool checkError(boost::system::error_code asioEc, F& callback)
+    bool checkError(boost::system::error_code netEc, F& callback)
     {
-        if (asioEc)
+        if (netEc)
         {
-            auto ec = static_cast<std::error_code>(asioEc);
+            auto ec = static_cast<std::error_code>(netEc);
             callback(UnexpectedError(ec));
         }
-        return !asioEc;
+        return !netEc;
     }
 
     template <typename F>
@@ -93,12 +93,12 @@ private:
             TcpOpener* self;
             typename std::decay<F>::type callback;
 
-            void operator()(boost::system::error_code asioEc,
+            void operator()(boost::system::error_code netEc,
                             const tcp::endpoint&)
             {
                 SocketPtr socket{std::move(self->socket_)};
                 self->socket_.reset();
-                if (self->checkError(asioEc, callback))
+                if (self->checkError(netEc, callback))
                     callback(std::move(socket));
             }
         };

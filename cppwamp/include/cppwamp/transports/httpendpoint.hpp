@@ -15,9 +15,11 @@
 
 #include <cassert>
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <string>
 #include "../api.hpp"
+#include "../utils/triemap.hpp"
 #include "tcpprotocol.hpp"
 #include "httpprotocol.hpp"
 
@@ -26,14 +28,6 @@ namespace wamp
 
 namespace internal
 {
-
-//------------------------------------------------------------------------------
-class CPPWAMP_API HttpServerContext
-{
-public:
-
-private:
-};
 
 //------------------------------------------------------------------------------
 template <typename TOptions>
@@ -46,7 +40,7 @@ class CPPWAMP_API PolymorphicHttpActionInterface
 public:
     virtual ~PolymorphicHttpActionInterface() = default;
 
-    virtual void execute(HttpServerContext& context, std::string target) = 0;
+    virtual void execute(const std::string& target) = 0;
 };
 
 //------------------------------------------------------------------------------
@@ -62,10 +56,9 @@ public:
         : action_(std::move(options))
     {}
 
-    virtual void execute(HttpServerContext& context,
-                         std::string target) override
+    virtual void execute(const std::string& target) override
     {
-        action_.execute(context, std::move(target));
+        action_.execute(target);
     };
 
 private:
@@ -95,10 +88,10 @@ public:
     explicit operator bool() const {return action_ != nullptr;}
 
 private:
-    void execute(internal::HttpServerContext& context, std::string target)
+    void execute(const std::string& target)
     {
         assert(action_ != nullptr);
-        action_->execute(context, std::move(target));
+        action_->execute(target);
     };
 
     std::shared_ptr<internal::PolymorphicHttpActionInterface> action_;
@@ -145,9 +138,14 @@ template <>
 class HttpAction<HttpServeStaticFile>
 {
 public:
-    void execute(HttpServerContext& context, std::string target)
+    HttpAction(HttpServeStaticFile options) : options_(options) {}
+
+    void execute(const std::string& target)
     {
     };
+
+private:
+    HttpServeStaticFile options_;
 };
 
 //------------------------------------------------------------------------------
@@ -155,9 +153,14 @@ template <>
 class HttpAction<HttpWebsocketUpgrade>
 {
 public:
-    void execute(HttpServerContext& context, std::string target)
+    HttpAction(HttpWebsocketUpgrade options) : options_(options) {}
+
+    void execute(const std::string& target)
     {
     };
+
+private:
+    HttpWebsocketUpgrade options_;
 };
 } // namespace internal
 
@@ -167,6 +170,13 @@ public:
 class CPPWAMP_API HttpEndpoint
 {
 public:
+    /// URI and status code of an error page.
+    struct ErrorPage
+    {
+        std::string uri;
+        HttpStatus status;
+    };
+
     /// Transport protocol tag associated with these settings.
     using Protocol = Http;
 
@@ -185,8 +195,21 @@ public:
     /** Specifies the maximum length permitted for incoming messages. */
     HttpEndpoint& withMaxRxLength(std::size_t length);
 
-    /** Specifies the document root filesystem path. */
-    HttpEndpoint& withDocumentRoot(std::string docRoot);
+    /** Adds an action associated with an exact route. */
+    HttpEndpoint& withExactRoute(std::string uri, AnyHttpAction action);
+
+    /** Adds an action associated with a prefix match route. */
+    HttpEndpoint& withPrefixRoute(std::string uri, AnyHttpAction action);
+
+    /** Specifies the error page to show for the given HTTP response
+        status code. */
+    HttpEndpoint& withErrorPage(HttpStatus status, std::string uri);
+
+    /** Specifies the error page to shown for the given HTTP response
+        status code, with the original status code subsituted with the given
+        status code. */
+    HttpEndpoint& withErrorPage(HttpStatus status, std::string uri,
+                                HttpStatus changedStatus);
 
     /** Obtains the endpoint address. */
     const std::string& address() const;
@@ -200,13 +223,25 @@ public:
     /** Obtains the specified maximum incoming message length. */
     std::size_t maxRxLength() const;
 
-    /** Obtains the document root filesystem path. */
-    const std::string& documentRoot() const;
-
     /** Generates a human-friendly string of the HTTP address/port. */
     std::string label() const;
 
+    /** Finds the best matching action associated with the given route. */
+    template <typename TStringLike>
+    AnyHttpAction* findAction(const TStringLike& route) const
+    {
+        return doFindAction(route.data());
+    }
+
+    /** Finds the error page associated with the given HTTP status code. */
+    const ErrorPage* findErrorPage(HttpStatus status) const;
+
 private:
+    AnyHttpAction* doFindAction(const char* route);
+
+    utils::TrieMap<AnyHttpAction> actionsByExactKey_;
+    utils::TrieMap<AnyHttpAction> actionsByPrefixKey_;
+    std::map<HttpStatus, ErrorPage> errorPages_;
     std::string address_;
     TcpOptions options_;
     std::size_t maxRxLength_ = 16*1024*1024;

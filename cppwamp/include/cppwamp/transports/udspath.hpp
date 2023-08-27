@@ -62,7 +62,7 @@ public:
     /** Obtains the specified maximum incoming message length. */
     RawsockMaxLength maxRxLength() const;
 
-    /** Returns true if path deletion before listening is enabled. */
+    /** Returns true if automatic path deletion before listening is enabled. */
     bool deletePathEnabled() const;
 
     /** Generates a human-friendly string of the UDS path. */

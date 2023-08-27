@@ -7,6 +7,7 @@
 #include "../transports/httpendpoint.hpp"
 #include <utility>
 #include "../api.hpp"
+#include "../exceptions.hpp"
 
 namespace wamp
 {
@@ -33,17 +34,35 @@ HttpEndpoint::withMaxRxLength(std::size_t length)
     return *this;
 }
 
-CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withExactRoute(std::string route,
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withExactRoute(std::string uri,
                                                           AnyHttpAction action)
 {
-    actionsByExactKey_[std::move(route)] = action;
+    actionsByExactKey_[std::move(uri)] = action;
     return *this;
 }
 
-CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withPrefixRoute(
-    std::string route, AnyHttpAction action)
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withPrefixRoute(std::string uri,
+                                                           AnyHttpAction action)
 {
-    actionsByPrefixKey_[std::move(route)] = action;
+    actionsByPrefixKey_[std::move(uri)] = action;
+    return *this;
+}
+
+/** @pre `static_cast<unsigned>(status) >= 300` */
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withErrorPage(HttpStatus status,
+                                                         std::string uri)
+{
+    CPPWAMP_LOGIC_CHECK(static_cast<unsigned>(status) >= 300,
+                        "'status' must be a redirect or error code");
+    return withErrorPage(status, std::move(uri), status);
+}
+
+/** @pre `static_cast<unsigned>(status) >= 300` */
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withErrorPage(
+    HttpStatus status, std::string uri, HttpStatus changedStatus)
+{
+    CPPWAMP_LOGIC_CHECK(static_cast<unsigned>(status) >= 300,
+                        "'status' must be a redirect or error code");
     return *this;
 }
 
@@ -74,7 +93,14 @@ CPPWAMP_INLINE std::string HttpEndpoint::label() const
     return "HTTP " + address_ + ':' + std::to_string(port_);
 }
 
-CPPWAMP_INLINE AnyHttpAction* HttpEndpoint::findAction(const std::string& route)
+CPPWAMP_INLINE const HttpEndpoint::ErrorPage*
+HttpEndpoint::findErrorPage(HttpStatus status) const
+{
+    auto found = errorPages_.find(status);
+    return found == errorPages_.end() ? nullptr : &(found->second);
+}
+
+CPPWAMP_INLINE AnyHttpAction* HttpEndpoint::doFindAction(const char* route)
 {
     {
         auto found = actionsByExactKey_.find(route);

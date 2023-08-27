@@ -39,8 +39,9 @@ struct UdsListenerImpl
 {
     using RawsockListener = internal::RawsockListener<internal::UdsAcceptor>;
 
-    UdsListenerImpl(IoStrand i, UdsPath s, std::set<int> codecIds)
-        : lstn(RawsockListener::create(std::move(i), std::move(s),
+    UdsListenerImpl(AnyIoExecutor e, IoStrand i, UdsPath s,
+                    std::set<int> codecIds)
+        : lstn(RawsockListener::create(std::move(e), std::move(i), std::move(s),
                                        std::move(codecIds)))
     {}
 
@@ -65,7 +66,7 @@ CPPWAMP_INLINE Connector<Uds>::Connector(IoStrand i, Settings s, int codecId)
 CPPWAMP_INLINE Connector<Uds>::~Connector() = default;
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Connector<Uds>::establish(Handler&& handler)
+CPPWAMP_INLINE void Connector<Uds>::establish(Handler handler)
 {
     impl_->cnct->establish(std::move(handler));
 }
@@ -78,11 +79,11 @@ CPPWAMP_INLINE void Connector<Uds>::cancel() {impl_->cnct->cancel();}
 // Listener<Uds>
 //******************************************************************************
 
-CPPWAMP_INLINE Listener<Uds>::Listener(IoStrand i, Settings s,
+CPPWAMP_INLINE Listener<Uds>::Listener(AnyIoExecutor e, IoStrand i, Settings s,
                                        std::set<int> codecIds)
     : Listening(s.label()),
-      impl_(new internal::UdsListenerImpl(std::move(i), std::move(s),
-                                          std::move(codecIds)))
+      impl_(new internal::UdsListenerImpl(std::move(e), std::move(i),
+                                          std::move(s), std::move(codecIds)))
 {}
 
 //------------------------------------------------------------------------------
@@ -98,10 +99,13 @@ CPPWAMP_INLINE Listener<Uds>& Listener<Uds>::operator=(Listener&&) noexcept
     = default;
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Listener<Uds>::establish(Handler&& handler)
+CPPWAMP_INLINE void Listener<Uds>::observe(Handler handler)
 {
-    impl_->lstn->establish(std::move(handler));
+    impl_->lstn->observe(std::move(handler));
 }
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Listener<Uds>::establish() {impl_->lstn->establish();}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Listener<Uds>::cancel() {impl_->lstn->cancel();}

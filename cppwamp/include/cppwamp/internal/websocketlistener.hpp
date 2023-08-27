@@ -13,6 +13,7 @@
 #include <boost/beast/http/message.hpp>
 #include "../asiodefs.hpp"
 #include "../codec.hpp"
+#include "../listener.hpp"
 #include "../version.hpp"
 #include "../transports/websocketendpoint.hpp"
 #include "websockettransport.hpp"
@@ -30,28 +31,27 @@ public:
     using Ptr       = std::shared_ptr<WebsocketListener>;
     using Settings  = WebsocketEndpoint;
     using CodecIds  = std::set<int>;
-    using Handler   = std::function<void (ErrorOr<Transporting::Ptr>)>;
-    using Socket    = WebsocketTransport::Socket;
-    using SocketPtr = std::unique_ptr<Socket>;
-    using Transport = WebsocketTransport;
+    using Handler   = Listening::Handler;
 
-    static Ptr create(IoStrand i, Settings s, CodecIds codecIds)
+    static Ptr create(AnyIoExecutor e, IoStrand i, Settings s,
+                      CodecIds codecIds)
     {
-        return Ptr(new WebsocketListener(std::move(i), std::move(s),
-                                         std::move(codecIds)));
+        return Ptr(new WebsocketListener(std::move(e), std::move(i),
+                                         std::move(s), std::move(codecIds)));
     }
 
-    void establish(Handler&& handler)
+    void observe(Handler handler) {handler_ = std::move(handler);}
+
+    void establish()
     {
-        assert(!handler_ &&
-               "WebsocketListener establishment already in progress");
-        handler_ = std::move(handler);
+        assert(!establishing_ && "WebsocketListener already establishing");
+        establishing_ = true;
         auto self = this->shared_from_this();
         acceptor_.async_accept(
             tcpSocket_,
-            [this, self](boost::system::error_code bec)
+            [this, self](boost::system::error_code netEc)
             {
-                if (check(bec))
+                if (check(netEc))
                     receiveUpgrade();
             });
     }
@@ -67,6 +67,9 @@ public:
     }
 
 private:
+    using Socket    = WebsocketTransport::Socket;
+    using SocketPtr = std::unique_ptr<Socket>;
+    using Transport = WebsocketTransport;
     using TcpSocket = boost::asio::ip::tcp::socket;
     using Response =
         boost::beast::http::response<boost::beast::http::string_body>;
@@ -94,11 +97,14 @@ private:
         return 0;
     }
 
-    WebsocketListener(IoStrand i, Settings s, CodecIds codecIds)
-        : strand_(std::move(i)),
+    WebsocketListener(AnyIoExecutor e, IoStrand i, Settings s,
+                      CodecIds codecIds)
+        : executor_(std::move(e)),
+          strand_(std::move(i)),
           settings_(std::move(s)),
           acceptor_(strand_, makeEndpoint(settings_)),
           codecIds_(std::move(codecIds)),
+          buffer_(settings_.maxRxLength()),
           noSubprotocolResponse_(boost::beast::http::status::bad_request,
                                  11, "No subprotocol was provided"),
           badSubprotocolResponse_(boost::beast::http::status::bad_request,
@@ -122,9 +128,9 @@ private:
         auto self = shared_from_this();
         boost::beast::http::async_read(
             tcpSocket_, buffer_, upgrade_,
-            [this, self] (const boost::beast::error_code& bec, std::size_t)
+            [this, self] (const boost::beast::error_code& netEc, std::size_t)
             {
-                if (check(bec))
+                if (check(netEc))
                     acceptHandshake();
             });
     }
@@ -136,7 +142,11 @@ private:
 
         // Check that we actually received a websocket upgrade request
         if (!boost::beast::websocket::is_upgrade(upgrade_))
-            return fail(boost::beast::websocket::error::no_connection_upgrade);
+        {
+            return fail(boost::beast::websocket::error::no_connection_upgrade,
+                        ListeningErrorCategory::transient,
+                        "websocket handshake");
+        }
 
         // Parse the subprotocol to determine the peer's desired codec
         using boost::beast::http::field;
@@ -167,9 +177,9 @@ private:
         // Complete the handshake
         auto self = shared_from_this();
         websocket_->async_accept(upgrade_,
-            [this, self, codecId](boost::beast::error_code bec)
+            [this, self, codecId](boost::beast::error_code netEc)
             {
-                if (check(bec))
+                if (check(netEc))
                     complete(codecId);
             });
     }
@@ -180,9 +190,10 @@ private:
         auto self = shared_from_this();
         http::async_write(
             tcpSocket_, response,
-            [this, self, errc](boost::beast::error_code bec, std::size_t)
+            [this, self, errc](boost::beast::error_code netEc, std::size_t)
             {
-                fail(errc);
+                // TODO: Check netEc
+                fail(errc, ListeningErrorCategory::transient, "");
             });
     }
 
@@ -224,39 +235,54 @@ private:
         dispatchHandler(std::move(transport));
     }
 
-    bool check(boost::beast::error_code bec)
+    bool check(boost::beast::error_code netEc)
     {
-        if (bec)
+        if (netEc)
         {
-            websocket_.reset();
-            tcpSocket_.close();
-            auto ec = static_cast<std::error_code>(bec);
-            if (bec == std::errc::operation_canceled ||
-                bec == boost::asio::error::operation_aborted)
+            auto ec = static_cast<std::error_code>(netEc);
+
+            if (netEc == std::errc::operation_canceled)
             {
                 ec = make_error_code(TransportErrc::aborted);
             }
-            dispatchHandler(UnexpectedError(ec));
+            else if (netEc == boost::asio::error::connection_reset ||
+                     netEc == boost::asio::error::eof)
+            {
+                ec = make_error_code(TransportErrc::disconnected);
+            }
+
+            fail(ec, ListeningErrorCategory::transient, "");
         }
-        return !bec;
+        return !netEc;
     }
 
     template <typename TErrc>
-    void fail(TErrc errc)
+    void fail(TErrc errc, ListeningErrorCategory cat, const char* op)
+    {
+        fail(make_error_code(errc), cat, op);
+    }
+
+    void fail(boost::system::error_code netEc, ListeningErrorCategory cat,
+              const char* op)
+    {
+        fail(static_cast<std::error_code>(netEc), cat, op);
+    }
+
+    void fail(std::error_code ec, ListeningErrorCategory cat, const char* op)
     {
         websocket_.reset();
         tcpSocket_.close();
-        dispatchHandler(makeUnexpectedError(errc));
+        dispatchHandler({ec, cat, op});
     }
 
-    template <typename TArg>
-    void dispatchHandler(TArg&& arg)
+    void dispatchHandler(ListenResult result)
     {
-        const Handler handler(std::move(handler_));
-        handler_ = nullptr;
-        handler(std::forward<TArg>(arg));
+        if (handler_)
+            handler_(std::move(result));
+        establishing_ = false;
     }
 
+    AnyIoExecutor executor_;
     IoStrand strand_;
     Settings settings_;
     boost::asio::ip::tcp::acceptor acceptor_;
@@ -268,6 +294,7 @@ private:
     boost::beast::http::request<boost::beast::http::string_body> upgrade_;
     TcpSocket tcpSocket_;
     SocketPtr websocket_;
+    bool establishing_ = false;
 };
 
 } // namespace internal

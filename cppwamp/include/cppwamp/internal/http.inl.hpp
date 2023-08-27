@@ -19,9 +19,10 @@ namespace internal
 //------------------------------------------------------------------------------
 struct HttpListenerImpl
 {
-    HttpListenerImpl(IoStrand i, HttpEndpoint s, std::set<int> codecIds)
-        : lstn(HttpListener::create(std::move(i), std::move(s),
-                                         std::move(codecIds)))
+    HttpListenerImpl(AnyIoExecutor e, IoStrand i, HttpEndpoint s,
+                     std::set<int> codecIds)
+        : lstn(HttpListener::create(std::move(e), std::move(i), std::move(s),
+                                    std::move(codecIds)))
     {}
 
     HttpListener::Ptr lstn;
@@ -35,11 +36,11 @@ struct HttpListenerImpl
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Listener<Http>::Listener(IoStrand i, Settings s,
-                                             std::set<int> codecIds)
+CPPWAMP_INLINE Listener<Http>::Listener(AnyIoExecutor e, IoStrand i, Settings s,
+                                        std::set<int> codecIds)
     : Listening(s.label()),
-    impl_(new internal::HttpListenerImpl(std::move(i), std::move(s),
-                                              std::move(codecIds)))
+      impl_(new internal::HttpListenerImpl(std::move(e), std::move(i),
+                                           std::move(s), std::move(codecIds)))
 {}
 
 //------------------------------------------------------------------------------
@@ -48,10 +49,13 @@ CPPWAMP_INLINE Listener<Http>::Listener(IoStrand i, Settings s,
 CPPWAMP_INLINE Listener<Http>::~Listener() = default;
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Listener<Http>::establish(Handler&& handler)
+CPPWAMP_INLINE void Listener<Http>::observe(Handler handler)
 {
-    impl_->lstn->establish(std::move(handler));
+    impl_->lstn->observe(std::move(handler));
 }
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Listener<Http>::establish() {impl_->lstn->establish();}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Listener<Http>::cancel() {impl_->lstn->cancel();}

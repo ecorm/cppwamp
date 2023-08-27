@@ -524,15 +524,14 @@ public:
 
     void close(Reason r)
     {
-        struct Posted
+        struct Dispatched
         {
             Ptr self;
             Reason r;
             void operator()() {self->onClose(std::move(r));}
         };
 
-        boost::asio::dispatch(strand_, Posted{shared_from_this(),
-                                              std::move(r)});
+        safelyDispatch<Dispatched>(std::move(r));
     }
 
     ServerOptions::Ptr config() const {return options_;}
@@ -546,7 +545,7 @@ private:
           challengeTimeouts_(SessionTimeoutScheduler::create(strand_)),
           logSuffix_(" [Server " + c.name() + ']'),
           router_(std::move(r)),
-        options_(std::make_shared<ServerOptions>(std::move(c))),
+          options_(std::make_shared<ServerOptions>(std::move(c))),
           logger_(router_.logger())
     {
         if (!options_->authenticator())
@@ -568,50 +567,54 @@ private:
                     me->onChallengeTimeout(n);
             });
 
+        listener_->observe(
+            [this, self](ListenResult result)
+            {
+                auto me = self.lock();
+                if (me && me->listener_)
+                    onListenerResult(std::move(result));
+            });
+
         listen();
     }
 
-    void onClose(Reason r)
+    void onListenerResult(ListenResult result)
     {
-        std::string msg = "Shutting down server listening on " +
-                          listener_->where() + " with reason " + r.uri();
-        if (!r.options().empty())
-            msg += " " + toString(r.options());
-        inform(std::move(msg));
+        using Cat = ListeningErrorCategory;
+        switch (result.errorCategory())
+        {
+        case Cat::success:
+            onEstablished(result.transport());
+            break;
 
-        challengeTimeouts_->unlisten();
+        case Cat::fatal:
+            panic(std::string("Fatal error establishing connection with "
+                              "remote peer during ") + result.operation(),
+                  result.error());
+            break;
 
-        if (!listener_)
-            return;
-        listener_->cancel();
-        listener_.reset();
-        for (const auto& kv: sessions_)
-            kv.second->abort(r);
+        case Cat::transient:
+        case Cat::congestion: // TODO delay
+        case Cat::outage: // TODO delay
+            alert(std::string("Error establishing connection with "
+                              "remote peer during ") + result.operation(),
+                  result.error());
+            break;
+
+        default:
+            assert(false && "Unexpected ListeningErrorCategory enumerator");
+        }
+
+        if (result.errorCategory() != Cat::fatal)
+            listen();
+        else
+            onClose(Reason{WampErrc::systemShutdown});
     }
 
     void listen()
     {
-        if (!listener_)
-            return;
-
-        const std::weak_ptr<RouterServer> self{shared_from_this()};
-        listener_->establish(
-            [this, self](ErrorOr<Transporting::Ptr> transport)
-            {
-                auto me = self.lock();
-                if (!me || !me->listener_)
-                    return;
-
-                if (transport)
-                {
-                    onEstablished(*transport);
-                }
-                else
-                {
-                    alert("Failure establishing connection with remote peer",
-                          transport.error());
-                }
-            });
+        if (listener_)
+            listener_->establish();
     }
 
     void onEstablished(Transporting::Ptr transport)
@@ -627,7 +630,24 @@ private:
             options_, index);
         sessions_.emplace(index, s);
         s->start();
-        listen();
+    }
+
+    void onClose(Reason r)
+    {
+        std::string msg = "Shutting down server listening on " +
+                          listener_->where() + " with reason " + r.uri();
+        if (!r.options().empty())
+            msg += " " + toString(r.options());
+        inform(std::move(msg));
+
+        challengeTimeouts_->unlisten();
+
+        if (listener_)
+            return;
+        listener_->cancel();
+        listener_.reset();
+        for (const auto& kv: sessions_)
+            kv.second->abort(r);
     }
 
     void onChallengeTimeout(ServerSession::Key key)
@@ -697,6 +717,11 @@ private:
     void alert(String msg, std::error_code ec = {})
     {
         log({LogLevel::error, std::move(msg), ec});
+    }
+
+    void panic(String msg, std::error_code ec = {})
+    {
+        log({LogLevel::critical, std::move(msg), ec});
     }
 
     template <typename F, typename... Ts>

@@ -57,7 +57,7 @@ public:
         return Ptr(new RawsockConnector(std::move(i), std::move(s), codecId));
     }
 
-    void establish(Handler&& handler)
+    void establish(Handler handler)
     {
         assert(!handler_ &&
                "RawsockConnector establishment already in progress");
@@ -147,17 +147,17 @@ private:
             fail(TransportErrc::badHandshake);
     }
 
-    bool check(boost::system::error_code asioEc)
+    bool check(boost::system::error_code netEc)
     {
-        if (asioEc)
+        if (netEc)
         {
             socket_.reset();
-            auto ec = static_cast<std::error_code>(asioEc);
-            if (asioEc == boost::asio::error::operation_aborted)
+            auto ec = static_cast<std::error_code>(netEc);
+            if (netEc == boost::asio::error::operation_aborted)
                 ec = make_error_code(TransportErrc::aborted);
             dispatchHandler(makeUnexpected(ec));
         }
-        return !asioEc;
+        return !netEc;
     }
 
     void complete(Handshake hs)

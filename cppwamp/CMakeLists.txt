@@ -84,7 +84,6 @@ set(HEADERS
     include/cppwamp/internal/jsonencoding.hpp
     include/cppwamp/internal/hashcombine.hpp
     include/cppwamp/internal/httplistener.hpp
-    include/cppwamp/internal/httptransport.hpp
     include/cppwamp/internal/invocationpolicyoption.hpp
     include/cppwamp/internal/lrucache.hpp
     include/cppwamp/internal/matchpolicyoption.hpp
@@ -98,6 +97,7 @@ set(HEADERS
     include/cppwamp/internal/pinger.hpp
     include/cppwamp/internal/procedureregistry.hpp
     include/cppwamp/internal/random.hpp
+    include/cppwamp/internal/rawsockacceptor.hpp
     include/cppwamp/internal/rawsockconnector.hpp
     include/cppwamp/internal/rawsockhandshake.hpp
     include/cppwamp/internal/rawsockheader.hpp

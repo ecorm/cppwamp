@@ -46,11 +46,11 @@ public:
             UdsOpener* self;
             typename std::decay<F>::type callback;
 
-            void operator()(boost::system::error_code asioEc)
+            void operator()(boost::system::error_code netEc)
             {
                 SocketPtr socket{std::move(self->socket_)};
                 self->socket_.reset();
-                if (self->checkError(asioEc, callback))
+                if (self->checkError(netEc, callback))
                     callback(std::move(socket));
             }
         };
@@ -77,14 +77,14 @@ public:
 
 private:
     template <typename F>
-    bool checkError(boost::system::error_code asioEc, F& callback)
+    bool checkError(boost::system::error_code netEc, F& callback)
     {
-        if (asioEc)
+        if (netEc)
         {
-            auto ec = static_cast<std::error_code>(asioEc);
+            auto ec = static_cast<std::error_code>(netEc);
             callback(UnexpectedError(ec));
         }
-        return !asioEc;
+        return !netEc;
     }
 
     IoStrand strand_;

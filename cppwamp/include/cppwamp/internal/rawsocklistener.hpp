@@ -13,6 +13,7 @@
 #include "../asiodefs.hpp"
 #include "../errorcodes.hpp"
 #include "../erroror.hpp"
+#include "../listener.hpp"
 #include "rawsockhandshake.hpp"
 #include "rawsocktransport.hpp"
 
@@ -49,38 +50,30 @@ public:
     using Acceptor  = TAcceptor;
     using Settings  = typename Acceptor::Settings;
     using CodecIds  = std::set<int>;
-    using Handler   = std::function<void (ErrorOr<Transporting::Ptr>)>;
-    using Socket    = typename Acceptor::Socket;
     using Traits    = typename Acceptor::Traits;
-    using SocketPtr = std::unique_ptr<Socket>;
-    using Transport = typename TConfig::template TransportType<Socket, Traits>;
+    using Handler   = Listening::Handler;
 
-    static Ptr create(IoStrand i, Settings s, CodecIds codecIds)
+    static Ptr create(AnyIoExecutor e, IoStrand i, Settings s,
+                      CodecIds codecIds)
     {
-        return Ptr(new RawsockListener(std::move(i), std::move(s),
+        return Ptr(new RawsockListener(std::move(e), std::move(i), std::move(s),
                                        std::move(codecIds)));
     }
 
-    void establish(Handler&& handler)
+    void observe(Handler handler) {handler_ = handler;}
+
+    void establish()
     {
-        assert(!handler_ &&
-               "RawsockListener establishment already in progress");
-        handler_ = std::move(handler);
+        assert(!establishing_ && "RawsockListener already establishing");
+        establishing_ = true;
         auto self = this->shared_from_this();
         acceptor_.establish(
-            [this, self](ErrorOr<SocketPtr> socket)
+            [this, self](AcceptorResult result)
             {
-                if (socket)
+                if (checkAcceptorError(result))
                 {
-                    socket_ = std::move(*socket);
+                    socket_ = std::move(result.socket);
                     receiveHandshake();
-                }
-                else
-                {
-                    auto ec = socket.error();
-                    if (ec == std::errc::operation_canceled)
-                        ec = make_error_code(TransportErrc::aborted);
-                    dispatchHandler(UnexpectedError(ec));
                 }
             }
         );
@@ -95,11 +88,16 @@ public:
     }
 
 private:
-    using Handshake = internal::RawsockHandshake;
+    using Socket         = typename Acceptor::Socket;
+    using SocketPtr      = std::unique_ptr<Socket>;
+    using Handshake      = internal::RawsockHandshake;
+    using ErrorCat       = ListeningErrorCategory;
+    using AcceptorResult = typename Acceptor::Result;
+    using Transport = typename TConfig::template TransportType<Socket, Traits>;
 
-    RawsockListener(IoStrand i, Settings s, CodecIds codecIds)
+    RawsockListener(AnyIoExecutor e, IoStrand i, Settings s, CodecIds codecIds)
         : codecIds_(std::move(codecIds)),
-          acceptor_(std::move(i), std::move(s)),
+          acceptor_(std::move(e), std::move(i), std::move(s)),
           maxRxLength_(acceptor_.settings().maxRxLength())
     {}
 
@@ -113,7 +111,7 @@ private:
             boost::asio::buffer(&handshake_, sizeof(handshake_)),
             [this, self](boost::system::error_code ec, size_t)
             {
-                if (check(ec))
+                if (checkReadError(ec))
                     onHandshakeReceived(Handshake::fromBigEndian(handshake_));
             });
     }
@@ -124,7 +122,7 @@ private:
 
         if (!hs.hasMagicOctet())
         {
-            fail(TransportErrc::badHandshake);
+            fail(TransportErrc::badHandshake, ErrorCat::transient, "handshake");
         }
         else if (hs.reserved() != 0)
         {
@@ -153,27 +151,60 @@ private:
             boost::asio::buffer(&handshake_, sizeof(handshake_)),
             [this, self, hs](boost::system::error_code ec, size_t)
             {
-                if (check(ec))
-                {
-                    if (!hs.hasError())
-                        complete(hs);
-                    else
-                        fail(hs.errorCode());
-                }
+                onHandshakeSent(hs, ec);
             });
     }
 
-    bool check(boost::system::error_code asioEc)
+    void onHandshakeSent(Handshake hs, boost::system::error_code ec)
     {
-        if (asioEc)
-        {
-            socket_.reset();
-            auto ec = static_cast<std::error_code>(asioEc);
-            if (asioEc == boost::asio::error::operation_aborted)
-                ec = make_error_code(TransportErrc::aborted);
-            dispatchHandler(UnexpectedError(ec));
-        }
-        return !asioEc;
+        if (!checkWriteError(ec))
+            return;
+        if (!hs.hasError())
+            complete(hs);
+        else
+            fail(hs.errorCode(), ErrorCat::transient, "rawsock handshake");
+    }
+
+    bool checkAcceptorError(const AcceptorResult& result)
+    {
+        if (result.socket != nullptr)
+            return true;
+
+        auto ec = result.error;
+        if (ec == std::errc::operation_canceled)
+            ec = make_error_code(TransportErrc::aborted);
+        fail(ec, result.category, result.operation);
+        return false;
+    }
+
+    bool checkReadError(boost::system::error_code netEc)
+    {
+        if (!netEc)
+            return true;
+
+        auto ec = static_cast<std::error_code>(netEc);
+        auto cat = SocketErrorHelper::isReceiveFatalError(netEc)
+                       ? ListeningErrorCategory::transient
+                       : ListeningErrorCategory::fatal;
+        if (netEc == std::errc::operation_canceled)
+            ec = make_error_code(TransportErrc::aborted);
+        fail(ec, cat, "socket recv");
+        return false;
+    }
+
+    bool checkWriteError(boost::system::error_code netEc)
+    {
+        if (!netEc)
+            return true;
+
+        auto ec = static_cast<std::error_code>(netEc);
+        auto cat = SocketErrorHelper::isSendFatalError(netEc)
+                       ? ListeningErrorCategory::transient
+                       : ListeningErrorCategory::fatal;
+        if (netEc == std::errc::operation_canceled)
+            ec = make_error_code(TransportErrc::aborted);
+        fail(ec, cat, "socket send");
+        return false;
     }
 
     void complete(Handshake hs)
@@ -186,18 +217,22 @@ private:
         dispatchHandler(std::move(transport));
     }
 
-    void fail(TransportErrc errc)
+    void fail(std::error_code ec, ListeningErrorCategory cat, const char* op)
     {
         socket_.reset();
-        dispatchHandler(makeUnexpectedError(errc));
+        dispatchHandler({ec, cat, op});
     }
 
-    template <typename TArg>
-    void dispatchHandler(TArg&& arg)
+    void fail(TransportErrc errc, ListeningErrorCategory cat, const char* op)
     {
-        const Handler handler(std::move(handler_));
-        handler_ = nullptr;
-        handler(std::forward<TArg>(arg));
+        fail(make_error_code(errc), cat, op);
+    }
+
+    void dispatchHandler(ListenResult result)
+    {
+        if (handler_)
+            handler_(std::move(result));
+        establishing_ = false;
     }
 
     CodecIds codecIds_;
@@ -207,6 +242,7 @@ private:
     uint32_t handshake_ = 0;
     RawsockMaxLength maxTxLength_ = {};
     RawsockMaxLength maxRxLength_ = {};
+    bool establishing_ = false;
 };
 
 } // namespace internal

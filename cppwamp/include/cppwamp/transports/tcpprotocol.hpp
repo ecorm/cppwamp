@@ -34,10 +34,10 @@ struct CPPWAMP_API Tcp
 namespace internal
 {
 class HttpListener;
-class TcpAcceptor;
 class TcpOpener;
 class WebsocketConnector;
 class WebsocketListener;
+template <typename> class RawsockAcceptor;
 }
 
 //------------------------------------------------------------------------------
@@ -106,10 +106,10 @@ private:
     internal::SocketOptionList<boost::asio::ip::tcp> options_;
 
     friend class internal::HttpListener;
-    friend class internal::TcpAcceptor;
     friend class internal::TcpOpener;
     friend class internal::WebsocketConnector;
     friend class internal::WebsocketListener;
+    template <typename> friend class internal::RawsockAcceptor;
 
     /* Implementation note: Explicit template instantiation does not seem
        to play nice with CRTP, so it was not feasible to factor out the

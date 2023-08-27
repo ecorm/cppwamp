@@ -41,7 +41,7 @@ public:
         return Ptr(new WebsocketConnector(std::move(i), std::move(s), codecId));
     }
 
-    void establish(Handler&& handler)
+    void establish(Handler handler)
     {
         assert(!handler_ &&
                "WebsocketConnector establishment already in progress");
@@ -49,10 +49,10 @@ public:
         auto self = shared_from_this();
         resolver_.async_resolve(
             settings_.hostName(), settings_.serviceName(),
-            [this, self](boost::beast::error_code bec,
+            [this, self](boost::beast::error_code netEc,
                          tcp::resolver::results_type endpoints)
             {
-                if (check(bec))
+                if (check(netEc))
                     connect(endpoints);
             });
     }
@@ -106,10 +106,10 @@ private:
         auto self = shared_from_this();
         boost::asio::async_connect(
             tcpSocket, endpoints,
-            [this, self](boost::beast::error_code bec,
+            [this, self](boost::beast::error_code netEc,
                          const tcp::endpoint& ep)
             {
-                if (check(bec))
+                if (check(netEc))
                     handshake(ep);
             });
     }
@@ -135,9 +135,9 @@ private:
         auto self = shared_from_this();
         websocket_->async_handshake(
             host, settings_.target(),
-            [this, self](boost::beast::error_code bec)
+            [this, self](boost::beast::error_code netEc)
             {
-                if (check(bec))
+                if (check(netEc))
                     complete();
             });
     }
@@ -181,24 +181,24 @@ private:
         dispatchHandler(std::move(transport));
     }
 
-    bool check(boost::beast::error_code bec)
+    bool check(boost::beast::error_code netEc)
     {
-        if (bec)
+        if (netEc)
         {
             websocket_.reset();
-            auto ec = static_cast<std::error_code>(bec);
-            if (bec == std::errc::operation_canceled ||
-                bec == boost::asio::error::operation_aborted)
+            auto ec = static_cast<std::error_code>(netEc);
+            if (netEc == std::errc::operation_canceled ||
+                netEc == boost::asio::error::operation_aborted)
             {
                 ec = make_error_code(TransportErrc::aborted);
             }
-            else if (bec == boost::beast::websocket::error::upgrade_declined)
+            else if (netEc == boost::beast::websocket::error::upgrade_declined)
             {
                 ec = make_error_code(TransportErrc::handshakeDeclined);
             }
             dispatchHandler(makeUnexpected(ec));
         }
-        return !bec;
+        return !netEc;
     }
 
     template <typename TArg>

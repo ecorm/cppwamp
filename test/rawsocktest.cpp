@@ -446,13 +446,15 @@ void checkCannedServerHandshake(uint32_t cannedHandshake,
                                 std::error_code expectedErrorCode)
 {
     IoContext ioctx;
-    IoStrand strand{ioctx.get_executor()};
+    auto exec = ioctx.get_executor();
+    auto strand = boost::asio::make_strand(exec);
 
     using MockListener = internal::RawsockListener<internal::TcpAcceptor,
                                                    CannedHandshakeConfig>;
-    auto lstn = MockListener::create(strand, tcpEndpoint, {jsonId});
+    auto lstn = MockListener::create(exec, strand, tcpEndpoint, {jsonId});
     CannedHandshakeConfig::cannedHostBytes() = cannedHandshake;
-    lstn->establish( [](ErrorOr<Transporting::Ptr>) {} );
+    lstn->observe( [](ListenResult) {} );
+    lstn->establish();
 
     bool aborted = false;
     auto cnct = TcpRawsockConnector::create(strand, tcpHost, jsonId);

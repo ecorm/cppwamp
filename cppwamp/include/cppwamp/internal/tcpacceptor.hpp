@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2014-2015, 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -7,15 +7,9 @@
 #ifndef CPPWAMP_INTERNAL_TCPACCEPTOR_HPP
 #define CPPWAMP_INTERNAL_TCPACCEPTOR_HPP
 
-#include <cassert>
-#include <memory>
-#include <type_traits>
-#include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/strand.hpp>
-#include "../asiodefs.hpp"
-#include "../erroror.hpp"
 #include "../transports/tcpendpoint.hpp"
+#include "rawsockacceptor.hpp"
 #include "tcptraits.hpp"
 
 namespace wamp
@@ -25,83 +19,52 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-class TcpAcceptor
+struct TcpAcceptorConfig
 {
-public:
-    using Settings  = TcpEndpoint;
-    using Socket    = boost::asio::ip::tcp::socket;
-    using SocketPtr = std::unique_ptr<Socket>;
-    using Traits    = TcpTraits;
+    using Settings    = TcpEndpoint;
+    using NetProtocol = boost::asio::ip::tcp;
+    using Traits      = TcpTraits;
 
-    template <typename TExecutorOrStrand>
-    TcpAcceptor(TExecutorOrStrand&& exec, Settings s)
-        : settings_(std::move(s)),
-          strand_(std::forward<TExecutorOrStrand>(exec)),
-          acceptor_(strand_, makeEndpoint(settings_))
-    {}
-
-    template <typename F>
-    void establish(F&& callback)
+    static NetProtocol::endpoint makeEndpoint(const Settings& s)
     {
-        struct Accepted
-        {
-            TcpAcceptor* self;
-            typename std::decay<F>::type callback;
-
-            void operator()(boost::system::error_code asioEc)
-            {
-                auto& me = *self;
-                SocketPtr socket{std::move(me.socket_)};
-                me.socket_.reset();
-                if (me.checkError(asioEc, callback))
-                {
-                    me.settings_.options().applyTo(*socket);
-                    callback(std::move(socket));
-                }
-            }
-        };
-
-        assert(!socket_ && "Accept already in progress");
-
-        socket_ = SocketPtr{new Socket(strand_)};
-
-        // RawsockListener will keep this TcpAcceptor object alive until
-        // completion.
-        acceptor_.async_accept(*socket_,
-                               Accepted{this, std::forward<F>(callback)});
-    }
-
-    void cancel()
-    {
-        acceptor_.cancel();
-    }
-
-    const Settings& settings() const {return settings_;}
-
-private:
-    static boost::asio::ip::tcp::endpoint makeEndpoint(const Settings& s)
-    {
+        namespace ip = boost::asio::ip;
         if (s.address().empty())
-            return {boost::asio::ip::tcp::v4(), s.port()};
-        return {boost::asio::ip::make_address(s.address()), s.port()};
+            return {ip::tcp::v4(), s.port()};
+        return {ip::make_address(s.address()), s.port()};
     }
 
-    template <typename F>
-    bool checkError(boost::system::error_code asioEc, F& callback)
+    static void setAcceptorOptions(NetProtocol::acceptor& a)
     {
-        if (asioEc)
-        {
-            auto ec = static_cast<std::error_code>(asioEc);
-            callback(UnexpectedError(ec));
-        }
-        return !asioEc;
+        a.set_option(boost::asio::socket_base::reuse_address(true));
     }
 
-    Settings settings_;
-    IoStrand strand_;
-    boost::asio::ip::tcp::acceptor acceptor_;
-    SocketPtr socket_;
+    static std::error_code onFirstEstablish(const Settings&) {return {};}
+
+    static void onDestruction(const Settings&) {}
+
+    // https://stackoverflow.com/q/76955978/245265
+    static ListeningErrorCategory classifyAcceptError(
+        boost::system::error_code ec, bool treatUnexpectedErrorsAsFatal)
+    {
+        using Helper = SocketErrorHelper;
+        if (!ec)
+            return ListeningErrorCategory::success;
+        if (Helper::isAcceptCongestionError(ec))
+            return ListeningErrorCategory::congestion;
+        if (Helper::isAcceptOutageError(ec))
+            return ListeningErrorCategory::outage;
+        if (Helper::isAcceptTransientError(ec))
+            return ListeningErrorCategory::transient;
+        if (treatUnexpectedErrorsAsFatal)
+            return ListeningErrorCategory::fatal;
+        if (Helper::isAcceptFatalError(ec))
+            return ListeningErrorCategory::fatal;
+        return ListeningErrorCategory::transient;
+    }
 };
+
+//------------------------------------------------------------------------------
+using TcpAcceptor = RawsockAcceptor<TcpAcceptorConfig>;
 
 } // namespace internal
 

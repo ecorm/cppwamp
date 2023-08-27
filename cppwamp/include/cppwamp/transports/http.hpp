@@ -17,7 +17,6 @@
 #include <utility>
 #include "../api.hpp"
 #include "../asiodefs.hpp"
-#include "../connector.hpp"
 #include "../listener.hpp"
 #include "httpendpoint.hpp"
 
@@ -34,9 +33,9 @@ struct HttpListenerImpl;
 }
 
 //------------------------------------------------------------------------------
-/** Listener specialization that establishes a server-side HTTP transport.
-    Users do not need to use this class directly and should use
-    ConnectionWish instead. */
+/** Listener specialization that implememts an HTTP server.
+    Users do not need to use this class directly and should instead pass
+    wamp::HttpEndpoint to wamp::Router::openServer via wamp::ServerOptions. */
 //------------------------------------------------------------------------------
 template <>
 class CPPWAMP_API Listener<Http> : public Listening
@@ -49,12 +48,14 @@ public:
     using CodecIds = std::set<int>;
 
     /** Constructor. */
-    Listener(IoStrand i, Settings s, CodecIds codecIds);
+    Listener(AnyIoExecutor e, IoStrand i, Settings s, CodecIds codecIds);
 
     /** Destructor. */
     ~Listener() override;
 
-    void establish(Handler&& handler) override;
+    void observe(Handler handler) override;
+
+    void establish() override;
 
     void cancel() override;
 

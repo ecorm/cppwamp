@@ -109,7 +109,19 @@ public:
         responses_ = std::move(cannedResponses);
     }
 
-    void start() {listen();}
+    void start()
+    {
+        std::weak_ptr<MockServer> self{shared_from_this()};
+        listener_.observe(
+            [self](ListenResult result)
+            {
+                auto me = self.lock();
+                if (me && result.ok())
+                    me->onEstablished(result.transport());
+            });
+
+        listen();
+    }
 
     void stop()
     {
@@ -136,21 +148,11 @@ public:
 private:
     template <typename E>
     MockServer(E&& exec, uint16_t port)
-        : listener_(boost::asio::make_strand(exec), TcpEndpoint{port},
+        : listener_(exec, boost::asio::make_strand(exec), TcpEndpoint{port},
                     {Json::id()})
     {}
 
-    void listen()
-    {
-        std::weak_ptr<MockServer> self{shared_from_this()};
-        listener_.establish(
-            [self](ErrorOr<Transporting::Ptr> transport)
-            {
-                auto me = self.lock();
-                if (me && transport.has_value())
-                    me->onEstablished(*transport);
-            });
-    }
+    void listen() {listener_.establish();}
 
     void onEstablished(Transporting::Ptr transport)
     {
