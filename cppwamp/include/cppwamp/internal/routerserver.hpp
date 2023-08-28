@@ -581,16 +581,14 @@ private:
     void onListenerResult(ListenResult result)
     {
         using Cat = ListeningErrorCategory;
-        switch (result.errorCategory())
+        auto cat = result.errorCategory();
+        switch (cat)
         {
         case Cat::success:
             onEstablished(result.transport());
             break;
 
-        case Cat::fatal:
-            panic(std::string("Fatal error establishing connection with "
-                              "remote peer during ") + result.operation(),
-                  result.error());
+        case Cat::cancelled:
             break;
 
         case Cat::transient:
@@ -601,14 +599,20 @@ private:
                   result.error());
             break;
 
+        case Cat::fatal:
+            panic(std::string("Fatal error establishing connection with "
+                              "remote peer during ") + result.operation(),
+                  result.error());
+            break;
+
         default:
             assert(false && "Unexpected ListeningErrorCategory enumerator");
         }
 
-        if (result.errorCategory() != Cat::fatal)
-            listen();
-        else
+        if (cat == Cat::fatal)
             onClose(Reason{WampErrc::systemShutdown});
+        else if (cat != Cat::cancelled)
+            listen();
     }
 
     void listen()
@@ -642,7 +646,7 @@ private:
 
         challengeTimeouts_->unlisten();
 
-        if (listener_)
+        if (!listener_)
             return;
         listener_->cancel();
         listener_.reset();

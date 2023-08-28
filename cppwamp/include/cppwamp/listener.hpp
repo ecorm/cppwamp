@@ -13,11 +13,12 @@
            a router-side transport. */
 //------------------------------------------------------------------------------
 
+#include <cassert>
 #include <cerrno>
 #include <functional>
-#include <map>
 #include <memory>
 #include <set>
+#include <utility>
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 #include <Winsock2.h>
@@ -25,7 +26,7 @@
 
 #include "api.hpp"
 #include "asiodefs.hpp"
-#include "exceptions.hpp"
+#include "errorcodes.hpp"
 #include "transport.hpp"
 #include "traits.hpp"
 
@@ -38,10 +39,11 @@ namespace wamp
 enum class ListeningErrorCategory
 {
     success,    /// No error
-    fatal,      /// Due to programming error
+    cancelled,  /// Due to server cancellation
     transient,  /// Transient error that doesn't need delay before recovering
     congestion, /// Out of memory or resources
-    outage      /// Network down
+    outage,     /// Network down
+    fatal       /// Due to programming error
 };
 
 //------------------------------------------------------------------------------
@@ -49,6 +51,31 @@ enum class ListeningErrorCategory
 //------------------------------------------------------------------------------
 struct SocketErrorHelper
 {
+    static bool isAcceptCancellationError(boost::system::error_code ec)
+    {
+        return ec == std::errc::operation_canceled ||
+               ec == TransportErrc::aborted;
+    }
+
+    static bool isAcceptTransientError(boost::system::error_code ec)
+    {
+        // Asio already takes care of EAGAIN, EWOULDBLOCK, ECONNABORTED,
+        // EPROTO, and EINTR.
+        namespace sys = boost::system;
+#if defined(__linux__)
+        return ec == std::errc::host_unreachable
+            || ec == std::errc::operation_not_supported
+            || ec == std::errc::timed_out
+            || ec == sys::error_code{EHOSTDOWN, sys::system_category()};
+#elif defined(_WIN32) || defined(__CYGWIN__)
+        return ec == std::errc::connection_refused
+            || ec == std::errc::connection_reset
+            || ec == sys::error_code{WSATRY_AGAIN, sys::system_category()});
+#else
+        return false;
+#endif
+    }
+
     static bool isAcceptCongestionError(boost::system::error_code ec)
     {
         namespace sys = boost::system;
@@ -73,25 +100,6 @@ struct SocketErrorHelper
             || ec == sys::error_code{ENONET, sys::system_category()};
 #elif defined(_WIN32) || defined(__CYGWIN__)
         return ec == std::errc::network_down;
-#else
-        return false;
-#endif
-    }
-
-    static bool isAcceptTransientError(boost::system::error_code ec)
-    {
-        // Asio already takes care of EAGAIN, EWOULDBLOCK, ECONNABORTED,
-        // EPROTO, and EINTR.
-        namespace sys = boost::system;
-#if defined(__linux__)
-        return ec == std::errc::host_unreachable
-            || ec == std::errc::operation_not_supported
-            || ec == std::errc::timed_out
-            || ec == sys::error_code{EHOSTDOWN, sys::system_category()};
-#elif defined(_WIN32) || defined(__CYGWIN__)
-        return ec == std::errc::connection_refused
-            || ec == std::errc::connection_reset
-            || ec == sys::error_code{WSATRY_AGAIN, sys::system_category()});
 #else
         return false;
 #endif
@@ -156,7 +164,10 @@ public:
     ListenResult() = default;
 
     /** Constructor taking a transport ready for use. */
-    ListenResult(Transporting::Ptr t) : transport_(std::move(t)) {}
+    ListenResult(Transporting::Ptr t)
+        : transport_(std::move(t)),
+          category_(ListeningErrorCategory::success)
+    {}
 
     /** Constructor taking information on a failed listen attempt. */
     ListenResult(std::error_code e, ListeningErrorCategory c,
@@ -170,10 +181,11 @@ public:
     bool ok() const {return transport_ != nullptr;}
 
     /** Obtains the new transport instance if the listen attempt
-        was successful. */
+        was successful.
+        @pre `this->ok()` */
     const Transporting::Ptr transport() const
     {
-        CPPWAMP_LOGIC_CHECK(ok(), "No transport available");
+        assert(ok());
         return transport_;
     }
 
@@ -184,8 +196,13 @@ public:
     ListeningErrorCategory errorCategory() const {return category_;}
 
     /** Obtains the name of the socket (or other) operation that failed,
-        for logging purposes.*/
-    const char* operation() const {return operation_;}
+        for logging purposes.
+        @pre `!this->ok()` */
+    const char* operation() const
+    {
+        assert(!ok());
+        return operation_;
+    }
 
 private:
     Transporting::Ptr transport_;

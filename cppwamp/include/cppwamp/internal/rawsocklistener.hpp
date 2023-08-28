@@ -75,8 +75,7 @@ public:
                     socket_ = std::move(result.socket);
                     receiveHandshake();
                 }
-            }
-        );
+            });
     }
 
     void cancel()
@@ -94,6 +93,21 @@ private:
     using ErrorCat       = ListeningErrorCategory;
     using AcceptorResult = typename Acceptor::Result;
     using Transport = typename TConfig::template TransportType<Socket, Traits>;
+
+    static std::error_code convertNetError(boost::system::error_code netEc)
+    {
+        auto ec = static_cast<std::error_code>(netEc);
+        if (netEc == std::errc::operation_canceled)
+        {
+            ec = make_error_code(TransportErrc::aborted);
+        }
+        else if (netEc == std::errc::connection_reset ||
+                 netEc == boost::asio::error::eof)
+        {
+            ec = make_error_code(TransportErrc::disconnected);
+        }
+        return ec;
+    }
 
     RawsockListener(AnyIoExecutor e, IoStrand i, Settings s, CodecIds codecIds)
         : codecIds_(std::move(codecIds)),
@@ -169,11 +183,7 @@ private:
     {
         if (result.socket != nullptr)
             return true;
-
-        auto ec = result.error;
-        if (ec == std::errc::operation_canceled)
-            ec = make_error_code(TransportErrc::aborted);
-        fail(ec, result.category, result.operation);
+        fail(result.error, result.category, result.operation);
         return false;
     }
 
@@ -182,13 +192,10 @@ private:
         if (!netEc)
             return true;
 
-        auto ec = static_cast<std::error_code>(netEc);
         auto cat = SocketErrorHelper::isReceiveFatalError(netEc)
                        ? ListeningErrorCategory::transient
                        : ListeningErrorCategory::fatal;
-        if (netEc == std::errc::operation_canceled)
-            ec = make_error_code(TransportErrc::aborted);
-        fail(ec, cat, "socket recv");
+        fail(convertNetError(netEc), cat, "socket recv");
         return false;
     }
 
@@ -197,13 +204,10 @@ private:
         if (!netEc)
             return true;
 
-        auto ec = static_cast<std::error_code>(netEc);
         auto cat = SocketErrorHelper::isSendFatalError(netEc)
                        ? ListeningErrorCategory::transient
                        : ListeningErrorCategory::fatal;
-        if (netEc == std::errc::operation_canceled)
-            ec = make_error_code(TransportErrc::aborted);
-        fail(ec, cat, "socket send");
+        fail(convertNetError(netEc), cat, "socket send");
         return false;
     }
 
@@ -230,9 +234,9 @@ private:
 
     void dispatchHandler(ListenResult result)
     {
+        establishing_ = false;
         if (handler_)
             handler_(std::move(result));
-        establishing_ = false;
     }
 
     CodecIds codecIds_;

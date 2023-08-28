@@ -131,6 +131,9 @@ private:
             void operator()() {callback(std::move(result));}
         };
 
+        if (ec == std::errc::operation_canceled)
+            ec = make_error_code(TransportErrc::aborted);
+
         boost::asio::post(
             strand_,
             Posted{std::move(callback),

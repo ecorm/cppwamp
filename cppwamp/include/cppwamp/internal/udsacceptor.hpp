@@ -58,6 +58,8 @@ struct UdsAcceptorConfig
         using Helper = SocketErrorHelper;
         if (!ec)
             return ListeningErrorCategory::success;
+        if (Helper::isAcceptCancellationError(ec))
+            return ListeningErrorCategory::cancelled;
         if (Helper::isAcceptCongestionError(ec))
             return ListeningErrorCategory::congestion;
         if (Helper::isAcceptTransientError(ec))

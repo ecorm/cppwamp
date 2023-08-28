@@ -19,9 +19,10 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-struct TcpAcceptorConfig
+template <typename TSettings>
+struct BasicTcpAcceptorConfig
 {
-    using Settings    = TcpEndpoint;
+    using Settings    = TSettings;
     using NetProtocol = boost::asio::ip::tcp;
     using Traits      = TcpTraits;
 
@@ -49,6 +50,8 @@ struct TcpAcceptorConfig
         using Helper = SocketErrorHelper;
         if (!ec)
             return ListeningErrorCategory::success;
+        if (Helper::isAcceptCancellationError(ec))
+            return ListeningErrorCategory::cancelled;
         if (Helper::isAcceptCongestionError(ec))
             return ListeningErrorCategory::congestion;
         if (Helper::isAcceptOutageError(ec))
@@ -62,6 +65,9 @@ struct TcpAcceptorConfig
         return ListeningErrorCategory::transient;
     }
 };
+
+//------------------------------------------------------------------------------
+using TcpAcceptorConfig = BasicTcpAcceptorConfig<TcpEndpoint>;
 
 //------------------------------------------------------------------------------
 using TcpAcceptor = RawsockAcceptor<TcpAcceptorConfig>;
