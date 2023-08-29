@@ -43,8 +43,6 @@
 namespace wamp
 {
 
-namespace internal { class RouterServer; } // Forward declaration
-
 //------------------------------------------------------------------------------
 /** Determines how call timeouts are forwarded to callees. */
 //------------------------------------------------------------------------------
@@ -137,17 +135,17 @@ public:
     Timeout challengeTimeout() const;
 
 private:
-    Listening::Ptr makeListener(AnyIoExecutor e, IoStrand s) const;
-
-    AnyBufferCodec makeCodec(int codecId) const;
-
     String name_;
     ListenerBuilder listenerBuilder_;
-    std::vector<BufferCodecBuilder> codecBuilders_;
+    BufferCodecFactory codecFactory_;
     Authenticator::Ptr authenticator_;
     Timeout challengeTimeout_ = unspecifiedTimeout;
 
-    friend class internal::RouterServer;
+public: // Internal use only
+    Listening::Ptr makeListener(internal::PassKey, AnyIoExecutor e,
+                                IoStrand s) const;
+
+    AnyBufferCodec makeCodec(internal::PassKey, int id) const;
 };
 
 template <typename S, typename F, typename... Fs>
@@ -155,8 +153,7 @@ ServerOptions::ServerOptions(String name, S&& transportSettings, F&& format,
                              Fs&&... extraFormats)
     : name_(std::move(name)),
       listenerBuilder_(std::forward<S>(transportSettings)),
-      codecBuilders_({BufferCodecBuilder{std::forward<F>(format)},
-                      BufferCodecBuilder{std::forward<Fs>(extraFormats)}...})
+      codecFactory_(format, extraFormats...)
 {}
 
 //------------------------------------------------------------------------------

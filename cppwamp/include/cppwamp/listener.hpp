@@ -14,24 +14,25 @@
 //------------------------------------------------------------------------------
 
 #include <cassert>
-#include <cerrno>
 #include <functional>
 #include <memory>
 #include <set>
 #include <utility>
 
-#if defined(_WIN32) || defined(__CYGWIN__)
-#include <Winsock2.h>
-#endif
-
 #include "api.hpp"
 #include "asiodefs.hpp"
-#include "errorcodes.hpp"
+#include "codec.hpp"
 #include "transport.hpp"
 #include "traits.hpp"
 
 namespace wamp
 {
+
+//------------------------------------------------------------------------------
+/** Primary template, specialized for each transport protocol tag. */
+//------------------------------------------------------------------------------
+template <typename TProtocol>
+class Listener {};
 
 //------------------------------------------------------------------------------
 /** Categories for classifying Listening::establish errors. */
@@ -45,114 +46,6 @@ enum class ListeningErrorCategory
     outage,     /// Network down
     fatal       /// Due to programming error
 };
-
-//------------------------------------------------------------------------------
-/** Provides functions that help in classifying socket operation errors. */
-//------------------------------------------------------------------------------
-struct SocketErrorHelper
-{
-    static bool isAcceptCancellationError(boost::system::error_code ec)
-    {
-        return ec == std::errc::operation_canceled ||
-               ec == TransportErrc::aborted;
-    }
-
-    static bool isAcceptTransientError(boost::system::error_code ec)
-    {
-        // Asio already takes care of EAGAIN, EWOULDBLOCK, ECONNABORTED,
-        // EPROTO, and EINTR.
-        namespace sys = boost::system;
-#if defined(__linux__)
-        return ec == std::errc::host_unreachable
-            || ec == std::errc::operation_not_supported
-            || ec == std::errc::timed_out
-            || ec == sys::error_code{EHOSTDOWN, sys::system_category()};
-#elif defined(_WIN32) || defined(__CYGWIN__)
-        return ec == std::errc::connection_refused
-            || ec == std::errc::connection_reset
-            || ec == sys::error_code{WSATRY_AGAIN, sys::system_category()});
-#else
-        return false;
-#endif
-    }
-
-    static bool isAcceptCongestionError(boost::system::error_code ec)
-    {
-        namespace sys = boost::system;
-        return ec == std::errc::no_buffer_space
-            || ec == std::errc::not_enough_memory
-            || ec == std::errc::too_many_files_open
-            || ec == std::errc::too_many_files_open_in_system
-#if defined(__linux__)
-            || ec == sys::error_code{ENOSR, sys::system_category()}
-#endif
-            ;
-    }
-
-    static bool isAcceptOutageError(boost::system::error_code ec)
-    {
-        namespace sys = boost::system;
-#if defined(__linux__)
-        return ec == std::errc::network_down
-            || ec == std::errc::network_unreachable
-            || ec == std::errc::no_protocol_option // "Protocol not available"
-            || ec == std::errc::operation_not_permitted // Denied by firewall
-            || ec == sys::error_code{ENONET, sys::system_category()};
-#elif defined(_WIN32) || defined(__CYGWIN__)
-        return ec == std::errc::network_down;
-#else
-        return false;
-#endif
-    }
-
-    static bool isAcceptFatalError(boost::system::error_code ec)
-    {
-        return ec == boost::asio::error::already_open
-            || ec == std::errc::bad_file_descriptor
-            || ec == std::errc::not_a_socket
-            || ec == std::errc::invalid_argument
-#if !defined(__linux__)
-            || ec == std::errc::operation_not_supported
-#endif
-#if defined(BSD) || defined(__APPLE__)
-            || ec == std::errc::bad_address // EFAULT
-#elif defined(_WIN32) || defined(__CYGWIN__)
-            || ec == std::errc::bad_address // EFAULT
-            || ec == std::errc::permission_denied
-            || ec == sys::error_code{WSANOTINITIALISED, sys::system_category()}
-#endif
-            ;
-    }
-
-    static bool isReceiveFatalError(boost::system::error_code ec)
-    {
-        return ec == std::errc::bad_address // EFAULT
-            || ec == std::errc::bad_file_descriptor
-            || ec == std::errc::invalid_argument
-            || ec == std::errc::message_size
-            || ec == std::errc::not_a_socket
-            || ec == std::errc::not_connected
-            || ec == std::errc::operation_not_supported
-#if defined(_WIN32) || defined(__CYGWIN__)
-            || ec == sys::error_code{WSANOTINITIALISED, sys::system_category()}
-#endif
-            ;
-    }
-
-    static bool isSendFatalError(boost::system::error_code ec)
-    {
-        return isReceiveFatalError(ec)
-            || ec == std::errc::already_connected
-            || ec == std::errc::connection_already_in_progress
-            || ec == std::errc::permission_denied;
-    }
-};
-
-//------------------------------------------------------------------------------
-/** Primary template, specialized for each transport protocol tag. */
-//------------------------------------------------------------------------------
-template <typename TProtocol>
-class Listener {};
 
 //------------------------------------------------------------------------------
 /** Contains the outcome of a listening attempt. */
@@ -264,9 +157,6 @@ private:
     }
 
 public:
-    /** Container type used to store a set of codec IDs. */
-    using CodecIds = std::set<int>;
-
     /** Constructor taking transport settings (e.g. TcpEndpoint) */
     template <typename S, CPPWAMP_NEEDS((isNotSelf<S>())) = 0>
     explicit ListenerBuilder(S&& transportSettings)
@@ -275,15 +165,14 @@ public:
 
     /** Builds a listener appropriate for the transport settings given
         in the constructor. */
-    Listening::Ptr operator()(AnyIoExecutor e, IoStrand s,
-                              CodecIds codecIds) const
+    Listening::Ptr operator()(AnyIoExecutor e, IoStrand s, CodecIdSet c) const
     {
-        return builder_(std::move(e), std::move(s), std::move(codecIds));
+        return builder_(std::move(e), std::move(s), std::move(c));
     }
 
 private:
     using Function =
-        std::function<Listening::Ptr (AnyIoExecutor e, IoStrand s, CodecIds)>;
+        std::function<Listening::Ptr (AnyIoExecutor, IoStrand, CodecIdSet)>;
 
     template <typename S>
     static Function makeBuilder(S&& transportSettings)
@@ -292,11 +181,11 @@ private:
         using Protocol = typename Settings::Protocol;
         using ConcreteListener = Listener<Protocol>;
         return Function{
-            [transportSettings](AnyIoExecutor e, IoStrand s, CodecIds codecIds)
+            [transportSettings](AnyIoExecutor e, IoStrand s, CodecIdSet c)
             {
                 return Listening::Ptr(new ConcreteListener(
                     std::move(e), std::move(s), transportSettings,
-                    std::move(codecIds)));
+                    std::move(c)));
             }};
     }
 

@@ -14,12 +14,10 @@
 #include <cppwamp/errorcodes.hpp>
 #include <cppwamp/rawsockoptions.hpp>
 #include <cppwamp/transport.hpp>
-#include <cppwamp/internal/tcpopener.hpp>
-#include <cppwamp/internal/tcpacceptor.hpp>
-#include <cppwamp/internal/rawsockconnector.hpp>
-#include <cppwamp/internal/rawsocklistener.hpp>
-#include <cppwamp/internal/udsopener.hpp>
-#include <cppwamp/internal/udsacceptor.hpp>
+#include <cppwamp/internal/tcpconnector.hpp>
+#include <cppwamp/internal/tcplistener.hpp>
+#include <cppwamp/internal/udsconnector.hpp>
+#include <cppwamp/internal/udslistener.hpp>
 
 using namespace wamp;
 
@@ -32,7 +30,6 @@ using TcpRawsockListener  = internal::RawsockListener<internal::TcpAcceptor>;
 using UdsRawsockConnector = internal::RawsockConnector<internal::UdsOpener>;
 using UdsRawsockListener  = internal::RawsockListener<internal::UdsAcceptor>;
 using RML                 = RawsockMaxLength;
-using CodecIds            = std::set<int>;
 
 //------------------------------------------------------------------------------
 constexpr auto jsonId = KnownCodecIds::json();
@@ -57,7 +54,7 @@ struct LoopbackFixture
     LoopbackFixture(ClientSettings clientSettings,
                     int clientCodec,
                     ServerSettings serverSettings,
-                    CodecIds serverCodecs,
+                    CodecIdSet serverCodecs,
                     bool connected = true)
     {
         cnct = Connector::create(boost::asio::make_strand(cctx),
@@ -135,7 +132,7 @@ struct TcpLoopbackFixture :
     TcpLoopbackFixture(
                 bool connected = true,
                 int clientCodec = jsonId,
-                CodecIds serverCodecs = {jsonId},
+                CodecIdSet serverCodecs = {jsonId},
                 RawsockMaxLength clientMaxRxLength = RML::kB_64,
                 RawsockMaxLength serverMaxRxLength = RML::kB_64 )
         : LoopbackFixture(
@@ -156,7 +153,7 @@ struct UdsLoopbackFixture :
     UdsLoopbackFixture(
                 bool connected = true,
                 int clientCodec = jsonId,
-                CodecIds serverCodecs = {jsonId},
+                CodecIdSet serverCodecs = {jsonId},
                 RawsockMaxLength clientMaxRxLength = RML::kB_64,
                 RawsockMaxLength serverMaxRxLength = RML::kB_64 )
         : LoopbackFixture(

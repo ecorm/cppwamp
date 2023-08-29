@@ -32,11 +32,9 @@ class HttpListener : public std::enable_shared_from_this<HttpListener>
 public:
     using Ptr       = std::shared_ptr<HttpListener>;
     using Settings  = HttpEndpoint;
-    using CodecIds  = std::set<int>;
     using Handler   = Listening::Handler;
 
-    static Ptr create(AnyIoExecutor e, IoStrand i, Settings s,
-                      CodecIds codecIds)
+    static Ptr create(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c)
     {
         // TODO
     }

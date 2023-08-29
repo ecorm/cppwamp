@@ -18,10 +18,12 @@
 #include <boost/asio/read.hpp>
 #include <boost/asio/write.hpp>
 #include "../asiodefs.hpp"
+#include "../codec.hpp"
 #include "../errorcodes.hpp"
 #include "../transport.hpp"
 #include "pinger.hpp"
 #include "rawsockheader.hpp"
+#include "rawsockhandshake.hpp"
 
 namespace wamp
 {
@@ -106,62 +108,68 @@ struct DefaultRawsockTransportConfig
 {
     // Allows pre-processing transport frame payloads for test purposes.
     static void preProcess(RawsockMsgKind&, MessageBuffer&) {}
+
+    // Allows altering server handshake bytes for test purposes.
+    static uint32_t hostOrderHandshakeBytes(int codecId,
+                                            RawsockMaxLength maxRxLength)
+    {
+        return RawsockHandshake().setCodecId(codecId)
+            .setMaxLength(maxRxLength)
+            .toHostOrder();
+    }
+
+    // Allows mocking server unresponsiveness by not sending handshake bytes.
+    static constexpr bool mockUnresponsiveness() {return false;}
 };
 
 //------------------------------------------------------------------------------
-template <typename TSocket, typename TTraits,
-          typename TConfig = DefaultRawsockTransportConfig>
+template <typename TTraits, typename TConfig = DefaultRawsockTransportConfig>
 class RawsockTransport : public Transporting
 {
 public:
-    using Ptr            = std::shared_ptr<RawsockTransport>;
-    using Socket         = TSocket;
+    using Traits         = TTraits;
     using Config         = TConfig;
-    using SocketPtr      = std::unique_ptr<Socket>;
+    using NetProtocol    = typename TTraits::NetProtocol;
+    using Ptr            = std::shared_ptr<RawsockTransport>;
+    using Socket         = typename NetProtocol::socket;
     using RxHandler      = typename Transporting::RxHandler;
     using TxErrorHandler = typename Transporting::TxErrorHandler;
 
-    static Ptr create(SocketPtr&& s, TransportInfo info)
-    {
-        return Ptr(new RawsockTransport(std::move(s), info));
-    }
-
-private:
-    using Base = Transporting;
-    using TransmitQueue = std::deque<RawsockFrame::Ptr>;
-
-    RawsockTransport(SocketPtr&& socket, TransportInfo info)
-        : Base(info, TTraits::connectionInfo(socket->remote_endpoint())),
-          strand_(boost::asio::make_strand(socket->get_executor())),
+protected:
+    RawsockTransport(Socket&& socket, TransportInfo info = {})
+        : Base(info, TTraits::connectionInfo(socket.remote_endpoint())),
+          strand_(boost::asio::make_strand(socket.get_executor())),
           socket_(std::move(socket))
     {
         if (timeoutIsDefinite(Base::info().heartbeatInterval()))
             pinger_ = std::make_shared<Pinger>(strand_, Base::info());
     }
 
+    Socket& socket() {return socket_;}
+
+    template <typename F, typename... Ts>
+    void post(F&& handler, Ts&&... args) //
+    {
+        // NOLINTNEXTLINE(modernize-avoid-bind)
+        boost::asio::post(strand_, std::bind(std::forward<F>(handler),
+                                             std::forward<Ts>(args)...));
+    }
+
+private:
+    using Base = Transporting;
+    using TransmitQueue = std::deque<RawsockFrame::Ptr>;
+
     void onStart(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
     {
         rxHandler_ = rxHandler;
         txErrorHandler_ = txErrorHandler;
-
-        if (pinger_)
-        {
-            std::weak_ptr<Transporting> self = shared_from_this();
-            pinger_->start(
-                [self, this](ErrorOr<PingBytes> pingBytes)
-                {
-                    auto me = self.lock();
-                    if (me)
-                        onPingFrame(pingBytes);
-                });
-        }
-
+        startPinger();
         receive();
     }
 
     void onSend(MessageBuffer message) override
     {
-        if (!socket_)
+        if (!socket_.is_open())
             return;
         auto buf = enframe(RawsockMsgKind::wamp, std::move(message));
         sendFrame(std::move(buf));
@@ -169,7 +177,7 @@ private:
 
     void onSendNowAndStop(MessageBuffer message) override
     {
-        if (!socket_)
+        if (!socket_.is_open())
             return;
         auto frame = enframe(RawsockMsgKind::wamp, std::move(message));
         assert((frame->payload().size() <= info().maxTxLength()) &&
@@ -184,10 +192,24 @@ private:
         rxHandler_ = nullptr;
         txErrorHandler_ = nullptr;
         txQueue_.clear();
-        if (socket_)
-            socket_->close();
+        socket_.close();
         if (pinger_)
             pinger_->stop();
+    }
+
+    void startPinger()
+    {
+        if (pinger_)
+        {
+            std::weak_ptr<Transporting> self = shared_from_this();
+            pinger_->start(
+                [self, this](ErrorOr<PingBytes> pingBytes)
+                {
+                    auto me = self.lock();
+                    if (me)
+                        onPingFrame(pingBytes);
+                });
+        }
     }
 
     void onPingFrame(ErrorOr<PingBytes> pingBytes)
@@ -223,68 +245,70 @@ private:
     // NOLINTBEGIN(misc-no-recursion)
     void transmit()
     {
-        if (isReadyToTransmit())
-        {
-            txFrame_ = txQueue_.front();
-            txQueue_.pop_front();
+        if (!isReadyToTransmit())
+            return;
 
-            auto self = this->shared_from_this();
-            boost::asio::async_write(*socket_, txFrame_->gatherBuffers(),
-                [this, self](boost::system::error_code netEc, size_t)
+        txFrame_ = txQueue_.front();
+        txQueue_.pop_front();
+
+        auto self = this->shared_from_this();
+        boost::asio::async_write(
+            socket_,
+            txFrame_->gatherBuffers(),
+            [this, self](boost::system::error_code netEc, size_t)
+            {
+                const bool frameWasPoisoned = txFrame_ &&
+                                              txFrame_->isPoisoned();
+                txFrame_.reset();
+                if (netEc)
                 {
-                    const bool frameWasPoisoned = txFrame_ &&
-                                                  txFrame_->isPoisoned();
-                    txFrame_.reset();
-                    if (netEc)
+                    if (txErrorHandler_)
                     {
-                        if (txErrorHandler_)
-                        {
-                            auto ec = static_cast<std::error_code>(netEc);
-                            txErrorHandler_(ec);
-                        }
-                        cleanup();
+                        auto ec = static_cast<std::error_code>(netEc);
+                        txErrorHandler_(ec);
                     }
-                    else if (frameWasPoisoned)
-                    {
-                        onStop();
-                    }
-                    else
-                    {
-                        transmit();
-                    }
-                });
-        }
+                    cleanup();
+                }
+                else if (frameWasPoisoned)
+                {
+                    onStop();
+                }
+                else
+                {
+                    transmit();
+                }
+           });
     }
     // NOLINTEND(misc-no-recursion)
 
     bool isReadyToTransmit() const
     {
-        return socket_ &&          // Socket is still open
-               !txFrame_ &&        // No async_write is in progress
-               !txQueue_.empty();  // One or more messages are enqueued
+        return socket_.is_open() && // Socket is still open
+               !txFrame_ &&         // No async_write is in progress
+               !txQueue_.empty();   // One or more messages are enqueued
     }
 
     // NOLINTBEGIN(misc-no-recursion)
     void receive()
     {
-        if (socket_)
-        {
-            rxFrame_.clear();
-            auto self = this->shared_from_this();
-            boost::asio::async_read(*socket_, rxFrame_.headerBuffer(),
-                [this, self](boost::system::error_code ec, size_t)
+        if (!socket_.is_open())
+            return;
+
+        rxFrame_.clear();
+        auto self = this->shared_from_this();
+        boost::asio::async_read(socket_, rxFrame_.headerBuffer(),
+            [this, self](boost::system::error_code ec, size_t)
+            {
+                if (ec == boost::asio::error::connection_reset ||
+                    ec == boost::asio::error::eof)
                 {
-                    if (ec == boost::asio::error::connection_reset ||
-                        ec == boost::asio::error::eof)
-                    {
-                        onRemoteDisconnect();
-                    }
-                    else if (check(ec))
-                    {
-                        processHeader();
-                    }
-                });
-        }
+                    onRemoteDisconnect();
+                }
+                else if (check(ec))
+                {
+                    processHeader();
+                }
+            });
     }
     // NOLINTEND(misc-no-recursion)
 
@@ -312,7 +336,7 @@ private:
     {
         rxFrame_.resize(length);
         auto self = this->shared_from_this();
-        boost::asio::async_read(*socket_, rxFrame_.payloadBuffer(),
+        boost::asio::async_read(socket_, rxFrame_.payloadBuffer(),
             [this, self, kind](boost::system::error_code ec, size_t)
             {
                 if (ec)
@@ -364,25 +388,10 @@ private:
         receive();
     }
 
-    template <typename F, typename... Ts>
-    void post(F&& handler, Ts&&... args)
-    {
-        // NOLINTNEXTLINE(modernize-avoid-bind)
-        boost::asio::post(strand_, std::bind(std::forward<F>(handler),
-                                             std::forward<Ts>(args)...));
-    }
-
     bool check(boost::system::error_code netEc)
     {
         if (netEc)
-        {
-            if (rxHandler_)
-            {
-                auto ec = static_cast<std::error_code>(netEc);
-                post(rxHandler_, UnexpectedError(ec));
-            }
-            cleanup();
-        }
+            fail(static_cast<std::error_code>(netEc));
         return !netEc;
     }
 
@@ -414,11 +423,12 @@ private:
         txQueue_.clear();
         txFrame_ = nullptr;
         pingFrame_ = nullptr;
-        socket_.reset();
+        socket_.close();
         pinger_.reset();
     }
 
     IoStrand strand_;
+    Socket socket_;
     RxHandler rxHandler_;
     TxErrorHandler txErrorHandler_;
     RawsockFrame rxFrame_;
@@ -426,8 +436,172 @@ private:
     MessageBuffer pingBuffer_;
     RawsockFrame::Ptr txFrame_;
     RawsockFrame::Ptr pingFrame_;
-    std::unique_ptr<TSocket> socket_;
     std::shared_ptr<Pinger> pinger_;
+    uint32_t handshake_ = 0;
+};
+
+
+//------------------------------------------------------------------------------
+template <typename TTraits, typename TConfig = DefaultRawsockTransportConfig>
+class RawsockClientTransport
+    : public RawsockTransport<TTraits, TConfig>
+{
+public:
+    using Ptr    = std::shared_ptr<RawsockClientTransport>;
+    using Socket = typename TTraits::NetProtocol::socket;
+
+    static Ptr create(Socket&& s, TransportInfo i)
+    {
+        return Ptr(new RawsockClientTransport(std::move(s), i));
+    }
+
+private:
+    using Base = RawsockTransport<TTraits, TConfig>;
+
+    RawsockClientTransport(Socket&& s, TransportInfo info)
+        : Base(std::move(s), info)
+    {}
+};
+
+//------------------------------------------------------------------------------
+template <typename TTraits, typename TConfig = DefaultRawsockTransportConfig>
+class RawsockServerTransport
+    : public RawsockTransport<TTraits, TConfig>
+{
+public:
+    using Ptr           = std::shared_ptr<RawsockServerTransport>;
+    using Socket        = typename TTraits::NetProtocol::socket;
+    using Settings      = typename TTraits::ServerSettings;
+    using AcceptHandler = Transporting::AcceptHandler;
+
+    static Ptr create(Socket&& s, const Settings&, const CodecIdSet& c)
+    {
+        return Ptr(new RawsockServerTransport(std::move(s), std::move(c)));
+    }
+
+private:
+    using Base = RawsockTransport<TTraits, TConfig>;
+    using Handshake = internal::RawsockHandshake;
+
+    // Only used once to perform accept operation
+    struct Data
+    {
+        explicit Data(const CodecIdSet& c) : codecIds(c) {}
+
+        CodecIdSet codecIds;
+        AcceptHandler handler;
+        uint32_t handshake = 0;
+        RawsockMaxLength maxTxLength = {};
+        RawsockMaxLength maxRxLength = {};
+    };
+
+    RawsockServerTransport(Socket&& s, const CodecIdSet& c)
+        : Base(std::move(s)),
+          data_(new Data(c))
+    {}
+
+    void onAccept(AcceptHandler handler) override
+    {
+        // TODO: Timeout waiting for handshake
+        assert((data_ != nullptr) && "Accept already performed");
+        data_->handler = std::move(handler);
+        auto self = this->shared_from_this();
+        boost::asio::async_read(
+            Base::socket(),
+            boost::asio::buffer(&data_->handshake, sizeof(Handshake)),
+            [this, self](boost::system::error_code ec, size_t)
+            {
+                if (check(ec))
+                {
+                    onHandshakeReceived(
+                        Handshake::fromBigEndian(data_->handshake));
+                }
+            });
+    }
+
+    void onCancelAccept() override {Base::socket().close();}
+
+    void onHandshakeReceived(Handshake hs)
+    {
+        auto peerCodec = hs.codecId();
+
+        if (!hs.hasMagicOctet())
+        {
+            fail(TransportErrc::badHandshake);
+        }
+        else if (hs.reserved() != 0)
+        {
+            sendHandshake(Handshake::eReservedBitsUsed());
+        }
+        else if (data_->codecIds.count(peerCodec) != 0)
+        {
+            data_->maxTxLength = hs.maxLength();
+            auto bytes = TConfig::hostOrderHandshakeBytes(peerCodec,
+                                                          data_->maxTxLength);
+            if (!TConfig::mockUnresponsiveness())
+                sendHandshake(Handshake(bytes));
+        }
+        else
+        {
+            sendHandshake(Handshake::eUnsupportedFormat());
+        }
+    }
+
+    void sendHandshake(Handshake hs)
+    {
+        if (!Base::socket().is_open())
+            return;
+
+        data_->handshake = hs.toBigEndian();
+        auto self = this->shared_from_this();
+        boost::asio::async_write(
+            Base::socket(),
+            boost::asio::buffer(&data_->handshake, sizeof(Handshake)),
+            [this, self, hs](boost::system::error_code ec, size_t)
+            {
+                onHandshakeSent(hs, ec);
+            });
+    }
+
+    void onHandshakeSent(Handshake hs, boost::system::error_code ec)
+    {
+        if (!check(ec))
+            return;
+        if (!hs.hasError())
+            complete(hs);
+        else
+            fail(hs.errorCode());
+    }
+
+    void complete(Handshake hs)
+    {
+        auto codecId = hs.codecId();
+        const TransportInfo i{codecId,
+                              Handshake::byteLengthOf(data_->maxTxLength),
+                              Handshake::byteLengthOf(data_->maxRxLength)};
+        Base::setTransportInfo(i);
+        data_->handler(codecId);
+        data_.reset();
+    }
+
+    bool check(boost::system::error_code netEc)
+    {
+        if (netEc)
+            fail(static_cast<std::error_code>(netEc));
+        return !netEc;
+    }
+
+    void fail(std::error_code ec)
+    {
+        Base::post(data_->handler, makeUnexpected(ec));
+        data_.reset();
+        Base::shutdown();
+    }
+
+    template <typename TErrc>
+    void fail(TErrc errc) {fail(make_error_code(errc));}
+
+    std::unique_ptr<Data> data_; // Only used once for accept operation
 };
 
 } // namespace internal

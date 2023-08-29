@@ -22,6 +22,10 @@ namespace internal
 //------------------------------------------------------------------------------
 struct TcpTraits
 {
+    using NetProtocol = boost::asio::ip::tcp;
+    using ClientSettings = TcpHost;
+    using ServerSettings = TcpEndpoint;
+
     template <typename TEndpoint>
     static ConnectionInfo connectionInfo(const TEndpoint& ep)
     {

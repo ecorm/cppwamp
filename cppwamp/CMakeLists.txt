@@ -97,7 +97,6 @@ set(HEADERS
     include/cppwamp/internal/pinger.hpp
     include/cppwamp/internal/procedureregistry.hpp
     include/cppwamp/internal/random.hpp
-    include/cppwamp/internal/rawsockacceptor.hpp
     include/cppwamp/internal/rawsockconnector.hpp
     include/cppwamp/internal/rawsockhandshake.hpp
     include/cppwamp/internal/rawsockheader.hpp
@@ -116,13 +115,14 @@ set(HEADERS
     include/cppwamp/internal/streamchannel.hpp
     include/cppwamp/internal/surrogateany.hpp
     include/cppwamp/internal/tcpacceptor.hpp
-    include/cppwamp/internal/tcpopener.hpp
+    include/cppwamp/internal/tcpconnector.hpp
+    include/cppwamp/internal/tcplistener.hpp
     include/cppwamp/internal/tcptraits.hpp
     include/cppwamp/internal/timeformatting.hpp
     include/cppwamp/internal/timeoutscheduler.hpp
     include/cppwamp/internal/tokentriemapimpl.hpp
-    include/cppwamp/internal/udsacceptor.hpp
-    include/cppwamp/internal/udsopener.hpp
+    include/cppwamp/internal/udsconnector.hpp
+    include/cppwamp/internal/udslistener.hpp
     include/cppwamp/internal/udstraits.hpp
     include/cppwamp/internal/variantdecoding.hpp
     include/cppwamp/internal/variantencoding.hpp

@@ -5,10 +5,8 @@
 ------------------------------------------------------------------------------*/
 
 #include "../transports/uds.hpp"
-#include "rawsockconnector.hpp"
-#include "rawsocklistener.hpp"
-#include "udsacceptor.hpp"
-#include "udsopener.hpp"
+#include "udsconnector.hpp"
+#include "udslistener.hpp"
 
 namespace wamp
 {
@@ -22,13 +20,13 @@ namespace internal
 //------------------------------------------------------------------------------
 struct UdsConnectorImpl
 {
-    using RawsockOpener = internal::RawsockConnector<internal::UdsOpener>;
+    using ConnectorType = internal::UdsConnector;
 
     UdsConnectorImpl(IoStrand i, UdsPath s, int codecId)
-        : cnct(RawsockOpener::create(std::move(i), std::move(s), codecId))
+        : cnct(ConnectorType::create(std::move(i), std::move(s), codecId))
     {}
 
-    RawsockOpener::Ptr cnct;
+    ConnectorType::Ptr cnct;
 };
 
 //------------------------------------------------------------------------------
@@ -37,15 +35,14 @@ struct UdsConnectorImpl
 //------------------------------------------------------------------------------
 struct UdsListenerImpl
 {
-    using RawsockListener = internal::RawsockListener<internal::UdsAcceptor>;
+    using ListenerType = internal::UdsListener;
 
-    UdsListenerImpl(AnyIoExecutor e, IoStrand i, UdsPath s,
-                    std::set<int> codecIds)
-        : lstn(RawsockListener::create(std::move(e), std::move(i), std::move(s),
-                                       std::move(codecIds)))
+    UdsListenerImpl(AnyIoExecutor e, IoStrand i, UdsPath s, CodecIdSet c)
+        : lstn(ListenerType::create(std::move(e), std::move(i), std::move(s),
+                                    std::move(c)))
     {}
 
-    RawsockListener::Ptr lstn;
+    ListenerType::Ptr lstn;
 };
 
 } // namespace internal
@@ -80,10 +77,10 @@ CPPWAMP_INLINE void Connector<Uds>::cancel() {impl_->cnct->cancel();}
 //******************************************************************************
 
 CPPWAMP_INLINE Listener<Uds>::Listener(AnyIoExecutor e, IoStrand i, Settings s,
-                                       std::set<int> codecIds)
+                                       CodecIdSet c)
     : Listening(s.label()),
       impl_(new internal::UdsListenerImpl(std::move(e), std::move(i),
-                                          std::move(s), std::move(codecIds)))
+                                          std::move(s), std::move(c)))
 {}
 
 //------------------------------------------------------------------------------

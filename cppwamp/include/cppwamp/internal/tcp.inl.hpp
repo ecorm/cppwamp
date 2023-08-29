@@ -5,10 +5,8 @@
 ------------------------------------------------------------------------------*/
 
 #include "../transports/tcp.hpp"
-#include "rawsockconnector.hpp"
-#include "rawsocklistener.hpp"
-#include "tcpacceptor.hpp"
-#include "tcpopener.hpp"
+#include "tcpconnector.hpp"
+#include "tcplistener.hpp"
 
 namespace wamp
 {
@@ -22,13 +20,13 @@ namespace internal
 //------------------------------------------------------------------------------
 struct TcpConnectorImpl
 {
-    using RawsockConnector = internal::RawsockConnector<internal::TcpOpener>;
+    using ConnectorType = internal::TcpConnector;
 
     TcpConnectorImpl(IoStrand i, TcpHost s, int codecId)
-        : cnct(RawsockConnector::create(std::move(i), std::move(s), codecId))
+        : cnct(ConnectorType::create(std::move(i), std::move(s), codecId))
     {}
 
-    RawsockConnector::Ptr cnct;
+    ConnectorType::Ptr cnct;
 };
 
 //------------------------------------------------------------------------------
@@ -37,15 +35,14 @@ struct TcpConnectorImpl
 //------------------------------------------------------------------------------
 struct TcpListenerImpl
 {
-    using RawsockListener = internal::RawsockListener<internal::TcpAcceptor>;
+    using ListenerType = internal::TcpListener;
 
-    TcpListenerImpl(AnyIoExecutor e, IoStrand i, TcpEndpoint s,
-                    std::set<int> codecIds)
-        : lstn(RawsockListener::create(std::move(e), std::move(i), std::move(s),
-                                       std::move(codecIds)))
+    TcpListenerImpl(AnyIoExecutor e, IoStrand i, TcpEndpoint s, CodecIdSet c)
+        : lstn(ListenerType::create(std::move(e), std::move(i), std::move(s),
+                                    std::move(c)))
     {}
 
-    RawsockListener::Ptr lstn;
+    ListenerType::Ptr lstn;
 };
 
 } // namespace internal
@@ -81,10 +78,10 @@ CPPWAMP_INLINE void Connector<Tcp>::cancel() {impl_->cnct->cancel();}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Listener<Tcp>::Listener(AnyIoExecutor e, IoStrand i, Settings s,
-                                       std::set<int> codecIds)
+                                       CodecIdSet c)
     : Listening(s.label()),
-    impl_(new internal::TcpListenerImpl(std::move(e), std::move(i),
-                                        std::move(s), std::move(codecIds)))
+      impl_(new internal::TcpListenerImpl(std::move(e), std::move(i),
+                                          std::move(s), std::move(c)))
 {}
 
 //------------------------------------------------------------------------------

@@ -30,13 +30,6 @@ struct CPPWAMP_API Uds
 };
 
 
-// Forward declarations
-namespace internal
-{
-class UdsOpener;
-template <typename> class RawsockAcceptor;
-}
-
 //------------------------------------------------------------------------------
 /** Contains options for the UNIX domain socket transport.
     @note Support for these options depends on the the operating system.
@@ -87,16 +80,14 @@ public:
 
     // NOLINTEND(readability-inconsistent-declaration-parameter-name)
 
+    /** Applies the options to the given socket. */
+    template <typename TSocket> void applyTo(TSocket& socket) const;
+
 private:
     template <typename TOption, typename... TArgs>
     UdsOptions& set(TArgs... args);
 
-    template <typename TSocket> void applyTo(TSocket& socket) const;
-
     internal::SocketOptionList<boost::asio::local::stream_protocol> options_;
-
-    friend class internal::UdsOpener;
-    template <typename> friend class internal::RawsockAcceptor;
 
     /* Implementation note: Explicit template instantiation does not seem
        to play nice with CRTP, so it was not feasible to factor out the

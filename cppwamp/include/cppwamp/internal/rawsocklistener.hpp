@@ -7,15 +7,21 @@
 #ifndef CPPWAMP_INTERNAL_RAWSOCKLISTENER_HPP
 #define CPPWAMP_INTERNAL_RAWSOCKLISTENER_HPP
 
+#include <cassert>
+#include <cerrno>
 #include <memory>
 #include <set>
 #include <utility>
+
+#if defined(_WIN32) || defined(__CYGWIN__)
+#include <Winsock2.h>
+#endif
+
+#include <boost/asio/socket_base.hpp>
 #include "../asiodefs.hpp"
 #include "../errorcodes.hpp"
 #include "../erroror.hpp"
 #include "../listener.hpp"
-#include "rawsockhandshake.hpp"
-#include "rawsocktransport.hpp"
 
 namespace wamp
 {
@@ -24,40 +30,126 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-struct DefaultRawsockServerConfig
+/** Provides functions that help in classifying socket operation errors. */
+//------------------------------------------------------------------------------
+struct SocketErrorHelper
 {
-    template <typename TSocket, typename TTraits>
-    using TransportType = RawsockTransport<TSocket, TTraits>;
-
-    static constexpr bool mockUnresponsiveness() {return false;}
-
-    static uint32_t hostOrderHandshakeBytes(int codecId,
-                                            RawsockMaxLength maxRxLength)
+    static bool isAcceptCancellationError(boost::system::error_code ec)
     {
-        return RawsockHandshake().setCodecId(codecId)
-                                 .setMaxLength(maxRxLength)
-                                 .toHostOrder();
+        return ec == std::errc::operation_canceled ||
+               ec == TransportErrc::aborted;
+    }
+
+    static bool isAcceptTransientError(boost::system::error_code ec)
+    {
+        // Asio already takes care of EAGAIN, EWOULDBLOCK, ECONNABORTED,
+        // EPROTO, and EINTR.
+        namespace sys = boost::system;
+#if defined(__linux__)
+        return ec == std::errc::host_unreachable
+            || ec == std::errc::operation_not_supported
+            || ec == std::errc::timed_out
+            || ec == sys::error_code{EHOSTDOWN, sys::system_category()};
+#elif defined(_WIN32) || defined(__CYGWIN__)
+        return ec == std::errc::connection_refused
+            || ec == std::errc::connection_reset
+            || ec == sys::error_code{WSATRY_AGAIN, sys::system_category()});
+#else
+        return false;
+#endif
+    }
+
+    static bool isAcceptCongestionError(boost::system::error_code ec)
+    {
+        namespace sys = boost::system;
+        return ec == std::errc::no_buffer_space
+            || ec == std::errc::not_enough_memory
+            || ec == std::errc::too_many_files_open
+            || ec == std::errc::too_many_files_open_in_system
+#if defined(__linux__)
+            || ec == sys::error_code{ENOSR, sys::system_category()}
+#endif
+            ;
+    }
+
+    static bool isAcceptOutageError(boost::system::error_code ec)
+    {
+        namespace sys = boost::system;
+#if defined(__linux__)
+        return ec == std::errc::network_down
+            || ec == std::errc::network_unreachable
+            || ec == std::errc::no_protocol_option // "Protocol not available"
+            || ec == std::errc::operation_not_permitted // Denied by firewall
+            || ec == sys::error_code{ENONET, sys::system_category()};
+#elif defined(_WIN32) || defined(__CYGWIN__)
+        return ec == std::errc::network_down;
+#else
+        return false;
+#endif
+    }
+
+    static bool isAcceptFatalError(boost::system::error_code ec)
+    {
+        return ec == boost::asio::error::already_open
+            || ec == std::errc::bad_file_descriptor
+            || ec == std::errc::not_a_socket
+            || ec == std::errc::invalid_argument
+#if !defined(__linux__)
+            || ec == std::errc::operation_not_supported
+#endif
+#if defined(BSD) || defined(__APPLE__)
+            || ec == std::errc::bad_address // EFAULT
+#elif defined(_WIN32) || defined(__CYGWIN__)
+            || ec == std::errc::bad_address // EFAULT
+            || ec == std::errc::permission_denied
+            || ec == sys::error_code{WSANOTINITIALISED, sys::system_category()}
+#endif
+            ;
+    }
+
+    static bool isReceiveFatalError(boost::system::error_code ec)
+    {
+        return ec == std::errc::bad_address // EFAULT
+            || ec == std::errc::bad_file_descriptor
+            || ec == std::errc::invalid_argument
+            || ec == std::errc::message_size
+            || ec == std::errc::not_a_socket
+            || ec == std::errc::not_connected
+            || ec == std::errc::operation_not_supported
+#if defined(_WIN32) || defined(__CYGWIN__)
+            || ec == sys::error_code{WSANOTINITIALISED, sys::system_category()}
+#endif
+            ;
+    }
+
+    static bool isSendFatalError(boost::system::error_code ec)
+    {
+        return isReceiveFatalError(ec)
+            || ec == std::errc::already_connected
+            || ec == std::errc::connection_already_in_progress
+            || ec == std::errc::permission_denied;
     }
 };
 
 //------------------------------------------------------------------------------
-template <typename TAcceptor, typename TConfig = DefaultRawsockServerConfig>
+template <typename TConfig>
 class RawsockListener
-    : public std::enable_shared_from_this<RawsockListener<TAcceptor, TConfig>>
+    : public std::enable_shared_from_this<RawsockListener<TConfig>>
 {
 public:
-    using Ptr       = std::shared_ptr<RawsockListener>;
-    using Acceptor  = TAcceptor;
-    using Settings  = typename Acceptor::Settings;
-    using CodecIds  = std::set<int>;
-    using Traits    = typename Acceptor::Traits;
-    using Handler   = Listening::Handler;
+    using Ptr      = std::shared_ptr<RawsockListener>;
+    using Settings = typename TConfig::Settings;
+    using Handler  = Listening::Handler;
 
-    static Ptr create(AnyIoExecutor e, IoStrand i, Settings s,
-                      CodecIds codecIds)
+    static Ptr create(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c)
     {
         return Ptr(new RawsockListener(std::move(e), std::move(i), std::move(s),
-                                       std::move(codecIds)));
+                                       std::move(c)));
+    }
+
+    ~RawsockListener()
+    {
+        TConfig::onDestruction(settings_);
     }
 
     void observe(Handler handler) {handler_ = handler;}
@@ -66,33 +158,26 @@ public:
     {
         assert(!establishing_ && "RawsockListener already establishing");
         establishing_ = true;
+        if (!acceptor_.is_open() && !listen())
+        {
+            establishing_ = false;
+            return;
+        }
+
         auto self = this->shared_from_this();
-        acceptor_.establish(
-            [this, self](AcceptorResult result)
+        acceptor_.async_accept(
+            boost::asio::make_strand(executor_),
+            [self](boost::system::error_code netEc, Socket socket)
             {
-                if (checkAcceptorError(result))
-                {
-                    socket_ = std::move(result.socket);
-                    receiveHandshake();
-                }
+                self->onAccept(netEc, std::move(socket));
             });
     }
 
-    void cancel()
-    {
-        if (socket_)
-            socket_->close();
-        else
-            acceptor_.cancel();
-    }
+    void cancel() {acceptor_.cancel();}
 
 private:
-    using Socket         = typename Acceptor::Socket;
-    using SocketPtr      = std::unique_ptr<Socket>;
-    using Handshake      = internal::RawsockHandshake;
-    using ErrorCat       = ListeningErrorCategory;
-    using AcceptorResult = typename Acceptor::Result;
-    using Transport = typename TConfig::template TransportType<Socket, Traits>;
+    using Socket    = typename TConfig::NetProtocol::socket;
+    using Transport = typename TConfig::Transport;
 
     static std::error_code convertNetError(boost::system::error_code netEc)
     {
@@ -109,143 +194,86 @@ private:
         return ec;
     }
 
-    RawsockListener(AnyIoExecutor e, IoStrand i, Settings s, CodecIds codecIds)
-        : codecIds_(std::move(codecIds)),
-          acceptor_(std::move(e), std::move(i), std::move(s)),
-          maxRxLength_(acceptor_.settings().maxRxLength())
+    RawsockListener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c)
+        : executor_(std::move(e)),
+          codecIds_(std::move(c)),
+          settings_(std::move(s)),
+          acceptor_(std::move(i))
     {}
 
-    void receiveHandshake()
+    bool listen()
     {
-        // TODO: Timeout waiting for handshake
-        handshake_ = 0;
-        auto self = this->shared_from_this();
-        boost::asio::async_read(
-            *socket_,
-            boost::asio::buffer(&handshake_, sizeof(handshake_)),
-            [this, self](boost::system::error_code ec, size_t)
+        TConfig::onFirstEstablish(settings_);
+
+        auto endpoint = TConfig::makeEndpoint(settings_);
+        boost::system::error_code ec;
+        acceptor_.open(endpoint.protocol(), ec);
+        if (ec)
+            return fail(ec, "socket open");
+
+        TConfig::setAcceptorOptions(acceptor_);
+        acceptor_.bind(endpoint, ec);
+        if (ec)
+            return fail(ec, "socket bind");
+
+        acceptor_.listen(boost::asio::socket_base::max_listen_connections, ec);
+        if (ec)
+            return fail(ec, "socket listen");
+
+        return true;
+    }
+
+    bool fail(boost::system::error_code ec, const char* op)
+    {
+        struct Posted
+        {
+            Ptr self;
+            ListenResult result;
+
+            void operator()()
             {
-                if (checkReadError(ec))
-                    onHandshakeReceived(Handshake::fromBigEndian(handshake_));
-            });
-    }
+                if (self->handler_)
+                    self->handler_(std::move(result));
+            }
+        };
 
-    void onHandshakeReceived(Handshake hs)
-    {
-        auto peerCodec = hs.codecId();
+        if (ec == std::errc::operation_canceled)
+            ec = make_error_code(TransportErrc::aborted);
 
-        if (!hs.hasMagicOctet())
-        {
-            fail(TransportErrc::badHandshake, ErrorCat::transient, "handshake");
-        }
-        else if (hs.reserved() != 0)
-        {
-            sendHandshake(Handshake::eReservedBitsUsed());
-        }
-        else if (codecIds_.count(peerCodec) != 0)
-        {
-            maxTxLength_ = hs.maxLength();
-            auto bytes = TConfig::hostOrderHandshakeBytes(peerCodec,
-                                                          maxRxLength_);
-            if (!TConfig::mockUnresponsiveness())
-                sendHandshake(Handshake(bytes));
-        }
-        else
-        {
-            sendHandshake(Handshake::eUnsupportedFormat());
-        }
-    }
-
-    void sendHandshake(Handshake hs)
-    {
-        handshake_ = hs.toBigEndian();
         auto self = this->shared_from_this();
-        boost::asio::async_write(
-            *socket_,
-            boost::asio::buffer(&handshake_, sizeof(handshake_)),
-            [this, self, hs](boost::system::error_code ec, size_t)
-            {
-                onHandshakeSent(hs, ec);
-            });
-    }
-
-    void onHandshakeSent(Handshake hs, boost::system::error_code ec)
-    {
-        if (!checkWriteError(ec))
-            return;
-        if (!hs.hasError())
-            complete(hs);
-        else
-            fail(hs.errorCode(), ErrorCat::transient, "rawsock handshake");
-    }
-
-    bool checkAcceptorError(const AcceptorResult& result)
-    {
-        if (result.socket != nullptr)
-            return true;
-        fail(result.error, result.category, result.operation);
+        boost::asio::post(
+            strand_,
+            Posted{std::move(self),
+                   ListenResult{ec, ListeningErrorCategory::fatal, op}});
         return false;
     }
 
-    bool checkReadError(boost::system::error_code netEc)
-    {
-        if (!netEc)
-            return true;
-
-        auto cat = SocketErrorHelper::isReceiveFatalError(netEc)
-                       ? ListeningErrorCategory::transient
-                       : ListeningErrorCategory::fatal;
-        fail(convertNetError(netEc), cat, "socket recv");
-        return false;
-    }
-
-    bool checkWriteError(boost::system::error_code netEc)
-    {
-        if (!netEc)
-            return true;
-
-        auto cat = SocketErrorHelper::isSendFatalError(netEc)
-                       ? ListeningErrorCategory::transient
-                       : ListeningErrorCategory::fatal;
-        fail(convertNetError(netEc), cat, "socket send");
-        return false;
-    }
-
-    void complete(Handshake hs)
-    {
-        const TransportInfo i{hs.codecId(),
-                              Handshake::byteLengthOf(maxTxLength_),
-                              Handshake::byteLengthOf(maxRxLength_)};
-        Transporting::Ptr transport{Transport::create(std::move(socket_), i)};
-        socket_.reset();
-        dispatchHandler(std::move(transport));
-    }
-
-    void fail(std::error_code ec, ListeningErrorCategory cat, const char* op)
-    {
-        socket_.reset();
-        dispatchHandler({ec, cat, op});
-    }
-
-    void fail(TransportErrc errc, ListeningErrorCategory cat, const char* op)
-    {
-        fail(make_error_code(errc), cat, op);
-    }
-
-    void dispatchHandler(ListenResult result)
+    void onAccept(boost::system::error_code netEc, Socket socket)
     {
         establishing_ = false;
-        if (handler_)
-            handler_(std::move(result));
+
+        if (!handler_)
+            return;
+
+        auto cat = TConfig::classifyAcceptError(netEc, false);
+        if (cat != ListeningErrorCategory::success)
+        {
+            auto ec = static_cast<std::error_code>(netEc);
+            handler_(ListenResult{ec, cat, "socket accept"});
+            return;
+        }
+
+        settings_.options().applyTo(socket);
+        handler_(ListenResult{Transport::create(std::move(socket), settings_,
+                                                codecIds_)});
     }
 
-    CodecIds codecIds_;
-    Acceptor acceptor_;
+    AnyIoExecutor executor_;
+    IoStrand strand_;
+    CodecIdSet codecIds_;
+    Settings settings_;
+    typename TConfig::NetProtocol::acceptor acceptor_;
     Handler handler_;
-    SocketPtr socket_;
-    uint32_t handshake_ = 0;
-    RawsockMaxLength maxTxLength_ = {};
-    RawsockMaxLength maxRxLength_ = {};
     bool establishing_ = false;
 };
 

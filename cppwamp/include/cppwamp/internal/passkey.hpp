@@ -56,6 +56,7 @@ namespace internal
         friend class RequestIdChecker;
         friend class Requestor;
         friend class RouterImpl;
+        friend class RouterServer;
         friend class RouterSession;
         friend class SessionInfoImpl;
         friend class ServerSession;

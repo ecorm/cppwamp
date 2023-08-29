@@ -30,16 +30,6 @@ struct CPPWAMP_API Tcp
 };
 
 
-// Forward declarations
-namespace internal
-{
-class HttpListener;
-class TcpOpener;
-class WebsocketConnector;
-class WebsocketListener;
-template <typename> class RawsockAcceptor;
-}
-
 //------------------------------------------------------------------------------
 /** Contains options for the TCP transport.
     @note Support for these options depends on the the operating system.
@@ -97,19 +87,15 @@ public:
 
     // NOLINTEND(readability-inconsistent-declaration-parameter-name)
 
+    /** Applies the options to the given socket. */
+    template <typename TSocket> void applyTo(TSocket& socket) const;
+
 private:
     template <typename TOption, typename... TArgs>
     TcpOptions& set(TArgs... args);
 
-    template <typename TSocket> void applyTo(TSocket& socket) const;
 
     internal::SocketOptionList<boost::asio::ip::tcp> options_;
-
-    friend class internal::HttpListener;
-    friend class internal::TcpOpener;
-    friend class internal::WebsocketConnector;
-    friend class internal::WebsocketListener;
-    template <typename> friend class internal::RawsockAcceptor;
 
     /* Implementation note: Explicit template instantiation does not seem
        to play nice with CRTP, so it was not feasible to factor out the

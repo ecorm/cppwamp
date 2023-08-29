@@ -44,11 +44,8 @@ public:
     /** Type containing the transport settings. */
     using Settings = HttpEndpoint;
 
-    /** Collection type used for codec IDs. */
-    using CodecIds = std::set<int>;
-
     /** Constructor. */
-    Listener(AnyIoExecutor e, IoStrand i, Settings s, CodecIds codecIds);
+    Listener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c);
 
     /** Destructor. */
     ~Listener() override;

@@ -34,9 +34,9 @@ struct WebsocketConnectorImpl
 struct WebsocketListenerImpl
 {
     WebsocketListenerImpl(AnyIoExecutor e, IoStrand i, WebsocketEndpoint s,
-                          std::set<int> codecIds)
+                          CodecIdSet c)
         : lstn(WebsocketListener::create(std::move(e), std::move(i),
-                                         std::move(s), std::move(codecIds)))
+                                         std::move(s), std::move(c)))
     {}
 
     WebsocketListener::Ptr lstn;
@@ -77,10 +77,10 @@ CPPWAMP_INLINE void Connector<Websocket>::cancel() {impl_->cnct->cancel();}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Listener<Websocket>::Listener(AnyIoExecutor e, IoStrand i,
-                                             Settings s, std::set<int> codecIds)
+                                             Settings s, CodecIdSet c)
     : Listening(s.label()),
     impl_(new internal::WebsocketListenerImpl(
-          std::move(e), std::move(i), std::move(s), std::move(codecIds)))
+          std::move(e), std::move(i), std::move(s), std::move(c)))
 {}
 
 //------------------------------------------------------------------------------

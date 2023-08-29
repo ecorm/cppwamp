@@ -31,15 +31,15 @@ CPPWAMP_INLINE TcpOptions& TcpOptions::withIpV6Only(bool b)           {return se
 CPPWAMP_INLINE TcpOptions& TcpOptions::withNoDelay(bool b)            {return set<boost::asio::ip::tcp::no_delay>(b);}
 // NOLINTEND(readability-inconsistent-declaration-parameter-name)
 
+template <typename TSocket>
+void TcpOptions::applyTo(TSocket& socket) const {options_.applyTo(socket);}
+
 template <typename TOption, typename... TArgs>
 TcpOptions& TcpOptions::set(TArgs... args)
 {
     options_.add(TOption(args...));
     return *this;
 }
-
-template <typename TSocket>
-void TcpOptions::applyTo(TSocket& socket) const {options_.applyTo(socket);}
 
 // Explicit template instantiation
 template void TcpOptions::applyTo(boost::asio::ip::tcp::socket&) const;

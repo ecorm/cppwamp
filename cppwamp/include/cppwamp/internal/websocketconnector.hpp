@@ -31,10 +31,10 @@ class WebsocketConnector
 public:
     using Ptr       = std::shared_ptr<WebsocketConnector>;
     using Settings  = WebsocketHost;
-    using Socket    = WebsocketTransport::Socket;
+    using Socket    = WebsocketTransport::WebsocketSocket;
     using Handler   = std::function<void (ErrorOr<Transporting::Ptr>)>;
     using SocketPtr = std::unique_ptr<Socket>;
-    using Transport = WebsocketTransport;
+    using Transport = WebsocketClientTransport;
 
     static Ptr create(IoStrand i, Settings s, int codecId)
     {

@@ -10,6 +10,7 @@
 #include <cassert>
 #include <memory>
 #include <utility>
+#include <boost/asio/connect.hpp>
 #include "../asiodefs.hpp"
 #include "../errorcodes.hpp"
 #include "../erroror.hpp"
@@ -23,10 +24,12 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-struct DefaultRawsockClientConfig
+template <typename TTraits, typename TResolver>
+struct BasicRawsockClientConfig
 {
-    template <typename TSocket, typename TTraits>
-    using TransportType = RawsockTransport<TSocket, TTraits>;
+    using Traits = TTraits;
+    using Resolver = TResolver;
+    using Transport = RawsockClientTransport<TTraits>;
 
     static uint32_t hostOrderHandshakeBytes(int codecId,
                                             RawsockMaxLength maxRxLength)
@@ -38,19 +41,14 @@ struct DefaultRawsockClientConfig
 };
 
 //------------------------------------------------------------------------------
-template <typename TOpener, typename TConfig = DefaultRawsockClientConfig>
+template <typename TConfig>
 class RawsockConnector
-    : public std::enable_shared_from_this<RawsockConnector<TOpener, TConfig>>
+    : public std::enable_shared_from_this<RawsockConnector<TConfig>>
 {
 public:
-    using Ptr       = std::shared_ptr<RawsockConnector>;
-    using Opener    = TOpener;
-    using Settings  = typename Opener::Settings;
-    using Socket    = typename Opener::Socket;
-    using Traits    = typename Opener::Traits;
-    using Handler   = std::function<void (ErrorOr<Transporting::Ptr>)>;
-    using SocketPtr = std::unique_ptr<Socket>;
-    using Transport = typename TConfig::template TransportType<Socket, Traits>;
+    using Ptr      = std::shared_ptr<RawsockConnector>;
+    using Settings = typename TConfig::Traits::ClientSettings;
+    using Handler  = std::function<void (ErrorOr<Transporting::Ptr>)>;
 
     static Ptr create(IoStrand i, Settings s, int codecId)
     {
@@ -63,42 +61,55 @@ public:
                "RawsockConnector establishment already in progress");
         handler_ = std::move(handler);
         auto self = this->shared_from_this();
-        opener_.establish(
-            [this, self](ErrorOr<SocketPtr> socket)
+        resolver_.resolve(
+            settings_,
+            [this, self](boost::system::error_code netEc,
+                         ResolverResult endpoints)
             {
-                if (socket)
-                {
-                    socket_ = std::move(*socket);
-                    sendHandshake();
-                }
-                else
-                {
-                    auto ec = socket.error();
-                    if (ec == std::errc::operation_canceled)
-                        ec = make_error_code(TransportErrc::aborted);
-                    dispatchHandler(UnexpectedError(ec));
-                }
+                if (check(netEc))
+                    connect(endpoints);
             }
         );
     }
 
     void cancel()
     {
-        if (socket_)
-            socket_->close();
-        else
-            opener_.cancel();
+        resolver_.cancel();
+        socket_.close();
     }
 
 private:
-    using Handshake = internal::RawsockHandshake;
+    using Traits         = typename TConfig::Traits;
+    using Resolver       = typename TConfig::Resolver;
+    using ResolverResult = typename Resolver::Result;
+    using NetProtocol    = typename Traits::NetProtocol;
+    using Socket         = typename NetProtocol::socket;
+    using Transport      = typename TConfig::Transport;
+    using Handshake      = internal::RawsockHandshake;
 
     RawsockConnector(IoStrand i, Settings s, int codecId)
-        : opener_(std::move(i), std::move(s)),
-          codecId_(codecId),
-          heartbeatInterval_(Traits::heartbeatInterval(opener_.settings())),
-          maxRxLength_(opener_.settings().maxRxLength())
+        : settings_(s),
+          resolver_(i),
+          socket_(std::move(i)),
+          codecId_(codecId)
     {}
+
+    void connect(const ResolverResult& endpoints)
+    {
+        assert(!socket_.is_open());
+        settings_.options().applyTo(socket_);
+
+        auto self = this->shared_from_this();
+        boost::asio::async_connect(
+            socket_,
+            endpoints,
+            [this, self](boost::system::error_code netEc,
+                         const typename NetProtocol::endpoint&)
+            {
+                if (check(netEc))
+                    sendHandshake();
+            });
+    }
 
     void sendHandshake()
     {
@@ -106,7 +117,7 @@ private:
         handshake_ = endian::nativeToBig32(bytes);
         auto self = this->shared_from_this();
         boost::asio::async_write(
-            *socket_,
+            socket_,
             boost::asio::buffer(&handshake_, sizeof(handshake_)),
             [this, self](boost::system::error_code ec, size_t)
             {
@@ -120,7 +131,7 @@ private:
         handshake_ = 0;
         auto self = this->shared_from_this();
         boost::asio::async_read(
-            *socket_,
+            socket_,
             boost::asio::buffer(&handshake_, sizeof(handshake_)),
             [this, self](boost::system::error_code ec, size_t)
             {
@@ -151,7 +162,7 @@ private:
     {
         if (netEc)
         {
-            socket_.reset();
+            socket_.close();
             auto ec = static_cast<std::error_code>(netEc);
             if (netEc == boost::asio::error::operation_aborted)
                 ec = make_error_code(TransportErrc::aborted);
@@ -165,15 +176,14 @@ private:
         const TransportInfo i{codecId_,
                               hs.maxLengthInBytes(),
                               Handshake::byteLengthOf(maxRxLength_),
-                              heartbeatInterval_};
+                              Traits::heartbeatInterval(settings_)};
         Transporting::Ptr transport{Transport::create(std::move(socket_), i)};
-        socket_.reset();
         dispatchHandler(std::move(transport));
     }
 
     void fail(TransportErrc errc)
     {
-        socket_.reset();
+        socket_.close();
         dispatchHandler(makeUnexpectedError(errc));
     }
 
@@ -185,11 +195,11 @@ private:
         handler(std::forward<TArg>(arg));
     }
 
-    Opener opener_;
-    SocketPtr socket_;
+    Settings settings_;
+    Resolver resolver_;
+    Socket socket_;
     Handler handler_;
     int codecId_ = 0;
-    Timeout heartbeatInterval_ = unspecifiedTimeout;
     uint32_t handshake_ = 0;
     RawsockMaxLength maxRxLength_ = {};
 };

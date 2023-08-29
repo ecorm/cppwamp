@@ -20,6 +20,10 @@ namespace internal
 //------------------------------------------------------------------------------
 struct UdsTraits
 {
+    using NetProtocol = boost::asio::local::stream_protocol;
+    using ClientSettings = UdsPath;
+    using ServerSettings = UdsPath;
+
     template <typename TEndpoint>
     static ConnectionInfo connectionInfo(const TEndpoint& ep)
     {

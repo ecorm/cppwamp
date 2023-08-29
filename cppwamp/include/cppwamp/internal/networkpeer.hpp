@@ -144,7 +144,7 @@ private:
 
     void onEstablish() override
     {
-        if (transport_->state() == Transporting::State::ready)
+        if (transport_->state() == Transporting::State::initial)
         {
             auto id = transportId_;
             const std::weak_ptr<NetworkPeer> weakSelf =

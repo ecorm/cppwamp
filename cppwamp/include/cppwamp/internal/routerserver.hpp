@@ -136,22 +136,21 @@ public:
     using State = SessionState;
     using Key = ServerSessionKey;
 
-    ServerSession(AnyIoExecutor e, Transporting::Ptr&& t, AnyBufferCodec&& c,
-                  ServerContext&& s, ServerOptions::Ptr sc, Key sessionKey)
+    ServerSession(AnyIoExecutor e, Transporting::Ptr&& t, ServerContext&& s,
+                  ServerOptions::Ptr o, Key k)
         : Base(s.logger()),
           executor_(std::move(e)),
           strand_(boost::asio::make_strand(executor_)),
           peer_(std::make_shared<NetworkPeer>(true)),
           transport_(t),
-          codec_(std::move(c)),
           server_(std::move(s)),
-          ServerOptions_(std::move(sc)),
+          serverOptions_(std::move(o)),
           uriValidator_(server_.uriValidator()),
-          key_(sessionKey)
+          key_(k)
     {
-        assert(ServerOptions_ != nullptr);
+        assert(serverOptions_ != nullptr);
         auto info = t->connectionInfo();
-        info.setServer({}, ServerOptions_->name(), sessionKey);
+        info.setServer({}, serverOptions_->name(), k);
         Base::connect(std::move(info));
         peer_->listen(this);
     }
@@ -254,7 +253,7 @@ private:
 
         authExchange_ = AuthExchange::create({}, std::move(hello),
                                              shared_from_this());
-        ServerOptions_->authenticator()->authenticate(authExchange_, executor_);
+        serverOptions_->authenticator()->authenticate(authExchange_, executor_);
     }
 
     void onPeerAbort(Reason&& r, bool) override
@@ -279,7 +278,7 @@ private:
 
         server_.cancelChallengeTimeout(key_);
         authExchange_->setAuthentication({}, std::move(authentication));
-        ServerOptions_->authenticator()->authenticate(authExchange_, executor_);
+        serverOptions_->authenticator()->authenticate(authExchange_, executor_);
     }
 
     void onPeerGoodbye(Reason&& reason, bool wasShuttingDown) override
@@ -327,11 +326,32 @@ private:
         alreadyStarted_ = true;
 
         const std::weak_ptr<ServerSession> self = shared_from_this();
+        transport_->accept(
+            [self](ErrorOr<int> codecId)
+            {
+                auto me = self.lock();
+                if (!me)
+                    return;
+                if (codecId.has_value())
+                    me->onPeerAccepted(*codecId);
+                else
+                    me->onPeerRejected(codecId.error());
+            });
+    }
 
+    void onPeerRejected(std::error_code ec)
+    {
+        report({AccessAction::serverReject, {}, {}, ec});
+        retire();
+    }
+
+    void onPeerAccepted(int codecId)
+    {
         if (routerLogLevel() == LogLevel::trace)
             enableTracing();
-
-        peer_->connect(std::move(transport_), std::move(codec_));
+        auto codec = serverOptions_->makeCodec({}, codecId);
+        assert(static_cast<bool>(codec));
+        peer_->connect(std::move(transport_), std::move(codec));
         peer_->establishSession();
         report({AccessAction::clientConnect});
     }
@@ -493,10 +513,9 @@ private:
     IoStrand strand_;
     std::shared_ptr<NetworkPeer> peer_;
     Transporting::Ptr transport_;
-    AnyBufferCodec codec_;
     ServerContext server_;
     RealmContext realm_;
-    ServerOptions::Ptr ServerOptions_;
+    ServerOptions::Ptr serverOptions_;
     AuthExchange::Ptr authExchange_;
     RequestIdChecker requestIdChecker_;
     UriValidator::Ptr uriValidator_;
@@ -555,7 +574,7 @@ private:
     void startListening()
     {
         assert(!listener_);
-        listener_ = options_->makeListener(executor_, strand_);
+        listener_ = options_->makeListener({}, executor_, strand_);
         inform("Starting server listening on " + listener_->where());
 
         const std::weak_ptr<RouterServer> self{shared_from_this()};
@@ -623,15 +642,13 @@ private:
 
     void onEstablished(Transporting::Ptr transport)
     {
-        auto codec = options_->makeCodec(transport->info().codecId());
         auto self = shared_from_this();
         ServerContext ctx{router_, self};
         if (++nextSessionIndex_ == 0u)
             nextSessionIndex_ = 1u;
         auto index = nextSessionIndex_;
         auto s = std::make_shared<ServerSession>(
-            executor_, std::move(transport), std::move(codec), std::move(ctx),
-            options_, index);
+            executor_, std::move(transport), std::move(ctx), options_, index);
         sessions_.emplace(index, s);
         s->start();
     }

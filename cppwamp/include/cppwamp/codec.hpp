@@ -17,6 +17,8 @@
 #include <functional>
 #include <memory>
 #include <ostream>
+#include <set>
+#include <vector>
 #include "any.hpp"
 #include "api.hpp"
 #include "config.hpp"
@@ -610,6 +612,71 @@ using BufferCodecBuilder = CodecBuilder<BufferSink, BufferSource>;
 
 /// Builds a type-erased codec for stream sources/sinks.
 using StreamCodecBuilder = CodecBuilder<StreamSink, StreamSource>;
+
+
+//------------------------------------------------------------------------------
+/// Set of codec IDs
+//------------------------------------------------------------------------------
+using CodecIdSet = std::set<int>;
+
+
+//------------------------------------------------------------------------------
+/** Builds one of several codecs based on a given codec ID.
+    @tparam TSink Output sink type, a specialization of OutputSink.
+    @tparam TSource Input source type, a specialization of InputSource. */
+//------------------------------------------------------------------------------
+template <typename TSink, typename TSource>
+class CPPWAMP_API CodecFactory
+{
+public:
+    /** AnyCodec specialization to be built. */
+    using AnyCodecType = AnyCodec<TSink, TSource>;
+
+    /** Constructor taking a set of format tags for codecs that can be built. */
+    template <typename... Fs>
+    CodecFactory(Fs... formats)
+        : builders_(formats...)
+    {
+        for (const auto& b: builders_)
+            ids_.insert(b.id());
+    }
+
+    /** Adds a codec that can be built. */
+    template <typename TFormat,
+             CPPWAMP_NEEDS(IsCodecFormat<TFormat>::value) = 0>
+    void insert(TFormat)
+    {
+        builders_.emplace_back(TFormat{});
+        ids_.insert(builders_.back().id());
+    }
+
+    /** Builds and returns a codec associated with the given ID, returning
+        an empty codec if not found. */
+    AnyCodecType operator()(int id) const
+    {
+        // Number of codecs is very small; just do linear search.
+        for (const auto& c: builders_)
+            if (c.id() == id)
+                return c();
+        return {};
+    }
+
+    /** Obtains the set of codec IDs registered with the factory. */
+    const CodecIdSet& ids() const {return ids_;}
+
+private:
+    std::vector<CodecBuilder<TSink, TSource>> builders_;
+    CodecIdSet ids_;
+};
+
+/// Codec factory for string sources/sinks.
+using StringCodecFactory = CodecFactory<StringSink, StringSource>;
+
+/// Codec factory for buffer sources/sinks.
+using BufferCodecFactory = CodecFactory<BufferSink, BufferSource>;
+
+/// Codec factory for stream sources/sinks.
+using StreamCodecFactory = CodecFactory<StreamSink, StreamSource>;
 
 } // namespace wamp
 

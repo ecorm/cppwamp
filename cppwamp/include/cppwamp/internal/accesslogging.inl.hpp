@@ -78,7 +78,7 @@ CPPWAMP_INLINE void outputAccessLogEntry(
 
 CPPWAMP_INLINE const std::string& accessActionLabel(AccessAction action)
 {
-    static const std::array<std::string, 30> labels{
+    static const std::array<std::string, 31> labels{
     {
          "client-connect",
          "client-disconnect",
@@ -95,6 +95,7 @@ CPPWAMP_INLINE const std::string& accessActionLabel(AccessAction action)
          "client-register",
          "client-unregister",
          "client-yield",
+         "server-reject",
          "server-disconnect",
          "server-welcome",
          "server-abort",

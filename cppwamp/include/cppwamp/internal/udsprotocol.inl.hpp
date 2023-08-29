@@ -25,15 +25,15 @@ CPPWAMP_INLINE UdsOptions& UdsOptions::withSendBufferSize(int n)      {return se
 CPPWAMP_INLINE UdsOptions& UdsOptions::withSendLowWatermark(int n)    {return set<boost::asio::socket_base::send_low_watermark>(n);}
 // NOLINTEND(readability-inconsistent-declaration-parameter-name)
 
+template <typename TSocket>
+void UdsOptions::applyTo(TSocket& socket) const {options_.applyTo(socket);}
+
 template <typename TOption, typename... TArgs>
 UdsOptions& UdsOptions::set(TArgs... args)
 {
     options_.add(TOption(args...));
     return *this;
 }
-
-template <typename TSocket>
-void UdsOptions::applyTo(TSocket& socket) const {options_.applyTo(socket);}
 
 // Explicit template instantiation
 template void

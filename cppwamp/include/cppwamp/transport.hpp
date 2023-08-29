@@ -18,7 +18,6 @@
 #include "messagebuffer.hpp"
 #include "timeout.hpp"
 #include "internal/random.hpp"
-#include "internal/passkey.hpp"
 
 namespace wamp
 {
@@ -69,6 +68,20 @@ private:
     Timeout heartbeatInterval_ = {};
 };
 
+
+//------------------------------------------------------------------------------
+/** Enumerates the possible transport states. */
+//------------------------------------------------------------------------------
+enum class TransportState
+{
+    initial,
+    accepting,
+    ready,
+    running,
+    stopped
+};
+
+
 //------------------------------------------------------------------------------
 /** Interface class for transports. */
 //------------------------------------------------------------------------------
@@ -76,15 +89,13 @@ class Transporting : public std::enable_shared_from_this<Transporting>
 {
 public:
     /// Enumerates the possible transport states
-    enum class State
-    {
-        ready,
-        running,
-        stopped
-    };
+    using State = TransportState;
 
     /// Shared pointer to a Transporting object.
     using Ptr = std::shared_ptr<Transporting>;
+
+    /// Handler type used for server handshake completion events.
+    using AcceptHandler = std::function<void (ErrorOr<int> codecId)>;
 
     /// Handler type used for message received events.
     using RxHandler = std::function<void (ErrorOr<MessageBuffer>)>;
@@ -112,41 +123,55 @@ public:
     /** Obtains connection information. */
     const ConnectionInfo& connectionInfo() const {return connectionInfo_;}
 
+    /** Starts the server handshake procedure.
+        @pre this->state() == Transporting::State::initial
+        @post this->state() == Transporting::State::accepting */
+    void accept(AcceptHandler handler)
+    {
+        assert(state_ == State::initial);
+        onAccept(std::move(handler));
+        state_ = State::accepting;
+    }
+
     /** Starts the transport's I/O operations.
-        @pre this->state() == Transporting::State::ready
+        @pre this->state() == Transporting::State::initial
         @post this->state() == Transporting::State::running */
     void start(RxHandler rxHandler, TxErrorHandler txHandler)
     {
-        assert(state_ == State::ready);
+        assert(state_ == State::initial);
         onStart(std::move(rxHandler), std::move(txHandler));
         state_ = State::running;
     }
 
     /** Sends the given serialized message via the transport.
-        @pre this->state() != Transporting::State::ready */
+        @pre this->state() != Transporting::State::initial */
     void send(MessageBuffer message)
     {
-        assert(state_ != State::ready);
+        assert(state_ != State::initial);
         if (state_ == State::running)
             onSend(std::move(message));
     }
 
     /** Sends the given serialized message, placing it at the top of the queue,
         then closes the underlying socket.
-        @pre this->state() != Transporting::State::ready
+        @pre this->state() != Transporting::State::initial
         @post this->state() == Transporting::State::stopped */
     virtual void sendNowAndStop(MessageBuffer message)
     {
-        assert(state_ != Transporting::State::ready);
+        assert(state_ != Transporting::State::initial);
         if (state_ == State::running)
             onSendNowAndStop(std::move(message));
         state_ = State::stopped;
     }
 
+    // TODO: Asynchronous Session::disconnect for transports with
+    // closing handhakes (e.g. Websocket)
     /** Stops I/O operations and closes the underlying socket.
         @post this->state() == Transporting::State::stopped */
     virtual void stop()
     {
+        if (state_ == State::accepting)
+            onCancelAccept();
         if (state_ == State::running)
             onStop();
         state_ = State::stopped;
@@ -158,6 +183,18 @@ protected:
         : info_(ti),
           connectionInfo_(std::move(ci))
     {}
+
+    /** Must be overridden by server transports to initiate the handshake. */
+    virtual void onAccept(AcceptHandler handler)
+    {
+        assert(false && "Not a server transport");
+    }
+
+    /** Must be overridden by server transports to cancel a handshake. */
+    virtual void onCancelAccept()
+    {
+        assert(false && "Not a server transport");
+    }
 
     /** Must be overridden to start the transport's I/O operations. */
     virtual void onStart(RxHandler rxHandler, TxErrorHandler txHandler) = 0;
@@ -172,7 +209,11 @@ protected:
     /** Must be overriden to stop I/O operations and disconnect. */
     virtual void onStop() = 0;
 
-    /** Should be called be derived classes when the transport disconnects. */
+    /** Should be called by derived server classes after transport details
+        have been negotiated. */
+    void setTransportInfo(TransportInfo ti) {info_ = ti;}
+
+    /** Should be called by derived classes when the transport disconnects. */
     void shutdown()
     {
         connectionInfo_ = {};
@@ -182,7 +223,7 @@ protected:
 private:
     TransportInfo info_;
     ConnectionInfo connectionInfo_;
-    State state_ = State::ready;
+    State state_ = State::initial;
 };
 
 } // namespace wamp

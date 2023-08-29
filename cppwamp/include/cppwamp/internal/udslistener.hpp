@@ -1,16 +1,15 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022-2023.
+    Copyright Butterfly Energy Systems 2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_INTERNAL_UDSACCEPTOR_HPP
-#define CPPWAMP_INTERNAL_UDSACCEPTOR_HPP
+#ifndef CPPWAMP_INTERNAL_UDSLISTENER_HPP
+#define CPPWAMP_INTERNAL_UDSLISTENER_HPP
 
-#include <cerrno>
 #include <boost/asio/local/stream_protocol.hpp>
-#include "../transports/udspath.hpp"
-#include "rawsockacceptor.hpp"
+#include "rawsocklistener.hpp"
+#include "rawsocktransport.hpp"
 #include "udstraits.hpp"
 
 namespace wamp
@@ -20,11 +19,11 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-struct UdsAcceptorConfig
+struct UdsListenerConfig
 {
     using Settings    = UdsPath;
     using NetProtocol = boost::asio::local::stream_protocol;
-    using Traits      = UdsTraits;
+    using Transport   = RawsockServerTransport<UdsTraits>;
 
     static NetProtocol::endpoint makeEndpoint(const Settings& s)
     {
@@ -74,10 +73,11 @@ struct UdsAcceptorConfig
 };
 
 //------------------------------------------------------------------------------
-using UdsAcceptor = RawsockAcceptor<UdsAcceptorConfig>;
+using UdsListener = RawsockListener<UdsListenerConfig>;
 
 } // namespace internal
 
 } // namespace wamp
 
-#endif // CPPWAMP_INTERNAL_UDSACCEPTOR_HPP
+
+#endif // CPPWAMP_INTERNAL_UDSLISTENER_HPP

@@ -19,10 +19,9 @@ namespace internal
 //------------------------------------------------------------------------------
 struct HttpListenerImpl
 {
-    HttpListenerImpl(AnyIoExecutor e, IoStrand i, HttpEndpoint s,
-                     std::set<int> codecIds)
+    HttpListenerImpl(AnyIoExecutor e, IoStrand i, HttpEndpoint s, CodecIdSet c)
         : lstn(HttpListener::create(std::move(e), std::move(i), std::move(s),
-                                    std::move(codecIds)))
+                                    std::move(c)))
     {}
 
     HttpListener::Ptr lstn;
@@ -37,10 +36,10 @@ struct HttpListenerImpl
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Listener<Http>::Listener(AnyIoExecutor e, IoStrand i, Settings s,
-                                        std::set<int> codecIds)
+                                        CodecIdSet c)
     : Listening(s.label()),
       impl_(new internal::HttpListenerImpl(std::move(e), std::move(i),
-                                           std::move(s), std::move(codecIds)))
+                                           std::move(s), std::move(c)))
 {}
 
 //------------------------------------------------------------------------------

@@ -26,9 +26,6 @@ namespace
 {
 
 //------------------------------------------------------------------------------
-using CodecIds = std::set<int>;
-
-//------------------------------------------------------------------------------
 constexpr auto maxSize = std::numeric_limits<std::size_t>::max();
 constexpr auto jsonId = KnownCodecIds::json();
 constexpr auto msgpackId = KnownCodecIds::msgpack();
@@ -49,7 +46,7 @@ struct LoopbackFixture
     LoopbackFixture(ClientSettings clientSettings,
                     int clientCodec,
                     ServerSettings serverSettings,
-                    CodecIds serverCodecs,
+                    CodecIdSet serverCodecs,
                     bool connected = true)
     {
         cnct = Connector::create(boost::asio::make_strand(cctx),
@@ -64,7 +61,7 @@ struct LoopbackFixture
 
     LoopbackFixture(bool connected = true,
                     int clientCodec = jsonId,
-                    CodecIds serverCodecs = {jsonId},
+                    CodecIdSet serverCodecs = {jsonId},
                     std::size_t clientMaxRxLength = 64*1024,
                     std::size_t serverMaxRxLength = 64*1024)
         : LoopbackFixture(wsHost.withMaxRxLength(clientMaxRxLength),

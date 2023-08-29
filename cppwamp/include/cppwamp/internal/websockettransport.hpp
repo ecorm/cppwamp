@@ -10,14 +10,18 @@
 #include <array>
 #include <deque>
 #include <memory>
+#include <boost/asio/read.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/beast/core/flat_buffer.hpp>
 #include <boost/beast/websocket/rfc6455.hpp>
 #include <boost/beast/websocket/stream.hpp>
 #include "../asiodefs.hpp"
+#include "../codec.hpp"
 #include "../errorcodes.hpp"
 #include "../messagebuffer.hpp"
 #include "../transport.hpp"
+#include "../version.hpp"
+#include "../transports/websocketendpoint.hpp"
 #include "../transports/websocketprotocol.hpp"
 #include "pinger.hpp"
 
@@ -79,16 +83,43 @@ private:
 class WebsocketTransport : public Transporting
 {
 public:
-    using Ptr            = std::shared_ptr<WebsocketTransport>;
-    using TcpSocket      = boost::asio::ip::tcp::socket;
-    using Socket         = boost::beast::websocket::stream<TcpSocket>;
-    using SocketPtr      = std::unique_ptr<Socket>;
-    using RxHandler      = typename Transporting::RxHandler;
-    using TxErrorHandler = typename Transporting::TxErrorHandler;
+    using Ptr             = std::shared_ptr<WebsocketTransport>;
+    using TcpSocket       = boost::asio::ip::tcp::socket;
+    using WebsocketSocket = boost::beast::websocket::stream<TcpSocket>;
+    using WebsocketPtr    = std::unique_ptr<WebsocketSocket>;
+    using RxHandler       = typename Transporting::RxHandler;
+    using TxErrorHandler  = typename Transporting::TxErrorHandler;
 
-    static Ptr create(SocketPtr&& s, TransportInfo info)
+protected:
+    WebsocketTransport(WebsocketPtr&& ws, TransportInfo info = {})
+        : Base(info, makeConnectionInfo(ws->next_layer())),
+          strand_(boost::asio::make_strand(ws->get_executor())),
+          websocket_(std::move(ws))
     {
-        return Ptr(new WebsocketTransport(std::move(s), info));
+        if (timeoutIsDefinite(Base::info().heartbeatInterval()))
+            pinger_ = std::make_shared<Pinger>(strand_, Base::info());
+    }
+
+    WebsocketTransport(TcpSocket& tcp)
+        : Base(TransportInfo{}, makeConnectionInfo(tcp)),
+          strand_(boost::asio::make_strand(tcp.get_executor()))
+    {
+        if (timeoutIsDefinite(Base::info().heartbeatInterval()))
+            pinger_ = std::make_shared<Pinger>(strand_, Base::info());
+    }
+
+    void assignWebsocket(WebsocketPtr&& ws, TransportInfo i)
+    {
+        websocket_ = std::move(ws);
+        Base::setTransportInfo(i);
+    }
+
+    template <typename F, typename... Ts>
+    void post(F&& handler, Ts&&... args) //
+    {
+        // NOLINTNEXTLINE(modernize-avoid-bind)
+        boost::asio::post(strand_, std::bind(std::forward<F>(handler),
+                                             std::forward<Ts>(args)...));
     }
 
 private:
@@ -96,12 +127,12 @@ private:
     using TransmitQueue = std::deque<WebsocketFrame::Ptr>;
     using Byte          = MessageBuffer::value_type;
 
-    static ConnectionInfo makeConnectionInfo(const Socket& socket)
+    static ConnectionInfo makeConnectionInfo(const TcpSocket& socket)
     {
         static constexpr unsigned ipv4VersionNo = 4;
         static constexpr unsigned ipv6VersionNo = 6;
 
-        const auto& ep = socket.next_layer().remote_endpoint();
+        const auto& ep = socket.remote_endpoint();
         std::ostringstream oss;
         oss << ep;
         const auto addr = ep.address();
@@ -202,15 +233,6 @@ private:
             pinger_->stop();
     }
 
-    WebsocketTransport(SocketPtr&& socket, TransportInfo info)
-        : Base(info, makeConnectionInfo(*socket)),
-          strand_(boost::asio::make_strand(socket->get_executor())),
-          websocket_(std::move(socket))
-    {
-        if (timeoutIsDefinite(Base::info().heartbeatInterval()))
-            pinger_ = std::make_shared<Pinger>(strand_, Base::info());
-    }
-
     void onPong(boost::beast::string_view msg)
     {
         if (pinger_)
@@ -241,7 +263,6 @@ private:
 
     void sendFrame(WebsocketFrame::Ptr frame)
     {
-        assert(websocket_ && "Attempting to send on bad transport");
         assert((frame->payload().size() <= info().maxTxLength()) &&
                "Outgoing message is longer than allowed by peer");
         txQueue_.push_back(std::move(frame));
@@ -250,20 +271,20 @@ private:
 
     void transmit()
     {
-        if (isReadyToTransmit())
+        if (!isReadyToTransmit())
+            return;
+
+        txFrame_ = txQueue_.front();
+        txQueue_.pop_front();
+        auto kind = txFrame_->kind();
+        if (kind == WebsocketMsgKind::ping)
         {
-            txFrame_ = txQueue_.front();
-            txQueue_.pop_front();
-            auto kind = txFrame_->kind();
-            if (kind == WebsocketMsgKind::ping)
-            {
-                sendPing();
-            }
-            else
-            {
-                assert(kind == WebsocketMsgKind::wamp);
-                sendWampMessage();
-            }
+            sendPing();
+        }
+        else
+        {
+            assert(kind == WebsocketMsgKind::wamp);
+            sendWampMessage();
         }
     }
 
@@ -328,30 +349,30 @@ private:
 
     bool isReadyToTransmit() const
     {
-        return websocket_ &&       // Socket is still open
-               !txFrame_ &&        // No async_write is in progress
-               !txQueue_.empty();  // One or more messages are enqueued
+        return websocket_ &&      // Socket is still open
+               !txFrame_ &&       // No async_write is in progress
+               !txQueue_.empty(); // One or more messages are enqueued
     }
 
     void receive()
     {
-        if (websocket_)
-        {
-            rxFrame_.clear();
-            auto self = this->shared_from_this();
-            websocket_->async_read(
-                rxFrame_,
-                [this, self](boost::beast::error_code ec, size_t)
-                {
-                    namespace bae = boost::asio::error;
-                    if (ec == bae::connection_reset || ec == bae::eof)
-                        onRemoteDisconnect();
-                    else if (ec == boost::beast::websocket::error::closed)
-                        onRemoteClose();
-                    else if (check(ec))
-                        processPayload();
-                });
-        }
+        if (!websocket_)
+            return;
+
+        rxFrame_.clear();
+        auto self = this->shared_from_this();
+        websocket_->async_read(
+            rxFrame_,
+            [this, self](boost::beast::error_code ec, size_t)
+            {
+                namespace bae = boost::asio::error;
+                if (ec == bae::connection_reset || ec == bae::eof)
+                    onRemoteDisconnect();
+                else if (ec == boost::beast::websocket::error::closed)
+                    onRemoteClose();
+                else if (check(ec))
+                    processPayload();
+            });
     }
 
     void onRemoteDisconnect()
@@ -405,20 +426,18 @@ private:
 
     void closeWebsocket(boost::beast::websocket::close_code reason)
     {
-        if (websocket_ == nullptr)
+        if (!websocket_)
             return;
         auto self = shared_from_this();
+        // TODO: Timeout
         websocket_->async_close(
             reason,
-            [this, self](boost::beast::error_code) {websocket_.reset();});
-    }
-
-    template <typename F, typename... Ts>
-    void post(F&& handler, Ts&&... args)
-    {
-        // NOLINTNEXTLINE(modernize-avoid-bind)
-        boost::asio::post(strand_, std::bind(std::forward<F>(handler),
-                                             std::forward<Ts>(args)...));
+            [this, self](boost::beast::error_code)
+            {
+                // TODO: Report close failure once asynchronous
+                // Session::disconnect is implemented.
+                websocket_->next_layer().close();
+            });
     }
 
     bool check(boost::beast::error_code netEc)
@@ -463,6 +482,7 @@ private:
     }
 
     IoStrand strand_;
+    WebsocketPtr websocket_;
     RxHandler rxHandler_;
     TxErrorHandler txErrorHandler_;
     boost::beast::flat_buffer rxFrame_;
@@ -470,8 +490,234 @@ private:
     MessageBuffer pingBuffer_;
     WebsocketFrame::Ptr txFrame_;
     WebsocketFrame::Ptr pingFrame_;
-    std::unique_ptr<Socket> websocket_;
     std::shared_ptr<Pinger> pinger_;
+};
+
+//------------------------------------------------------------------------------
+class WebsocketClientTransport : public WebsocketTransport
+{
+public:
+    using Ptr = std::shared_ptr<WebsocketClientTransport>;
+
+    static Ptr create(WebsocketPtr&& s, TransportInfo i)
+    {
+        return Ptr(new WebsocketClientTransport(std::move(s), i));
+    }
+
+private:
+    using Base = WebsocketTransport;
+
+    WebsocketClientTransport(WebsocketPtr&& s, TransportInfo info)
+        : Base(std::move(s), info)
+    {}
+};
+
+//------------------------------------------------------------------------------
+class WebsocketServerTransport : public WebsocketTransport
+{
+public:
+    using Ptr = std::shared_ptr<WebsocketServerTransport>;
+    using Settings = WebsocketEndpoint;
+
+    static Ptr create(TcpSocket&& t, const Settings& s, const CodecIdSet& c)
+    {
+        return Ptr(new WebsocketServerTransport(std::move(t), s, c));
+    }
+
+private:
+    using Base = WebsocketTransport;
+
+    // This data is only used once for accepting connections.
+    struct Data
+    {
+        Data(TcpSocket&& t, const Settings& s, const CodecIdSet& c)
+            : tcpSocket(std::move(t)),
+              codecIds(c),
+              settings(s)
+        {}
+
+        TcpSocket tcpSocket;
+        CodecIdSet codecIds;
+        WebsocketEndpoint settings;
+        AcceptHandler handler;
+        boost::beast::flat_buffer buffer;
+        boost::beast::http::request<boost::beast::http::string_body> request;
+        boost::beast::http::response<boost::beast::http::string_body> response;
+        std::unique_ptr<WebsocketSocket> websocket; // TODO: Use optional<T>
+        int codecId;
+    };
+
+    static bool subprotocolIsText(int codecId)
+    {
+        return codecId == KnownCodecIds::json();
+    }
+
+    static int parseSubprotocol(boost::beast::string_view field)
+    {
+        if (field == "wamp.2.json")
+            return KnownCodecIds::json();
+        else if (field == "wamp.2.msgpack")
+            return KnownCodecIds::msgpack();
+        else if (field == "wamp.2.cbor")
+            return KnownCodecIds::cbor();
+        return 0;
+    }
+
+    template <typename T>
+    static void setHandshakeField(WebsocketSocket& websocket,
+                                  boost::beast::http::field field, T&& value)
+    {
+        namespace http = boost::beast::http;
+
+        struct Decorator
+        {
+            ValueTypeOf<T> value;
+            http::field field;
+
+            void operator()(http::response_header<>& header)
+            {
+                header.set(field, std::move(value));
+            }
+        };
+
+        websocket.set_option(boost::beast::websocket::stream_base::decorator(
+            Decorator{std::forward<T>(value), field}));
+    }
+
+    WebsocketServerTransport(TcpSocket&& t, const Settings& s,
+                             const CodecIdSet& c)
+        : Base(t),
+          data_(new Data(std::move(t), s, c))
+    {}
+
+    void onAccept(AcceptHandler handler) override
+    {
+        // TODO: Timeout waiting for handshake
+        assert((data_ != nullptr) && "Accept already performed");
+        data_->handler = std::move(handler);
+        auto self = this->shared_from_this();
+        boost::beast::http::async_read(
+            data_->tcpSocket, data_->buffer, data_->request,
+            [this, self] (const boost::beast::error_code& netEc, std::size_t)
+            {
+                if (check(netEc))
+                    acceptHandshake();
+            });
+    }
+
+    void onCancelAccept() override
+    {
+        if (!data_)
+            return;
+        if (data_->websocket)
+            data_->websocket->next_layer().close();
+        else
+            data_->tcpSocket.close();
+    }
+
+    void acceptHandshake()
+    {
+        // TODO: Multiplex websocket transports with same port but different
+        //       request-target URIs.
+
+        // Check that we actually received a websocket upgrade request
+        if (!boost::beast::websocket::is_upgrade(data_->request))
+            return fail(boost::beast::websocket::error::no_connection_upgrade);
+
+        // Parse the subprotocol to determine the peer's desired codec
+        using boost::beast::http::field;
+        const auto& upgrade = data_->request;
+        auto found = upgrade.base().find(field::sec_websocket_protocol);
+        if (found == upgrade.base().end())
+        {
+            return respondThenFail("No subprotocol was requested",
+                                   TransportErrc::noSerializer);
+        }
+        auto subprotocol = found->value();
+        data_->codecId = parseSubprotocol(subprotocol);
+        if (data_->codecIds.count(data_->codecId) == 0)
+        {
+            return respondThenFail("The requested subprotocol is not supported",
+                                   TransportErrc::badSerializer);
+        }
+
+        // Transfer the TCP socket to a new websocket stream
+        data_->websocket.reset(
+            new WebsocketSocket{std::move(data_->tcpSocket)});
+        auto& ws = *(data_->websocket);
+
+        // Set the Server field of the handshake
+        using boost::beast::http::field;
+        setHandshakeField(ws, field::server, Version::agentString());
+
+        // Set the Sec-WebsocketSocket-Protocol field of the handshake
+        setHandshakeField(ws, field::sec_websocket_protocol, subprotocol);
+
+        // Complete the handshake
+        auto self = shared_from_this();
+        ws.async_accept(
+            data_->request,
+            [this, self](boost::beast::error_code netEc)
+            {
+                if (check(netEc))
+                    complete();
+            });
+    }
+
+    void respondThenFail(std::string msg, TransportErrc errc)
+    {
+        namespace http = boost::beast::http;
+        data_->response.result(http::status::bad_request);
+        data_->response.body() = std::move(msg);
+        auto self = shared_from_this();
+        http::async_write(
+            data_->tcpSocket, data_->response,
+            [this, self, errc](boost::beast::error_code netEc, std::size_t)
+            {
+                if (check(netEc))
+                    fail(errc);
+            });
+    }
+
+    void complete()
+    {
+        if (subprotocolIsText(data_->codecId))
+            data_->websocket->text(true);
+        else
+            data_->websocket->binary(true);
+
+        data_->websocket->read_message_max(data_->settings.maxRxLength());
+
+        const TransportInfo i{data_->codecId,
+                              std::numeric_limits<std::size_t>::max(),
+                              data_->settings.maxRxLength()};
+
+        Base::assignWebsocket(std::move(data_->websocket), i);
+        data_->handler(data_->codecId);
+        data_.reset();
+    }
+
+    bool check(boost::system::error_code netEc)
+    {
+        if (netEc)
+            fail(static_cast<std::error_code>(netEc));
+        return !netEc;
+    }
+
+    void fail(std::error_code ec)
+    {
+        Base::post(data_->handler, makeUnexpected(ec));
+        data_.reset();
+        Base::shutdown();
+    }
+
+    template <typename TErrc>
+    void fail(TErrc errc)
+    {
+        fail(static_cast<std::error_code>(make_error_code(errc)));
+    }
+
+    std::unique_ptr<Data> data_; // Only used once for accepting connection.
 };
 
 } // namespace internal
