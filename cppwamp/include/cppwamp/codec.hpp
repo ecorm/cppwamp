@@ -635,19 +635,16 @@ public:
     /** Constructor taking a set of format tags for codecs that can be built. */
     template <typename... Fs>
     CodecFactory(Fs... formats)
-        : builders_(formats...)
     {
-        for (const auto& b: builders_)
-            ids_.insert(b.id());
+        addBuilders(builders_, ids_, formats...);
     }
 
     /** Adds a codec that can be built. */
-    template <typename TFormat,
-             CPPWAMP_NEEDS(IsCodecFormat<TFormat>::value) = 0>
-    void insert(TFormat)
+    template <typename F,
+             CPPWAMP_NEEDS(IsCodecFormat<F>::value) = 0>
+    void insert(F format)
     {
-        builders_.emplace_back(TFormat{});
-        ids_.insert(builders_.back().id());
+        addBuilder(builders_, ids_, format);
     }
 
     /** Builds and returns a codec associated with the given ID, returning
@@ -665,7 +662,29 @@ public:
     const CodecIdSet& ids() const {return ids_;}
 
 private:
-    std::vector<CodecBuilder<TSink, TSource>> builders_;
+    using BuilderList = std::vector<CodecBuilder<TSink, TSource>>;
+
+    template <typename F, typename... Fs>
+    static void addBuilders(BuilderList& builders, CodecIdSet ids, F, Fs...)
+    {
+        addBuilder(builders, ids, F{});
+        addBuilders(Fs{}...);
+    }
+
+    template <typename F>
+    static void addBuilders(BuilderList& builders, CodecIdSet ids, F)
+    {
+        addBuilder(builders, ids, F{});
+    }
+
+    template <typename F>
+    static void addBuilder(BuilderList& builders, CodecIdSet ids, F)
+    {
+        builders.emplace_back(F{});
+        ids.insert(builders.back().id());
+    }
+
+    BuilderList builders_;
     CodecIdSet ids_;
 };
 

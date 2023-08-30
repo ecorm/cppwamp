@@ -11,11 +11,13 @@
 #include <memory>
 #include <utility>
 #include <boost/asio/connect.hpp>
+#include <boost/asio/read.hpp>
+#include <boost/asio/write.hpp>
 #include "../asiodefs.hpp"
 #include "../errorcodes.hpp"
 #include "../erroror.hpp"
+#include "../transport.hpp"
 #include "rawsockhandshake.hpp"
-#include "rawsocktransport.hpp"
 
 namespace wamp
 {
@@ -24,13 +26,15 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-template <typename TTraits, typename TResolver>
-struct BasicRawsockClientConfig
+template <typename TTraits, typename TResolver, typename TTransport>
+struct BasicRawsockConnectorConfig
 {
     using Traits = TTraits;
     using Resolver = TResolver;
-    using Transport = RawsockClientTransport<TTraits>;
+    using Transport = TTransport;
 
+    // Allows modification of handshake bytes sent by client
+    // for testing purposes.
     static uint32_t hostOrderHandshakeBytes(int codecId,
                                             RawsockMaxLength maxRxLength)
     {

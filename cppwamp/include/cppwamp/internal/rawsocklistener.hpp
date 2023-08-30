@@ -176,8 +176,9 @@ public:
     void cancel() {acceptor_.cancel();}
 
 private:
-    using Socket    = typename TConfig::NetProtocol::socket;
-    using Transport = typename TConfig::Transport;
+    using NetProtocol = typename TConfig::NetProtocol;
+    using Socket      = typename NetProtocol::socket;
+    using Transport   = typename TConfig::Transport;
 
     static std::error_code convertNetError(boost::system::error_code netEc)
     {
@@ -272,7 +273,7 @@ private:
     IoStrand strand_;
     CodecIdSet codecIds_;
     Settings settings_;
-    typename TConfig::NetProtocol::acceptor acceptor_;
+    typename NetProtocol::acceptor acceptor_;
     Handler handler_;
     bool establishing_ = false;
 };

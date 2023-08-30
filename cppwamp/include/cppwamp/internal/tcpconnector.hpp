@@ -10,6 +10,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include "../asiodefs.hpp"
 #include "rawsockconnector.hpp"
+#include "rawsocktransport.hpp"
 #include "tcptraits.hpp"
 
 namespace wamp
@@ -47,7 +48,14 @@ private:
 };
 
 //------------------------------------------------------------------------------
-using TcpConnectorConfig = BasicRawsockClientConfig<TcpTraits, TcpResolver>;
+template <typename TTransport>
+using BasicTcpConnectorConfig =
+    BasicRawsockConnectorConfig<TcpTraits, TcpResolver, TTransport>;
+
+//------------------------------------------------------------------------------
+using TcpConnectorConfig =
+    BasicTcpConnectorConfig<
+        RawsockClientTransport<BasicRawsockTransportConfig<TcpTraits>>>;
 
 //------------------------------------------------------------------------------
 using TcpConnector = RawsockConnector<TcpConnectorConfig>;

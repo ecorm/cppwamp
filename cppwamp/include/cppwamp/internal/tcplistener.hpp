@@ -19,7 +19,7 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-template <typename TSettings, typename TTransport>
+template <typename TTransport, typename TSettings = TcpEndpoint>
 struct BasicTcpListenerConfig
 {
     using Settings    = TSettings;
@@ -67,8 +67,9 @@ struct BasicTcpListenerConfig
 };
 
 //------------------------------------------------------------------------------
-using TcpListenerConfig = BasicTcpListenerConfig<
-    TcpEndpoint, RawsockServerTransport<TcpTraits>>;
+using TcpListenerConfig =
+    BasicTcpListenerConfig<
+        RawsockServerTransport<BasicRawsockTransportConfig<TcpTraits>>>;
 
 //------------------------------------------------------------------------------
 using TcpListener = RawsockListener<TcpListenerConfig>;

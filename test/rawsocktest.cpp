@@ -20,16 +20,13 @@
 #include <cppwamp/internal/udslistener.hpp>
 
 using namespace wamp;
+using namespace wamp::internal;
 
 namespace
 {
 
 //------------------------------------------------------------------------------
-using TcpRawsockConnector = internal::RawsockConnector<internal::TcpOpener>;
-using TcpRawsockListener  = internal::RawsockListener<internal::TcpAcceptor>;
-using UdsRawsockConnector = internal::RawsockConnector<internal::UdsOpener>;
-using UdsRawsockListener  = internal::RawsockListener<internal::UdsAcceptor>;
-using RML                 = RawsockMaxLength;
+using RML = RawsockMaxLength;
 
 //------------------------------------------------------------------------------
 constexpr auto jsonId = KnownCodecIds::json();
@@ -49,7 +46,6 @@ struct LoopbackFixture
     using ClientSettings = typename TConnector::Settings;
     using Listener       = TListener;
     using ServerSettings = typename TListener::Settings;
-    using Transport      = typename Connector::Transport;
 
     LoopbackFixture(ClientSettings clientSettings,
                     int clientCodec,
@@ -126,8 +122,7 @@ struct LoopbackFixture
 
 
 //------------------------------------------------------------------------------
-struct TcpLoopbackFixture :
-        public LoopbackFixture<TcpRawsockConnector, TcpRawsockListener>
+struct TcpLoopbackFixture : public LoopbackFixture<TcpConnector, TcpListener>
 {
     TcpLoopbackFixture(
                 bool connected = true,
@@ -146,9 +141,7 @@ struct TcpLoopbackFixture :
 };
 
 //------------------------------------------------------------------------------
-struct UdsLoopbackFixture :
-        /* protected LoopbackFixtureBase, */
-        public LoopbackFixture<UdsRawsockConnector, UdsRawsockListener>
+struct UdsLoopbackFixture : public LoopbackFixture<UdsConnector, UdsListener>
 {
     UdsLoopbackFixture(
                 bool connected = true,
@@ -166,10 +159,9 @@ struct UdsLoopbackFixture :
 };
 
 //------------------------------------------------------------------------------
-struct CannedHandshakeConfig : internal::DefaultRawsockClientConfig
+struct CannedHandshakeServerTransportConfig
+    : BasicRawsockTransportConfig<TcpTraits>
 {
-    static constexpr bool mockUnresponsiveness() {return false;}
-
     static uint32_t hostOrderHandshakeBytes(int, RawsockMaxLength)
     {
         return cannedHostBytes();
@@ -182,8 +174,31 @@ struct CannedHandshakeConfig : internal::DefaultRawsockClientConfig
     }
 };
 
+using CannedHandshakeListener =
+    RawsockListener<
+        BasicTcpListenerConfig<
+            RawsockServerTransport<CannedHandshakeServerTransportConfig>>>;
+
 //------------------------------------------------------------------------------
-struct BadMsgKindTransportConfig : internal::DefaultRawsockTransportConfig
+struct CannedHandshakeConnectorConfig : TcpConnectorConfig
+{
+    static uint32_t hostOrderHandshakeBytes(int, RawsockMaxLength)
+    {
+        return cannedHostBytes();
+    }
+
+    static uint32_t& cannedHostBytes()
+    {
+        static uint32_t bytes = 0;
+        return bytes;
+    }
+};
+
+using CannedHandshakeConnector =
+    RawsockConnector<CannedHandshakeConnectorConfig>;
+
+//------------------------------------------------------------------------------
+struct BadMsgKindConfig : BasicRawsockTransportConfig<TcpTraits>
 {
     static void preProcess(internal::RawsockMsgKind& kind, MessageBuffer&)
     {
@@ -194,29 +209,7 @@ struct BadMsgKindTransportConfig : internal::DefaultRawsockTransportConfig
 };
 
 //------------------------------------------------------------------------------
-using BadMsgKindTransport =
-    internal::RawsockTransport<boost::asio::ip::tcp::socket,
-                               internal::TcpTraits,
-                               BadMsgKindTransportConfig>;
-
-//------------------------------------------------------------------------------
-struct FakeTransportClientConfig : internal::DefaultRawsockClientConfig
-{
-    template <typename, typename>
-    using TransportType = BadMsgKindTransport;
-
-};
-
-//------------------------------------------------------------------------------
-struct FakeTransportServerOptions : internal::DefaultRawsockServerConfig
-{
-    template <typename, typename>
-    using TransportType = BadMsgKindTransport;
-
-};
-
-//------------------------------------------------------------------------------
-struct MonitorPingPong
+struct MonitorPingPongConfig : BasicRawsockTransportConfig<TcpTraits>
 {
     static void preProcess(internal::RawsockMsgKind& kind, MessageBuffer& buf)
     {
@@ -261,26 +254,12 @@ struct MonitorPingPong
 };
 
 //------------------------------------------------------------------------------
-using PingPongTransport =
-    internal::RawsockTransport<boost::asio::ip::tcp::socket,
-                               internal::TcpTraits,
-                               MonitorPingPong>;
+using PingPongConnectorConfig =
+    BasicTcpConnectorConfig<RawsockClientTransport<MonitorPingPongConfig>>;
 
 //------------------------------------------------------------------------------
-struct PingPongClientConfig : internal::DefaultRawsockClientConfig
-{
-    template <typename, typename>
-    using TransportType = PingPongTransport;
-
-};
-
-//------------------------------------------------------------------------------
-struct PingPongServerConfig : internal::DefaultRawsockServerConfig
-{
-    template <typename, typename>
-    using TransportType = PingPongTransport;
-
-};
+using PingPongListenerConfig =
+    BasicTcpListenerConfig<RawsockServerTransport<MonitorPingPongConfig>>;
 
 //------------------------------------------------------------------------------
 MessageBuffer makeMessageBuffer(const std::string& str)
@@ -449,15 +428,14 @@ void checkCannedServerHandshake(uint32_t cannedHandshake,
     auto exec = ioctx.get_executor();
     auto strand = boost::asio::make_strand(exec);
 
-    using MockListener = internal::RawsockListener<internal::TcpAcceptor,
-                                                   CannedHandshakeConfig>;
-    auto lstn = MockListener::create(exec, strand, tcpEndpoint, {jsonId});
-    CannedHandshakeConfig::cannedHostBytes() = cannedHandshake;
+    auto lstn = CannedHandshakeListener::create(exec, strand, tcpEndpoint,
+                                                {jsonId});
+    CannedHandshakeServerTransportConfig::cannedHostBytes() = cannedHandshake;
     lstn->observe( [](ListenResult) {} );
     lstn->establish();
 
     bool aborted = false;
-    auto cnct = TcpRawsockConnector::create(strand, tcpHost, jsonId);
+    auto cnct = TcpConnector::create(strand, tcpHost, jsonId);
     cnct->establish(
         [&](ErrorOr<Transporting::Ptr> transport)
         {
@@ -488,7 +466,7 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
     auto strand = boost::asio::make_strand(exec);
 
     bool serverAborted = false;
-    auto lstn = TcpRawsockListener::create(exec, strand, tcpEndpoint, {jsonId});
+    auto lstn = TcpListener::create(exec, strand, tcpEndpoint, {jsonId});
     lstn->observe(
         [&](ListenResult result)
         {
@@ -498,10 +476,8 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
         });
     lstn->establish();
 
-    using MockConnector = internal::RawsockConnector<internal::TcpOpener,
-                                                     CannedHandshakeConfig>;
-    auto cnct = MockConnector::create(strand, tcpHost, jsonId);
-    CannedHandshakeConfig::cannedHostBytes() = cannedHandshake;
+    auto cnct = CannedHandshakeConnector::create(strand, tcpHost, jsonId);
+    CannedHandshakeConnectorConfig::cannedHostBytes() = cannedHandshake;
     bool clientAborted = false;
     cnct->establish(
         [&](ErrorOr<Transporting::Ptr> transport)
@@ -1017,11 +993,10 @@ GIVEN ( "a mock server under-reporting its maximum receive length" )
     auto strand = boost::asio::make_strand(exec);
     MessageBuffer tooLong(64*1024 + 1, 'A');
 
-    using MockListener = internal::RawsockListener<internal::TcpAcceptor,
-                                                   CannedHandshakeConfig>;
     Transporting::Ptr server;
-    auto lstn = MockListener::create(exec, strand, tcpEndpoint, {jsonId});
-    CannedHandshakeConfig::cannedHostBytes() = 0x7F810000;
+    auto lstn = CannedHandshakeListener::create(exec, strand, tcpEndpoint,
+                                                {jsonId});
+    CannedHandshakeServerTransportConfig::cannedHostBytes() = 0x7F810000;
     lstn->observe(
         [&](ListenResult result)
         {
@@ -1031,7 +1006,7 @@ GIVEN ( "a mock server under-reporting its maximum receive length" )
     lstn->establish();
 
     Transporting::Ptr client;
-    auto cnct = TcpRawsockConnector::create(strand, tcpHost, jsonId);
+    auto cnct = TcpConnector::create(strand, tcpHost, jsonId);
     cnct->establish(
         [&](ErrorOr<Transporting::Ptr> transport)
         {
@@ -1090,7 +1065,7 @@ GIVEN ( "a mock client under-reporting its maximum receive length" )
     MessageBuffer tooLong(64*1024 + 1, 'A');
 
     Transporting::Ptr server;
-    auto lstn = TcpRawsockListener::create(exec, strand, tcpEndpoint, {jsonId});
+    auto lstn = TcpListener::create(exec, strand, tcpEndpoint, {jsonId});
     lstn->observe(
         [&](ListenResult result)
         {
@@ -1099,10 +1074,8 @@ GIVEN ( "a mock client under-reporting its maximum receive length" )
         });
     lstn->establish();
 
-    using MockConnector = internal::RawsockConnector<internal::TcpOpener,
-                                                     CannedHandshakeConfig>;
-    auto cnct = MockConnector::create(strand, tcpHost, jsonId);
-    CannedHandshakeConfig::cannedHostBytes() = 0x7F810000;
+    auto cnct = CannedHandshakeConnector::create(strand, tcpHost, jsonId);
+    CannedHandshakeConnectorConfig::cannedHostBytes() = 0x7F810000;
     Transporting::Ptr client;
     cnct->establish(
         [&](ErrorOr<Transporting::Ptr> transport)
@@ -1159,7 +1132,7 @@ GIVEN ( "A mock client that sends an invalid message type" )
     auto exec = ioctx.get_executor();
     auto strand = boost::asio::make_strand(exec);
 
-    auto lstn = TcpRawsockListener::create(exec, strand, tcpEndpoint, {jsonId});
+    auto lstn = TcpListener::create(exec, strand, tcpEndpoint, {jsonId});
     Transporting::Ptr server;
     lstn->observe(
         [&](ListenResult result)
@@ -1169,8 +1142,10 @@ GIVEN ( "A mock client that sends an invalid message type" )
         });
     lstn->establish();
 
-    using MockConnector = internal::RawsockConnector<internal::TcpOpener,
-                                                     FakeTransportClientConfig>;
+    using MockConnector =
+        RawsockConnector<
+            BasicTcpConnectorConfig<RawsockClientTransport<BadMsgKindConfig>>>;
+
     auto cnct = MockConnector::create(strand, tcpHost, jsonId);
     Transporting::Ptr client;
     cnct->establish(
@@ -1224,8 +1199,9 @@ SCENARIO( "Server sending an invalid message type", "[Transport][Rawsock]" )
 {
 GIVEN ( "A mock server that sends an invalid message type" )
 {
-    using MockListener = internal::RawsockListener<internal::TcpAcceptor,
-                                                   FakeTransportServerOptions>;
+    using MockListener =
+        RawsockListener<
+            BasicTcpListenerConfig<RawsockServerTransport<BadMsgKindConfig>>>;
 
     IoContext ioctx;
     auto exec = ioctx.get_executor();
@@ -1240,7 +1216,7 @@ GIVEN ( "A mock server that sends an invalid message type" )
         });
     lstn->establish();
 
-    auto cnct = TcpRawsockConnector::create(strand, tcpHost, jsonId);
+    auto cnct = TcpConnector::create(strand, tcpHost, jsonId);
     Transporting::Ptr client;
     cnct->establish(
         [&](ErrorOr<Transporting::Ptr> transport)
@@ -1296,8 +1272,10 @@ TEST_CASE( "TCP rawsocket heartbeat", "[Transport][Rawsock]" )
     auto strand = boost::asio::make_strand(exec);
     boost::asio::steady_timer timer{ioctx};
 
-    using MockListener = internal::RawsockListener<internal::TcpAcceptor,
-                                                   PingPongServerConfig>;
+    using MockListener =
+        RawsockListener<
+            BasicTcpListenerConfig<
+                RawsockServerTransport<MonitorPingPongConfig>>>;
 
     auto lstn = MockListener::create(exec, strand, tcpEndpoint, {jsonId});
     Transporting::Ptr server;
@@ -1310,13 +1288,15 @@ TEST_CASE( "TCP rawsocket heartbeat", "[Transport][Rawsock]" )
     lstn->establish();
 
     using MockConnector =
-        internal::RawsockConnector<internal::TcpOpener, PingPongClientConfig>;
+        RawsockConnector<
+            BasicTcpConnectorConfig<
+                RawsockClientTransport<MonitorPingPongConfig>>>;
 
     const std::chrono::milliseconds interval{50};
     const auto where = TcpHost{tcpLoopbackAddr, tcpTestPort}
                            .withHearbeatInterval(interval);
 
-    MonitorPingPong::clear();
+    MonitorPingPongConfig::clear();
 
     auto cnct = MockConnector::create(strand, where, jsonId);
     Transporting::Ptr client;
@@ -1365,14 +1345,14 @@ TEST_CASE( "TCP rawsocket heartbeat", "[Transport][Rawsock]" )
 
     CHECK(!clientError);
     CHECK(!serverError);
-    CHECK(MonitorPingPong::pings().size() == 3);
-    CHECK(MonitorPingPong::pongs().size() == 3);
-    CHECK_THAT(MonitorPingPong::pings(),
-               Catch::Matchers::Equals(MonitorPingPong::pongs()));
+    CHECK(MonitorPingPongConfig::pings().size() == 3);
+    CHECK(MonitorPingPongConfig::pongs().size() == 3);
+    CHECK_THAT(MonitorPingPongConfig::pings(),
+               Catch::Matchers::Equals(MonitorPingPongConfig::pongs()));
 
     // Make the server stop echoing the correct pong and check that the client
     // fails due to heartbeat timeout.
-    MonitorPingPong::cannedPong() = MessageBuffer{0x12, 0x34, 0x56};
+    MonitorPingPongConfig::cannedPong() = MessageBuffer{0x12, 0x34, 0x56};
     timer.expires_after(2*interval);
     timer.async_wait([&ioctx](boost::system::error_code) {ioctx.stop();});
     ioctx.run();

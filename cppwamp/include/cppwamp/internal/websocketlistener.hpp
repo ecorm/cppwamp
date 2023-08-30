@@ -20,7 +20,7 @@ namespace internal
 
 //------------------------------------------------------------------------------
 using WebsocketListenerConfig =
-    BasicTcpListenerConfig<WebsocketEndpoint, WebsocketServerTransport>;
+    BasicTcpListenerConfig<WebsocketServerTransport, WebsocketEndpoint>;
 
 //------------------------------------------------------------------------------
 using WebsocketListener = RawsockListener<WebsocketListenerConfig>;

@@ -104,8 +104,11 @@ private:
 };
 
 //------------------------------------------------------------------------------
-struct DefaultRawsockTransportConfig
+template <typename TTraits>
+struct BasicRawsockTransportConfig
 {
+    using Traits = TTraits;
+
     // Allows pre-processing transport frame payloads for test purposes.
     static void preProcess(RawsockMsgKind&, MessageBuffer&) {}
 
@@ -119,17 +122,18 @@ struct DefaultRawsockTransportConfig
     }
 
     // Allows mocking server unresponsiveness by not sending handshake bytes.
+    // TODO: Remove if not needed
     static constexpr bool mockUnresponsiveness() {return false;}
 };
 
 //------------------------------------------------------------------------------
-template <typename TTraits, typename TConfig = DefaultRawsockTransportConfig>
+template <typename TConfig>
 class RawsockTransport : public Transporting
 {
 public:
-    using Traits         = TTraits;
     using Config         = TConfig;
-    using NetProtocol    = typename TTraits::NetProtocol;
+    using Traits         = typename Config::Traits;
+    using NetProtocol    = typename Traits::NetProtocol;
     using Ptr            = std::shared_ptr<RawsockTransport>;
     using Socket         = typename NetProtocol::socket;
     using RxHandler      = typename Transporting::RxHandler;
@@ -137,7 +141,7 @@ public:
 
 protected:
     RawsockTransport(Socket&& socket, TransportInfo info = {})
-        : Base(info, TTraits::connectionInfo(socket.remote_endpoint())),
+        : Base(info, Traits::connectionInfo(socket.remote_endpoint())),
           strand_(boost::asio::make_strand(socket.get_executor())),
           socket_(std::move(socket))
     {
@@ -442,13 +446,12 @@ private:
 
 
 //------------------------------------------------------------------------------
-template <typename TTraits, typename TConfig = DefaultRawsockTransportConfig>
-class RawsockClientTransport
-    : public RawsockTransport<TTraits, TConfig>
+template <typename TConfig>
+class RawsockClientTransport : public RawsockTransport<TConfig>
 {
 public:
     using Ptr    = std::shared_ptr<RawsockClientTransport>;
-    using Socket = typename TTraits::NetProtocol::socket;
+    using Socket = typename TConfig::Traits::NetProtocol::socket;
 
     static Ptr create(Socket&& s, TransportInfo i)
     {
@@ -456,7 +459,7 @@ public:
     }
 
 private:
-    using Base = RawsockTransport<TTraits, TConfig>;
+    using Base = RawsockTransport<TConfig>;
 
     RawsockClientTransport(Socket&& s, TransportInfo info)
         : Base(std::move(s), info)
@@ -464,14 +467,13 @@ private:
 };
 
 //------------------------------------------------------------------------------
-template <typename TTraits, typename TConfig = DefaultRawsockTransportConfig>
-class RawsockServerTransport
-    : public RawsockTransport<TTraits, TConfig>
+template <typename TConfig>
+class RawsockServerTransport : public RawsockTransport<TConfig>
 {
 public:
     using Ptr           = std::shared_ptr<RawsockServerTransport>;
-    using Socket        = typename TTraits::NetProtocol::socket;
-    using Settings      = typename TTraits::ServerSettings;
+    using Socket        = typename TConfig::Traits::NetProtocol::socket;
+    using Settings      = typename TConfig::Traits::ServerSettings;
     using AcceptHandler = Transporting::AcceptHandler;
 
     static Ptr create(Socket&& s, const Settings&, const CodecIdSet& c)
@@ -480,7 +482,7 @@ public:
     }
 
 private:
-    using Base = RawsockTransport<TTraits, TConfig>;
+    using Base = RawsockTransport<TConfig>;
     using Handshake = internal::RawsockHandshake;
 
     // Only used once to perform accept operation

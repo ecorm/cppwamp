@@ -9,6 +9,7 @@
 
 #include <array>
 #include "rawsockconnector.hpp"
+#include "rawsocktransport.hpp"
 #include "udstraits.hpp"
 
 namespace wamp
@@ -36,7 +37,14 @@ public:
 };
 
 //------------------------------------------------------------------------------
-using UdsConnectorConfig = BasicRawsockClientConfig<UdsTraits, UdsResolver>;
+template <typename TTransport>
+using BasicUdsConnectorConfig =
+    BasicRawsockConnectorConfig<UdsTraits, UdsResolver, TTransport>;
+
+//------------------------------------------------------------------------------
+using UdsConnectorConfig =
+    BasicUdsConnectorConfig<
+        RawsockClientTransport<BasicRawsockTransportConfig<UdsTraits>>>;
 
 //------------------------------------------------------------------------------
 using UdsConnector = RawsockConnector<UdsConnectorConfig>;

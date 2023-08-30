@@ -36,6 +36,7 @@ public:
 
     static Ptr create(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c)
     {
+        return nullptr;
         // TODO
     }
 

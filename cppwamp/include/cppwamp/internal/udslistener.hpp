@@ -23,7 +23,8 @@ struct UdsListenerConfig
 {
     using Settings    = UdsPath;
     using NetProtocol = boost::asio::local::stream_protocol;
-    using Transport   = RawsockServerTransport<UdsTraits>;
+    using Transport   = RawsockServerTransport<
+                            BasicRawsockTransportConfig<UdsTraits>>;
 
     static NetProtocol::endpoint makeEndpoint(const Settings& s)
     {

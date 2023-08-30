@@ -11,6 +11,7 @@
 #include "mockserver.hpp"
 
 using namespace test;
+using namespace wamp::internal;
 using namespace Catch::Matchers;
 using internal::MockServer;
 
@@ -48,13 +49,14 @@ std::vector<Incident> IncidentListener::list;
 //------------------------------------------------------------------------------
 TEST_CASE("WAMP Client Connection Timeouts", "[WAMP][Basic]")
 {
-    struct MockListenerConfig : internal::DefaultRawsockServerConfig
+    // TODO: Just use regular transport but never begin accepting handshake
+    struct MockTransportConfig : BasicRawsockTransportConfig<TcpTraits>
     {
         static bool mockUnresponsiveness() {return true;}
     };
 
-    using MockListener = internal::RawsockListener<internal::TcpAcceptor,
-                                                   MockListenerConfig>;
+    using MockTransport = RawsockServerTransport<MockTransportConfig>;
+    using MockListener = RawsockListener<BasicTcpListenerConfig<MockTransport>>;
     using SS = SessionState;
 
     IoContext ioctx;
@@ -69,6 +71,13 @@ TEST_CASE("WAMP Client Connection Timeouts", "[WAMP][Basic]")
     const auto tcpEndpoint = TcpEndpoint{invalidPort};
     auto lstn = MockListener::create(exec, strand, tcpEndpoint,
                                      {KnownCodecIds::json()});
+    Transporting::Ptr transport;
+    lstn->observe(
+        [&transport](ListenResult result)
+        {
+            REQUIRE(result.ok());
+            transport = result.transport();
+        });
     lstn->establish();
 
     auto check = [&](Timeout timeout)
@@ -153,8 +162,7 @@ TEST_CASE("WAMP Client Command Timeouts", "[WAMP][Basic]")
     using SS = SessionState;
     IoContext ioctx;
     Session s{ioctx};
-    auto server = internal::MockServer::create(ioctx.get_executor(),
-                                               invalidPort);
+    auto server = MockServer::create(ioctx.get_executor(), invalidPort);
     server->start();
 
     auto check = [&](Timeout timeout)
