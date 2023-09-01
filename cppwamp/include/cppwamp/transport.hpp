@@ -78,8 +78,7 @@ enum class TransportState
     accepting,
     ready,
     running,
-    stopped,
-    failed
+    stopped
 };
 
 
@@ -222,18 +221,12 @@ protected:
         state_ = State::ready;
     }
 
-    /** Should be called by derived server classes upon handshake failure. */
-    void failAccept()
-    {
-        state_ = State::stopped;
-    }
-
-    /** Should be called by derived classes when the transport disconnects. */
-    void shutdown(bool failed = false)
+    /** Should be called by derived classes when the transport
+        fails/disconnects. */
+    void shutdown()
     {
         connectionInfo_ = {};
-        if (state_ != State::failed && state_ != State::stopped)
-            state_ = failed ? State::failed : State::stopped;
+        state_ = State::stopped;
     }
 
 private:

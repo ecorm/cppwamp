@@ -140,6 +140,21 @@ public:
     using TxErrorHandler = typename Transporting::TxErrorHandler;
 
 protected:
+    static std::error_code netErrorCodeToStandard(
+        boost::system::error_code netEc)
+    {
+        bool disconnected =
+            netEc == boost::asio::error::broken_pipe ||
+            netEc == boost::asio::error::connection_reset ||
+            netEc == boost::asio::error::eof;
+        auto ec = disconnected
+                      ? make_error_code(TransportErrc::disconnected)
+                      : static_cast<std::error_code>(netEc);
+        if (netEc == boost::asio::error::operation_aborted)
+            ec = make_error_code(TransportErrc::aborted);
+        return ec;
+    }
+
     RawsockTransport(Socket&& socket, TransportInfo info)
         : Base(info, Traits::connectionInfo(socket.remote_endpoint())),
           strand_(boost::asio::make_strand(socket.get_executor())),
@@ -167,18 +182,6 @@ protected:
 private:
     using Base = Transporting;
     using TransmitQueue = std::deque<RawsockFrame::Ptr>;
-
-    static std::error_code netErrorCodeToStandard(
-        boost::system::error_code netEc, bool& disconnected)
-    {
-        disconnected =
-            netEc == boost::asio::error::connection_reset ||
-            netEc == boost::asio::error::eof;
-        auto ec = disconnected
-                      ? make_error_code(TransportErrc::disconnected)
-                      : static_cast<std::error_code>(netEc);
-        return ec;
-    }
 
     void onStart(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
     {
@@ -386,22 +389,17 @@ private:
     {
         if (!netEc)
             return true;
-        bool disconnected = false;
-        auto ec = netErrorCodeToStandard(netEc, disconnected);
         if (txErrorHandler_)
-            txErrorHandler_(ec);
-        cleanup(disconnected);
+            txErrorHandler_(netErrorCodeToStandard(netEc));
+        cleanup();
         return false;
     }
 
     bool check(boost::system::error_code netEc)
     {
-        if (!netEc)
-            return true;
-        bool disconnected = false;
-        auto ec = netErrorCodeToStandard(netEc, disconnected);
-        fail(ec, disconnected);
-        return false;
+        if (netEc)
+            fail(netErrorCodeToStandard(netEc));
+        return !netEc;
     }
 
     template <typename TErrc>
@@ -412,16 +410,16 @@ private:
         return condition;
     }
 
-    void fail(std::error_code ec, bool disconnected = false)
+    void fail(std::error_code ec)
     {
         if (rxHandler_)
             post(rxHandler_, makeUnexpected(ec));
-        cleanup(disconnected);
+        cleanup();
     }
 
-    void cleanup(bool disconnected = false)
+    void cleanup()
     {
-        Base::shutdown(!disconnected);
+        Base::shutdown();
         rxHandler_ = nullptr;
         txErrorHandler_ = nullptr;
         rxFrame_.clear();
@@ -595,15 +593,17 @@ private:
     bool check(boost::system::error_code netEc)
     {
         if (netEc)
-            fail(static_cast<std::error_code>(netEc));
+            fail(Base::netErrorCodeToStandard(netEc));
         return !netEc;
     }
 
     void fail(std::error_code ec)
     {
+        // TODO: Check if post is needed
         Base::post(data_->handler, makeUnexpected(ec));
         data_.reset();
-        Base::shutdown(true);
+        Base::socket().close();
+        Base::shutdown();
     }
 
     template <typename TErrc>

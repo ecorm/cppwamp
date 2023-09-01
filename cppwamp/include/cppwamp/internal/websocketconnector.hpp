@@ -187,15 +187,10 @@ private:
         {
             websocket_.reset();
             auto ec = static_cast<std::error_code>(netEc);
-            if (netEc == std::errc::operation_canceled ||
-                netEc == boost::asio::error::operation_aborted)
-            {
+            if (netEc == boost::asio::error::operation_aborted)
                 ec = make_error_code(TransportErrc::aborted);
-            }
             else if (netEc == boost::beast::websocket::error::upgrade_declined)
-            {
                 ec = make_error_code(TransportErrc::handshakeDeclined);
-            }
             dispatchHandler(makeUnexpected(ec));
         }
         return !netEc;

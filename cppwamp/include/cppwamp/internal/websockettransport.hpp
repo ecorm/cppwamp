@@ -91,6 +91,21 @@ public:
     using TxErrorHandler  = typename Transporting::TxErrorHandler;
 
 protected:
+    static std::error_code netErrorCodeToStandard(
+        boost::system::error_code netEc)
+    {
+        bool disconnected =
+            netEc == boost::asio::error::broken_pipe ||
+            netEc == boost::asio::error::connection_reset ||
+            netEc == boost::asio::error::eof;
+        auto ec = disconnected
+                      ? make_error_code(TransportErrc::disconnected)
+                      : static_cast<std::error_code>(netEc);
+        if (netEc == boost::asio::error::operation_aborted)
+            ec = make_error_code(TransportErrc::aborted);
+        return ec;
+    }
+
     WebsocketTransport(WebsocketPtr&& ws, TransportInfo info = {})
         : Base(info, makeConnectionInfo(ws->next_layer())),
           strand_(boost::asio::make_strand(ws->get_executor())),
@@ -167,18 +182,6 @@ private:
         if (ec == error::buffer_overflow || ec == error::message_too_big)
             return close_code::too_big;
         return close_code::internal_error;
-    }
-
-    static std::error_code netErrorCodeToStandard(
-        boost::system::error_code netEc, bool& disconnected)
-    {
-        disconnected =
-            netEc == boost::asio::error::connection_reset ||
-            netEc == boost::asio::error::eof;
-        auto ec = disconnected
-                      ? make_error_code(TransportErrc::disconnected)
-                      : static_cast<std::error_code>(netEc);
-        return ec;
     }
 
     void onStart(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
@@ -380,7 +383,7 @@ private:
             }
             post(rxHandler_, makeUnexpected(ec));
         }
-        cleanup(false);
+        cleanup();
     }
 
     void processPayload()
@@ -425,11 +428,9 @@ private:
     {
         if (!netEc)
             return true;
-        bool disconnected = false;
-        auto ec = netErrorCodeToStandard(netEc, disconnected);
         if (txErrorHandler_)
-            txErrorHandler_(ec);
-        cleanup(disconnected);
+            txErrorHandler_(netErrorCodeToStandard(netEc));
+        cleanup();
         return false;
     }
 
@@ -437,34 +438,31 @@ private:
     {
         if (!netEc)
             return true;
-        bool disconnected = false;
-        auto ec = netErrorCodeToStandard(netEc, disconnected);
+        auto ec = netErrorCodeToStandard(netEc);
         using BWE = boost::beast::websocket::error;
         if (netEc == BWE::message_too_big || netEc == BWE::buffer_overflow)
             ec = make_error_code(TransportErrc::inboundTooLong);
-        fail(ec, websocketErrorToCloseCode(netEc), disconnected);
+        fail(ec, websocketErrorToCloseCode(netEc));
         return false;
     }
 
     template <typename TErrc>
-    void fail(TErrc errc, boost::beast::websocket::close_code closeCode,
-              bool disconnected = false)
+    void fail(TErrc errc, boost::beast::websocket::close_code closeCode)
     {
-        fail(make_error_code(errc), closeCode, disconnected);
+        fail(make_error_code(errc), closeCode);
     }
 
-    void fail(std::error_code ec, boost::beast::websocket::close_code closeCode,
-              bool disconnected = false)
+    void fail(std::error_code ec, boost::beast::websocket::close_code closeCode)
     {
         if (rxHandler_)
             post(rxHandler_, makeUnexpected(ec));
         closeWebsocket(closeCode);
-        cleanup(disconnected);
+        cleanup();
     }
 
-    void cleanup(bool disconnected)
+    void cleanup()
     {
-        Base::shutdown(!disconnected);
+        Base::shutdown();
         rxHandler_ = nullptr;
         txErrorHandler_ = nullptr;
         rxFrame_.clear();
@@ -693,7 +691,7 @@ private:
     bool check(boost::system::error_code netEc)
     {
         if (netEc)
-            fail(static_cast<std::error_code>(netEc));
+            fail(Base::netErrorCodeToStandard(netEc));
         return !netEc;
     }
 
@@ -701,6 +699,10 @@ private:
     {
         Base::post(data_->handler, makeUnexpected(ec));
         data_.reset();
+        if (data_->websocket)
+            data_->websocket->next_layer().close();
+        else
+            data_->tcpSocket.close();
         Base::shutdown();
     }
 

@@ -416,91 +416,113 @@ void checkConsecutiveSendReceive(TFixture& f, Transporting::Ptr& sender,
 template <typename TFixture>
 void checkUnsupportedSerializer(TFixture& f)
 {
+    std::error_code serverEc;
+    std::error_code clientEc;
+
     f.lstn->observe([&](ListenResult result)
     {
-        REQUIRE_FALSE( result.ok() );
-        CHECK( result.error() == TransportErrc::badSerializer );
+        REQUIRE( result.ok() );
+        f.server = result.transport();
+        f.server->accept(
+            [&serverEc](ErrorOr<int> codecId)
+            {
+                if (!codecId.has_value())
+                    serverEc = codecId.error();
+            });
     });
     f.lstn->establish();
 
-    f.cnct->establish([&](ErrorOr<Transporting::Ptr> transport)
+    f.cnct->establish([&clientEc](ErrorOr<Transporting::Ptr> transport)
     {
-        CHECK( transport == makeUnexpectedError(TransportErrc::badSerializer) );
+        if (!transport.has_value())
+            clientEc = transport.error();
     });
 
     CHECK_NOTHROW( f.run() );
+    CHECK( serverEc == TransportErrc::badSerializer );
+    CHECK( clientEc == TransportErrc::badSerializer );
 }
 
 //------------------------------------------------------------------------------
-void checkCannedServerHandshake(uint32_t cannedHandshake,
-                                std::error_code expectedErrorCode)
+void checkCannedServerHandshake(
+    uint32_t cannedHandshake, TransportErrc expectedClientErrc,
+    TransportErrc expectedServerErrc = TransportErrc::success)
 {
     IoContext ioctx;
     auto exec = ioctx.get_executor();
     auto strand = boost::asio::make_strand(exec);
-
     auto lstn = CannedHandshakeListener::create(exec, strand, tcpEndpoint,
                                                 {jsonId});
+    Transporting::Ptr server;
     CannedHandshakeServerTransportConfig::cannedHostBytes() = cannedHandshake;
-    lstn->observe( [](ListenResult) {} );
+    std::error_code serverEc;
+    std::error_code clientEc;
+
+    lstn->observe( [&](ListenResult result)
+    {
+        REQUIRE( result.ok() );
+        server = result.transport();
+        server->accept(
+            [&serverEc](ErrorOr<int> codecId)
+            {
+                if (!codecId.has_value())
+                    serverEc = codecId.error();
+            });
+    });
     lstn->establish();
 
-    bool aborted = false;
     auto cnct = TcpConnector::create(strand, tcpHost, jsonId);
     cnct->establish(
-        [&](ErrorOr<Transporting::Ptr> transport)
+        [&clientEc](ErrorOr<Transporting::Ptr> transport)
         {
-            CHECK( transport == makeUnexpected(expectedErrorCode) );
-            aborted = true;
+            if (!transport.has_value())
+                clientEc = transport.error();
         });
 
     CHECK_NOTHROW( ioctx.run() );
-    CHECK( aborted );
+    CHECK( clientEc == expectedClientErrc );
+    CHECK( serverEc == expectedServerErrc );
 }
 
 //------------------------------------------------------------------------------
-void checkCannedServerHandshake(uint32_t cannedHandshake,
-                                TransportErrc expectedErrorCode)
-{
-    return checkCannedServerHandshake(cannedHandshake,
-                                      make_error_code(expectedErrorCode));
-}
-
-//------------------------------------------------------------------------------
-template <typename TErrorCode>
 void checkCannedClientHandshake(uint32_t cannedHandshake,
                                 TransportErrc expectedServerCode,
-                                TErrorCode expectedClientCode)
+                                TransportErrc expectedClientCode)
 {
     IoContext ioctx;
     auto exec = ioctx.get_executor();
     auto strand = boost::asio::make_strand(exec);
-
-    bool serverAborted = false;
     auto lstn = TcpListener::create(exec, strand, tcpEndpoint, {jsonId});
+    Transporting::Ptr server;
+    std::error_code serverEc;
+    std::error_code clientEc;
+
     lstn->observe(
         [&](ListenResult result)
         {
-            REQUIRE_FALSE( result.ok() );
-            CHECK( result.error() == expectedServerCode );
-            serverAborted = true;
+            REQUIRE( result.ok() );
+            server = result.transport();
+            server->accept(
+                [&serverEc](ErrorOr<int> codecId)
+                {
+                    if (!codecId.has_value())
+                        serverEc = codecId.error();
+                });
         });
     lstn->establish();
 
     auto cnct = CannedHandshakeConnector::create(strand, tcpHost, jsonId);
     CannedHandshakeConnectorConfig::cannedHostBytes() = cannedHandshake;
-    bool clientAborted = false;
     cnct->establish(
-        [&](ErrorOr<Transporting::Ptr> transport)
+        [&clientEc](ErrorOr<Transporting::Ptr> transport)
         {
-            REQUIRE_FALSE( transport.has_value() );
-            CHECK( transport.error() == expectedClientCode );
-            clientAborted = true;
+            if (!transport.has_value())
+                clientEc = transport.error();
         });
 
     CHECK_NOTHROW( ioctx.run() );
-    CHECK( clientAborted );
-    CHECK( serverAborted );
+    CHECK( serverEc == expectedServerCode );
+    CHECK( clientEc == expectedClientCode );
 }
 
 } // anonymous namespace
@@ -784,12 +806,26 @@ TEMPLATE_TEST_CASE( "Cancel connect", "[Transport][Rawsock]",
                     TcpLoopbackFixture, UdsLoopbackFixture )
 {
     bool listenCompleted = false;
+    std::error_code listenEc;
     TestType f(false);
     f.lstn->observe([&](ListenResult result)
     {
         if (result.ok())
+        {
             f.server = result.transport();
-        listenCompleted = true;
+            f.server->accept(
+                [&](ErrorOr<int> codecId)
+                {
+                    listenCompleted = true;
+                    if (!codecId.has_value())
+                        listenEc = codecId.error();
+                });
+        }
+        else
+        {
+            listenCompleted = true;
+            listenEc = result.error();
+        }
     });
     f.lstn->establish();
 
@@ -822,10 +858,17 @@ TEMPLATE_TEST_CASE( "Cancel connect", "[Transport][Rawsock]",
     if (connectCanceled)
     {
         CHECK_FALSE( f.client );
-        CHECK_FALSE( f.server );
     }
     else if (connectCompleted)
+    {
         CHECK( f.client );
+    }
+    if (listenEc)
+    {
+        INFO("listenEc.message(): " << listenEc.message());
+        CHECK(((listenEc == TransportErrc::disconnected) ||
+               (listenEc == TransportErrc::aborted)));
+    }
 
     // Check that a transport can be established after cancelling.
     REQUIRE( listenCompleted );
@@ -879,6 +922,8 @@ TEMPLATE_TEST_CASE( "Cancel send", "[Transport][Rawsock]",
     {
         REQUIRE(result.ok());
         f.server = result.transport();
+        f.server->accept(
+            [](ErrorOr<int> codecId) {REQUIRE(codecId.has_value());});
     });
     f.lstn->establish();
     f.cnct->establish([&](ErrorOr<Transporting::Ptr> transport)
@@ -938,19 +983,23 @@ SCENARIO( "Connection denied by server", "[Transport][Rawsock]" )
 {
 GIVEN( "max length is unacceptable" )
 {
-    checkCannedServerHandshake(0x7f200000, TransportErrc::badLengthLimit);
+    checkCannedServerHandshake(0x7f200000, TransportErrc::badLengthLimit,
+                               TransportErrc::badLengthLimit);
 }
 GIVEN( "use of reserved bits" )
 {
-    checkCannedServerHandshake(0x7f300000, TransportErrc::badFeature);
+    checkCannedServerHandshake(0x7f300000, TransportErrc::badFeature,
+                               TransportErrc::badFeature);
 }
 GIVEN( "maximum connections reached" )
 {
-    checkCannedServerHandshake(0x7f400000, TransportErrc::saturated);
+    checkCannedServerHandshake(0x7f400000, TransportErrc::saturated,
+                               TransportErrc::saturated);
 }
 GIVEN( "future error code" )
 {
-    checkCannedServerHandshake(0x7f500000, TransportErrc::failed);
+    checkCannedServerHandshake(0x7f500000, TransportErrc::failed,
+                               TransportErrc::failed);
 }
 }
 
@@ -1019,6 +1068,8 @@ GIVEN ( "a mock server under-reporting its maximum receive length" )
         {
             REQUIRE( result.ok() );
             server = result.transport();
+            server->accept(
+                [](ErrorOr<int> codecId) {REQUIRE(codecId.has_value());});
         });
     lstn->establish();
 
@@ -1088,6 +1139,8 @@ GIVEN ( "a mock client under-reporting its maximum receive length" )
         {
             REQUIRE( result.ok() );
             server = result.transport();
+            server->accept(
+                [](ErrorOr<int> codecId) {REQUIRE(codecId.has_value());});
         });
     lstn->establish();
 
@@ -1156,6 +1209,8 @@ GIVEN ( "A mock client that sends an invalid message type" )
         {
             REQUIRE( result.ok() );
             server = result.transport();
+            server->accept(
+                [](ErrorOr<int> codecId) {REQUIRE(codecId.has_value());});
         });
     lstn->establish();
 
@@ -1230,6 +1285,8 @@ GIVEN ( "A mock server that sends an invalid message type" )
         {
             REQUIRE( result.ok() );
             server = result.transport();
+            server->accept(
+                [](ErrorOr<int> codecId) {REQUIRE(codecId.has_value());});
         });
     lstn->establish();
 
@@ -1301,6 +1358,8 @@ TEST_CASE( "TCP rawsocket heartbeat", "[Transport][Rawsock]" )
         {
             REQUIRE( result.ok() );
             server = result.transport();
+            server->accept(
+                [](ErrorOr<int> codecId) {REQUIRE(codecId.has_value());});
         });
     lstn->establish();
 
