@@ -69,8 +69,13 @@ struct LoopbackFixture
             [&](ListenResult result)
             {
                 auto transport = result.transport();
-                serverCodec = transport->info().codecId();
                 server = std::move(transport);
+                server->accept(
+                    [this](ErrorOr<int> codecId)
+                    {
+                        if (codecId.has_value())
+                            serverCodec = *codecId;
+                    });
             });
         lstn->establish();
 
@@ -280,10 +285,16 @@ void checkConnection(TFixture& f, int expectedCodec,
         REQUIRE( result.ok() );
         auto transport = result.transport();
         REQUIRE( transport != nullptr );
-        CHECK( transport->info().codecId() == expectedCodec );
-        CHECK( transport->info().maxRxLength() == serverMaxRxLength );
-        CHECK( transport->info().maxTxLength() == clientMaxRxLength );
         f.server = transport;
+        f.server->accept(
+            [=](ErrorOr<int> codecId)
+            {
+                REQUIRE(codecId.has_value());
+                CHECK(*codecId == expectedCodec);
+                CHECK( transport->info().codecId() == expectedCodec );
+                CHECK( transport->info().maxRxLength() == serverMaxRxLength );
+                CHECK( transport->info().maxTxLength() == clientMaxRxLength );
+            });
     });
     f.lstn->establish();
 
@@ -624,11 +635,17 @@ TEMPLATE_TEST_CASE( "Normal communications", "[Transport][Rawsock]",
             REQUIRE( result.ok() );
             auto transport = result.transport();
             REQUIRE( transport != nullptr );
-            CHECK( transport->info().codecId() == KnownCodecIds::json() );
-            CHECK( transport->info().maxRxLength() == 64*1024 );
-            CHECK( transport->info().maxTxLength() == 64*1024 );
             server2 = transport;
-            f.sctx.stop();
+            server2->accept(
+                [=, &f](ErrorOr<int> codecId)
+                {
+                    REQUIRE(codecId.has_value());
+                    CHECK( codecId.value() == KnownCodecIds::json() );
+                    CHECK( transport->info().codecId() == KnownCodecIds::json() );
+                    CHECK( transport->info().maxRxLength() == 64*1024 );
+                    CHECK( transport->info().maxTxLength() == 64*1024 );
+                    f.sctx.stop();
+                });
         });
     f.lstn->establish();
 

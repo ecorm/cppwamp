@@ -111,7 +111,7 @@ protected:
     void assignWebsocket(WebsocketPtr&& ws, TransportInfo i)
     {
         websocket_ = std::move(ws);
-        Base::setTransportInfo(i);
+        Base::completeAccept(i);
     }
 
     template <typename F, typename... Ts>
@@ -167,6 +167,18 @@ private:
         if (ec == error::buffer_overflow || ec == error::message_too_big)
             return close_code::too_big;
         return close_code::internal_error;
+    }
+
+    static std::error_code netErrorCodeToStandard(
+        boost::system::error_code netEc, bool& disconnected)
+    {
+        disconnected =
+            netEc == boost::asio::error::connection_reset ||
+            netEc == boost::asio::error::eof;
+        auto ec = disconnected
+                      ? make_error_code(TransportErrc::disconnected)
+                      : static_cast<std::error_code>(netEc);
+        return ec;
     }
 
     void onStart(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
@@ -304,16 +316,8 @@ private:
             [this, self](boost::beast::error_code netEc)
             {
                 txFrame_.reset();
-                if (netEc)
-                {
-                    if (txErrorHandler_)
-                        txErrorHandler_(static_cast<std::error_code>(netEc));
-                    cleanup();
-                }
-                else
-                {
+                if (!checkTxError(netEc))
                     transmit();
-                }
             });
     }
 
@@ -324,26 +328,13 @@ private:
             txFrame_->payloadBuffer(),
             [this, self](boost::beast::error_code netEc, size_t)
             {
-                const bool frameWasPoisoned = txFrame_ &&
-                                              txFrame_->isPoisoned();
                 txFrame_.reset();
-                if (netEc)
-                {
-                    if (txErrorHandler_)
-                    {
-                        auto ec = static_cast<std::error_code>(netEc);
-                        txErrorHandler_(ec);
-                    }
-                    cleanup();
-                }
-                else if (frameWasPoisoned)
-                {
+                if (!checkTxError(netEc))
+                    return;
+                if (txFrame_ && txFrame_->isPoisoned())
                     onStop();
-                }
                 else
-                {
                     transmit();
-                }
             });
     }
 
@@ -363,23 +354,13 @@ private:
         auto self = this->shared_from_this();
         websocket_->async_read(
             rxFrame_,
-            [this, self](boost::beast::error_code ec, size_t)
+            [this, self](boost::beast::error_code netEc, size_t)
             {
-                namespace bae = boost::asio::error;
-                if (ec == bae::connection_reset || ec == bae::eof)
-                    onRemoteDisconnect();
-                else if (ec == boost::beast::websocket::error::closed)
+                if (netEc == boost::beast::websocket::error::closed)
                     onRemoteClose();
-                else if (check(ec))
+                else if (check(netEc))
                     processPayload();
             });
-    }
-
-    void onRemoteDisconnect()
-    {
-        if (rxHandler_)
-            post(rxHandler_, makeUnexpectedError(TransportErrc::disconnected));
-        cleanup();
     }
 
     void onRemoteClose()
@@ -399,7 +380,7 @@ private:
             }
             post(rxHandler_, makeUnexpected(ec));
         }
-        cleanup();
+        cleanup(false);
     }
 
     void processPayload()
@@ -440,38 +421,50 @@ private:
             });
     }
 
-    bool check(boost::beast::error_code netEc)
+    bool checkTxError(boost::system::error_code netEc)
     {
-        if (netEc)
-        {
-            auto ec = static_cast<std::error_code>(netEc);
-            using BWE = boost::beast::websocket::error;
-            if (netEc == BWE::message_too_big || netEc == BWE::buffer_overflow)
-                ec = make_error_code(TransportErrc::inboundTooLong);
-            fail(ec, websocketErrorToCloseCode(netEc));
-        }
-        return !netEc;
+        if (!netEc)
+            return true;
+        bool disconnected = false;
+        auto ec = netErrorCodeToStandard(netEc, disconnected);
+        if (txErrorHandler_)
+            txErrorHandler_(ec);
+        cleanup(disconnected);
+        return false;
+    }
+
+    bool check(boost::system::error_code netEc)
+    {
+        if (!netEc)
+            return true;
+        bool disconnected = false;
+        auto ec = netErrorCodeToStandard(netEc, disconnected);
+        using BWE = boost::beast::websocket::error;
+        if (netEc == BWE::message_too_big || netEc == BWE::buffer_overflow)
+            ec = make_error_code(TransportErrc::inboundTooLong);
+        fail(ec, websocketErrorToCloseCode(netEc), disconnected);
+        return false;
     }
 
     template <typename TErrc>
     void fail(TErrc errc, boost::beast::websocket::close_code closeCode,
-              bool bad = false)
+              bool disconnected = false)
     {
-        fail(make_error_code(errc), closeCode);
+        fail(make_error_code(errc), closeCode, disconnected);
     }
 
     void fail(std::error_code ec, boost::beast::websocket::close_code closeCode,
-              bool bad = false)
+              bool disconnected = false)
     {
         if (rxHandler_)
             post(rxHandler_, makeUnexpected(ec));
         closeWebsocket(closeCode);
-        cleanup();
+        cleanup(disconnected);
     }
 
-    void cleanup()
+    void cleanup(bool disconnected)
     {
-        Base::shutdown();
+        Base::shutdown(!disconnected);
         rxHandler_ = nullptr;
         txErrorHandler_ = nullptr;
         rxFrame_.clear();

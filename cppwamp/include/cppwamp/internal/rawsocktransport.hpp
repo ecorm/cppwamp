@@ -140,7 +140,7 @@ public:
     using TxErrorHandler = typename Transporting::TxErrorHandler;
 
 protected:
-    RawsockTransport(Socket&& socket, TransportInfo info = {})
+    RawsockTransport(Socket&& socket, TransportInfo info)
         : Base(info, Traits::connectionInfo(socket.remote_endpoint())),
           strand_(boost::asio::make_strand(socket.get_executor())),
           socket_(std::move(socket))
@@ -148,6 +148,11 @@ protected:
         if (timeoutIsDefinite(Base::info().heartbeatInterval()))
             pinger_ = std::make_shared<Pinger>(strand_, Base::info());
     }
+
+    RawsockTransport(Socket&& socket)
+        : strand_(boost::asio::make_strand(socket.get_executor())),
+          socket_(std::move(socket))
+    {}
 
     Socket& socket() {return socket_;}
 
@@ -162,6 +167,18 @@ protected:
 private:
     using Base = Transporting;
     using TransmitQueue = std::deque<RawsockFrame::Ptr>;
+
+    static std::error_code netErrorCodeToStandard(
+        boost::system::error_code netEc, bool& disconnected)
+    {
+        disconnected =
+            netEc == boost::asio::error::connection_reset ||
+            netEc == boost::asio::error::eof;
+        auto ec = disconnected
+                      ? make_error_code(TransportErrc::disconnected)
+                      : static_cast<std::error_code>(netEc);
+        return ec;
+    }
 
     void onStart(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
     {
@@ -261,27 +278,14 @@ private:
             txFrame_->gatherBuffers(),
             [this, self](boost::system::error_code netEc, size_t)
             {
-                const bool frameWasPoisoned = txFrame_ &&
-                                              txFrame_->isPoisoned();
                 txFrame_.reset();
-                if (netEc)
-                {
-                    if (txErrorHandler_)
-                    {
-                        auto ec = static_cast<std::error_code>(netEc);
-                        txErrorHandler_(ec);
-                    }
-                    cleanup();
-                }
-                else if (frameWasPoisoned)
-                {
+                if (!checkTxError(netEc))
+                    return;
+                if (txFrame_ && txFrame_->isPoisoned())
                     onStop();
-                }
                 else
-                {
                     transmit();
-                }
-           });
+          });
     }
     // NOLINTEND(misc-no-recursion)
 
@@ -303,25 +307,11 @@ private:
         boost::asio::async_read(socket_, rxFrame_.headerBuffer(),
             [this, self](boost::system::error_code ec, size_t)
             {
-                if (ec == boost::asio::error::connection_reset ||
-                    ec == boost::asio::error::eof)
-                {
-                    onRemoteDisconnect();
-                }
-                else if (check(ec))
-                {
+                if (check(ec))
                     processHeader();
-                }
             });
     }
     // NOLINTEND(misc-no-recursion)
-
-    void onRemoteDisconnect()
-    {
-        if (rxHandler_)
-            post(rxHandler_, makeUnexpectedError(TransportErrc::disconnected));
-        cleanup();
-    }
 
     // NOLINTNEXTLINE(misc-no-recursion)
     void processHeader()
@@ -392,35 +382,46 @@ private:
         receive();
     }
 
+    bool checkTxError(boost::system::error_code netEc)
+    {
+        if (!netEc)
+            return true;
+        bool disconnected = false;
+        auto ec = netErrorCodeToStandard(netEc, disconnected);
+        if (txErrorHandler_)
+            txErrorHandler_(ec);
+        cleanup(disconnected);
+        return false;
+    }
+
     bool check(boost::system::error_code netEc)
     {
-        if (netEc)
-            fail(static_cast<std::error_code>(netEc));
-        return !netEc;
+        if (!netEc)
+            return true;
+        bool disconnected = false;
+        auto ec = netErrorCodeToStandard(netEc, disconnected);
+        fail(ec, disconnected);
+        return false;
     }
 
     template <typename TErrc>
     bool check(bool condition, TErrc errc)
     {
         if (!condition)
-        {
-            if (rxHandler_)
-                post(rxHandler_, makeUnexpectedError(errc));
-            cleanup();
-        }
+            fail(make_error_code(errc));
         return condition;
     }
 
-    void fail(std::error_code ec)
+    void fail(std::error_code ec, bool disconnected = false)
     {
         if (rxHandler_)
             post(rxHandler_, makeUnexpected(ec));
-        cleanup();
+        cleanup(disconnected);
     }
 
-    void cleanup()
+    void cleanup(bool disconnected = false)
     {
-        Base::shutdown();
+        Base::shutdown(!disconnected);
         rxHandler_ = nullptr;
         txErrorHandler_ = nullptr;
         rxFrame_.clear();
@@ -476,9 +477,10 @@ public:
     using Settings      = typename TConfig::Traits::ServerSettings;
     using AcceptHandler = Transporting::AcceptHandler;
 
-    static Ptr create(Socket&& s, const Settings&, const CodecIdSet& c)
+    static Ptr create(Socket&& s, const Settings& t, const CodecIdSet& c)
     {
-        return Ptr(new RawsockServerTransport(std::move(s), std::move(c)));
+        return Ptr(new RawsockServerTransport(std::move(s), std::move(t),
+                                              std::move(c)));
     }
 
 private:
@@ -488,18 +490,21 @@ private:
     // Only used once to perform accept operation
     struct Data
     {
-        explicit Data(const CodecIdSet& c) : codecIds(c) {}
+        explicit Data(const Settings& s, const CodecIdSet& c)
+            : settings(s),
+              codecIds(c)
+        {}
 
+        Settings settings;
         CodecIdSet codecIds;
         AcceptHandler handler;
         uint32_t handshake = 0;
         RawsockMaxLength maxTxLength = {};
-        RawsockMaxLength maxRxLength = {};
     };
 
-    RawsockServerTransport(Socket&& s, const CodecIdSet& c)
+    RawsockServerTransport(Socket&& s, const Settings& t, const CodecIdSet& c)
         : Base(std::move(s)),
-          data_(new Data(c))
+          data_(new Data(t, c))
     {}
 
     void onAccept(AcceptHandler handler) override
@@ -538,8 +543,8 @@ private:
         else if (data_->codecIds.count(peerCodec) != 0)
         {
             data_->maxTxLength = hs.maxLength();
-            auto bytes = TConfig::hostOrderHandshakeBytes(peerCodec,
-                                                          data_->maxTxLength);
+            auto bytes = TConfig::hostOrderHandshakeBytes(
+                peerCodec, data_->settings.maxRxLength());
             if (!TConfig::mockUnresponsiveness())
                 sendHandshake(Handshake(bytes));
         }
@@ -578,10 +583,11 @@ private:
     void complete(Handshake hs)
     {
         auto codecId = hs.codecId();
-        const TransportInfo i{codecId,
-                              Handshake::byteLengthOf(data_->maxTxLength),
-                              Handshake::byteLengthOf(data_->maxRxLength)};
-        Base::setTransportInfo(i);
+        const TransportInfo i{
+            codecId,
+            Handshake::byteLengthOf(data_->maxTxLength),
+            Handshake::byteLengthOf(data_->settings.maxRxLength())};
+        Base::completeAccept(i);
         data_->handler(codecId);
         data_.reset();
     }
@@ -597,7 +603,7 @@ private:
     {
         Base::post(data_->handler, makeUnexpected(ec));
         data_.reset();
-        Base::shutdown();
+        Base::shutdown(true);
     }
 
     template <typename TErrc>

@@ -197,9 +197,10 @@ private:
 
     RawsockListener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c)
         : executor_(std::move(e)),
+          strand_(std::move(i)),
           codecIds_(std::move(c)),
           settings_(std::move(s)),
-          acceptor_(std::move(i))
+          acceptor_(strand_)
     {}
 
     bool listen()

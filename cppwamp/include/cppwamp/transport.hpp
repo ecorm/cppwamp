@@ -78,7 +78,8 @@ enum class TransportState
     accepting,
     ready,
     running,
-    stopped
+    stopped,
+    failed
 };
 
 
@@ -138,7 +139,7 @@ public:
         @post this->state() == Transporting::State::running */
     void start(RxHandler rxHandler, TxErrorHandler txHandler)
     {
-        assert(state_ == State::initial);
+        assert(state_ == State::ready);
         onStart(std::move(rxHandler), std::move(txHandler));
         state_ = State::running;
     }
@@ -178,11 +179,15 @@ public:
     }
 
 protected:
-    /** Constructor. */
+    /** Constructor for client transports. */
     explicit Transporting(TransportInfo ti, ConnectionInfo ci)
         : info_(ti),
-          connectionInfo_(std::move(ci))
+          connectionInfo_(std::move(ci)),
+          state_(State::ready)
     {}
+
+    /** Constructor for server transports. */
+    explicit Transporting() = default;
 
     /** Must be overridden by server transports to initiate the handshake. */
     virtual void onAccept(AcceptHandler handler)
@@ -210,14 +215,25 @@ protected:
     virtual void onStop() = 0;
 
     /** Should be called by derived server classes after transport details
-        have been negotiated. */
-    void setTransportInfo(TransportInfo ti) {info_ = ti;}
+        have been negotiated successfully. */
+    void completeAccept(TransportInfo ti)
+    {
+        info_ = ti;
+        state_ = State::ready;
+    }
+
+    /** Should be called by derived server classes upon handshake failure. */
+    void failAccept()
+    {
+        state_ = State::stopped;
+    }
 
     /** Should be called by derived classes when the transport disconnects. */
-    void shutdown()
+    void shutdown(bool failed = false)
     {
         connectionInfo_ = {};
-        state_ = State::stopped;
+        if (state_ != State::failed && state_ != State::stopped)
+            state_ = failed ? State::failed : State::stopped;
     }
 
 private:

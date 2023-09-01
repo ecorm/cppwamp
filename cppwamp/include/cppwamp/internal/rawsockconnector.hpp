@@ -117,7 +117,8 @@ private:
 
     void sendHandshake()
     {
-        auto bytes = TConfig::hostOrderHandshakeBytes(codecId_, maxRxLength_);
+        auto bytes = TConfig::hostOrderHandshakeBytes(codecId_,
+                                                      settings_.maxRxLength());
         handshake_ = endian::nativeToBig32(bytes);
         auto self = this->shared_from_this();
         boost::asio::async_write(
@@ -179,7 +180,7 @@ private:
     {
         const TransportInfo i{codecId_,
                               hs.maxLengthInBytes(),
-                              Handshake::byteLengthOf(maxRxLength_),
+                              Handshake::byteLengthOf(settings_.maxRxLength()),
                               Traits::heartbeatInterval(settings_)};
         Transporting::Ptr transport{Transport::create(std::move(socket_), i)};
         dispatchHandler(std::move(transport));
@@ -205,7 +206,6 @@ private:
     Handler handler_;
     int codecId_ = 0;
     uint32_t handshake_ = 0;
-    RawsockMaxLength maxRxLength_ = {};
 };
 
 } // namespace internal
