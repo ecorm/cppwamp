@@ -155,6 +155,7 @@ protected:
         return ec;
     }
 
+    // Constructor for client transports
     RawsockTransport(Socket&& socket, TransportInfo info)
         : Base(info, Traits::connectionInfo(socket.remote_endpoint())),
           strand_(boost::asio::make_strand(socket.get_executor())),
@@ -164,6 +165,7 @@ protected:
             pinger_ = std::make_shared<Pinger>(strand_, Base::info());
     }
 
+    // Constructor for server transports
     RawsockTransport(Socket&& socket)
         : strand_(boost::asio::make_strand(socket.get_executor())),
           socket_(std::move(socket))
@@ -390,7 +392,7 @@ private:
         if (!netEc)
             return true;
         if (txErrorHandler_)
-            txErrorHandler_(netErrorCodeToStandard(netEc));
+            post(txErrorHandler_, netErrorCodeToStandard(netEc));
         cleanup();
         return false;
     }
@@ -564,14 +566,13 @@ private:
             boost::asio::buffer(&data_->handshake, sizeof(Handshake)),
             [this, self, hs](boost::system::error_code ec, size_t)
             {
-                onHandshakeSent(hs, ec);
+                if (check(ec))
+                    onHandshakeSent(hs, ec);
             });
     }
 
     void onHandshakeSent(Handshake hs, boost::system::error_code ec)
     {
-        if (!check(ec))
-            return;
         if (!hs.hasError())
             complete(hs);
         else
@@ -586,7 +587,7 @@ private:
             Handshake::byteLengthOf(data_->maxTxLength),
             Handshake::byteLengthOf(data_->settings.maxRxLength())};
         Base::completeAccept(i);
-        data_->handler(codecId);
+        Base::post(data_->handler, codecId);
         data_.reset();
     }
 
@@ -599,7 +600,6 @@ private:
 
     void fail(std::error_code ec)
     {
-        // TODO: Check if post is needed
         Base::post(data_->handler, makeUnexpected(ec));
         data_.reset();
         Base::socket().close();

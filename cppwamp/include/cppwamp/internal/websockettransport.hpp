@@ -106,7 +106,8 @@ protected:
         return ec;
     }
 
-    WebsocketTransport(WebsocketPtr&& ws, TransportInfo info = {})
+    // Constructor for client transports
+    WebsocketTransport(WebsocketPtr&& ws, TransportInfo info)
         : Base(info, makeConnectionInfo(ws->next_layer())),
           strand_(boost::asio::make_strand(ws->get_executor())),
           websocket_(std::move(ws))
@@ -115,13 +116,10 @@ protected:
             pinger_ = std::make_shared<Pinger>(strand_, Base::info());
     }
 
+    // Constructor for server transports
     WebsocketTransport(TcpSocket& tcp)
-        : Base(TransportInfo{}, makeConnectionInfo(tcp)),
-          strand_(boost::asio::make_strand(tcp.get_executor()))
-    {
-        if (timeoutIsDefinite(Base::info().heartbeatInterval()))
-            pinger_ = std::make_shared<Pinger>(strand_, Base::info());
-    }
+        : strand_(boost::asio::make_strand(tcp.get_executor()))
+    {}
 
     void assignWebsocket(WebsocketPtr&& ws, TransportInfo i)
     {
@@ -429,7 +427,7 @@ private:
         if (!netEc)
             return true;
         if (txErrorHandler_)
-            txErrorHandler_(netErrorCodeToStandard(netEc));
+            post(txErrorHandler_, netErrorCodeToStandard(netEc));
         cleanup();
         return false;
     }
@@ -684,7 +682,7 @@ private:
                               data_->settings.maxRxLength()};
 
         Base::assignWebsocket(std::move(data_->websocket), i);
-        data_->handler(data_->codecId);
+        Base::post(data_->handler, data_->codecId);
         data_.reset();
     }
 
