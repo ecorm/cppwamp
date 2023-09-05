@@ -601,8 +601,8 @@ private:
     void fail(std::error_code ec)
     {
         Base::post(data_->handler, makeUnexpected(ec));
-        data_.reset();
         Base::socket().close();
+        data_.reset();
         Base::shutdown();
     }
 

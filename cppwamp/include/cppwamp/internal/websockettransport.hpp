@@ -696,11 +696,11 @@ private:
     void fail(std::error_code ec)
     {
         Base::post(data_->handler, makeUnexpected(ec));
-        data_.reset();
         if (data_->websocket)
             data_->websocket->next_layer().close();
         else
             data_->tcpSocket.close();
+        data_.reset();
         Base::shutdown();
     }
 

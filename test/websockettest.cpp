@@ -313,7 +313,7 @@ void checkUnsupportedSerializer(LoopbackFixture& f)
 
     CHECK_NOTHROW( f.run() );
     CHECK( serverEc == TransportErrc::badSerializer );
-    CHECK( clientEc == TransportErrc::badSerializer );
+    CHECK( clientEc == TransportErrc::handshakeDeclined );
 }
 
 } // anonymous namespace
@@ -685,6 +685,9 @@ TEST_CASE( "Cancel websocket send", "[Transport][Websocket]" )
         CHECK( f.client->info().maxTxLength() == maxSize );
     });
     f.run();
+    f.server->start(
+        [&](ErrorOr<MessageBuffer> buf) {},
+        nullptr);
 
     // Start a send operation
     bool handlerInvoked = false;
