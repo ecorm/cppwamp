@@ -157,7 +157,7 @@ protected:
 
     // Constructor for client transports
     RawsockTransport(Socket&& socket, TransportInfo info)
-        : Base(info, Traits::connectionInfo(socket.remote_endpoint())),
+        : Base(Traits::connectionInfo(socket.remote_endpoint()), info),
           strand_(boost::asio::make_strand(socket.get_executor())),
           socket_(std::move(socket))
     {
@@ -167,7 +167,8 @@ protected:
 
     // Constructor for server transports
     RawsockTransport(Socket&& socket)
-        : strand_(boost::asio::make_strand(socket.get_executor())),
+        : Base(Traits::connectionInfo(socket.remote_endpoint())),
+          strand_(boost::asio::make_strand(socket.get_executor())),
           socket_(std::move(socket))
     {}
 
@@ -240,7 +241,7 @@ private:
 
     void onPingFrame(ErrorOr<PingBytes> pingBytes)
     {
-        if (state() != Transporting::State::running)
+        if (state() != TransportState::running)
             return;
 
         if (!pingBytes.has_value())
@@ -341,7 +342,7 @@ private:
                 if (ec)
                     rxFrame_.clear();
 
-                if (check(ec) && state() == Transporting::State::running)
+                if (check(ec) && state() == TransportState::running)
                 {
                     switch (kind)
                     {

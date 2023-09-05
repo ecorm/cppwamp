@@ -124,8 +124,8 @@ public:
     const ConnectionInfo& connectionInfo() const {return connectionInfo_;}
 
     /** Starts the server handshake procedure.
-        @pre this->state() == Transporting::State::initial
-        @post this->state() == Transporting::State::accepting */
+        @pre this->state() == TransportState::initial
+        @post this->state() == TransportState::accepting */
     void accept(AcceptHandler handler)
     {
         assert(state_ == State::initial);
@@ -134,8 +134,8 @@ public:
     }
 
     /** Starts the transport's I/O operations.
-        @pre this->state() == Transporting::State::initial
-        @post this->state() == Transporting::State::running */
+        @pre this->state() == TransportState::initial
+        @post this->state() == TransportState::running */
     void start(RxHandler rxHandler, TxErrorHandler txHandler)
     {
         assert(state_ == State::ready);
@@ -144,7 +144,7 @@ public:
     }
 
     /** Sends the given serialized message via the transport.
-        @pre this->state() != Transporting::State::initial */
+        @pre this->state() != TransportState::initial */
     void send(MessageBuffer message)
     {
         assert(state_ != State::initial);
@@ -154,11 +154,11 @@ public:
 
     /** Sends the given serialized message, placing it at the top of the queue,
         then closes the underlying socket.
-        @pre this->state() != Transporting::State::initial
-        @post this->state() == Transporting::State::stopped */
+        @pre this->state() != TransportState::initial
+        @post this->state() == TransportState::stopped */
     virtual void sendNowAndStop(MessageBuffer message)
     {
-        assert(state_ != Transporting::State::initial);
+        assert(state_ != TransportState::initial);
         if (state_ == State::running)
             onSendNowAndStop(std::move(message));
         state_ = State::stopped;
@@ -167,7 +167,7 @@ public:
     // TODO: Asynchronous Session::disconnect for transports with
     // closing handhakes (e.g. Websocket)
     /** Stops I/O operations and closes the underlying socket.
-        @post this->state() == Transporting::State::stopped */
+        @post this->state() == TransportState::stopped */
     virtual void stop()
     {
         if (state_ == State::accepting)
@@ -178,15 +178,13 @@ public:
     }
 
 protected:
-    /** Constructor for client transports. */
-    explicit Transporting(TransportInfo ti, ConnectionInfo ci)
+    explicit Transporting(ConnectionInfo ci, TransportInfo ti = {})
         : info_(ti),
-          connectionInfo_(std::move(ci)),
-          state_(State::ready)
-    {}
-
-    /** Constructor for server transports. */
-    explicit Transporting() = default;
+          connectionInfo_(std::move(ci))
+    {
+        if (ti.codecId() != 0)
+            state_ = State::ready;
+    }
 
     /** Must be overridden by server transports to initiate the handshake. */
     virtual void onAccept(AcceptHandler handler)

@@ -24,7 +24,7 @@ namespace wamp
 namespace internal {class ConnectionInfoImpl;}
 
 //------------------------------------------------------------------------------
-/** Contains connection information associated with a WAMP client session.
+/** Contains connection information associated with a WAMP server session.
 
     This is a reference-counted lightweight proxy to the actual object
     containing the information. */
@@ -39,12 +39,17 @@ public:
 
     ConnectionInfo(Object transport, std::string endpoint);
 
+    /** Obtains a dictionary of transport details which are used in the
+        meta API. */
     const Object& transport() const;
 
+    /** Obtains a human-readable label of the connection endpoint. */
     const std::string& endpoint() const;
 
+    /** Obtains the name of the server hosting the session. */
     const std::string& server() const;
 
+    /** Obtains the sequential session number on the server. */
     ServerSessionNumber serverSessionNumber() const;
 
     /** Returns true if this proxy object points to an actual

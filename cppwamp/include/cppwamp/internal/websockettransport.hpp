@@ -108,7 +108,7 @@ protected:
 
     // Constructor for client transports
     WebsocketTransport(WebsocketPtr&& ws, TransportInfo info)
-        : Base(info, makeConnectionInfo(ws->next_layer())),
+        : Base(makeConnectionInfo(ws->next_layer()), info),
           strand_(boost::asio::make_strand(ws->get_executor())),
           websocket_(std::move(ws))
     {
@@ -118,7 +118,8 @@ protected:
 
     // Constructor for server transports
     WebsocketTransport(TcpSocket& tcp)
-        : strand_(boost::asio::make_strand(tcp.get_executor()))
+        : Base(makeConnectionInfo(tcp)),
+          strand_(boost::asio::make_strand(tcp.get_executor()))
     {}
 
     void assignWebsocket(WebsocketPtr&& ws, TransportInfo i)
@@ -257,7 +258,7 @@ private:
 
     void onPingFrame(ErrorOr<PingBytes> pingBytes)
     {
-        if (state() != Transporting::State::running)
+        if (state() != TransportState::running)
             return;
 
         if (!pingBytes.has_value())
