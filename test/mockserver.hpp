@@ -40,14 +40,13 @@ public:
         assert(!alreadyStarted_);
         alreadyStarted_ = true;
         std::weak_ptr<MockServerSession> self = shared_from_this();
-        transport_->start(
-            [self](ErrorOr<MessageBuffer> b)
+        transport_->accept(
+            [self](ErrorOr<int> codecId)
             {
                 auto me = self.lock();
                 if (me)
-                    me->onMessage(std::move(b));
-            },
-            [](std::error_code) {});
+                    me->onAccept(codecId);
+            });
     }
     
     void close() {transport_->stop();}
@@ -59,6 +58,21 @@ private:
         : responses_(std::move(cannedResponses)),
           transport_(std::move(t))
     {}
+
+    void onAccept(ErrorOr<int> codecId)
+    {
+        if (!codecId)
+            return;
+        std::weak_ptr<MockServerSession> self = shared_from_this();
+        transport_->start(
+            [self](ErrorOr<MessageBuffer> b)
+            {
+                auto me = self.lock();
+                if (me)
+                    me->onMessage(std::move(b));
+            },
+            [](std::error_code) {});
+    }
 
     void onMessage(ErrorOr<MessageBuffer> buffer)
     {

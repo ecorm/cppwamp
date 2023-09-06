@@ -665,20 +665,20 @@ private:
     using BuilderList = std::vector<CodecBuilder<TSink, TSource>>;
 
     template <typename F, typename... Fs>
-    static void addBuilders(BuilderList& builders, CodecIdSet ids, F, Fs...)
+    static void addBuilders(BuilderList& builders, CodecIdSet& ids, F, Fs...)
     {
         addBuilder(builders, ids, F{});
         addBuilders(Fs{}...);
     }
 
     template <typename F>
-    static void addBuilders(BuilderList& builders, CodecIdSet ids, F)
+    static void addBuilders(BuilderList& builders, CodecIdSet& ids, F)
     {
         addBuilder(builders, ids, F{});
     }
 
     template <typename F>
-    static void addBuilder(BuilderList& builders, CodecIdSet ids, F)
+    static void addBuilder(BuilderList& builders, CodecIdSet& ids, F)
     {
         builders.emplace_back(F{});
         ids.insert(builders.back().id());

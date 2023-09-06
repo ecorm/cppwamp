@@ -163,7 +163,8 @@ CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
 CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
     Action action, RequestId r, std::string target, Object options,
     std::error_code ec)
-    : AccessActionInfo(action, r, std::move(target), std::move(options),
+    : AccessActionInfo(action, r, std::move(target),
+                       optionsWithErrorDesc(std::move(options), ec),
                        errorCodeToUri(ec))
 {}
 
@@ -174,6 +175,15 @@ CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
     : AccessActionInfo(action, r, std::move(target), std::move(options),
                        make_error_code(errc))
 {}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Object AccessActionInfo::optionsWithErrorDesc(
+    Object options, std::error_code ec)
+{
+    if (ec.category() != wampCategory())
+        options.emplace("error_description", ec.message());
+    return options;
+}
 
 
 //******************************************************************************

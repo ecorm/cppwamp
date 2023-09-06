@@ -7,6 +7,7 @@
 #if defined(CPPWAMP_TEST_HAS_CORO)
 
 #include <jsoncons/json_options.hpp>
+#include <cppwamp/codecs/cbor.hpp>
 #include "clienttesting.hpp"
 
 using namespace test;
@@ -533,6 +534,21 @@ GIVEN( "a Session, a valid ConnectionWish, and an invalid ConnectionWish" )
         {
             auto index = s.connect(badWhere, yield);
             CHECK( index == makeUnexpected(TransportErrc::failed) );
+            CHECK( incidents.testIfEmptyThenClear() );
+            CHECK( s.state() == SS::failed );
+        });
+
+        ioctx.run();
+        CHECK( incidents.testIfEmptyThenClear() );
+    }
+
+    WHEN( "connecting with an unsupported serializer" )
+    {
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            auto index = s.connect(TcpHost("localhost", validPort)
+                                       .withFormat(cbor), yield);
+            CHECK( index == makeUnexpected(TransportErrc::badSerializer) );
             CHECK( incidents.testIfEmptyThenClear() );
             CHECK( s.state() == SS::failed );
         });

@@ -100,11 +100,7 @@ struct CPPWAMP_API AccessActionInfo
     Action action = {};
 
 private:
-    template <typename T>
-    static std::string toErrorUri(const ErrorOr<T>& x)
-    {
-        return !x ? std::string{} : errorCodeToUri(x.error());
-    }
+    static Object optionsWithErrorDesc(Object options, std::error_code ec);
 };
 
 

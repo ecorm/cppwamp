@@ -16,6 +16,7 @@
 #include <cppwamp/transports/tcp.hpp>
 #include <cppwamp/transports/uds.hpp>
 #include <cppwamp/utils/consolelogger.hpp>
+#include <cppwamp/utils/filelogger.hpp>
 
 #if defined(CPPWAMP_TEST_HAS_WEB)
 #include <cppwamp/transports/websocket.hpp>
@@ -64,22 +65,24 @@ struct RouterFixture::Impl
     using AccessLogHandler = std::function<void (wamp::AccessLogEntry)>;
 
     Impl()
-        : logger_(wamp::utils::ConsoleLogger{loggerOptions()}),
+        : logHandler_(wamp::utils::ConsoleLogger{loggerOptions()}),
+          accessLogHandler_(wamp::utils::FileLogger{accessLogFilename(),
+                                                    fileLoggerOptions()}),
           router_(ioctx_, routerOptions(*this)),
           thread_([this](){run();})
     {
-        logger_.set_executor(ioctx_.get_executor());
+        logHandler_.set_executor(ioctx_.get_executor());
     }
 
     AccessLogSnoopGuard snoopAccessLog(wamp::AnyCompletionExecutor exec,
                                        AccessLogHandler handler)
     {
-        accessLogHandler_ =
+        accessLogSnooper_ =
             boost::asio::bind_executor(exec, std::move(handler));
         return AccessLogSnoopGuard{};
     }
 
-    void unsnoopAccessLog() {accessLogHandler_ = nullptr;}
+    void unsnoopAccessLog() {accessLogSnooper_ = nullptr;}
 
     wamp::Router& router() {return router_;}
 
@@ -90,18 +93,22 @@ struct RouterFixture::Impl
     }
 
 private:
-    using AccessLogHandlerWithExecutor =
-        wamp::AnyReusableHandler<void (wamp::AccessLogEntry)>;
-
     static wamp::utils::ConsoleLoggerOptions loggerOptions()
     {
         return wamp::utils::ConsoleLoggerOptions{}.withColor();
     }
 
+    static std::string accessLogFilename() {return "accesslog.txt";}
+
+    static wamp::utils::FileLoggerOptions fileLoggerOptions()
+    {
+        return wamp::utils::FileLoggerOptions{}.withTruncate();
+    }
+
     static wamp::RouterOptions routerOptions(Impl& self)
     {
         return wamp::RouterOptions()
-            .withLogHandler(self.logger_)
+            .withLogHandler(self.logHandler_)
             .withLogLevel(wamp::LogLevel::info)
             .withAccessLogHandler(
                 [&self](wamp::AccessLogEntry a)
@@ -167,15 +174,17 @@ private:
 
     void onAccessLogEntry(wamp::AccessLogEntry a)
     {
-        if (accessLogHandler_)
-            wamp::postAny(ioctx_, accessLogHandler_, std::move(a));
+        if (accessLogSnooper_)
+            wamp::postAny(ioctx_, accessLogSnooper_, a);
+        wamp::postAny(ioctx_, accessLogHandler_, std::move(a));
     }
 
     wamp::IoContext ioctx_;
-    wamp::RouterOptions::LogHandler logger_;
+    wamp::RouterOptions::LogHandler logHandler_;
+    wamp::RouterOptions::AccessLogHandler accessLogHandler_;
+    wamp::RouterOptions::AccessLogHandler accessLogSnooper_;
     wamp::Router router_;
     std::thread thread_;
-    AccessLogHandlerWithExecutor accessLogHandler_;
 };
 
 //------------------------------------------------------------------------------
