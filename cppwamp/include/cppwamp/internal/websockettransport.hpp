@@ -330,10 +330,11 @@ private:
             txFrame_->payloadBuffer(),
             [this, self](boost::beast::error_code netEc, size_t)
             {
+                auto frame = std::move(txFrame_);
                 txFrame_.reset();
                 if (!checkTxError(netEc))
                     return;
-                if (txFrame_ && txFrame_->isPoisoned())
+                if (frame && frame->isPoisoned())
                     onStop();
                 else
                     transmit();
