@@ -104,6 +104,9 @@ public:
         if (found == byKey_.end())
             return makeUnexpectedError(WampErrc::noSuchRegistration);
 
+        // If the registration does not belong to the callee, return
+        // an ERROR response.
+        // https://github.com/wamp-proto/wamp-proto/discussions/496
         auto& registration = found->second;
         if (registration.calleeId() != callee.wampId())
             return makeUnexpectedError(WampErrc::noSuchRegistration);

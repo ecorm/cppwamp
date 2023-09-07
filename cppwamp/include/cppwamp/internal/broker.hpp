@@ -64,9 +64,6 @@ public:
 
         if (publisherDisclosed)
         {
-            // TODO: WAMP - Disclosed properties are not in the spec, but there
-            // is a consensus here:
-            // https://github.com/wamp-proto/wamp-proto/issues/57
             const auto& info = publisher->info();
             event_.withOption("publisher", info.sessionId());
             if (!info.auth().id().empty())
@@ -706,6 +703,9 @@ public:
             auto policy = record.info().matchPolicy;
 
             {
+                // If the subscription does not belong to the subscriber,
+                // return an ERROR response.
+                // https://github.com/wamp-proto/wamp-proto/discussions/496
                 const MutexGuard guard{queryMutex_};
                 found = record.removeSubscriber(subscriber->sharedInfo(),
                                                 *metaTopics_);
