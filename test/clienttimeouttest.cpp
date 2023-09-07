@@ -49,14 +49,9 @@ std::vector<Incident> IncidentListener::list;
 //------------------------------------------------------------------------------
 TEST_CASE("WAMP Client Connection Timeouts", "[WAMP][Basic]")
 {
-    // TODO: Just use regular transport but never begin accepting handshake
-    struct MockTransportConfig : BasicRawsockTransportConfig<TcpTraits>
-    {
-        static bool mockUnresponsiveness() {return true;}
-    };
-
-    using MockTransport = RawsockServerTransport<MockTransportConfig>;
-    using MockListener = RawsockListener<BasicTcpListenerConfig<MockTransport>>;
+    using Transport =
+        RawsockServerTransport<BasicRawsockTransportConfig<TcpTraits>>;
+    using ListenerType = RawsockListener<BasicTcpListenerConfig<Transport>>;
     using SS = SessionState;
 
     IoContext ioctx;
@@ -69,7 +64,7 @@ TEST_CASE("WAMP Client Connection Timeouts", "[WAMP][Basic]")
     auto badWhere = invalidTcp;
 
     const auto tcpEndpoint = TcpEndpoint{invalidPort};
-    auto lstn = MockListener::create(exec, strand, tcpEndpoint,
+    auto lstn = ListenerType::create(exec, strand, tcpEndpoint,
                                      {KnownCodecIds::json()});
     Transporting::Ptr transport;
     lstn->observe(

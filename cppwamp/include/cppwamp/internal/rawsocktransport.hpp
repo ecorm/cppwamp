@@ -120,10 +120,6 @@ struct BasicRawsockTransportConfig
             .setMaxLength(maxRxLength)
             .toHostOrder();
     }
-
-    // Allows mocking server unresponsiveness by not sending handshake bytes.
-    // TODO: Remove if not needed
-    static constexpr bool mockUnresponsiveness() {return false;}
 };
 
 //------------------------------------------------------------------------------
@@ -547,8 +543,7 @@ private:
             data_->maxTxLength = hs.maxLength();
             auto bytes = TConfig::hostOrderHandshakeBytes(
                 peerCodec, data_->settings.maxRxLength());
-            if (!TConfig::mockUnresponsiveness())
-                sendHandshake(Handshake(bytes));
+            sendHandshake(Handshake(bytes));
         }
         else
         {
