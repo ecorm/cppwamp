@@ -42,7 +42,7 @@ enum class ListeningErrorCategory
     success,    /// No error
     cancelled,  /// Due to server cancellation
     transient,  /// Transient error that doesn't need delay before recovering
-    congestion, /// Out of memory or resources
+    overload,   /// Out of memory or resources
     outage,     /// Network down
     fatal       /// Due to programming error
 };

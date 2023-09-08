@@ -60,8 +60,8 @@ struct UdsListenerConfig
             return ListeningErrorCategory::success;
         if (Helper::isAcceptCancellationError(ec))
             return ListeningErrorCategory::cancelled;
-        if (Helper::isAcceptCongestionError(ec))
-            return ListeningErrorCategory::congestion;
+        if (Helper::isAcceptOverloadError(ec))
+            return ListeningErrorCategory::overload;
         if (Helper::isAcceptTransientError(ec))
             return ListeningErrorCategory::transient;
         if (treatUnexpectedErrorsAsFatal)

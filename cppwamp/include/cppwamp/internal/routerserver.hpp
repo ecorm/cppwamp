@@ -13,6 +13,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <boost/asio/steady_timer.hpp>
 #include "../routeroptions.hpp"
 #include "../authenticators/anonymousauthenticator.hpp"
 #include "challenger.hpp"
@@ -562,6 +563,7 @@ private:
         : executor_(std::move(e)),
           strand_(boost::asio::make_strand(executor_)),
           challengeTimeouts_(SessionTimeoutScheduler::create(strand_)),
+          cooldownTimer_(strand_),
           logSuffix_(" [Server " + c.name() + ']'),
           router_(std::move(r)),
           options_(std::make_shared<ServerOptions>(std::move(c))),
@@ -611,11 +613,17 @@ private:
             break;
 
         case Cat::transient:
-        case Cat::congestion: // TODO delay
-        case Cat::outage: // TODO delay
             alert(std::string("Error establishing connection with "
                               "remote peer during ") + result.operation(),
                   result.error());
+            break;
+
+        case Cat::overload:
+            cooldown(options_->overloadCooldown(), result, "Overload ");
+            break;
+
+        case Cat::outage:
+            cooldown(options_->outageCooldown(), result, "Network outage ");
             break;
 
         case Cat::fatal:
@@ -632,6 +640,42 @@ private:
             onClose(Reason{WampErrc::systemShutdown});
         else if (cat != Cat::cancelled)
             listen();
+    }
+
+    void cooldown(Timeout delay, const ListenResult& result, std::string why)
+    {
+        alert(why + " detected during " + result.operation(), result.error());
+        if (delay.count() == 0)
+            return listen();
+
+        // Check if there's already a cooldown in progress that will outlast
+        // this this one.
+        auto deadline = std::chrono::steady_clock::now() + delay;
+        if (deadline <= cooldownDeadline_)
+            return;
+
+        cooldownDeadline_ = deadline;
+        cooldownTimer_.expires_at(deadline);
+        std::weak_ptr<RouterServer> self{shared_from_this()};
+        cooldownTimer_.async_wait(
+            [self](boost::system::error_code ec)
+            {
+                auto me = self.lock();
+                if (me)
+                    me->onCooldownExpired(ec);
+            });
+    }
+
+    void onCooldownExpired(boost::system::error_code ec)
+    {
+        // Bumping the cooldown deadline while a cooldown is already in
+        // progress will trigger a cancellation.
+        if (ec == boost::asio::error::operation_aborted)
+            return;
+
+        if (ec)
+            panic("Cooldown timer failure", ec);
+        listen();
     }
 
     void listen()
@@ -700,7 +744,7 @@ private:
 
             void operator()() const
             {
-                auto me = *self;
+                auto& me = *self;
                 auto timeout = me.options_->challengeTimeout();
                 if (timeout != unspecifiedTimeout)
                     me.challengeTimeouts_->insert(key, timeout);
@@ -756,12 +800,14 @@ private:
     IoStrand strand_;
     std::unordered_map<ServerSession::Key, ServerSession::Ptr> sessions_;
     SessionTimeoutScheduler::Ptr challengeTimeouts_;
+    boost::asio::steady_timer cooldownTimer_;
     std::string logSuffix_;
     RouterContext router_;
     ServerOptions::Ptr options_;
     Listening::Ptr listener_;
     RouterLogger::Ptr logger_;
     ServerSession::Key nextSessionIndex_ = 0;
+    std::chrono::steady_clock::time_point cooldownDeadline_;
 
     friend class ServerContext;
 };

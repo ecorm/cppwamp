@@ -59,7 +59,7 @@ struct SocketErrorHelper
 #endif
     }
 
-    static bool isAcceptCongestionError(boost::system::error_code ec)
+    static bool isAcceptOverloadError(boost::system::error_code ec)
     {
         namespace sys = boost::system;
         return ec == std::errc::no_buffer_space

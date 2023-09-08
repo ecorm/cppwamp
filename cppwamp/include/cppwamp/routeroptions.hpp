@@ -128,11 +128,19 @@ public:
 
     ServerOptions& withChallengeTimeout(Timeout timeout);
 
+    ServerOptions& withOverloadCooldown(Timeout cooldown);
+
+    ServerOptions& withOutageCooldown(Timeout cooldown);
+
     const String& name() const;
 
     Authenticator::Ptr authenticator() const;
 
     Timeout challengeTimeout() const;
+
+    Timeout overloadCooldown() const;
+
+    Timeout outageCooldown() const;
 
 private:
     String name_;
@@ -140,6 +148,8 @@ private:
     BufferCodecFactory codecFactory_;
     Authenticator::Ptr authenticator_;
     Timeout challengeTimeout_ = unspecifiedTimeout;
+    Timeout overloadCooldown_ = unspecifiedTimeout;
+    Timeout outageCooldown_ = unspecifiedTimeout;
 
 public: // Internal use only
     Listening::Ptr makeListener(internal::PassKey, AnyIoExecutor e,

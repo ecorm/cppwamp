@@ -125,6 +125,20 @@ ServerOptions::withChallengeTimeout(Timeout timeout)
     return *this;
 }
 
+CPPWAMP_INLINE ServerOptions&
+ServerOptions::withOverloadCooldown(Timeout cooldown)
+{
+    overloadCooldown_ = cooldown;
+    return *this;
+}
+
+CPPWAMP_INLINE ServerOptions&
+ServerOptions::withOutageCooldown(Timeout cooldown)
+{
+    outageCooldown_ = cooldown;
+    return *this;
+}
+
 CPPWAMP_INLINE const String& ServerOptions::name() const {return name_;}
 
 CPPWAMP_INLINE Authenticator::Ptr ServerOptions::authenticator() const
@@ -135,6 +149,16 @@ CPPWAMP_INLINE Authenticator::Ptr ServerOptions::authenticator() const
 CPPWAMP_INLINE Timeout ServerOptions::challengeTimeout() const
 {
     return challengeTimeout_;
+}
+
+CPPWAMP_INLINE Timeout ServerOptions::overloadCooldown() const
+{
+    return overloadCooldown_;
+}
+
+CPPWAMP_INLINE Timeout ServerOptions::outageCooldown() const
+{
+    return outageCooldown_;
 }
 
 CPPWAMP_INLINE Listening::Ptr ServerOptions::makeListener(internal::PassKey,
