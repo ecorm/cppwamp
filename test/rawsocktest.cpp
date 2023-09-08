@@ -155,9 +155,9 @@ struct UdsLoopbackFixture : public LoopbackFixture<UdsConnector, UdsListener>
                 RawsockMaxLength clientMaxRxLength = RML::kB_64,
                 RawsockMaxLength serverMaxRxLength = RML::kB_64 )
         : LoopbackFixture(
-              UdsPath{udsTestPath}.withMaxRxLength(clientMaxRxLength),
+              UdsHost{udsTestPath}.withMaxRxLength(clientMaxRxLength),
               clientCodec,
-              UdsPath{udsTestPath}.withMaxRxLength(serverMaxRxLength),
+              UdsEndpoint{udsTestPath}.withMaxRxLength(serverMaxRxLength),
               serverCodecs,
               connected )
     {}

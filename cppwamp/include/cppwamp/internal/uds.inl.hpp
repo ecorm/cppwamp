@@ -22,7 +22,7 @@ struct UdsConnectorImpl
 {
     using ConnectorType = internal::UdsConnector;
 
-    UdsConnectorImpl(IoStrand i, UdsPath s, int codecId)
+    UdsConnectorImpl(IoStrand i, UdsHost s, int codecId)
         : cnct(ConnectorType::create(std::move(i), std::move(s), codecId))
     {}
 
@@ -37,7 +37,7 @@ struct UdsListenerImpl
 {
     using ListenerType = internal::UdsListener;
 
-    UdsListenerImpl(AnyIoExecutor e, IoStrand i, UdsPath s, CodecIdSet c)
+    UdsListenerImpl(AnyIoExecutor e, IoStrand i, UdsEndpoint s, CodecIdSet c)
         : lstn(ListenerType::create(std::move(e), std::move(i), std::move(s),
                                     std::move(c)))
     {}

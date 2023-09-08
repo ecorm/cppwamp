@@ -133,7 +133,7 @@ private:
 
     static wamp::ServerOptions udsOptions()
     {
-        return wamp::ServerOptions("uds", wamp::UdsPath{"./udstest"},
+        return wamp::ServerOptions("uds", wamp::UdsEndpoint{"./udstest"},
                                    wamp::msgpack);
     }
 

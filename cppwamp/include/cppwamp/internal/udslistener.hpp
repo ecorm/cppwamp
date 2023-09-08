@@ -21,7 +21,7 @@ namespace internal
 //------------------------------------------------------------------------------
 struct UdsListenerConfig
 {
-    using Settings    = UdsPath;
+    using Settings    = UdsEndpoint;
     using NetProtocol = boost::asio::local::stream_protocol;
     using Transport   = RawsockServerTransport<
                             BasicRawsockTransportConfig<UdsTraits>>;
@@ -30,8 +30,6 @@ struct UdsListenerConfig
     {
         return {s.pathName()};
     }
-
-    static void setAcceptorOptions(NetProtocol::acceptor&) {}
 
     static std::error_code onFirstEstablish(const Settings& settings)
     {

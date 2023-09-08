@@ -9,7 +9,8 @@
 
 #include <sstream>
 #include "../connectioninfo.hpp"
-#include "../transports/udspath.hpp"
+#include "../transports/udsendpoint.hpp"
+#include "../transports/udshost.hpp"
 
 namespace wamp
 {
@@ -21,8 +22,8 @@ namespace internal
 struct UdsTraits
 {
     using NetProtocol = boost::asio::local::stream_protocol;
-    using ClientSettings = UdsPath;
-    using ServerSettings = UdsPath;
+    using ClientSettings = UdsHost;
+    using ServerSettings = UdsEndpoint;
 
     template <typename TEndpoint>
     static ConnectionInfo connectionInfo(const TEndpoint& ep)
@@ -40,7 +41,7 @@ struct UdsTraits
         return {std::move(details), oss.str()};
     }
 
-    static Timeout heartbeatInterval(const UdsPath&)
+    static Timeout heartbeatInterval(const UdsHost&)
     {
         return unspecifiedTimeout;
     }

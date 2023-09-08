@@ -199,5 +199,5 @@ Expression                    | Effect
 
 The following classes meet the requirements of `TransportSettings`:
 - `wamp::TcpHost`
-- `wamp::UdsPath`
+- `wamp::UdsHost`
 */

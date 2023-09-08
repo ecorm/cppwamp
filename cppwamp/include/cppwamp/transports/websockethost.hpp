@@ -44,7 +44,7 @@ public:
     WebsocketHost& withTarget(std::string target);
 
     /** Specifies the underlying TCP socket options to use. */
-    WebsocketHost& withOptions(TcpOptions options);
+    WebsocketHost& withSocketOptions(TcpOptions options);
 
     /** Specifies the maximum length permitted for incoming messages. */
     WebsocketHost& withMaxRxLength(std::size_t length);
@@ -78,7 +78,7 @@ public:
     const std::string& target() const;
 
     /** Obtains the underlying TCP socket options. */
-    const TcpOptions& options() const;
+    const TcpOptions& socketOptions() const;
 
     /** Obtains the specified maximum incoming message length. */
     std::size_t maxRxLength() const;
@@ -90,7 +90,7 @@ private:
     std::string hostName_;
     std::string serviceName_;
     std::string target_ = "/";
-    TcpOptions options_;
+    TcpOptions socketOptions_;
     Timeout heartbeatInterval_ = unspecifiedTimeout;
     std::size_t maxRxLength_ = 16*1024*1024;
 };

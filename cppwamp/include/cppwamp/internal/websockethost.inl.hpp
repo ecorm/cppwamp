@@ -29,9 +29,9 @@ CPPWAMP_INLINE WebsocketHost& WebsocketHost::withTarget(std::string target)
     return *this;
 }
 
-CPPWAMP_INLINE WebsocketHost& WebsocketHost::withOptions(TcpOptions options)
+CPPWAMP_INLINE WebsocketHost& WebsocketHost::withSocketOptions(TcpOptions options)
 {
-    options_ = std::move(options);
+    socketOptions_ = std::move(options);
     return *this;
 }
 
@@ -63,9 +63,9 @@ CPPWAMP_INLINE const std::string& WebsocketHost::target() const
     return target_;
 }
 
-CPPWAMP_INLINE const TcpOptions& WebsocketHost::options() const
+CPPWAMP_INLINE const TcpOptions& WebsocketHost::socketOptions() const
 {
-    return options_;
+    return socketOptions_;
 }
 
 CPPWAMP_INLINE std::size_t WebsocketHost::maxRxLength() const

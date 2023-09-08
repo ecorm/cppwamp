@@ -18,7 +18,8 @@
 #include "../asiodefs.hpp"
 #include "../connector.hpp"
 #include "../listener.hpp"
-#include "udspath.hpp"
+#include "udshost.hpp"
+#include "udsendpoint.hpp"
 
 namespace wamp
 {
@@ -40,7 +41,7 @@ class CPPWAMP_API Connector<Uds> : public Connecting
 {
 public:
     /** Type containing the transport settings. */
-    using Settings = UdsPath;
+    using Settings = UdsHost;
 
     /** Constructor. */
     Connector(IoStrand i, Settings s, int codecId);
@@ -71,14 +72,14 @@ private:
 //------------------------------------------------------------------------------
 /** Listener specialization that establishes a server-side TCP transport.
     Users do not need to use this class directly and should instead pass
-    wamp::UdsPath to wamp::Router::openServer via wamp::ServerOptions. */
+    wamp::UdsEndpoint to wamp::Router::openServer via wamp::ServerOptions. */
 //------------------------------------------------------------------------------
 template <>
 class CPPWAMP_API Listener<Uds> : public Listening
 {
 public:
     /** Type containing the transport settings. */
-    using Settings = UdsPath;
+    using Settings = UdsEndpoint;
 
     /** Constructor. */
     Listener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c);

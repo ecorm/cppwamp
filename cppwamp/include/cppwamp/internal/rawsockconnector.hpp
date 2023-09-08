@@ -101,7 +101,7 @@ private:
     void connect(const ResolverResult& endpoints)
     {
         assert(!socket_.is_open());
-        settings_.options().applyTo(socket_);
+        settings_.socketOptions().applyTo(socket_);
 
         auto self = this->shared_from_this();
         boost::asio::async_connect(

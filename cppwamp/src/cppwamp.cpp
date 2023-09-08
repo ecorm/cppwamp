@@ -56,6 +56,7 @@
 
 #ifdef CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
     #include <cppwamp/internal/uds.inl.hpp>
-    #include <cppwamp/internal/udspath.inl.hpp>
+    #include <cppwamp/internal/udsendpoint.inl.hpp>
+    #include <cppwamp/internal/udshost.inl.hpp>
     #include <cppwamp/internal/udsprotocol.inl.hpp>
 #endif

@@ -21,7 +21,7 @@ CPPWAMP_INLINE HttpEndpoint::HttpEndpoint(std::string address,
 {}
 
 CPPWAMP_INLINE HttpEndpoint&
-HttpEndpoint::withOptions(TcpOptions options)
+HttpEndpoint::withSocketOptions(TcpOptions options)
 {
     options_ = std::move(options);
     return *this;

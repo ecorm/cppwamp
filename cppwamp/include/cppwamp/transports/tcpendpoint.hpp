@@ -40,11 +40,17 @@ public:
     /** Constructor taking an address string and a port number. */
     TcpEndpoint(std::string address, unsigned short port);
 
-    /** Specifies the socket options to use. */
-    TcpEndpoint& withOptions(TcpOptions options);
+    /** Specifies the socket options to use on the per-peer sockets. */
+    TcpEndpoint& withSocketOptions(TcpOptions options);
+
+    /** Specifies the socket options to use on the acceptor socket. */
+    TcpEndpoint& withAcceptorOptions(TcpOptions options);
 
     /** Specifies the maximum length permitted for incoming messages. */
     TcpEndpoint& withMaxRxLength(RawsockMaxLength length);
+
+    /** Specifies the acceptor's maximum number of pending connections. */
+    TcpEndpoint& withBacklogCapacity(int capacity);
 
     /** Obtains the endpoint address. */
     const std::string& address() const;
@@ -52,18 +58,26 @@ public:
     /** Obtains the the port number. */
     Port port() const;
 
-    /** Obtains the transport options. */
-    const TcpOptions& options() const;
+    /** Obtains the per-peer socket options. */
+    const TcpOptions& socketOptions() const;
+
+    /** Obtains the acceptor socket options. */
+    const TcpOptions& acceptorOptions() const;
 
     /** Obtains the specified maximum incoming message length. */
     RawsockMaxLength maxRxLength() const;
+
+    /** Obtains the acceptor's maximum number of pending connections. */
+    int backlogCapacity() const;
 
     /** Generates a human-friendly string of the TCP address/port. */
     std::string label() const;
 
 private:
     std::string address_;
-    TcpOptions options_;
+    TcpOptions socketOptions_;
+    TcpOptions acceptorOptions_;
+    int backlogCapacity_;
     RawsockMaxLength maxRxLength_ = RawsockMaxLength::MB_16;
     Port port_ = 0;
 };

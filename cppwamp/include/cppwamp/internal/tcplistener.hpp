@@ -34,11 +34,6 @@ struct BasicTcpListenerConfig
         return {ip::make_address(s.address()), s.port()};
     }
 
-    static void setAcceptorOptions(NetProtocol::acceptor& a)
-    {
-        a.set_option(boost::asio::socket_base::reuse_address(true));
-    }
-
     static std::error_code onFirstEstablish(const Settings&) {return {};}
 
     static void onDestruction(const Settings&) {}

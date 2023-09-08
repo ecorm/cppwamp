@@ -139,7 +139,8 @@ set(HEADERS
     include/cppwamp/transports/tcphost.hpp
     include/cppwamp/transports/tcpprotocol.hpp
     include/cppwamp/transports/uds.hpp
-    include/cppwamp/transports/udspath.hpp
+    include/cppwamp/transports/udsendpoint.hpp
+    include/cppwamp/transports/udshost.hpp
     include/cppwamp/transports/udsprotocol.hpp
     include/cppwamp/transports/websocket.hpp
     include/cppwamp/transports/websocketendpoint.hpp
@@ -208,7 +209,8 @@ set(INLINES
     include/cppwamp/internal/tcphost.inl.hpp
     include/cppwamp/internal/tcpprotocol.inl.hpp
     include/cppwamp/internal/uds.inl.hpp
-    include/cppwamp/internal/udspath.inl.hpp
+    include/cppwamp/internal/udsendpoint.inl.hpp
+    include/cppwamp/internal/udshost.inl.hpp
     include/cppwamp/internal/udsprotocol.inl.hpp
     include/cppwamp/internal/variant.inl.hpp
     include/cppwamp/internal/version.inl.hpp

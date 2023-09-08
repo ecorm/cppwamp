@@ -213,12 +213,15 @@ private:
         if (ec)
             return fail(ec, "socket open");
 
-        TConfig::setAcceptorOptions(acceptor_);
+        settings_.acceptorOptions().applyTo(acceptor_);
         acceptor_.bind(endpoint, ec);
         if (ec)
             return fail(ec, "socket bind");
 
-        acceptor_.listen(boost::asio::socket_base::max_listen_connections, ec);
+        int backlog = settings_.backlogCapacity() == 0
+            ? boost::asio::socket_base::max_listen_connections
+            : settings_.backlogCapacity();
+        acceptor_.listen(backlog, ec);
         if (ec)
             return fail(ec, "socket listen");
 
@@ -265,7 +268,7 @@ private:
             return;
         }
 
-        settings_.options().applyTo(socket);
+        settings_.socketOptions().applyTo(socket);
         handler_(ListenResult{Transport::create(std::move(socket), settings_,
                                                 codecIds_)});
     }

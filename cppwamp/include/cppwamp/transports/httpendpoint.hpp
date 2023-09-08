@@ -190,7 +190,7 @@ public:
     HttpEndpoint(std::string address, unsigned short port);
 
     /** Specifies the underlying TCP socket options to use. */
-    HttpEndpoint& withOptions(TcpOptions options);
+    HttpEndpoint& withSocketOptions(TcpOptions options);
 
     /** Specifies the maximum length permitted for incoming messages. */
     HttpEndpoint& withMaxRxLength(std::size_t length);

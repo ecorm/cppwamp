@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_TRANSPORTS_UDSPATH_HPP
-#define CPPWAMP_TRANSPORTS_UDSPATH_HPP
+#ifndef CPPWAMP_TRANSPORTS_UDSHOST_HPP
+#define CPPWAMP_TRANSPORTS_UDSHOST_HPP
 
 //------------------------------------------------------------------------------
 /** @file
@@ -23,27 +23,25 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** Contains a Unix Domain Socket path, as well as other socket options.
+/** Contains a Unix Domain Socket path, as well as other socket options
+    for a client connection.
     Meets the requirements of @ref TransportSettings.
     @see ConnectionWish */
 //------------------------------------------------------------------------------
-class CPPWAMP_API UdsPath
+class CPPWAMP_API UdsHost
 {
 public:
     /// Transport protocol tag associated with these settings.
     using Protocol = Uds;
 
     /** Constructor taking a path name. */
-    explicit UdsPath(std::string pathName);
+    explicit UdsHost(std::string pathName);
 
     /** Specifies the socket options to use. */
-    UdsPath& withOptions(UdsOptions options);
+    UdsHost& withSocketOptions(UdsOptions options);
 
     /** Specifies the maximum length permitted for incoming messages. */
-    UdsPath& withMaxRxLength(RawsockMaxLength length);
-
-    /** Enables/disables the deletion of existing file path before listening. */
-    UdsPath& withDeletePath(bool enabled = true);
+    UdsHost& withMaxRxLength(RawsockMaxLength length);
 
     /** Couples a serialization format with these transport settings to
         produce a ConnectionWish that can be passed to Session::connect. */
@@ -57,13 +55,10 @@ public:
     const std::string& pathName() const;
 
     /** Obtains the transport options. */
-    const UdsOptions& options() const;
+    const UdsOptions& socketOptions() const;
 
     /** Obtains the specified maximum incoming message length. */
     RawsockMaxLength maxRxLength() const;
-
-    /** Returns true if automatic path deletion before listening is enabled. */
-    bool deletePathEnabled() const;
 
     /** Generates a human-friendly string of the UDS path. */
     std::string label() const;
@@ -72,13 +67,12 @@ private:
     std::string pathName_;
     UdsOptions options_;
     RawsockMaxLength maxRxLength_ = RawsockMaxLength::MB_16;
-    bool deletePathEnabled_ = true;
 };
 
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "../internal/udspath.inl.hpp"
+#include "../internal/udshost.inl.hpp"
 #endif
 
-#endif // CPPWAMP_TRANSPORTS_UDSPATH_HPP
+#endif // CPPWAMP_TRANSPORTS_UDSHOST_HPP

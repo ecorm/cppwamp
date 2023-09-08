@@ -101,7 +101,7 @@ private:
         websocket_ = SocketPtr{new Socket(strand_)};
         auto& tcpSocket = websocket_->next_layer();
         tcpSocket.open(boost::asio::ip::tcp::v4());
-        settings_.options().applyTo(tcpSocket);
+        settings_.socketOptions().applyTo(tcpSocket);
 
         auto self = shared_from_this();
         boost::asio::async_connect(

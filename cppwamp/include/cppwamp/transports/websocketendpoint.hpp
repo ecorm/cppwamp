@@ -41,10 +41,16 @@ public:
     WebsocketEndpoint(std::string address, unsigned short port);
 
     /** Specifies the underlying TCP socket options to use. */
-    WebsocketEndpoint& withOptions(TcpOptions options);
+    WebsocketEndpoint& withSocketOptions(TcpOptions options);
+
+    /** Specifies the socket options to use on the TCP acceptor socket. */
+    WebsocketEndpoint& withAcceptorOptions(TcpOptions options);
 
     /** Specifies the maximum length permitted for incoming messages. */
     WebsocketEndpoint& withMaxRxLength(std::size_t length);
+
+    /** Specifies the TCP acceptor's maximum number of pending connections. */
+    WebsocketEndpoint& withBacklogCapacity(int capacity);
 
     /** Obtains the endpoint address. */
     const std::string& address() const;
@@ -53,18 +59,26 @@ public:
     Port port() const;
 
     /** Obtains the transport options. */
-    const TcpOptions& options() const;
+    const TcpOptions& socketOptions() const;
+
+    /** Obtains the acceptor socket options. */
+    const TcpOptions& acceptorOptions() const;
 
     /** Obtains the specified maximum incoming message length. */
     std::size_t maxRxLength() const;
+
+    /** Obtains the TCP acceptor's maximum number of pending connections. */
+    int backlogCapacity() const;
 
     /** Generates a human-friendly string of the Websocket address/port. */
     std::string label() const;
 
 private:
     std::string address_;
-    TcpOptions options_;
+    TcpOptions socketOptions_;
+    TcpOptions acceptorOptions_;
     std::size_t maxRxLength_ = 16*1024*1024;
+    int backlogCapacity_;
     Port port_ = 0;
 };
 

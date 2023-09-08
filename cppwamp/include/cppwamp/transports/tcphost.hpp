@@ -41,7 +41,7 @@ public:
     TcpHost(std::string hostName, unsigned short port);
 
     /** Specifies the socket options to use. */
-    TcpHost& withOptions(TcpOptions options);
+    TcpHost& withSocketOptions(TcpOptions options);
 
     /** Specifies the maximum length permitted for incoming messages. */
     TcpHost& withMaxRxLength(RawsockMaxLength length);
@@ -72,7 +72,7 @@ public:
     const std::string& serviceName() const;
 
     /** Obtains the transport options. */
-    const TcpOptions& options() const;
+    const TcpOptions& socketOptions() const;
 
     /** Obtains the specified maximum incoming message length. */
     RawsockMaxLength maxRxLength() const;
@@ -83,7 +83,7 @@ public:
 private:
     std::string hostName_;
     std::string serviceName_;
-    TcpOptions options_;
+    TcpOptions socketOptions_;
     Timeout heartbeatInterval_ = unspecifiedTimeout;
     RawsockMaxLength maxRxLength_ = RawsockMaxLength::MB_16;
 };

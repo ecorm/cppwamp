@@ -20,7 +20,7 @@ type. CppWAMP currently supports two transport settings types:
 Transport Settings Type | Declared in                    | For Transport
 ----------------------- | ------------------------------ | -----------
 @ref wamp::TcpHost      | `<cppwamp/transports/tcp.hpp>` | TCP raw socket
-@ref wamp::UdsPath      | `<cppwamp/transports/uds.hpp>` | Unix domain socket
+@ref wamp::UdsHost      | `<cppwamp/transports/uds.hpp>` | Unix domain socket
 
 To generatate a `ConnectionWish`, specify a serialization format tag in the
 `withFormat` method of one of the above transport settings types.
@@ -64,7 +64,7 @@ Example with Unix Domain Socket Transport and Msgpack Format
 Specifying Extra Socket Options
 -------------------------------
 
-The wamp::TcpHost and wamp::UdsPath objects allow you to specify extra socket
+The wamp::TcpHost and wamp::UdsHost objects allow you to specify extra socket
 options. See the reference documentation for more details.
 
 This snippet below shows how to create a TCP connection wish with a specified

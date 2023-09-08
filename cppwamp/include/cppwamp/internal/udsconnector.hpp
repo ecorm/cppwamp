@@ -22,7 +22,7 @@ namespace internal
 class UdsResolver
 {
 public:
-    using Settings = UdsPath;
+    using Settings = UdsHost;
     using Result   = std::array<std::string, 1>;
 
     UdsResolver(const IoStrand&) {}

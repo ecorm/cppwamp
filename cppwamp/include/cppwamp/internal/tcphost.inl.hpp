@@ -21,9 +21,9 @@ CPPWAMP_INLINE TcpHost::TcpHost(std::string hostName, unsigned short port)
       serviceName_(std::to_string(port))
 {}
 
-CPPWAMP_INLINE TcpHost& TcpHost::withOptions(TcpOptions options)
+CPPWAMP_INLINE TcpHost& TcpHost::withSocketOptions(TcpOptions options)
 {
-    options_ = std::move(options);
+    socketOptions_ = std::move(options);
     return *this;
 }
 
@@ -49,7 +49,10 @@ CPPWAMP_INLINE const std::string& TcpHost::serviceName() const
     return serviceName_;
 }
 
-CPPWAMP_INLINE const TcpOptions& TcpHost::options() const {return options_;}
+CPPWAMP_INLINE const TcpOptions& TcpHost::socketOptions() const
+{
+    return socketOptions_;
+}
 
 CPPWAMP_INLINE RawsockMaxLength TcpHost::maxRxLength() const
 {
