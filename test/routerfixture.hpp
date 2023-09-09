@@ -21,7 +21,28 @@ namespace test
 class RouterFixture
 {
 public:
+    using LogHandler = std::function<void (wamp::LogEntry)>;
     using AccessLogHandler = std::function<void (wamp::AccessLogEntry)>;
+
+    struct LogLevelGuard
+    {
+        explicit LogLevelGuard(wamp::LogLevel level) : level_(level) {}
+
+        ~LogLevelGuard()
+        {
+            // Allow time for realm to close before restoring log level.
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            RouterFixture::instance().restoreLogLevel(level_);
+        }
+
+    private:
+        wamp::LogLevel level_;
+    };
+
+    struct LogSnoopGuard
+    {
+        ~LogSnoopGuard() {RouterFixture::instance().unsnoopLog();}
+    };
 
     struct AccessLogSnoopGuard
     {
@@ -34,6 +55,9 @@ public:
 
     void start();
     void stop();
+    LogLevelGuard supressLogLevel(wamp::LogLevel level);
+    LogSnoopGuard snoopLog(wamp::AnyCompletionExecutor exec,
+                           LogHandler handler);
     AccessLogSnoopGuard snoopAccessLog(wamp::AnyCompletionExecutor exec,
                                        AccessLogHandler handler);
     wamp::Router& router();
@@ -43,27 +67,13 @@ private:
 
     RouterFixture();
 
+    void restoreLogLevel(wamp::LogLevel level);
+    void unsnoopLog();
     void unsnoopAccessLog();
 
     static std::shared_ptr<RouterFixture> theRouter_;
     static bool enabled_;
     std::shared_ptr<Impl> impl_;
-};
-
-//------------------------------------------------------------------------------
-struct RouterLogLevelGuard
-{
-    explicit RouterLogLevelGuard(wamp::LogLevel level) : level_(level) {}
-
-    ~RouterLogLevelGuard()
-    {
-        // Allow time for realm to close before restoring log level.
-        std::this_thread::sleep_for(std::chrono::milliseconds(5));
-        RouterFixture::instance().router().setLogLevel(level_);
-    }
-
-private:
-    wamp::LogLevel level_;
 };
 
 //------------------------------------------------------------------------------

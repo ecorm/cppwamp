@@ -209,9 +209,6 @@ TEST_CASE( "Router call timeout forwarding options", "[WAMP][Router][Timeout]" )
         return;
 
     wamp::Router& router = test::RouterFixture::instance().router();
-    test::RouterLogLevelGuard logLevelGuard(router.logLevel());
-    router.setLogLevel(LogLevel::error);
-
     IoContext ioctx;
     boost::asio::steady_timer timer{ioctx};
     Session s{ioctx};
@@ -303,10 +300,6 @@ TEST_CASE( "Router disclosure options", "[WAMP][Router]" )
     if (!test::RouterFixture::enabled())
         return;
 
-    wamp::Router& router = test::RouterFixture::instance().router();
-    test::RouterLogLevelGuard logLevelGuard(router.logLevel());
-    router.setLogLevel(LogLevel::error);
-
     IoContext io;
     using D = Disclosure;
     static constexpr bool y = true;
@@ -344,9 +337,6 @@ TEST_CASE( "Router meta API enable options", "[WAMP][Router]" )
         return;
 
     wamp::Router& router = test::RouterFixture::instance().router();
-    test::RouterLogLevelGuard logLevelGuard(router.logLevel());
-    router.setLogLevel(LogLevel::error);
-
     IoContext ioctx;
     Session s{ioctx};
 
@@ -407,7 +397,64 @@ TEST_CASE( "Router challenge timeout option", "[WAMP][Router]" )
         s.disconnect();
     });
     ioctx.run();
-    ioctx.restart();
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Router connection limit option", "[WAMP][Router]" )
+{
+    if (!test::RouterFixture::enabled())
+        return;
+
+    struct ServerCloseGuard
+    {
+        std::string name;
+
+        ~ServerCloseGuard()
+        {
+            test::RouterFixture::instance().router().closeServer(name);
+        }
+    };
+
+    auto& routerFixture = test::RouterFixture::instance();
+    auto& router = routerFixture.router();
+    ServerCloseGuard serverGuard{"tcp45678"};
+    router.openServer(ServerOptions("tcp45678", wamp::TcpEndpoint{45678},
+                                    wamp::json).withConnectionLimit(2));
+
+    IoContext ioctx;
+    std::vector<LogEntry> logEntries;
+    auto logSnoopGuard = routerFixture.snoopLog(
+        ioctx.get_executor(),
+        [&logEntries](LogEntry e) {logEntries.push_back(e);});
+    auto logLevelGuard = routerFixture.supressLogLevel(LogLevel::critical);
+    boost::asio::steady_timer timer{ioctx};
+    Session s1{ioctx};
+    Session s2{ioctx};
+    Session s3{ioctx};
+    auto where = TcpHost{"localhost", 45678}.withFormat(json);
+
+    spawn(ioctx, [&](YieldContext yield)
+    {
+        timer.expires_after(std::chrono::milliseconds(100));
+        timer.async_wait(yield);
+        s1.connect(where, yield).value();
+        s2.connect(where, yield).value();
+        auto w = s3.connect(where, yield);
+        REQUIRE_FALSE(w.has_value());
+        CHECK(w.error() == TransportErrc::overloaded);
+        s3.disconnect();
+        while (logEntries.empty())
+            test::suspendCoro(yield);
+        CHECK(logEntries.front().message().find("connection limit"));
+
+        s2.disconnect();
+        timer.expires_after(std::chrono::milliseconds(100));
+        timer.async_wait(yield);
+        w = s3.connect(where, yield);
+        CHECK(w.has_value());
+        s1.disconnect();
+    });
+    ioctx.run();
 }
 
 #endif // defined(CPPWAMP_TEST_HAS_CORO)

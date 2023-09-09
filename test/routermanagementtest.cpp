@@ -463,9 +463,9 @@ TEST_CASE( "Router realm management", "[WAMP][Router]" )
     if (!test::RouterFixture::enabled())
         return;
 
-    auto& theRouter = test::RouterFixture::instance().router();
-    test::RouterLogLevelGuard logLevelGuard{theRouter.logLevel()};
-    theRouter.setLogLevel(LogLevel::off);
+    auto& routerFixture = test::RouterFixture::instance();
+    auto& theRouter = routerFixture.router();
+    auto logLevelGuard = routerFixture.supressLogLevel(LogLevel::off);
     IoContext ioctx;
 
     spawn(ioctx, [&](YieldContext yield)
@@ -559,9 +559,9 @@ TEST_CASE( "Router realm session events", "[WAMP][Router]" )
         unsigned* leaveCountPtr_ = nullptr;
     };
 
-    auto& theRouter = test::RouterFixture::instance().router();
-    test::RouterLogLevelGuard logLevelGuard{theRouter.logLevel()};
-    theRouter.setLogLevel(LogLevel::off);
+    auto& routerFixture = test::RouterFixture::instance();
+    auto& theRouter = routerFixture.router();
+    auto logLevelGuard = routerFixture.supressLogLevel(LogLevel::off);
 
     IoContext ioctx;
     Session s{ioctx};
@@ -637,9 +637,9 @@ TEST_CASE( "Router realm session queries", "[WAMP][Router]" )
     if (!test::RouterFixture::enabled())
         return;
 
-    auto& theRouter = test::RouterFixture::instance().router();
-    test::RouterLogLevelGuard logLevelGuard{theRouter.logLevel()};
-    theRouter.setLogLevel(LogLevel::off);
+    auto& routerFixture = test::RouterFixture::instance();
+    auto& theRouter = routerFixture.router();
+    auto logLevelGuard = routerFixture.supressLogLevel(LogLevel::off);
 
     IoContext ioctx;
     auto guard = make_work_guard(ioctx);
@@ -689,9 +689,9 @@ TEST_CASE( "Killing router sessions", "[WAMP][Router]" )
     // transport handlers did not correspond to the current transport.
     for (int i=0; i<10; ++i)
     {
-        auto& theRouter = test::RouterFixture::instance().router();
-        test::RouterLogLevelGuard logLevelGuard{theRouter.logLevel()};
-        theRouter.setLogLevel(LogLevel::off);
+        auto& routerFixture = test::RouterFixture::instance();
+        auto& theRouter = routerFixture.router();
+        auto logLevelGuard = routerFixture.supressLogLevel(LogLevel::off);
 
         IoContext ioctx;
         auto guard = make_work_guard(ioctx);
@@ -806,9 +806,9 @@ TEST_CASE( "Router realm registration queries and events", "[WAMP][Router]" )
     if (!test::RouterFixture::enabled())
         return;
 
-    auto& theRouter = test::RouterFixture::instance().router();
-    test::RouterLogLevelGuard logLevelGuard{theRouter.logLevel()};
-    theRouter.setLogLevel(LogLevel::off);
+    auto& routerFixture = test::RouterFixture::instance();
+    auto& theRouter = routerFixture.router();
+    auto logLevelGuard = routerFixture.supressLogLevel(LogLevel::off);
 
     IoContext ioctx;
     Session s{ioctx};
@@ -889,9 +889,9 @@ TEST_CASE( "Router realm subscription queries and events", "[WAMP][Router]" )
     if (!test::RouterFixture::enabled())
         return;
 
-    auto& theRouter = test::RouterFixture::instance().router();
-    test::RouterLogLevelGuard logLevelGuard{theRouter.logLevel()};
-    theRouter.setLogLevel(LogLevel::off);
+    auto& routerFixture = test::RouterFixture::instance();
+    auto& theRouter = routerFixture.router();
+    auto logLevelGuard = routerFixture.supressLogLevel(LogLevel::off);
 
     IoContext ioctx;
     Session s1{ioctx};
@@ -991,9 +991,9 @@ TEST_CASE( "Router realm subscription matching", "[WAMP][Router]" )
     if (!test::RouterFixture::enabled())
         return;
 
-    auto& theRouter = test::RouterFixture::instance().router();
-    test::RouterLogLevelGuard logLevelGuard{theRouter.logLevel()};
-    theRouter.setLogLevel(LogLevel::off);
+    auto& routerFixture = test::RouterFixture::instance();
+    auto& theRouter = routerFixture.router();
+    auto logLevelGuard = routerFixture.supressLogLevel(LogLevel::off);
 
     IoContext ioctx;
     Session s{ioctx};

@@ -118,9 +118,6 @@ void checkRegisterMetaProcedure(bool metaApiEnabled,
                                 WampErrc expectedForUnknown)
 {
     auto& router = test::RouterFixture::instance().router();
-    test::RouterLogLevelGuard guard{router.logLevel()};
-    router.setLogLevel(LogLevel::error);
-
     const String realmUri{"cppwamp.test-meta-procedure-registration"};
     auto options =
         RealmOptions{realmUri}
@@ -201,9 +198,6 @@ void doCheckPublishMetaTopic(const Uri& realmUri, WampErrc expected)
 void checkPublishMetaTopic(bool allowed, WampErrc expected)
 {
     auto& router = test::RouterFixture::instance().router();
-    test::RouterLogLevelGuard guard{router.logLevel()};
-    router.setLogLevel(LogLevel::error);
-
     const String realmUri{"cppwamp.test-meta-topic-publication"};
     auto options =
         RealmOptions{realmUri}.withMetaTopicPublicationAllowed(allowed);

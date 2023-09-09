@@ -258,7 +258,7 @@ enum class TransportErrc
     timeout           = 3,  ///< Connection establishment timed out
     failed            = 4,  ///< Transport operation failed
     exhausted         = 5,  ///< All transports failed during connection
-    saturated         = 6,  ///< Connection limit reached
+    overloaded        = 6,  ///< Connection limit reached
     unresponsive      = 7,  ///< The other peer is unresponsive
     inboundTooLong    = 8,  ///< Inbound message exceeds transport's length limit
     outboundTooLong   = 9,  ///< Outbound message exceeds peer's length limit

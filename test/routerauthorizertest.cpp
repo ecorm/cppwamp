@@ -170,9 +170,6 @@ TEST_CASE( "Router dynamic authorizer", "[WAMP][Router]" )
         return;
 
     wamp::Router& router = test::RouterFixture::instance().router();
-    test::RouterLogLevelGuard logLevelGuard(router.logLevel());
-    router.setLogLevel(LogLevel::error);
-
     IoContext ioctx;
     auto auth = std::make_shared<TestAuthorizer>();
     auto postingAuth = PostingAuthorizer::create(auth, ioctx.get_executor());
@@ -537,9 +534,6 @@ TEST_CASE( "Router caching dynamic authorizer", "[WAMP][Router]" )
         return;
 
     wamp::Router& router = test::RouterFixture::instance().router();
-    test::RouterLogLevelGuard logLevelGuard(router.logLevel());
-    router.setLogLevel(LogLevel::error);
-
     IoContext ioctx;
     auto auth = std::make_shared<TestAuthorizer>();
     auto postingAuth = PostingAuthorizer::create(auth, ioctx.get_executor());

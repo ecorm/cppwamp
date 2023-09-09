@@ -993,8 +993,8 @@ GIVEN( "use of reserved bits" )
 }
 GIVEN( "maximum connections reached" )
 {
-    checkCannedServerHandshake(0x7f400000, TransportErrc::saturated,
-                               TransportErrc::saturated);
+    checkCannedServerHandshake(0x7f400000, TransportErrc::overloaded,
+                               TransportErrc::overloaded);
 }
 GIVEN( "future error code" )
 {

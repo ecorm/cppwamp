@@ -74,6 +74,20 @@ struct RouterFixture::Impl
         logHandler_.set_executor(ioctx_.get_executor());
     }
 
+    LogLevelGuard supressLogLevel(wamp::LogLevel level)
+    {
+        LogLevelGuard guard{logLevel_};
+        logLevel_ = level;
+        return guard;
+    }
+
+    LogSnoopGuard snoopLog(wamp::AnyCompletionExecutor exec, LogHandler handler)
+    {
+        logSnooper_ =
+            boost::asio::bind_executor(exec, std::move(handler));
+        return LogSnoopGuard{};
+    }
+
     AccessLogSnoopGuard snoopAccessLog(wamp::AnyCompletionExecutor exec,
                                        AccessLogHandler handler)
     {
@@ -81,6 +95,10 @@ struct RouterFixture::Impl
             boost::asio::bind_executor(exec, std::move(handler));
         return AccessLogSnoopGuard{};
     }
+
+    void restoreLogLevel(wamp::LogLevel level) {logLevel_ = level;}
+
+    void unsnoopLog() {logSnooper_ = nullptr;}
 
     void unsnoopAccessLog() {accessLogSnooper_ = nullptr;}
 
@@ -108,12 +126,13 @@ private:
     static wamp::RouterOptions routerOptions(Impl& self)
     {
         return wamp::RouterOptions()
-            .withLogHandler(self.logHandler_)
+            .withLogHandler(
+                [&self](wamp::LogEntry e) {self.onLogEntry(std::move(e));})
             .withLogLevel(wamp::LogLevel::info)
             .withAccessLogHandler(
-                [&self](wamp::AccessLogEntry a)
+                [&self](wamp::AccessLogEntry e)
                 {
-                    self.onAccessLogEntry(std::move(a));
+                    self.onAccessLogEntry(std::move(e));
                 });
     }
 
@@ -149,6 +168,7 @@ private:
     {
         try
         {
+            remainingInfoLogEntries_ = 5;
             router_.openRealm(wamp::RealmOptions{"cppwamp.test"}
                                   .withMetaApiEnabled());
             router_.openRealm(wamp::RealmOptions{"cppwamp.authtest"});
@@ -156,6 +176,7 @@ private:
             router_.openServer(tcpTicketOptions());
             router_.openServer(udsOptions());
 #if defined(CPPWAMP_TEST_HAS_WEB)
+            ++remainingInfoLogEntries_;
             router_.openServer(websocketOptions());
 #endif
             ioctx_.run();
@@ -172,6 +193,21 @@ private:
         }
     }
 
+    void onLogEntry(wamp::LogEntry e)
+    {
+        if (remainingInfoLogEntries_ > 0)
+        {
+            --remainingInfoLogEntries_;
+            if (remainingInfoLogEntries_ == 0)
+                logLevel_ = wamp::LogLevel::error;
+        }
+
+        if (logSnooper_)
+            wamp::postAny(ioctx_, logSnooper_, e);
+        if (e.severity() >= logLevel_)
+            wamp::postAny(ioctx_, logHandler_, std::move(e));
+    }
+
     void onAccessLogEntry(wamp::AccessLogEntry a)
     {
         if (accessLogSnooper_)
@@ -180,11 +216,14 @@ private:
     }
 
     wamp::IoContext ioctx_;
+    wamp::LogLevel logLevel_ = wamp::LogLevel::info;
     wamp::RouterOptions::LogHandler logHandler_;
+    wamp::RouterOptions::LogHandler logSnooper_;
     wamp::RouterOptions::AccessLogHandler accessLogHandler_;
     wamp::RouterOptions::AccessLogHandler accessLogSnooper_;
     wamp::Router router_;
     std::thread thread_;
+    unsigned remainingInfoLogEntries_ = 0;
 };
 
 //------------------------------------------------------------------------------
@@ -219,9 +258,22 @@ void RouterFixture::start()
 void RouterFixture::stop()
 {
     std::cout << "Shutting down router..." << std::endl;
-    impl_->router().setLogLevel(wamp::LogLevel::error);
     impl_->stop();
     std::cout << "Router stopped" << std::endl;
+}
+
+//------------------------------------------------------------------------------
+RouterFixture::LogLevelGuard
+RouterFixture::supressLogLevel(wamp::LogLevel level)
+{
+    return impl_->supressLogLevel(level);
+}
+
+//------------------------------------------------------------------------------
+RouterFixture::LogSnoopGuard
+RouterFixture::snoopLog(wamp::AnyCompletionExecutor exec, LogHandler handler)
+{
+    return impl_->snoopLog(std::move(exec), std::move(handler));
 }
 
 //------------------------------------------------------------------------------
@@ -237,6 +289,15 @@ wamp::Router& RouterFixture::router() {return impl_->router();}
 
 //------------------------------------------------------------------------------
 RouterFixture::RouterFixture() {}
+
+//------------------------------------------------------------------------------
+void RouterFixture::restoreLogLevel(wamp::LogLevel level)
+{
+    impl_->restoreLogLevel(level);
+}
+
+//------------------------------------------------------------------------------
+void RouterFixture::unsnoopLog() {impl_->unsnoopLog();}
 
 //------------------------------------------------------------------------------
 void RouterFixture::unsnoopAccessLog() {impl_->unsnoopAccessLog();}

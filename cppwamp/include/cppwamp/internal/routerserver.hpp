@@ -690,6 +690,8 @@ private:
 
         if (sessions_.size() >= options_->connectionLimit())
         {
+            log({LogLevel::error,
+                 "Client connection refused due to connection limit"});
             transport->refuse(
                 [this, self](std::error_code ec)
                 {
