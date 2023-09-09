@@ -258,19 +258,20 @@ enum class TransportErrc
     timeout           = 3,  ///< Connection establishment timed out
     failed            = 4,  ///< Transport operation failed
     exhausted         = 5,  ///< All transports failed during connection
-    overloaded        = 6,  ///< Connection limit reached
-    unresponsive      = 7,  ///< The other peer is unresponsive
-    inboundTooLong    = 8,  ///< Inbound message exceeds transport's length limit
-    outboundTooLong   = 9,  ///< Outbound message exceeds peer's length limit
-    handshakeDeclined = 10, ///< Handshake declined by other peer
-    badHandshake      = 11, ///< Received invalid handshake
-    badCommand        = 12, ///< Received invalid transport command
-    badSerializer     = 13, ///< Unsupported serialization format
-    badLengthLimit    = 14, ///< Unacceptable maximum message length
-    badFeature        = 15, ///< Unsupported transport feature
-    expectedBinary    = 16, ///< Expected text but got binary
-    expectedText      = 17, ///< Expected binary but got text
-    noSerializer      = 18, ///< Missing serializer information
+    overloaded        = 6,  ///< Excessive resource usage
+    saturated         = 7,  ///< Connection limit reached
+    unresponsive      = 8,  ///< The other peer is unresponsive
+    inboundTooLong    = 9,  ///< Inbound message exceeds transport's length limit
+    outboundTooLong   = 10, ///< Outbound message exceeds peer's length limit
+    handshakeDeclined = 11, ///< Handshake declined by other peer
+    badHandshake      = 12, ///< Received invalid handshake
+    badCommand        = 13, ///< Received invalid transport command
+    badSerializer     = 14, ///< Unsupported serialization format
+    badLengthLimit    = 15, ///< Unacceptable maximum message length
+    badFeature        = 16, ///< Unsupported transport feature
+    expectedBinary    = 17, ///< Expected text but got binary
+    expectedText      = 18, ///< Expected binary but got text
+    noSerializer      = 19, ///< Missing serializer information
     count
 };
 

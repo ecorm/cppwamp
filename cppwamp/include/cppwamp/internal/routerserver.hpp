@@ -619,7 +619,8 @@ private:
             break;
 
         case Cat::overload:
-            cooldown(options_->overloadCooldown(), result, "Overload ");
+            cooldown(options_->overloadCooldown(), result,
+                     "Resource exhaustion ");
             break;
 
         case Cat::outage:
@@ -690,13 +691,11 @@ private:
 
         if (sessions_.size() >= options_->connectionLimit())
         {
-            log({LogLevel::error,
-                 "Client connection refused due to connection limit"});
             transport->refuse(
-                [this, self](std::error_code ec)
+                [this, self, transport](ErrorOr<int> codecId)
                 {
-                    if (ec)
-                        alert("Error sending connection limit refusal", ec);
+                    assert(!codecId.has_value());
+                    onRefusalCompleted(codecId.error());
                 });
             return;
         }
@@ -709,6 +708,20 @@ private:
             executor_, std::move(transport), std::move(ctx), options_, index);
         sessions_.emplace(index, s);
         s->start();
+    }
+
+    void onRefusalCompleted(std::error_code ec)
+    {
+        if (ec == TransportErrc::saturated)
+        {
+            alert("Client connection refused due to "
+                  "connection limit", ec);
+        }
+        else
+        {
+            alert("Error establishing connection with "
+                  "remote peer during transport handshake", ec);
+        }
     }
 
     void onClose(Reason r)

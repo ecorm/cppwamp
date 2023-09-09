@@ -188,6 +188,7 @@ set(INLINES
     include/cppwamp/internal/filelogger.inl.hpp
     include/cppwamp/internal/http.inl.hpp
     include/cppwamp/internal/httpendpoint.inl.hpp
+    include/cppwamp/internal/httpprotocol.inl.hpp
     include/cppwamp/internal/json.inl.hpp
     include/cppwamp/internal/logging.inl.hpp
     include/cppwamp/internal/messagetraits.inl.hpp

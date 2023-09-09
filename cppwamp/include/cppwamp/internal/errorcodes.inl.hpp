@@ -451,6 +451,7 @@ CPPWAMP_INLINE std::string TransportCategory::message(int ev) const
         /* timeout           */ "Connection establishment timed out",
         /* failed            */ "Transport operation failed",
         /* exhausted         */ "All transports failed during connection",
+        /* overloaded        */ "Excessive resource usage",
         /* saturated         */ "Connection limit reached",
         /* unresponsive      */ "The other peer is unresponsive",
         /* inboundTooLong    */ "Inbound message exceeds transport's length limit",

@@ -448,7 +448,7 @@ TEST_CASE( "Router connection limit option", "[WAMP][Router]" )
         CHECK(logEntries.front().message().find("connection limit"));
 
         s2.disconnect();
-        timer.expires_after(std::chrono::milliseconds(100));
+        timer.expires_after(std::chrono::milliseconds(50));
         timer.async_wait(yield);
         w = s3.connect(where, yield);
         CHECK(w.has_value());

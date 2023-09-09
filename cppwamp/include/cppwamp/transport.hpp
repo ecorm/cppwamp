@@ -74,11 +74,12 @@ private:
 //------------------------------------------------------------------------------
 enum class TransportState
 {
-    initial,
-    accepting,
-    ready,
-    running,
-    stopped
+    initial,   /// Initial state of a server transport
+    accepting, /// The server transport is performing its handshake
+    refusing,  /// Server is handshaking but will ultimately refuse
+    ready,     /// Transport handshake is complete (initial for client)
+    running,   /// Sending and receiving of messages is enabled
+    stopped    /// Handshake cancelled or transport has been stopped
 };
 
 
@@ -96,9 +97,6 @@ public:
 
     /// Handler type used for server handshake completion events.
     using AcceptHandler = std::function<void (ErrorOr<int> codecId)>;
-
-    /// Handler type used for refusal completion.
-    using RefuseHandler = std::function<void (std::error_code ec)>;
 
     /// Handler type used for message received events.
     using RxHandler = std::function<void (ErrorOr<MessageBuffer>)>;
@@ -136,12 +134,17 @@ public:
         state_ = State::accepting;
     }
 
-    /** Refuses the client connection due to connection limit. */
-    void refuse(RefuseHandler handler)
+    /** Starts the server handshake procedure, but ultimately refuses the
+        client connection due to server connection limit.
+        Either an TransportErrc::saturated error will be emitted via the
+        handler, or some other error due a handshake failure.
+        @pre this->state() == TransportState::initial
+        @post this->state() == TransportState::refusing */
+    void refuse(AcceptHandler handler)
     {
         assert(state_ == State::initial);
         onRefuse(std::move(handler));
-        state_ = State::accepting;
+        state_ = State::refusing;
     }
 
     /** Starts the transport's I/O operations.
@@ -181,8 +184,8 @@ public:
         @post this->state() == TransportState::stopped */
     virtual void stop()
     {
-        if (state_ == State::accepting)
-            onCancelAccept();
+        if (state_ == State::accepting || state_ == State::refusing)
+            onCancelHandshake();
         if (state_ == State::running)
             onStop();
         state_ = State::stopped;
@@ -203,14 +206,14 @@ protected:
         assert(false && "Not a server transport");
     }
 
-    /** Must be overridden by server transports to cancel a handshake. */
-    virtual void onCancelAccept()
+    /** Can be overridden by server transports to refuse the connection. */
+    virtual void onRefuse(AcceptHandler handler)
     {
-        assert(false && "Not a server transport");
+        onAccept(std::move(handler));
     }
 
-    /** Must be overridden by server transports to refuse the connection. */
-    virtual void onRefuse(RefuseHandler handler)
+    /** Must be overridden by server transports to cancel a handshake. */
+    virtual void onCancelHandshake()
     {
         assert(false && "Not a server transport");
     }

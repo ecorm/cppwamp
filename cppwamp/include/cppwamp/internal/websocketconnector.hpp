@@ -14,6 +14,7 @@
 #include <boost/asio/connect.hpp>
 #include "../asiodefs.hpp"
 #include "../version.hpp"
+#include "../transports/httpprotocol.hpp"
 #include "../transports/websockethost.hpp"
 #include "../traits.hpp"
 #include "websockettransport.hpp"
@@ -134,9 +135,15 @@ private:
 
         auto self = shared_from_this();
         websocket_->async_handshake(
-            host, settings_.target(),
+            response_, host, settings_.target(),
             [this, self](boost::beast::error_code netEc)
             {
+                auto status = static_cast<HttpStatus>(response_.result());
+                response_.clear();
+                response_.body().clear();
+
+                if (netEc == boost::beast::websocket::error::upgrade_declined)
+                    return fail(make_error_code(status));
                 if (check(netEc))
                     complete();
             });
@@ -185,15 +192,20 @@ private:
     {
         if (netEc)
         {
-            websocket_.reset();
             auto ec = static_cast<std::error_code>(netEc);
             if (netEc == boost::asio::error::operation_aborted)
                 ec = make_error_code(TransportErrc::aborted);
             else if (netEc == boost::beast::websocket::error::upgrade_declined)
                 ec = make_error_code(TransportErrc::handshakeDeclined);
-            dispatchHandler(makeUnexpected(ec));
+            fail(ec);
         }
         return !netEc;
+    }
+
+    void fail(std::error_code ec)
+    {
+        websocket_.reset();
+        dispatchHandler(makeUnexpected(ec));
     }
 
     template <typename TArg>
@@ -208,6 +220,7 @@ private:
     Settings settings_;
     boost::asio::ip::tcp::resolver resolver_;
     SocketPtr websocket_;
+    boost::beast::websocket::response_type response_;
     Handler handler_;
     int codecId_ = 0;
 };

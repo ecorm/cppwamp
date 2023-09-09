@@ -12,6 +12,8 @@
     @brief Contains basic HTTP protocol definitions. */
 //------------------------------------------------------------------------------
 
+#include <string>
+#include <system_error>
 #include "../api.hpp"
 
 namespace wamp
@@ -88,13 +90,73 @@ enum class HttpStatus : unsigned
     serviceUnavailable            = 503,
     gatewayTimeout                = 504,
     httpVersionNotSupported       = 505,
-    variantAlsoMegotiates         = 506,
+    variantAlsoNegotiates         = 506,
     insufficientStorage           = 507,
     loopDetected                  = 508,
     notExtended                   = 510,
     networkAuthenticationRequired = 511
 };
 
+//------------------------------------------------------------------------------
+/** std::error_category used for reporting Websocket close reasons.
+    @see WebsocketCloseErrc */
+//------------------------------------------------------------------------------
+class CPPWAMP_API HttpStatusCategory : public std::error_category
+{
+public:
+    /** Obtains the name of the category. */
+    const char* name() const noexcept override;
+
+    /** Obtains the explanatory string. */
+    std::string message(int ev) const override;
+
+    /** Compares `error_code` and and error condition for equivalence. */
+    bool equivalent(const std::error_code& code,
+                    int condition) const noexcept override;
+
+private:
+    CPPWAMP_HIDDEN HttpStatusCategory();
+
+    friend HttpStatusCategory& httpStatusCategory();
+};
+
+//------------------------------------------------------------------------------
+/** Obtains a reference to the static error category object for Websocket
+    close reasons.
+    @relates HttpStatusCategory */
+//------------------------------------------------------------------------------
+CPPWAMP_API HttpStatusCategory& httpStatusCategory();
+
+//------------------------------------------------------------------------------
+/** Creates an error code value from a WebsocketCloseErrc enumerator.
+    @relates TransportCategory */
+//-----------------------------------------------------------------------------
+CPPWAMP_API std::error_code make_error_code(HttpStatus errc);
+
+//------------------------------------------------------------------------------
+/** Creates an error condition value from a WebsocketCloseErrc enumerator.
+    @relates TransportCategory */
+//-----------------------------------------------------------------------------
+CPPWAMP_API std::error_condition make_error_condition(HttpStatus errc);
+
+
 } // namespace wamp
+
+//------------------------------------------------------------------------------
+#if !defined CPPWAMP_FOR_DOXYGEN
+namespace std
+{
+
+template <>
+struct CPPWAMP_API is_error_condition_enum<wamp::HttpStatus>
+    : public true_type
+{};
+
+} // namespace std
+#endif // CPPWAMP_FOR_DOXYGEN
+
+#ifndef CPPWAMP_COMPILED_LIB
+#include "../internal/httpprotocol.inl.hpp"
+#endif
 
 #endif // CPPWAMP_TRANSPORTS_HTTPPROTOCOL_HPP

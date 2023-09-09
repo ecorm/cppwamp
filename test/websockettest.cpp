@@ -9,14 +9,15 @@
 #include <limits>
 #include <catch2/catch.hpp>
 #include <cppwamp/asiodefs.hpp>
-#include <cppwamp/session.hpp>
 #include <cppwamp/codecs/cbor.hpp>
 #include <cppwamp/internal/websocketconnector.hpp>
 #include <cppwamp/internal/websocketlistener.hpp>
 #include <cppwamp/transports/websocket.hpp>
 
 #if defined(CPPWAMP_TEST_HAS_CORO)
+#include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
+#include "routerfixture.hpp"
 #endif
 
 using namespace wamp;
@@ -313,7 +314,7 @@ void checkUnsupportedSerializer(LoopbackFixture& f)
 
     CHECK_NOTHROW( f.run() );
     CHECK( serverEc == TransportErrc::badSerializer );
-    CHECK( clientEc == TransportErrc::handshakeDeclined );
+    CHECK( clientEc == HttpStatus::badRequest );
 }
 
 } // anonymous namespace
@@ -867,6 +868,64 @@ TEST_CASE( "WAMP session using Websocket transport",
         s.disconnect();
     });
 
+    ioctx.run();
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Router websocket connection limit option", "[WAMP][Router]" )
+{
+    if (!test::RouterFixture::enabled())
+        return;
+
+    struct ServerCloseGuard
+    {
+        std::string name;
+
+        ~ServerCloseGuard()
+        {
+            test::RouterFixture::instance().router().closeServer(name);
+        }
+    };
+
+    auto& routerFixture = test::RouterFixture::instance();
+    auto& router = routerFixture.router();
+    ServerCloseGuard serverGuard{"ws45678"};
+    router.openServer(ServerOptions("ws45678", wamp::WebsocketEndpoint{45678},
+                                    wamp::cbor).withConnectionLimit(2));
+
+    IoContext ioctx;
+    std::vector<LogEntry> logEntries;
+    auto logSnoopGuard = routerFixture.snoopLog(
+        ioctx.get_executor(),
+        [&logEntries](LogEntry e) {logEntries.push_back(e);});
+    auto logLevelGuard = routerFixture.supressLogLevel(LogLevel::critical);
+    boost::asio::steady_timer timer{ioctx};
+    Session s1{ioctx};
+    Session s2{ioctx};
+    Session s3{ioctx};
+    auto where = WebsocketHost{"localhost", 45678}.withFormat(cbor);
+
+    spawn(ioctx, [&](YieldContext yield)
+    {
+        timer.expires_after(std::chrono::milliseconds(100));
+        timer.async_wait(yield);
+        s1.connect(where, yield).value();
+        s2.connect(where, yield).value();
+        auto w = s3.connect(where, yield);
+        REQUIRE_FALSE(w.has_value());
+        CHECK(w.error() == HttpStatus::serviceUnavailable);
+        s3.disconnect();
+        while (logEntries.empty())
+            test::suspendCoro(yield);
+        CHECK(logEntries.front().message().find("connection limit"));
+
+        s2.disconnect();
+        timer.expires_after(std::chrono::milliseconds(50));
+        timer.async_wait(yield);
+        w = s3.connect(where, yield);
+        CHECK(w.has_value());
+        s1.disconnect();
+    });
     ioctx.run();
 }
 

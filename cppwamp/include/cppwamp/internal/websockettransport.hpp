@@ -517,6 +517,7 @@ public:
 
 private:
     using Base = WebsocketTransport;
+    using HttpStatus = boost::beast::http::status;
 
     // This data is only used once for accepting connections.
     struct Data
@@ -535,7 +536,20 @@ private:
         boost::beast::http::request<boost::beast::http::string_body> request;
         boost::beast::http::response<boost::beast::http::string_body> response;
         std::unique_ptr<WebsocketSocket> websocket; // TODO: Use optional<T>
-        int codecId;
+        int codecId = 0;
+        bool isRefusing = false;
+    };
+
+    struct Decorator
+    {
+        std::string subprotocol;
+
+        void operator()(boost::beast::http::response_header<>& header)
+        {
+            using boost::beast::http::field;
+            header.set(field::server, Version::agentString());
+            header.set(field::sec_websocket_protocol, subprotocol);
+        }
     };
 
     static bool subprotocolIsText(int codecId)
@@ -552,27 +566,6 @@ private:
         else if (field == "wamp.2.cbor")
             return KnownCodecIds::cbor();
         return 0;
-    }
-
-    template <typename T>
-    static void setHandshakeField(WebsocketSocket& websocket,
-                                  boost::beast::http::field field, T&& value)
-    {
-        namespace http = boost::beast::http;
-
-        struct Decorator
-        {
-            ValueTypeOf<T> value;
-            http::field field;
-
-            void operator()(http::response_header<>& header)
-            {
-                header.set(field, std::move(value));
-            }
-        };
-
-        websocket.set_option(boost::beast::websocket::stream_base::decorator(
-            Decorator{std::forward<T>(value), field}));
     }
 
     WebsocketServerTransport(TcpSocket&& t, const Settings& s,
@@ -596,7 +589,7 @@ private:
             });
     }
 
-    void onCancelAccept() override
+    void onCancelHandshake() override
     {
         if (!data_)
             return;
@@ -622,14 +615,25 @@ private:
         if (found == upgrade.base().end())
         {
             return respondThenFail("No subprotocol was requested",
+                                   HttpStatus::bad_request,
                                    TransportErrc::noSerializer);
         }
         auto subprotocol = found->value();
         data_->codecId = parseSubprotocol(subprotocol);
         if (data_->codecIds.count(data_->codecId) == 0)
         {
-            return respondThenFail("The requested subprotocol is not supported",
+            return respondThenFail("Requested subprotocol is not supported",
+                                   HttpStatus::bad_request,
                                    TransportErrc::badSerializer);
+        }
+
+        // Send an error response if the server connection limit
+        // has been reached
+        if (Base::state() == TransportState::refusing)
+        {
+            return respondThenFail("Connection limit reached",
+                                   HttpStatus::service_unavailable,
+                                   TransportErrc::saturated);
         }
 
         // Transfer the TCP socket to a new websocket stream
@@ -637,12 +641,10 @@ private:
             new WebsocketSocket{std::move(data_->tcpSocket)});
         auto& ws = *(data_->websocket);
 
-        // Set the Server field of the handshake
-        using boost::beast::http::field;
-        setHandshakeField(ws, field::server, Version::agentString());
-
-        // Set the Sec-WebsocketSocket-Protocol field of the handshake
-        setHandshakeField(ws, field::sec_websocket_protocol, subprotocol);
+        // Set the Server and Sec-WebsocketSocket-Protocol fields of
+        // the handshake
+        ws.set_option(boost::beast::websocket::stream_base::decorator(
+            Decorator{subprotocol}));
 
         // Complete the handshake
         auto self = shared_from_this();
@@ -655,10 +657,10 @@ private:
             });
     }
 
-    void respondThenFail(std::string msg, TransportErrc errc)
+    void respondThenFail(std::string msg, HttpStatus status, TransportErrc errc)
     {
         namespace http = boost::beast::http;
-        data_->response.result(http::status::bad_request);
+        data_->response.result(status);
         data_->response.body() = std::move(msg);
         auto self = shared_from_this();
         http::async_write(
@@ -705,36 +707,6 @@ private:
     void fail(TErrc errc)
     {
         fail(static_cast<std::error_code>(make_error_code(errc)));
-    }
-
-    void onRefuse(RefuseHandler handler) override
-    {
-        struct Written
-        {
-            Ptr self;
-            RefuseHandler handler;
-
-            void operator()(boost::system::error_code netEc, size_t)
-            {
-                self->onRefusalSent(handler,
-                                    static_cast<std::error_code>(netEc));
-            }
-        };
-
-        namespace http = boost::beast::http;
-        data_->response.result(http::status::service_unavailable);
-        data_->response.body() = "Connection limit reached";
-        auto self = std::dynamic_pointer_cast<WebsocketServerTransport>(
-            shared_from_this());
-        http::async_write(
-            data_->tcpSocket, data_->response,
-            Written{std::move(self), std::move(handler)});
-    }
-
-    void onRefusalSent(RefuseHandler& handler, std::error_code ec)
-    {
-        Base::post(std::move(handler), ec);
-        shutdown();
     }
 
     void shutdown()
