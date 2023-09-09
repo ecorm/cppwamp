@@ -474,6 +474,7 @@ public:
     using Socket        = typename TConfig::Traits::NetProtocol::socket;
     using Settings      = typename TConfig::Traits::ServerSettings;
     using AcceptHandler = Transporting::AcceptHandler;
+    using RefuseHandler = Transporting::RefuseHandler;
 
     static Ptr create(Socket&& s, const Settings& t, const CodecIdSet& c)
     {
@@ -598,13 +599,47 @@ private:
     void fail(std::error_code ec)
     {
         Base::post(data_->handler, makeUnexpected(ec));
-        Base::socket().close();
-        data_.reset();
-        Base::shutdown();
+        shutdown();
     }
 
     template <typename TErrc>
     void fail(TErrc errc) {fail(make_error_code(errc));}
+
+    void onRefuse(RefuseHandler handler) override
+    {
+        struct Written
+        {
+            Ptr self;
+            RefuseHandler handler;
+
+            void operator()(boost::system::error_code netEc, size_t)
+            {
+                self->onRefusalSent(handler,
+                                    static_cast<std::error_code>(netEc));
+            }
+        };
+
+        auto self = std::dynamic_pointer_cast<RawsockServerTransport>(
+            this->shared_from_this());
+        data_->handshake = Handshake::eMaxConnections().toBigEndian();
+        boost::asio::async_write(
+            Base::socket(),
+            boost::asio::buffer(&data_->handshake, sizeof(Handshake)),
+            Written{std::move(self), std::move(handler)});
+    }
+
+    void onRefusalSent(RefuseHandler& handler, std::error_code ec)
+    {
+        Base::post(std::move(handler), ec);
+        shutdown();
+    }
+
+    void shutdown()
+    {
+        Base::socket().close();
+        data_.reset();
+        Base::shutdown();
+    }
 
     std::unique_ptr<Data> data_; // Only used once for accept operation
 };

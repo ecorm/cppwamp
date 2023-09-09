@@ -97,6 +97,9 @@ public:
     /// Handler type used for server handshake completion events.
     using AcceptHandler = std::function<void (ErrorOr<int> codecId)>;
 
+    /// Handler type used for refusal completion.
+    using RefuseHandler = std::function<void (std::error_code ec)>;
+
     /// Handler type used for message received events.
     using RxHandler = std::function<void (ErrorOr<MessageBuffer>)>;
 
@@ -130,6 +133,14 @@ public:
     {
         assert(state_ == State::initial);
         onAccept(std::move(handler));
+        state_ = State::accepting;
+    }
+
+    /** Refuses the client connection due to connection limit. */
+    void refuse(RefuseHandler handler)
+    {
+        assert(state_ == State::initial);
+        onRefuse(std::move(handler));
         state_ = State::accepting;
     }
 
@@ -194,6 +205,12 @@ protected:
 
     /** Must be overridden by server transports to cancel a handshake. */
     virtual void onCancelAccept()
+    {
+        assert(false && "Not a server transport");
+    }
+
+    /** Must be overridden by server transports to refuse the connection. */
+    virtual void onRefuse(RefuseHandler handler)
     {
         assert(false && "Not a server transport");
     }

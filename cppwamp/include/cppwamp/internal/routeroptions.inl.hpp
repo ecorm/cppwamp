@@ -117,6 +117,13 @@ ServerOptions::withAuthenticator(Authenticator::Ptr a)
     return *this;
 }
 
+CPPWAMP_INLINE ServerOptions&
+ServerOptions::withConnectionLimit(std::size_t limit)
+{
+    connectionLimit_ = limit;
+    return *this;
+}
+
 /** @throws error::Logic if the given timeout duration is negative. */
 CPPWAMP_INLINE ServerOptions&
 ServerOptions::withChallengeTimeout(Timeout timeout)
@@ -144,6 +151,11 @@ CPPWAMP_INLINE const String& ServerOptions::name() const {return name_;}
 CPPWAMP_INLINE Authenticator::Ptr ServerOptions::authenticator() const
 {
     return authenticator_;
+}
+
+CPPWAMP_INLINE std::size_t ServerOptions::connectionLimit() const
+{
+    return connectionLimit_;
 }
 
 CPPWAMP_INLINE Timeout ServerOptions::challengeTimeout() const

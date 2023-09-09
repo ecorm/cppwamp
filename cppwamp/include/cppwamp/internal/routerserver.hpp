@@ -606,7 +606,7 @@ private:
         switch (cat)
         {
         case Cat::success:
-            onEstablished(result.transport());
+            onAccepted(result.transport());
             break;
 
         case Cat::cancelled:
@@ -684,9 +684,21 @@ private:
             listener_->establish();
     }
 
-    void onEstablished(Transporting::Ptr transport)
+    void onAccepted(Transporting::Ptr transport)
     {
         auto self = shared_from_this();
+
+        if (sessions_.size() >= options_->connectionLimit())
+        {
+            transport->refuse(
+                [this, self](std::error_code ec)
+                {
+                    if (ec)
+                        alert("Error sending connection limit refusal", ec);
+                });
+            return;
+        }
+
         ServerContext ctx{router_, self};
         if (++nextSessionIndex_ == 0u)
             nextSessionIndex_ = 1u;

@@ -698,18 +698,53 @@ private:
     void fail(std::error_code ec)
     {
         Base::post(data_->handler, makeUnexpected(ec));
-        if (data_->websocket)
-            data_->websocket->next_layer().close();
-        else
-            data_->tcpSocket.close();
-        data_.reset();
-        Base::shutdown();
+        shutdown();
     }
 
     template <typename TErrc>
     void fail(TErrc errc)
     {
         fail(static_cast<std::error_code>(make_error_code(errc)));
+    }
+
+    void onRefuse(RefuseHandler handler) override
+    {
+        struct Written
+        {
+            Ptr self;
+            RefuseHandler handler;
+
+            void operator()(boost::system::error_code netEc, size_t)
+            {
+                self->onRefusalSent(handler,
+                                    static_cast<std::error_code>(netEc));
+            }
+        };
+
+        namespace http = boost::beast::http;
+        data_->response.result(http::status::service_unavailable);
+        data_->response.body() = "Connection limit reached";
+        auto self = std::dynamic_pointer_cast<WebsocketServerTransport>(
+            shared_from_this());
+        http::async_write(
+            data_->tcpSocket, data_->response,
+            Written{std::move(self), std::move(handler)});
+    }
+
+    void onRefusalSent(RefuseHandler& handler, std::error_code ec)
+    {
+        Base::post(std::move(handler), ec);
+        shutdown();
+    }
+
+    void shutdown()
+    {
+        if (data_->websocket)
+            data_->websocket->next_layer().close();
+        else
+            data_->tcpSocket.close();
+        data_.reset();
+        Base::shutdown();
     }
 
     std::unique_ptr<Data> data_; // Only used once for accepting connection.

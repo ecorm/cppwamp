@@ -21,10 +21,10 @@
     - IP allow/block lists
     - Authentication lockout/cooldown
     - Bandwidth throttling/limiting
-    - Connection limits
     - Unjoined time limit
 */
 
+#include <limits>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -109,7 +109,6 @@ namespace internal { class Challenger; } // Forward declaration
 //------------------------------------------------------------------------------
 class CPPWAMP_API ServerOptions
 {
-    // TODO: Connection limit
 public:
     using Ptr = std::shared_ptr<ServerOptions>;
 
@@ -126,6 +125,8 @@ public:
                                  std::forward<E>(executor));
     }
 
+    ServerOptions& withConnectionLimit(std::size_t limit);
+
     ServerOptions& withChallengeTimeout(Timeout timeout);
 
     ServerOptions& withOverloadCooldown(Timeout cooldown);
@@ -135,6 +136,8 @@ public:
     const String& name() const;
 
     Authenticator::Ptr authenticator() const;
+
+    std::size_t connectionLimit() const;
 
     Timeout challengeTimeout() const;
 
@@ -147,6 +150,7 @@ private:
     ListenerBuilder listenerBuilder_;
     BufferCodecFactory codecFactory_;
     Authenticator::Ptr authenticator_;
+    std::size_t connectionLimit_ = std::numeric_limits<std::size_t>::max();
     Timeout challengeTimeout_ = unspecifiedTimeout;
     Timeout overloadCooldown_ = unspecifiedTimeout;
     Timeout outageCooldown_ = unspecifiedTimeout;
