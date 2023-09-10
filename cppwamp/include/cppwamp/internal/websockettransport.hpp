@@ -528,7 +528,10 @@ private:
               timer(tcpSocket.get_executor()),
               codecIds(c),
               settings(s)
-        {}
+        {
+            response.base().set(boost::beast::http::field::server,
+                                Version::agentString());
+        }
 
         TcpSocket tcpSocket;
         boost::asio::steady_timer timer;
