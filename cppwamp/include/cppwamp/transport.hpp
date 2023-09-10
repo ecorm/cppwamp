@@ -13,6 +13,8 @@
 #include <mutex>
 #include <system_error>
 #include <vector>
+#include "anyhandler.hpp"
+#include "asiodefs.hpp"
 #include "connectioninfo.hpp"
 #include "erroror.hpp"
 #include "messagebuffer.hpp"
@@ -79,6 +81,7 @@ enum class TransportState
     shedding,  /// Server is handshaking but will ultimately shed connection
     ready,     /// Transport handshake is complete (initial for client)
     running,   /// Sending and receiving of messages is enabled
+    stopping,  /// Transport is performing its closing handshake
     stopped    /// Handshake cancelled or transport has been stopped
 };
 
@@ -95,7 +98,7 @@ public:
     /// Shared pointer to a Transporting object.
     using Ptr = std::shared_ptr<Transporting>;
 
-    /// Handler type used for server handshake completion events.
+    /// Handler type used for server handshake completion.
     using AcceptHandler = std::function<void (ErrorOr<int> codecId)>;
 
     /// Handler type used for message received events.
@@ -103,6 +106,9 @@ public:
 
     /// Handler type used for transmission error events.
     using TxErrorHandler = std::function<void (std::error_code)>;
+
+    /// Handler type used for transport stop completion.
+    using StopHandler = std::function<void (ErrorOr<bool>)>;
 
     /** @name Non-copyable and non-movable. */
     /// @{
@@ -114,6 +120,9 @@ public:
 
     /** Destructor. */
     virtual ~Transporting() = default;
+
+    /** Obtains the execution strand associated with this transport. */
+    const IoStrand& strand() const {return strand_;}
 
     /** Obtains the current transport state. */
     State state() const {return state_;}
@@ -180,11 +189,12 @@ public:
             onSend(std::move(message));
     }
 
+    // TODO: Handler
     /** Sends the given serialized message, placing it at the top of the queue,
-        then closes the underlying socket.
+        then gracefully closes the underlying socket.
         @pre this->state() != TransportState::initial
         @post this->state() == TransportState::stopped */
-    virtual void sendNowAndStop(MessageBuffer message)
+    void sendNowAndClose(MessageBuffer message)
     {
         assert(state_ != TransportState::initial);
         if (state_ == State::running)
@@ -192,22 +202,58 @@ public:
         state_ = State::stopped;
     }
 
-    // TODO: Asynchronous Session::disconnect for transports with
-    // closing handhakes (e.g. Websocket)
-    /** Stops I/O operations and closes the underlying socket.
-        @post this->state() == TransportState::stopped */
-    virtual void stop()
+    /** Stops I/O operations and gracefully closes the underlying socket.
+        Emits `true` upon successful completion if the transport was
+        handshaking, ready, or running. Emits `false` if the transport was
+        not in a valid state to be closed. */
+    void close(StopHandler handler)
     {
-        if (state_ == State::accepting || state_ == State::shedding)
+        switch (state_)
+        {
+            case State::ready:
+            case State::running:
+                onClose(std::move(handler));
+                break;
+
+            case State::accepting:
+            case State::shedding:
+                onCancelHandshake();
+                // Fall through
+            default:
+                post(std::move(handler), false);
+                state_ = State::stopped;
+                break;
+        }
+    }
+
+    /** Stops I/O operations and abrubtly closes the underlying socket.
+        @post `this->state() == TransportState::stopped` */
+    void stop()
+    {
+        switch (state_)
+        {
+        case State::accepting:
+        case State::shedding:
             onCancelHandshake();
-        if (state_ == State::running)
+            break;
+
+        case State::ready:
+        case State::running:
             onStop();
+            break;
+
+        default:
+            break;
+        }
+
         state_ = State::stopped;
     }
 
 protected:
-    explicit Transporting(ConnectionInfo ci, TransportInfo ti = {})
-        : info_(ti),
+    explicit Transporting(IoStrand strand, ConnectionInfo ci,
+                          TransportInfo ti = {})
+        : strand_(std::move(strand)),
+          info_(ti),
           connectionInfo_(std::move(ci))
     {
         if (ti.codecId() != 0)
@@ -243,7 +289,14 @@ protected:
         disconnect. */
     virtual void onSendNowAndStop(MessageBuffer message) = 0;
 
-    /** Must be overriden to stop I/O operations and disconnect. */
+    /** Must be overriden to stop I/O operations and gracefully close. */
+    virtual void onClose(StopHandler handler)
+    {
+        onStop();
+        post(std::move(handler), true);
+    }
+
+    /** Must be overriden to stop I/O operations and abtruptly disconnect. */
     virtual void onStop() = 0;
 
     /** Should be called by derived server classes after transport details
@@ -262,7 +315,14 @@ protected:
         state_ = State::stopped;
     }
 
+    template <typename F, typename... Ts>
+    void post(F&& handler, Ts&&... args)
+    {
+        postAny(strand_, std::forward<F>(handler), std::forward<Ts>(args)...);
+    }
+
 private:
+    IoStrand strand_;
     TransportInfo info_;
     ConnectionInfo connectionInfo_;
     State state_ = State::initial;

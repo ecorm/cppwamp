@@ -690,6 +690,7 @@ private:
 
         if (sessions_.size() >= options_->connectionLimit())
         {
+            // TODO: Dispatch via Transport's executor!
             transport->shed(
                 options_->handshakeTimeout(),
                 [this, self, transport](ErrorOr<int> codecId)

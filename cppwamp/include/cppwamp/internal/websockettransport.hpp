@@ -109,32 +109,25 @@ protected:
 
     // Constructor for client transports
     WebsocketTransport(WebsocketPtr&& ws, TransportInfo info)
-        : Base(makeConnectionInfo(ws->next_layer()), info),
-          strand_(boost::asio::make_strand(ws->get_executor())),
+        : Base(boost::asio::make_strand(ws->get_executor()),
+               makeConnectionInfo(ws->next_layer()),
+               info),
           websocket_(std::move(ws))
     {
         if (timeoutIsDefinite(Base::info().heartbeatInterval()))
-            pinger_ = std::make_shared<Pinger>(strand_, Base::info());
+            pinger_ = std::make_shared<Pinger>(Base::strand(), Base::info());
     }
 
     // Constructor for server transports
     WebsocketTransport(TcpSocket& tcp)
-        : Base(makeConnectionInfo(tcp)),
-          strand_(boost::asio::make_strand(tcp.get_executor()))
+        : Base(boost::asio::make_strand(tcp.get_executor()),
+               makeConnectionInfo(tcp))
     {}
 
     void assignWebsocket(WebsocketPtr&& ws, TransportInfo i)
     {
         websocket_ = std::move(ws);
         Base::completeAccept(i);
-    }
-
-    template <typename F, typename... Ts>
-    void post(F&& handler, Ts&&... args) //
-    {
-        // NOLINTNEXTLINE(modernize-avoid-bind)
-        boost::asio::post(strand_, std::bind(std::forward<F>(handler),
-                                             std::forward<Ts>(args)...));
     }
 
 private:
@@ -240,12 +233,28 @@ private:
         txErrorHandler_ = nullptr;
         txQueue_.clear();
         if (websocket_)
-        {
-            websocket_->control_callback();
-            closeWebsocket(boost::beast::websocket::normal);
-        }
+            websocket_->next_layer().close();
         if (pinger_)
             pinger_->stop();
+    }
+
+    void onClose(StopHandler handler) override
+    {
+        doClose(boost::beast::websocket::normal, std::move(handler));
+    }
+
+    void doClose(boost::beast::websocket::close_code closeCode,
+                 StopHandler&& handler = nullptr)
+    {
+        rxHandler_ = nullptr;
+        txErrorHandler_ = nullptr;
+        txQueue_.clear();
+        if (websocket_)
+            closeWebsocket(boost::beast::websocket::normal, std::move(handler));
+        if (pinger_)
+            pinger_->stop();
+        if (!websocket_ && (handler != nullptr))
+            Base::post(handler, true);
     }
 
     void onPong(boost::beast::string_view msg)
@@ -336,7 +345,7 @@ private:
                 if (!checkTxError(netEc))
                     return;
                 if (frame && frame->isPoisoned())
-                    onStop();
+                    doClose(boost::beast::websocket::going_away);
                 else
                     transmit();
             });
@@ -382,7 +391,7 @@ private:
                 if (ec == WebsocketCloseErrc::tooBig)
                     ec = make_error_code(TransportErrc::outboundTooLong);
             }
-            post(rxHandler_, makeUnexpected(ec));
+            Base::post(rxHandler_, makeUnexpected(ec));
         }
         cleanup();
     }
@@ -405,24 +414,44 @@ private:
         const auto* ptr =
             reinterpret_cast<const Byte*>(rxFrame_.cdata().data());
         MessageBuffer buffer{ptr, ptr + rxFrame_.cdata().size()};
-        post(rxHandler_, std::move(buffer));
+        Base::post(rxHandler_, std::move(buffer));
         receive();
     }
 
-    void closeWebsocket(boost::beast::websocket::close_code reason)
+    void closeWebsocket(boost::beast::websocket::close_code reason,
+                        StopHandler&& handler = nullptr)
     {
         if (!websocket_)
             return;
-        auto self = shared_from_this();
-        // TODO: Timeout
-        websocket_->async_close(
-            reason,
-            [this, self](boost::beast::error_code)
+        websocket_->control_callback();
+
+        struct Closed
+        {
+            Ptr self;
+            StopHandler handler;
+
+            void operator()(boost::beast::error_code netEc)
             {
-                // TODO: Report close failure once asynchronous
-                // Session::disconnect is implemented.
-                websocket_->next_layer().close();
-            });
+                auto ec = static_cast<std::error_code>(netEc);
+                self->onWebsocketClosed(ec, std::move(handler));
+            }
+        };
+
+        auto self =
+            std::dynamic_pointer_cast<WebsocketTransport>(shared_from_this());
+        // TODO: Timeout
+        websocket_->async_close(reason,
+                                Closed{std::move(self), std::move(handler)});
+    }
+
+    void onWebsocketClosed(std::error_code ec, StopHandler&& handler)
+    {
+        websocket_->next_layer().close();
+        if ((handler == nullptr))
+            return;
+        if (ec)
+            return Base::post(handler, makeUnexpected(ec));
+        Base::post(handler, true);
     }
 
     bool checkTxError(boost::system::error_code netEc)
@@ -456,7 +485,7 @@ private:
     void fail(std::error_code ec, boost::beast::websocket::close_code closeCode)
     {
         if (rxHandler_)
-            post(rxHandler_, makeUnexpected(ec));
+            Base::post(rxHandler_, makeUnexpected(ec));
         closeWebsocket(closeCode);
         cleanup();
     }
@@ -473,7 +502,6 @@ private:
         pinger_.reset();
     }
 
-    IoStrand strand_;
     WebsocketPtr websocket_;
     RxHandler rxHandler_;
     TxErrorHandler txErrorHandler_;
@@ -605,12 +633,13 @@ private:
 
     void onCancelHandshake() override
     {
-        if (!data_)
-            return;
-        if (data_->websocket)
-            data_->websocket->next_layer().close();
-        else
-            data_->tcpSocket.close();
+        if (data_)
+        {
+            if (data_->websocket)
+                data_->websocket->next_layer().close();
+            else
+                data_->tcpSocket.close();
+        }
     }
 
     void onTimeout(boost::system::error_code ec)

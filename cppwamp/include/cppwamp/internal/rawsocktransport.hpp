@@ -135,6 +135,7 @@ public:
     using Socket         = typename NetProtocol::socket;
     using RxHandler      = typename Transporting::RxHandler;
     using TxErrorHandler = typename Transporting::TxErrorHandler;
+    using StopHandler    = typename Transporting::StopHandler;
 
 protected:
     static std::error_code netErrorCodeToStandard(
@@ -154,30 +155,22 @@ protected:
 
     // Constructor for client transports
     RawsockTransport(Socket&& socket, TransportInfo info)
-        : Base(Traits::connectionInfo(socket.remote_endpoint()), info),
-          strand_(boost::asio::make_strand(socket.get_executor())),
+        : Base(boost::asio::make_strand(socket.get_executor()),
+               Traits::connectionInfo(socket.remote_endpoint()), info),
           socket_(std::move(socket))
     {
         if (timeoutIsDefinite(Base::info().heartbeatInterval()))
-            pinger_ = std::make_shared<Pinger>(strand_, Base::info());
+            pinger_ = std::make_shared<Pinger>(Base::strand(), Base::info());
     }
 
     // Constructor for server transports
     RawsockTransport(Socket&& socket)
-        : Base(Traits::connectionInfo(socket.remote_endpoint())),
-          strand_(boost::asio::make_strand(socket.get_executor())),
+        : Base(boost::asio::make_strand(socket.get_executor()),
+               Traits::connectionInfo(socket.remote_endpoint())),
           socket_(std::move(socket))
     {}
 
     Socket& socket() {return socket_;}
-
-    template <typename F, typename... Ts>
-    void post(F&& handler, Ts&&... args) //
-    {
-        // NOLINTNEXTLINE(modernize-avoid-bind)
-        boost::asio::post(strand_, std::bind(std::forward<F>(handler),
-                                             std::forward<Ts>(args)...));
-    }
 
 private:
     using Base = Transporting;
@@ -346,7 +339,10 @@ private:
                     {
                     case RawsockMsgKind::wamp:
                         if (rxHandler_)
-                            post(rxHandler_, std::move(rxFrame_).payload());
+                        {
+                            Base::post(rxHandler_,
+                                       std::move(rxFrame_).payload());
+                        }
                         receive();
                         break;
 
@@ -391,7 +387,7 @@ private:
         if (!netEc)
             return true;
         if (txErrorHandler_)
-            post(txErrorHandler_, netErrorCodeToStandard(netEc));
+            Base::post(txErrorHandler_, netErrorCodeToStandard(netEc));
         cleanup();
         return false;
     }
@@ -414,7 +410,7 @@ private:
     void fail(std::error_code ec)
     {
         if (rxHandler_)
-            post(rxHandler_, makeUnexpected(ec));
+            Base::post(rxHandler_, makeUnexpected(ec));
         cleanup();
     }
 
@@ -431,7 +427,6 @@ private:
         pinger_.reset();
     }
 
-    IoStrand strand_;
     Socket socket_;
     RxHandler rxHandler_;
     TxErrorHandler txErrorHandler_;
@@ -475,6 +470,7 @@ public:
     using Socket        = typename TConfig::Traits::NetProtocol::socket;
     using Settings      = typename TConfig::Traits::ServerSettings;
     using AcceptHandler = Transporting::AcceptHandler;
+    using StopHandler   = Transporting::StopHandler;
 
     static Ptr create(Socket&& s, const Settings& t, const CodecIdSet& c)
     {
@@ -535,7 +531,10 @@ private:
             });
     }
 
-    void onCancelHandshake() override {Base::socket().close();}
+    void onCancelHandshake() override
+    {
+        Base::socket().close();
+    }
 
     void onTimeout(boost::system::error_code ec)
     {
