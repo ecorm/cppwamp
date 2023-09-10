@@ -11,6 +11,7 @@
 #include <deque>
 #include <memory>
 #include <boost/asio/read.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/beast/core/flat_buffer.hpp>
 #include <boost/beast/websocket/rfc6455.hpp>
@@ -524,11 +525,13 @@ private:
     {
         Data(TcpSocket&& t, const Settings& s, const CodecIdSet& c)
             : tcpSocket(std::move(t)),
+              timer(tcpSocket.get_executor()),
               codecIds(c),
               settings(s)
         {}
 
         TcpSocket tcpSocket;
+        boost::asio::steady_timer timer;
         CodecIdSet codecIds;
         WebsocketEndpoint settings;
         AcceptHandler handler;
@@ -574,12 +577,20 @@ private:
           data_(new Data(std::move(t), s, c))
     {}
 
-    void onAccept(AcceptHandler handler) override
+    void onAccept(Timeout timeout, AcceptHandler handler) override
     {
-        // TODO: Timeout waiting for handshake
         assert((data_ != nullptr) && "Accept already performed");
+
         data_->handler = std::move(handler);
         auto self = this->shared_from_this();
+
+        if (timeoutIsDefinite(timeout))
+        {
+            data_->timer.expires_after(timeout);
+            data_->timer.async_wait(
+                [this, self](boost::system::error_code ec) {onTimeout(ec);});
+        }
+
         boost::beast::http::async_read(
             data_->tcpSocket, data_->buffer, data_->request,
             [this, self] (const boost::beast::error_code& netEc, std::size_t)
@@ -597,6 +608,14 @@ private:
             data_->websocket->next_layer().close();
         else
             data_->tcpSocket.close();
+    }
+
+    void onTimeout(boost::system::error_code ec)
+    {
+        if (!ec)
+            return fail(TransportErrc::timeout);
+        if (ec != boost::asio::error::operation_aborted)
+            fail(static_cast<std::error_code>(ec));
     }
 
     void acceptHandshake()

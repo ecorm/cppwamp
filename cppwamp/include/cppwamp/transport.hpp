@@ -129,8 +129,15 @@ public:
         @post this->state() == TransportState::accepting */
     void accept(AcceptHandler handler)
     {
+        accept(unspecifiedTimeout, std::move(handler));
+    }
+
+    /** Starts the server handshake procedure with the given timeout.
+        @copydetails Transporting::accept(AcceptHandler) */
+    void accept(Timeout timeout, AcceptHandler handler)
+    {
         assert(state_ == State::initial);
-        onAccept(std::move(handler));
+        onAccept(timeout, std::move(handler));
         state_ = State::accepting;
     }
 
@@ -142,8 +149,15 @@ public:
         @post this->state() == TransportState::refusing */
     void refuse(AcceptHandler handler)
     {
+        refuse(unspecifiedTimeout, std::move(handler));
+    }
+
+    /** Starts refusal handshake with the given timeout.
+        @copydetails Transporting::refuse(AcceptHandler) */
+    void refuse(Timeout timeout, AcceptHandler handler)
+    {
         assert(state_ == State::initial);
-        onRefuse(std::move(handler));
+        onRefuse(timeout, std::move(handler));
         state_ = State::refusing;
     }
 
@@ -201,15 +215,15 @@ protected:
     }
 
     /** Must be overridden by server transports to initiate the handshake. */
-    virtual void onAccept(AcceptHandler handler)
+    virtual void onAccept(Timeout, AcceptHandler)
     {
         assert(false && "Not a server transport");
     }
 
     /** Can be overridden by server transports to refuse the connection. */
-    virtual void onRefuse(AcceptHandler handler)
+    virtual void onRefuse(Timeout timeout, AcceptHandler handler)
     {
-        onAccept(std::move(handler));
+        onAccept(timeout, std::move(handler));
     }
 
     /** Must be overridden by server transports to cancel a handshake. */

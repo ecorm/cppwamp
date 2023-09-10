@@ -328,6 +328,7 @@ private:
 
         const std::weak_ptr<ServerSession> self = shared_from_this();
         transport_->accept(
+            serverOptions_->handshakeTimeout(),
             [self](ErrorOr<int> codecId)
             {
                 auto me = self.lock();
@@ -607,6 +608,7 @@ private:
         {
         case Cat::success:
             onAccepted(result.transport());
+            listen();
             break;
 
         case Cat::cancelled:
@@ -616,6 +618,7 @@ private:
             alert(std::string("Error establishing connection with "
                               "remote peer during ") + result.operation(),
                   result.error());
+            listen();
             break;
 
         case Cat::overload:
@@ -631,22 +634,18 @@ private:
             panic(std::string("Fatal error establishing connection with "
                               "remote peer during ") + result.operation(),
                   result.error());
+            onClose(Reason{WampErrc::systemShutdown});
             break;
 
         default:
             assert(false && "Unexpected ListeningErrorCategory enumerator");
         }
-
-        if (cat == Cat::fatal)
-            onClose(Reason{WampErrc::systemShutdown});
-        else if (cat != Cat::cancelled)
-            listen();
     }
 
     void cooldown(Timeout delay, const ListenResult& result, std::string why)
     {
         alert(why + " detected during " + result.operation(), result.error());
-        if (delay.count() == 0)
+        if (!timeoutIsDefinite(delay))
             return listen();
 
         // Check if there's already a cooldown in progress that will outlast
@@ -692,6 +691,7 @@ private:
         if (sessions_.size() >= options_->connectionLimit())
         {
             transport->refuse(
+                options_->handshakeTimeout(),
                 [this, self, transport](ErrorOr<int> codecId)
                 {
                     assert(!codecId.has_value());

@@ -16,6 +16,7 @@
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/read.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/asio/write.hpp>
 #include "../asiodefs.hpp"
 #include "../codec.hpp"
@@ -488,11 +489,13 @@ private:
     // Only used once to perform accept operation
     struct Data
     {
-        explicit Data(const Settings& s, const CodecIdSet& c)
-            : settings(s),
+        explicit Data(AnyIoExecutor e, const Settings& s, const CodecIdSet& c)
+            : timer(std::move(e)),
+              settings(s),
               codecIds(c)
         {}
 
+        boost::asio::steady_timer timer;
         Settings settings;
         CodecIdSet codecIds;
         AcceptHandler handler;
@@ -502,15 +505,23 @@ private:
 
     RawsockServerTransport(Socket&& s, const Settings& t, const CodecIdSet& c)
         : Base(std::move(s)),
-          data_(new Data(t, c))
+          data_(new Data(Base::socket().get_executor(), t, c))
     {}
 
-    void onAccept(AcceptHandler handler) override
+    void onAccept(Timeout timeout, AcceptHandler handler) override
     {
-        // TODO: Timeout waiting for handshake
         assert((data_ != nullptr) && "Accept already performed");
+
         data_->handler = std::move(handler);
         auto self = this->shared_from_this();
+
+        if (timeoutIsDefinite(timeout))
+        {
+            data_->timer.expires_after(timeout);
+            data_->timer.async_wait(
+                [this, self](boost::system::error_code ec) {onTimeout(ec);});
+        }
+
         boost::asio::async_read(
             Base::socket(),
             boost::asio::buffer(&data_->handshake, sizeof(Handshake)),
@@ -526,8 +537,20 @@ private:
 
     void onCancelHandshake() override {Base::socket().close();}
 
+    void onTimeout(boost::system::error_code ec)
+    {
+        if (!ec)
+            return fail(TransportErrc::timeout);
+        if (ec != boost::asio::error::operation_aborted)
+            fail(static_cast<std::error_code>(ec));
+    }
+
     void onHandshakeReceived(Handshake hs)
     {
+        if (!data_)
+            return;
+
+        data_->timer.cancel();
         auto peerCodec = hs.codecId();
 
         if (Base::state() == TransportState::refusing)
@@ -571,7 +594,7 @@ private:
 
     void sendHandshake(Handshake hs)
     {
-        if (!Base::socket().is_open())
+        if (!data_)
             return;
 
         data_->handshake = hs.toBigEndian();
@@ -596,6 +619,9 @@ private:
 
     void complete(Handshake hs)
     {
+        if (!data_)
+            return;
+
         auto codecId = hs.codecId();
         const TransportInfo i{
             codecId,
@@ -615,6 +641,8 @@ private:
 
     void fail(std::error_code ec)
     {
+        if (!data_)
+            return;
         Base::post(data_->handler, makeUnexpected(ec));
         shutdown();
     }

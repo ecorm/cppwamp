@@ -127,6 +127,8 @@ public:
 
     ServerOptions& withConnectionLimit(std::size_t limit);
 
+    ServerOptions& withHandshakeTimeout(Timeout timeout);
+
     ServerOptions& withChallengeTimeout(Timeout timeout);
 
     ServerOptions& withOverloadCooldown(Timeout cooldown);
@@ -138,6 +140,8 @@ public:
     Authenticator::Ptr authenticator() const;
 
     std::size_t connectionLimit() const;
+
+    Timeout handshakeTimeout() const;
 
     Timeout challengeTimeout() const;
 
@@ -151,6 +155,7 @@ private:
     BufferCodecFactory codecFactory_;
     Authenticator::Ptr authenticator_;
     std::size_t connectionLimit_ = std::numeric_limits<std::size_t>::max();
+    Timeout handshakeTimeout_ = unspecifiedTimeout;
     Timeout challengeTimeout_ = unspecifiedTimeout;
     Timeout overloadCooldown_ = unspecifiedTimeout;
     Timeout outageCooldown_ = unspecifiedTimeout;
