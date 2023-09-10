@@ -76,7 +76,7 @@ enum class TransportState
 {
     initial,   /// Initial state of a server transport
     accepting, /// The server transport is performing its handshake
-    refusing,  /// Server is handshaking but will ultimately refuse
+    shedding,  /// Server is handshaking but will ultimately shed connection
     ready,     /// Transport handshake is complete (initial for client)
     running,   /// Sending and receiving of messages is enabled
     stopped    /// Handshake cancelled or transport has been stopped
@@ -146,19 +146,19 @@ public:
         Either an TransportErrc::saturated error will be emitted via the
         handler, or some other error due a handshake failure.
         @pre this->state() == TransportState::initial
-        @post this->state() == TransportState::refusing */
-    void refuse(AcceptHandler handler)
+        @post this->state() == TransportState::shedding */
+    void shed(AcceptHandler handler)
     {
-        refuse(unspecifiedTimeout, std::move(handler));
+        shed(unspecifiedTimeout, std::move(handler));
     }
 
     /** Starts refusal handshake with the given timeout.
-        @copydetails Transporting::refuse(AcceptHandler) */
-    void refuse(Timeout timeout, AcceptHandler handler)
+        @copydetails Transporting::shed(AcceptHandler) */
+    void shed(Timeout timeout, AcceptHandler handler)
     {
         assert(state_ == State::initial);
-        onRefuse(timeout, std::move(handler));
-        state_ = State::refusing;
+        onShed(timeout, std::move(handler));
+        state_ = State::shedding;
     }
 
     /** Starts the transport's I/O operations.
@@ -198,7 +198,7 @@ public:
         @post this->state() == TransportState::stopped */
     virtual void stop()
     {
-        if (state_ == State::accepting || state_ == State::refusing)
+        if (state_ == State::accepting || state_ == State::shedding)
             onCancelHandshake();
         if (state_ == State::running)
             onStop();
@@ -220,8 +220,9 @@ protected:
         assert(false && "Not a server transport");
     }
 
-    /** Can be overridden by server transports to refuse the connection. */
-    virtual void onRefuse(Timeout timeout, AcceptHandler handler)
+    /** Can be overridden by server transports to shed the connection
+        due to overload. */
+    virtual void onShed(Timeout timeout, AcceptHandler handler)
     {
         onAccept(timeout, std::move(handler));
     }

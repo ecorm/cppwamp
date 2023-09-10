@@ -259,7 +259,7 @@ enum class TransportErrc
     failed            = 4,  ///< Transport operation failed
     exhausted         = 5,  ///< All transports failed during connection
     overloaded        = 6,  ///< Excessive resource usage
-    saturated         = 7,  ///< Connection limit reached
+    shedded           = 7,  ///< Connection dropped due to limits
     unresponsive      = 8,  ///< The other peer is unresponsive
     inboundTooLong    = 9,  ///< Inbound message exceeds transport's length limit
     outboundTooLong   = 10, ///< Outbound message exceeds peer's length limit

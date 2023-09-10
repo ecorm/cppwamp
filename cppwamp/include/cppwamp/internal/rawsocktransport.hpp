@@ -553,7 +553,7 @@ private:
         data_->timer.cancel();
         auto peerCodec = hs.codecId();
 
-        if (Base::state() == TransportState::refusing)
+        if (Base::state() == TransportState::shedding)
         {
             sendRefusal();
         }
@@ -588,7 +588,7 @@ private:
             [this, self](boost::system::error_code ec, size_t)
             {
                 if (check(ec))
-                    fail(TransportErrc::saturated);
+                    fail(TransportErrc::shedded);
             });
     }
 

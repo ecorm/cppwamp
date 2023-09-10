@@ -690,7 +690,7 @@ private:
 
         if (sessions_.size() >= options_->connectionLimit())
         {
-            transport->refuse(
+            transport->shed(
                 options_->handshakeTimeout(),
                 [this, self, transport](ErrorOr<int> codecId)
                 {
@@ -712,7 +712,7 @@ private:
 
     void onRefusalCompleted(std::error_code ec)
     {
-        if (ec == TransportErrc::saturated)
+        if (ec == TransportErrc::shedded)
         {
             alert("Client connection refused due to "
                   "connection limit", ec);

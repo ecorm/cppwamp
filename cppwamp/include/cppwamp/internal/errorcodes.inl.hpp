@@ -452,7 +452,7 @@ CPPWAMP_INLINE std::string TransportCategory::message(int ev) const
         /* failed            */ "Transport operation failed",
         /* exhausted         */ "All transports failed during connection",
         /* overloaded        */ "Excessive resource usage",
-        /* saturated         */ "Connection limit reached",
+        /* shedded           */ "Connection dropped due to limits",
         /* unresponsive      */ "The other peer is unresponsive",
         /* inboundTooLong    */ "Inbound message exceeds transport's length limit",
         /* outboundTooLong   */ "Outbound message exceeds peer's length limit",

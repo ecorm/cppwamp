@@ -651,11 +651,11 @@ private:
 
         // Send an error response if the server connection limit
         // has been reached
-        if (Base::state() == TransportState::refusing)
+        if (Base::state() == TransportState::shedding)
         {
             return respondThenFail("Connection limit reached",
                                    HttpStatus::service_unavailable,
-                                   TransportErrc::saturated);
+                                   TransportErrc::shedded);
         }
 
         // Transfer the TCP socket to a new websocket stream
