@@ -623,6 +623,9 @@ private:
         // TODO: Multiplex websocket transports with same port but different
         //       request-target URIs.
 
+        if (!data_)
+            return;
+
         // Check that we actually received a websocket upgrade request
         if (!boost::beast::websocket::is_upgrade(data_->request))
             return fail(boost::beast::websocket::error::no_connection_upgrade);
@@ -693,6 +696,9 @@ private:
 
     void complete()
     {
+        if (!data_)
+            return;
+
         if (subprotocolIsText(data_->codecId))
             data_->websocket->text(true);
         else
@@ -718,6 +724,8 @@ private:
 
     void fail(std::error_code ec)
     {
+        if (!data_)
+            return;
         Base::post(data_->handler, makeUnexpected(ec));
         shutdown();
     }

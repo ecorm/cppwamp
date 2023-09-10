@@ -18,6 +18,7 @@
 #include <cppwamp/internal/tcplistener.hpp>
 #include <cppwamp/internal/udsconnector.hpp>
 #include <cppwamp/internal/udslistener.hpp>
+#include "silentclient.hpp"
 
 using namespace wamp;
 using namespace wamp::internal;
@@ -1336,6 +1337,41 @@ GIVEN ( "A mock server that sends an invalid message type" )
         }
     }
 }
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "TCP server transport handshake timeout", "[Transport][Rawsock]" )
+{
+    IoContext ioctx;
+    auto exec = ioctx.get_executor();
+    auto strand = boost::asio::make_strand(exec);
+    std::error_code serverError;
+
+    auto lstn = TcpListener::create(exec, strand, tcpEndpoint, {jsonId});
+    Transporting::Ptr server;
+    lstn->observe(
+        [&](ListenResult result)
+        {
+            REQUIRE( result.ok() );
+            server = result.transport();
+            server->accept(
+                std::chrono::milliseconds(50),
+                [&serverError](ErrorOr<int> codecId)
+                {
+                    if (!codecId.has_value())
+                        serverError = codecId.error();
+                });
+        });
+    lstn->establish();
+
+    using boost::asio::ip::tcp;
+
+    test::SilentClient client{ioctx};
+    client.run(tcpEndpoint.port());
+
+    ioctx.run();
+    CHECK(client.readError() == boost::asio::error::eof);
+    CHECK(serverError == TransportErrc::timeout);
 }
 
 //------------------------------------------------------------------------------

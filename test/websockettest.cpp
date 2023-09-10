@@ -13,6 +13,7 @@
 #include <cppwamp/internal/websocketconnector.hpp>
 #include <cppwamp/internal/websocketlistener.hpp>
 #include <cppwamp/transports/websocket.hpp>
+#include "silentclient.hpp"
 
 #if defined(CPPWAMP_TEST_HAS_CORO)
 #include <cppwamp/session.hpp>
@@ -772,6 +773,42 @@ TEST_CASE( "Peer sending a websocket message longer than maximum",
         CHECK( clientError == TransportErrc::inboundTooLong );
         CHECK( serverError == TransportErrc::outboundTooLong );
     }
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Websocket server transport handshake timeout",
+           "[Transport][Rawsock]" )
+{
+    IoContext ioctx;
+    auto exec = ioctx.get_executor();
+    auto strand = boost::asio::make_strand(exec);
+    std::error_code serverError;
+
+    auto lstn = WebsocketListener::create(exec, strand, wsEndpoint, {jsonId});
+    Transporting::Ptr server;
+    lstn->observe(
+        [&](ListenResult result)
+        {
+            REQUIRE( result.ok() );
+            server = result.transport();
+            server->accept(
+                std::chrono::milliseconds(50),
+                [&serverError](ErrorOr<int> codecId)
+                {
+                    if (!codecId.has_value())
+                        serverError = codecId.error();
+                });
+        });
+    lstn->establish();
+
+    using boost::asio::ip::tcp;
+
+    test::SilentClient client{ioctx};
+    client.run(wsEndpoint.port());
+
+    ioctx.run();
+    CHECK(client.readError() == boost::asio::error::eof);
+    CHECK(serverError == TransportErrc::timeout);
 }
 
 //------------------------------------------------------------------------------

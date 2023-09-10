@@ -9,6 +9,7 @@ set(HEADERS
     mockclient.hpp
     mockserver.hpp
     routerfixture.hpp
+    silentclient.hpp
     valuemodels.hpp
 )
 
