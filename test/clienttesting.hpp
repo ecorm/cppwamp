@@ -82,9 +82,27 @@ void checkDisconnect(TDelegate&& delegate)
     });
 
     ioctx.run();
+    ioctx.restart();
     CHECK( completed );
     CHECK( result == makeUnexpected(MiscErrc::abandoned) );
     CHECK_THROWS_AS( result.value(), error::Failure );
+
+    completed = false;
+    ErrorOr<bool> disconnected;
+    spawn(ioctx, [&](YieldContext yield)
+    {
+        session.connect(withTcp, yield).value();
+        delegate(session, yield, completed, result);
+        disconnected = session.disconnect(yield);
+        CHECK( session.state() == SessionState::disconnected );
+    });
+
+    ioctx.run();
+    CHECK( completed );
+    CHECK( result == makeUnexpected(MiscErrc::abandoned) );
+    CHECK_THROWS_AS( result.value(), error::Failure );
+    REQUIRE( disconnected.has_value() );
+    CHECK( disconnected.value() == true );
 }
 
 //------------------------------------------------------------------------------

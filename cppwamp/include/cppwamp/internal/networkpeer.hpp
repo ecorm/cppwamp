@@ -187,7 +187,13 @@ private:
             {
                 auto me = self.lock();
                 if (me)
+                {
                     me->transport_.reset();
+                    if (done.has_value())
+                        me->setState(State::disconnected);
+                    else
+                        me->fail("Transport close failure", done.error());
+                }
                 handler(done);
             }
         };

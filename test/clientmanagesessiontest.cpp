@@ -123,6 +123,55 @@ GIVEN( "a Session and a ConnectionWish" )
         ioctx.run();
     }
 
+    WHEN( "disconnecting gracefully" )
+    {
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            Session s(ioctx);
+            s.observeIncidents(incidents);
+            s.connect(where, yield).value();
+            CHECK( incidents.testIfEmptyThenClear() );
+
+            ErrorOr<bool> result;
+            bool completed = false;
+            s.disconnect(
+                [&result, &completed](ErrorOr<bool> done)
+                {
+                    result = done;
+                    completed = true;
+                });
+            CHECK( s.state() == SS::disconnecting );
+            while (!completed)
+                suspendCoro(yield);
+            CHECK( s.state() == SS::disconnected );
+            REQUIRE( result.has_value() );
+            CHECK( result.value() == true );
+            CHECK( incidents.testIfEmptyThenClear() );
+
+            // Disconnecting again should be harmless
+            completed = false;
+            s.disconnect(
+                [&result, &completed](ErrorOr<bool> done)
+                {
+                    result = done;
+                    completed = true;
+                });
+            while (!completed)
+                suspendCoro(yield);
+            CHECK( s.state() == SS::disconnected );
+            REQUIRE( result.has_value() );
+            CHECK( result.value() == false );
+            CHECK( incidents.testIfEmptyThenClear() );
+
+            // Check that we can reconnect.
+            CHECK( s.connect(where, yield).value() == 0 );
+            CHECK( incidents.testIfEmptyThenClear() );
+            s.disconnect();
+        });
+
+        ioctx.run();
+    }
+
     WHEN( "joining and leaving" )
     {
         spawn(ioctx, [&](YieldContext yield)
@@ -216,8 +265,9 @@ GIVEN( "a Session and a ConnectionWish" )
                 CHECK_FALSE( reason.uri().empty() );
                 CHECK( s.state() == SS::closed );
 
-                // Disconnect
-                CHECK_NOTHROW( s.disconnect() );
+                // Disconnect grafully
+                auto done = s.disconnect(yield).value();
+                CHECK( done );
                 CHECK( s.state() == SessionState::disconnected );
                 CHECK( incidents.testIfEmptyThenClear() );
             }
@@ -255,7 +305,7 @@ GIVEN( "a Session and a ConnectionWish" )
         ioctx.run();
     }
 
-    WHEN( "disconnecting during connect" )
+    WHEN( "disconnecting abruptly uring connect" )
     {
         std::error_code ec;
         bool connectHandlerInvoked = false;
@@ -310,7 +360,70 @@ GIVEN( "a Session and a ConnectionWish" )
         incidents.list.clear();
     }
 
-    WHEN( "disconnecting during session establishment" )
+    WHEN( "attempting to disconnect gracefully during connect" )
+    {
+        std::error_code ec;
+        bool connectHandlerInvoked = false;
+        s.connect(
+            ConnectionWishList{invalidTcp, where},
+            [&](ErrorOr<size_t> result)
+            {
+                connectHandlerInvoked = true;
+                if (!result)
+                    ec = result.error();
+            });
+        while (s.state() != SS::connecting)
+        {
+            ioctx.poll();
+            ioctx.restart();
+        }
+
+        ErrorOr<bool> result;
+        bool completed = false;
+        s.disconnect(
+            [&result, &completed](ErrorOr<bool> done)
+            {
+                result = done;
+                completed = true;
+            });
+
+        ioctx.run();
+        ioctx.restart();
+        CHECK( connectHandlerInvoked );
+        CHECK( s.state() == SS::disconnected );
+        REQUIRE( result.has_value() );
+        CHECK( result == false );
+
+        // Depending on how Asio schedules things, the connect operation
+        // sometimes completes successfully before the cancellation request
+        // can go through.
+        if (ec)
+        {
+            CHECK( ec == TransportErrc::aborted );
+
+            // Check that we can reconnect.
+            s.disconnect();
+
+            ec.clear();
+            bool connected = false;
+            s.connect(where, [&](ErrorOr<size_t> result)
+            {
+                if (!result)
+                    ec = result.error();
+                connected = !ec;
+                s.disconnect();
+            });
+
+            ioctx.run();
+            CHECK( ec == TransportErrc::success );
+            CHECK( connected );
+            CHECK( s.state() == SS::disconnected );
+        }
+
+        incidents.list.clear();
+    }
+
+    WHEN( "disconnecting during join" )
     {
         std::error_code ec;
         bool joined = false;
@@ -341,6 +454,42 @@ GIVEN( "a Session and a ConnectionWish" )
         CHECK( ec == MiscErrc::abandoned );
         CHECK( s.state() == SS::disconnected );
         CHECK( incidents.testIfEmptyThenClear() );
+    }
+
+    WHEN( "disconnecting gracefully during join" )
+    {
+        std::error_code ec;
+        bool joined = false;
+        ErrorOr<bool> disconnected;
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            try
+            {
+                s.connect(where, yield).value();
+                s.join(Petition(testRealm), yield).value();
+                joined = true;
+            }
+            catch (const error::Failure& e)
+            {
+                ec = e.code();
+            }
+        });
+
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            while (s.state() != SS::establishing)
+                suspendCoro(yield);
+            disconnected = s.disconnect(yield);
+        });
+
+        ioctx.run();
+        ioctx.restart();
+        CHECK_FALSE( joined );
+        CHECK( ec == MiscErrc::abandoned );
+        CHECK( s.state() == SS::disconnected );
+        CHECK( incidents.testIfEmptyThenClear() );
+        REQUIRE( disconnected.has_value() );
+        CHECK( disconnected.value() == true );
     }
 
     WHEN( "terminating during connect" )

@@ -87,7 +87,7 @@ enum class TransportState
 
 
 //------------------------------------------------------------------------------
-/** Interface class for transports. */
+/** Base class for transports. */
 //------------------------------------------------------------------------------
 class Transporting : public std::enable_shared_from_this<Transporting>
 {

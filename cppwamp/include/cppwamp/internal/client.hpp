@@ -879,8 +879,8 @@ private:
             {
                 auto& me = *self;
                 me.timer_.cancel();
-                me.clear();
                 me.complete(handler, done);
+                me.clear();
             }
         };
 
@@ -890,22 +890,28 @@ private:
                            s != S::disconnecting && s != S::failed;
         if (isConnected)
         {
-            timer_.expires_from_now(t);
-            std::weak_ptr<Client> self = shared_from_this();
-            timer_.async_wait(
-                [self](boost::system::error_code ec)
-                {
-                    auto me = self.lock();
-                    if (me)
-                        me->doDisconnect();
-                });
+            if (timeoutIsDefinite(t))
+            {
+                timer_.expires_from_now(t);
+                std::weak_ptr<Client> self = shared_from_this();
+                timer_.async_wait(
+                    [self](boost::system::error_code ec)
+                    {
+                        if (ec == boost::asio::error::operation_aborted)
+                            return;
+                        assert(!ec && "Unexpected timer error");
+                        auto me = self.lock();
+                        if (me)
+                            me->doDisconnect();
+                    });
+            }
             peer_->disconnectGracefully(Disconnected{shared_from_this(),
                                                      std::move(f)});
         }
         else
         {
             doDisconnect();
-            complete(f, makeUnexpectedError(MiscErrc::invalidState));
+            complete(f, false);
         }
     }
 

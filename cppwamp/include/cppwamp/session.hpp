@@ -823,8 +823,12 @@ Session::leave(
 //------------------------------------------------------------------------------
 /** @tparam C Callable handler with signature `void (ErrorOr<bool>)`, or a
               compatible Boost.Asio completion token.
-    @return true if the transport closed successfully.
-    @post `this->state() == SessionState::disconnecting` if successful */
+    @return `true` if the transport closed successfully, `false` if the
+            transport was not connected, or an error code if the close handshake
+            operation failed.
+    @post `this->state() == SessionState::disconnecting` if transitioning
+           from a state where the transport is connected, otherwise
+          `this->state() == SessionState::disconnected`. */
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN

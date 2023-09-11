@@ -902,6 +902,11 @@ TEST_CASE( "WAMP session using Websocket transport",
         s.unsubscribe(sub, yield).value();
 
         s.leave(yield).value();
+        bool disconnected = s.disconnect(yield).value();
+        CHECK(disconnected);
+
+        s.connect(wish, yield).value();
+        s.join(Petition{"cppwamp.test"}, yield).value();
         s.disconnect();
     });
 
