@@ -176,6 +176,34 @@ private:
         }
     }
 
+    void onDisconnectGracefully(State, DisconnectHandler handler) override
+    {
+        struct Closed
+        {
+            std::weak_ptr<NetworkPeer> self;
+            DisconnectHandler handler;
+
+            void operator()(ErrorOr<bool> done)
+            {
+                auto me = self.lock();
+                if (me)
+                    me->transport_.reset();
+                handler(done);
+            }
+        };
+
+        if (transport_)
+        {
+            auto self =
+                std::dynamic_pointer_cast<NetworkPeer>(shared_from_this());
+            transport_->close(Closed{self, std::move(handler)});
+        }
+        else
+        {
+            handler(false);
+        }
+    }
+
     void onTransportRx(const ErrorOr<MessageBuffer>& buffer,
                        std::size_t transportId)
     {
@@ -276,7 +304,10 @@ private:
         }
 
         // Discard new requests if we're shutting down.
-        if (state() == State::shuttingDown && !msg.isReply())
+        auto s = state();
+        bool isShuttingDown = s == State::shuttingDown ||
+                              s == State::disconnecting;
+        if (isShuttingDown && !msg.isReply())
             return;
 
         notifyMessage(msg);

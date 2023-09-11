@@ -135,7 +135,7 @@ public:
     using Socket         = typename NetProtocol::socket;
     using RxHandler      = typename Transporting::RxHandler;
     using TxErrorHandler = typename Transporting::TxErrorHandler;
-    using StopHandler    = typename Transporting::StopHandler;
+    using StopHandler    = typename Transporting::CloseHandler;
 
 protected:
     static std::error_code netErrorCodeToStandard(
@@ -470,7 +470,7 @@ public:
     using Socket        = typename TConfig::Traits::NetProtocol::socket;
     using Settings      = typename TConfig::Traits::ServerSettings;
     using AcceptHandler = Transporting::AcceptHandler;
-    using StopHandler   = Transporting::StopHandler;
+    using StopHandler   = Transporting::CloseHandler;
 
     static Ptr create(Socket&& s, const Settings& t, const CodecIdSet& c)
     {
@@ -627,7 +627,7 @@ private:
             Handshake::byteLengthOf(data_->maxTxLength),
             Handshake::byteLengthOf(data_->settings.maxRxLength())};
         Base::completeAccept(i);
-        Base::post(data_->handler, codecId);
+        Base::post(std::move(data_->handler), codecId);
         data_.reset();
     }
 
@@ -642,7 +642,7 @@ private:
     {
         if (!data_)
             return;
-        Base::post(data_->handler, makeUnexpected(ec));
+        Base::post(std::move(data_->handler), makeUnexpected(ec));
         shutdown();
     }
 

@@ -98,17 +98,17 @@ public:
     /// Shared pointer to a Transporting object.
     using Ptr = std::shared_ptr<Transporting>;
 
-    /// Handler type used for server handshake completion.
-    using AcceptHandler = std::function<void (ErrorOr<int> codecId)>;
-
     /// Handler type used for message received events.
     using RxHandler = std::function<void (ErrorOr<MessageBuffer>)>;
 
     /// Handler type used for transmission error events.
     using TxErrorHandler = std::function<void (std::error_code)>;
 
-    /// Handler type used for transport stop completion.
-    using StopHandler = std::function<void (ErrorOr<bool>)>;
+    /// Handler type used for server handshake completion.
+    using AcceptHandler = AnyCompletionHandler<void (ErrorOr<int> codecId)>;
+
+    /// Handler type used for transport close completion.
+    using CloseHandler = AnyCompletionHandler<void (ErrorOr<bool>)>;
 
     /** @name Non-copyable and non-movable. */
     /// @{
@@ -206,7 +206,7 @@ public:
         Emits `true` upon successful completion if the transport was
         handshaking, ready, or running. Emits `false` if the transport was
         not in a valid state to be closed. */
-    void close(StopHandler handler)
+    void close(CloseHandler handler)
     {
         switch (state_)
         {
@@ -290,7 +290,7 @@ protected:
     virtual void onSendNowAndStop(MessageBuffer message) = 0;
 
     /** Must be overriden to stop I/O operations and gracefully close. */
-    virtual void onClose(StopHandler handler)
+    virtual void onClose(CloseHandler handler)
     {
         onStop();
         post(std::move(handler), true);

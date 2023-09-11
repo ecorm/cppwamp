@@ -120,6 +120,13 @@ private:
         session_->disconnect();
     }
 
+    void onDisconnectGracefully(State previousState,
+                                DisconnectHandler handler) override
+    {
+        onDisconnect(previousState);
+        handler(true);
+    }
+
     ErrorOrDone send(Petition&& hello) override
     {
         assert(state() == State::establishing);

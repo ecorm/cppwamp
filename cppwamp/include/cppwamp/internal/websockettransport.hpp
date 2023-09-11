@@ -238,13 +238,13 @@ private:
             pinger_->stop();
     }
 
-    void onClose(StopHandler handler) override
+    void onClose(CloseHandler handler) override
     {
         doClose(boost::beast::websocket::normal, std::move(handler));
     }
 
     void doClose(boost::beast::websocket::close_code closeCode,
-                 StopHandler&& handler = nullptr)
+                 CloseHandler&& handler = nullptr)
     {
         rxHandler_ = nullptr;
         txErrorHandler_ = nullptr;
@@ -254,7 +254,7 @@ private:
         if (pinger_)
             pinger_->stop();
         if (!websocket_ && (handler != nullptr))
-            Base::post(handler, true);
+            Base::post(std::move(handler), true);
     }
 
     void onPong(boost::beast::string_view msg)
@@ -419,7 +419,7 @@ private:
     }
 
     void closeWebsocket(boost::beast::websocket::close_code reason,
-                        StopHandler&& handler = nullptr)
+                        CloseHandler&& handler = nullptr)
     {
         if (!websocket_)
             return;
@@ -428,7 +428,7 @@ private:
         struct Closed
         {
             Ptr self;
-            StopHandler handler;
+            CloseHandler handler;
 
             void operator()(boost::beast::error_code netEc)
             {
@@ -444,14 +444,14 @@ private:
                                 Closed{std::move(self), std::move(handler)});
     }
 
-    void onWebsocketClosed(std::error_code ec, StopHandler&& handler)
+    void onWebsocketClosed(std::error_code ec, CloseHandler&& handler)
     {
         websocket_->next_layer().close();
         if ((handler == nullptr))
             return;
         if (ec)
-            return Base::post(handler, makeUnexpected(ec));
-        Base::post(handler, true);
+            return Base::post(std::move(handler), makeUnexpected(ec));
+        Base::post(std::move(handler), true);
     }
 
     bool checkTxError(boost::system::error_code netEc)
@@ -743,7 +743,7 @@ private:
                               data_->settings.maxRxLength()};
 
         Base::assignWebsocket(std::move(data_->websocket), i);
-        Base::post(data_->handler, data_->codecId);
+        Base::post(std::move(data_->handler), data_->codecId);
         data_.reset();
     }
 
@@ -758,7 +758,7 @@ private:
     {
         if (!data_)
             return;
-        Base::post(data_->handler, makeUnexpected(ec));
+        Base::post(std::move(data_->handler), makeUnexpected(ec));
         shutdown();
     }
 

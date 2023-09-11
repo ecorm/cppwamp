@@ -219,6 +219,12 @@ CPPWAMP_INLINE void Session::doLeave(Reason&& r, Timeout t,
     impl_->leave(std::move(r), t, std::move(f));
 }
 
+CPPWAMP_INLINE void Session::doDisconnect(Timeout t,
+                                          CompletionHandler<bool>&& f)
+{
+    impl_->disconnect(t, std::move(f));
+}
+
 CPPWAMP_INLINE void Session::doSubscribe(Topic&& t, EventSlot&& s,
                                          CompletionHandler<Subscription>&& f)
 {

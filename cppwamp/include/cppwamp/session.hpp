@@ -243,7 +243,17 @@ public:
     CPPWAMP_NODISCARD Deduced<ErrorOr<Reason>, C>
     leave(Reason reason, Timeout timeout, C&& completion);
 
-    /** Disconnects the transport between the client and router. */
+    /** Gracefully closes the transport between the client and router. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<bool>, C>
+    disconnect(C&& completion);
+
+    /** Gracefully closes the transport using the given timeout duration. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<bool>, C>
+    disconnect(Timeout timeout, C&& completion);
+
+    /** Abruptly disconnects the transport between the client and router. */
     void disconnect();
 
     /** Terminates the transport connection between the client and router. */
@@ -369,6 +379,7 @@ private:
     struct ConnectOp;
     struct JoinOp;
     struct LeaveOp;
+    struct GracefulDisconnectOp;
     struct SubscribeOp;
     struct UnsubscribeOp;
     struct PublishOp;
@@ -396,6 +407,7 @@ private:
     void doJoin(Petition&& p, ChallengeSlot&& s,
                 CompletionHandler<Welcome>&& f);
     void doLeave(Reason&& reason, Timeout t, CompletionHandler<Reason>&& f);
+    void doDisconnect(Timeout t, CompletionHandler<bool>&& f);
     void doSubscribe(Topic&& t, EventSlot&& s,
                      CompletionHandler<Subscription>&& f);
     void doUnsubscribe(const Subscription& s, Timeout t,
@@ -450,6 +462,19 @@ struct Session::LeaveOp
     {
         self->doLeave(std::move(r), t,
                       self->bindFallbackExecutor(std::forward<F>(f)));
+    }
+};
+
+//------------------------------------------------------------------------------
+struct Session::GracefulDisconnectOp
+{
+    using ResultValue = bool;
+    Session* self;
+    Timeout t;
+
+    template <typename F> void operator()(F&& f)
+    {
+        self->doDisconnect(t, self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -793,6 +818,46 @@ Session::leave(
 {
     return initiate<LeaveOp>(std::forward<C>(completion), std::move(reason),
                              timeout);
+}
+
+//------------------------------------------------------------------------------
+/** @tparam C Callable handler with signature `void (ErrorOr<bool>)`, or a
+              compatible Boost.Asio completion token.
+    @return true if the transport closed successfully.
+    @post `this->state() == SessionState::disconnecting` if successful */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<Reason>, C>
+#else
+Session::template Deduced<ErrorOr<bool>, C>
+#endif
+Session::disconnect(
+    C&& completion ///< Completion handler or token.
+    )
+{
+    return initiate<GracefulDisconnectOp>(std::forward<C>(completion),
+                                          unspecifiedTimeout);
+}
+
+//------------------------------------------------------------------------------
+/** @tparam C Callable handler with signature `void (ErrorOr<bool>)`, or a
+              compatible Boost.Asio completion token.
+    @copydetails Session::disconnect(C&&) */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<Reason>, C>
+#else
+Session::template Deduced<ErrorOr<bool>, C>
+#endif
+Session::disconnect(
+    Timeout timeout, ///< Timeout duration.
+    C&& completion   ///< Completion handler or token.
+    )
+{
+    return initiate<GracefulDisconnectOp>(std::forward<C>(completion),
+                                          timeout);
 }
 
 //------------------------------------------------------------------------------

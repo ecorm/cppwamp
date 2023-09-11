@@ -15,6 +15,7 @@
 #include <type_traits>
 #include <utility>
 #include "../any.hpp"
+#include "../anyhandler.hpp"
 #include "../calleestreaming.hpp"
 #include "../callerstreaming.hpp"
 #include "../clientinfo.hpp"
@@ -40,6 +41,7 @@ class Peer : public std::enable_shared_from_this<Peer>
 public:
     using Ptr = std::shared_ptr<Peer>;
     using State = SessionState;
+    using DisconnectHandler = AnyCompletionHandler<void (ErrorOr<bool>)>;
 
     virtual ~Peer() = default;
 
@@ -104,6 +106,12 @@ public:
     {
         auto oldState = setState(State::disconnected);
         onDisconnect(oldState);
+    }
+
+    void disconnectGracefully(DisconnectHandler handler)
+    {
+        auto oldState = setState(State::disconnecting);
+        onDisconnectGracefully(oldState, std::move(handler));
     }
 
     void fail()
@@ -172,6 +180,9 @@ protected:
     virtual void onClose() = 0;
 
     virtual void onDisconnect(State previousState) = 0;
+
+    virtual void onDisconnectGracefully(State previousState,
+                                        DisconnectHandler handler) = 0;
 
     State setState(State s) {return state_.exchange(s);}
 

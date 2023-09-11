@@ -50,6 +50,7 @@ enum class SessionState
     authenticating, ///< WAMP authentication is in progress
     established,    ///< WAMP session is established
     shuttingDown,   ///< WAMP session is closing
+    disconnecting,  ///< Transport is gracefully disconnecting
     failed          ///< WAMP session or transport connection has failed
 };
 

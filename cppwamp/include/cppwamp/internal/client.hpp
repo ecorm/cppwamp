@@ -170,6 +170,19 @@ public:
         safelyDispatch<Dispatched>(std::move(r), t, std::move(f));
     }
 
+    void disconnect(Timeout t, CompletionHandler<bool>&& f) noexcept
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Timeout t;
+            CompletionHandler<bool> f;
+            void operator()() {self->doDisconnect(t, std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(t, std::move(f));
+    }
+
     // NOLINTNEXTLINE(bugprone-exception-escape)
     void disconnect() noexcept
     {
@@ -375,7 +388,7 @@ private:
           readership_(executor_),
           registry_(peer_.get(), executor_),
           requestor_(peer_.get(), strand_, executor_),
-          connectionTimer_(strand_)
+        timer_(strand_)
     {
         peer_->listen(this);
     }
@@ -669,7 +682,7 @@ private:
                     return;
 
                 auto& me = *locked;
-                me.connectionTimer_.cancel();
+                me.timer_.cancel();
                 if (me.isTerminating_)
                     return;
 
@@ -702,8 +715,8 @@ private:
         if (timeoutIsDefinite(timeout))
         {
             auto self = shared_from_this();
-            connectionTimer_.expires_after(timeout);
-            connectionTimer_.async_wait(
+            timer_.expires_after(timeout);
+            timer_.async_wait(
                 [self](boost::system::error_code ec)
                 {
                     if (!ec && self->currentConnector_ != nullptr)
@@ -855,9 +868,51 @@ private:
                 Requested{shared_from_this(), std::move(handler)});
     }
 
+    void doDisconnect(Timeout t, CompletionHandler<bool>&& f)
+    {
+        struct Disconnected
+        {
+            std::shared_ptr<Client> self;
+            CompletionHandler<bool> handler;
+
+            void operator()(ErrorOr<bool> done)
+            {
+                auto& me = *self;
+                me.timer_.cancel();
+                me.clear();
+                me.complete(handler, done);
+            }
+        };
+
+        using S = State;
+        auto s = state();
+        bool isConnected = s != S::disconnected && s != S::connecting &&
+                           s != S::disconnecting && s != S::failed;
+        if (isConnected)
+        {
+            timer_.expires_from_now(t);
+            std::weak_ptr<Client> self = shared_from_this();
+            timer_.async_wait(
+                [self](boost::system::error_code ec)
+                {
+                    auto me = self.lock();
+                    if (me)
+                        me->doDisconnect();
+                });
+            peer_->disconnectGracefully(Disconnected{shared_from_this(),
+                                                     std::move(f)});
+        }
+        else
+        {
+            doDisconnect();
+            complete(f, makeUnexpectedError(MiscErrc::invalidState));
+        }
+    }
+
     void doDisconnect()
     {
         auto oldState = state();
+        timer_.cancel();
         peer_->disconnect();
         if (oldState == State::connecting)
             currentConnector_->cancel();
@@ -1551,7 +1606,7 @@ private:
     Readership readership_;
     ProcedureRegistry registry_;
     Requestor requestor_;
-    boost::asio::steady_timer connectionTimer_;
+    boost::asio::steady_timer timer_;
     IncidentSlot incidentSlot_;
     ChallengeSlot challengeSlot_;
     Connecting::Ptr currentConnector_;
