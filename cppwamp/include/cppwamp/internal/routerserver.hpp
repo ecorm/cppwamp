@@ -690,14 +690,15 @@ private:
 
         if (sessions_.size() >= options_->connectionLimit())
         {
-            // TODO: Dispatch via Transport's executor!
             transport->shed(
                 options_->handshakeTimeout(),
-                [this, self, transport](ErrorOr<int> codecId)
-                {
-                    assert(!codecId.has_value());
-                    onRefusalCompleted(codecId.error());
-                });
+                boost::asio::bind_executor(
+                    strand_,
+                    [this, self, transport](ErrorOr<int> codecId)
+                    {
+                        assert(!codecId.has_value());
+                        onRefusalCompleted(codecId.error());
+                    }));
             return;
         }
 

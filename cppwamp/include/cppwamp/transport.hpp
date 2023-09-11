@@ -165,9 +165,18 @@ public:
         @copydetails Transporting::shed(AcceptHandler) */
     void shed(Timeout timeout, AcceptHandler handler)
     {
+        struct Dispatched
+        {
+            Ptr self;
+            Timeout timeout;
+            AcceptHandler handler;
+            void operator()() {self->onShed(timeout, std::move(handler));}
+        };
+
         assert(state_ == State::initial);
-        onShed(timeout, std::move(handler));
         state_ = State::shedding;
+        boost::asio::dispatch(Dispatched{shared_from_this(), timeout,
+                                         std::move(handler)});
     }
 
     /** Starts the transport's I/O operations.
