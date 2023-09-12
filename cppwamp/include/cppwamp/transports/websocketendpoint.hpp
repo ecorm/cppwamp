@@ -13,9 +13,8 @@
            options. */
 //------------------------------------------------------------------------------
 
-#include <cstdint>
-#include <string>
 #include "../api.hpp"
+#include "socketendpoint.hpp"
 #include "tcpprotocol.hpp"
 #include "websocketprotocol.hpp"
 
@@ -27,74 +26,51 @@ namespace wamp
     socket options. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API WebsocketEndpoint
+    : public SocketEndpoint<WebsocketEndpoint, Websocket, TcpOptions,
+                            std::size_t, 16*1024*1024>
 {
 public:
-    /// Transport protocol tag associated with these settings.
-    using Protocol = Websocket;
-
-    /// Numeric port type
-    using Port = uint_least16_t;
-
     /** Constructor taking a port number. */
-    explicit WebsocketEndpoint(Port port);
+    explicit WebsocketEndpoint(Port port)
+        : Base("", port)
+    {
+        mutableAcceptorOptions().withReuseAddress(true);
+    }
 
     /** Constructor taking an address string and a port number. */
-    WebsocketEndpoint(std::string address, unsigned short port);
+    WebsocketEndpoint(std::string address, unsigned short port)
+        : Base(std::move(address), port)
+    {
+        mutableAcceptorOptions().withReuseAddress(true);
+    }
 
     /** Specifies the custom agent string to use (default is
         Version::agentString). */
-    WebsocketEndpoint& withAgent(std::string agent);
-
-    /** Specifies the underlying TCP socket options to use. */
-    WebsocketEndpoint& withSocketOptions(TcpOptions options);
-
-    /** Specifies the socket options to use on the TCP acceptor socket. */
-    WebsocketEndpoint& withAcceptorOptions(TcpOptions options);
-
-    /** Specifies the maximum length permitted for incoming messages. */
-    WebsocketEndpoint& withMaxRxLength(std::size_t length);
-
-    /** Specifies the TCP acceptor's maximum number of pending connections. */
-    WebsocketEndpoint& withBacklogCapacity(int capacity);
-
-    /** Obtains the endpoint address. */
-    const std::string& address() const;
-
-    /** Obtains the the port number. */
-    Port port() const;
+    WebsocketEndpoint& withAgent(std::string agent)
+    {
+        agent_ = std::move(agent);
+        return *this;
+    }
 
     /** Obtains the custom agent string. */
-    const std::string& agent() const;
-
-    /** Obtains the transport options. */
-    const TcpOptions& socketOptions() const;
-
-    /** Obtains the acceptor socket options. */
-    const TcpOptions& acceptorOptions() const;
-
-    /** Obtains the specified maximum incoming message length. */
-    std::size_t maxRxLength() const;
-
-    /** Obtains the TCP acceptor's maximum number of pending connections. */
-    int backlogCapacity() const;
+    const std::string& agent() const {return agent_;}
 
     /** Generates a human-friendly string of the Websocket address/port. */
-    std::string label() const;
+    std::string label() const
+    {
+        auto portString = std::to_string(port());
+        if (address().empty())
+            return "Websocket Port " + portString;
+        return "Websocket " + address() + ':' + portString;
+    }
 
 private:
-    std::string address_;
+    using Base = SocketEndpoint<WebsocketEndpoint, Websocket, TcpOptions,
+                                std::size_t, 16*1024*1024>;
+
     std::string agent_;
-    TcpOptions socketOptions_;
-    TcpOptions acceptorOptions_;
-    std::size_t maxRxLength_ = 16*1024*1024;
-    int backlogCapacity_;
-    Port port_ = 0;
 };
 
 } // namespace wamp
-
-#ifndef CPPWAMP_COMPILED_LIB
-#include "../internal/websocketendpoint.inl.hpp"
-#endif
 
 #endif // CPPWAMP_TRANSPORTS_WEBSOCKETENDPOINT_HPP

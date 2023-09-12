@@ -52,7 +52,7 @@ public:
     }
 
     /** Obtains the path name. */
-    const std::string& pathName() const;
+    const std::string& address() const;
 
     /** Obtains the transport options. */
     const UdsOptions& socketOptions() const;

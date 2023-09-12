@@ -27,7 +27,7 @@ CPPWAMP_INLINE UdsHost& UdsHost::withMaxRxLength(RawsockMaxLength length)
     return *this;
 }
 
-CPPWAMP_INLINE const std::string& UdsHost::pathName() const
+CPPWAMP_INLINE const std::string& UdsHost::address() const
 {
     return pathName_;
 }

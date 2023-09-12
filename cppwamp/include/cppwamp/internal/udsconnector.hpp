@@ -30,7 +30,7 @@ public:
     template <typename F>
     void resolve(const Settings& settings, F&& callback)
     {
-        callback(boost::system::error_code{}, Result{settings.pathName()});
+        callback(boost::system::error_code{}, Result{settings.address()});
     }
 
     void cancel() {}

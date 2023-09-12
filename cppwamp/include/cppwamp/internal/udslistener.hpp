@@ -28,7 +28,7 @@ struct UdsListenerConfig
 
     static NetProtocol::endpoint makeEndpoint(const Settings& s)
     {
-        return {s.pathName()};
+        return {s.address()};
     }
 
     static std::error_code onFirstEstablish(const Settings& settings)
@@ -37,7 +37,7 @@ struct UdsListenerConfig
         if (settings.deletePathEnabled())
         {
             errno = 0;
-            auto result = std::remove(settings.pathName().c_str());
+            auto result = std::remove(settings.address().c_str());
             if (result != 0 && errno != 0 && errno != ENOENT)
                 ec = std::error_code{errno, std::generic_category()};
         }
@@ -46,7 +46,7 @@ struct UdsListenerConfig
 
     static void onDestruction(const Settings& settings)
     {
-        (void)std::remove(settings.pathName().c_str());
+        (void)std::remove(settings.address().c_str());
     }
 
     // https://stackoverflow.com/q/76955978/245265
