@@ -123,16 +123,30 @@ private:
         std::string host = settings_.hostName() + ':' +
                            std::to_string(ep.port());
 
-        // Set the User-Agent field of the handshake
-        using boost::beast::http::field;
-        setWebsocketHandshakeField(field::user_agent, Version::agentString());
+        // Set the User-Agent and Sec-WebSocket-Protocol fields of the
+        // upgrade request
+        struct Decorator
+        {
+            std::string agent;
+            std::string subprotocol;
 
-        // Set the Sec-WebSocket-Protocol field of the handshake to match
-        // the desired codec
+            void operator()(boost::beast::websocket::request_type& req)
+            {
+                using boost::beast::http::field;
+                req.set(field::user_agent, agent);
+                req.set(field::sec_websocket_protocol, subprotocol);
+            }
+        };
+
+        std::string agent = settings_.agent();
+        if (agent.empty())
+            agent = Version::agentString();
         const auto& subprotocol = subprotocolString(codecId_);
         assert(!subprotocol.empty());
-        setWebsocketHandshakeField(field::sec_websocket_protocol, subprotocol);
+        websocket_->set_option(boost::beast::websocket::stream_base::decorator(
+            Decorator{std::move(agent), subprotocol}));
 
+        // Perform the handshake
         auto self = shared_from_this();
         websocket_->async_handshake(
             response_, host, settings_.target(),

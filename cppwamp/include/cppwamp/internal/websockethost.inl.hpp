@@ -29,6 +29,12 @@ CPPWAMP_INLINE WebsocketHost& WebsocketHost::withTarget(std::string target)
     return *this;
 }
 
+CPPWAMP_INLINE WebsocketHost& WebsocketHost::withAgent(std::string agent)
+{
+    agent_ = std::move(agent);
+    return *this;
+}
+
 CPPWAMP_INLINE WebsocketHost& WebsocketHost::withSocketOptions(TcpOptions options)
 {
     socketOptions_ = std::move(options);
@@ -67,6 +73,11 @@ CPPWAMP_INLINE const std::string& WebsocketHost::serviceName() const
 CPPWAMP_INLINE const std::string& WebsocketHost::target() const
 {
     return target_;
+}
+
+CPPWAMP_INLINE const std::string& WebsocketHost::agent() const
+{
+    return agent_;
 }
 
 CPPWAMP_INLINE const TcpOptions& WebsocketHost::socketOptions() const

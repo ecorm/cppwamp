@@ -113,6 +113,9 @@ public:
         and disconnect the session. */
     Petition& withTimeout(Timeout timeout);
 
+    /** Specifies the agent string to use. */
+    Petition& withAgent(String agent);
+
     /** Obtains the joining operation timeout duration. */
     Timeout timeout() const;
 

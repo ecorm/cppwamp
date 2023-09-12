@@ -121,6 +121,14 @@ CPPWAMP_INLINE Petition& Petition::withTimeout(Timeout timeout)
     return *this;
 }
 
+/** Version::agentString is used by default if no agent string is specified.
+    @note The transport's agent string, if applicable, is set independently
+          via the transport's endpoint settings. */
+CPPWAMP_INLINE Petition& Petition::withAgent(String agent)
+{
+    return this->withOption("agent", std::move(agent));
+}
+
 CPPWAMP_INLINE Timeout Petition::timeout() const {return timeout_;}
 
 CPPWAMP_INLINE const Uri& Petition::uri() const

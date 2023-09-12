@@ -23,7 +23,8 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** Contains Websocket host address information, as well as other socket options. */
+/** Contains Websocket host address information, as well as other
+    socket options. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API WebsocketEndpoint
 {

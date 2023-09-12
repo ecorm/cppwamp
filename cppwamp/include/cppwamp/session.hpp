@@ -39,7 +39,6 @@
 #include "wampdefs.hpp"
 
 // TODO: Default completion token
-// TODO: User-defined agent string
 
 namespace wamp
 {

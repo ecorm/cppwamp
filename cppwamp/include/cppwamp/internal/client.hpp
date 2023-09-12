@@ -767,7 +767,7 @@ private:
         }
     }
 
-    void doJoin(Petition&& realm, ChallengeSlot onChallenge,
+    void doJoin(Petition&& petition, ChallengeSlot onChallenge,
                 CompletionHandler<Welcome>&& handler)
     {
         struct Requested
@@ -800,13 +800,14 @@ private:
         if (!peer_->establishSession())
             return postErrorToHandler(MiscErrc::invalidState, handler);
 
-        realm.withOption("agent", Version::agentString())
-             .withOption("roles", ClientFeatures::providedRoles());
+        if (!petition.hasOption("agent"))
+            petition.withOption("agent", Version::agentString());
+        petition.withOption("roles", ClientFeatures::providedRoles());
         challengeSlot_ = std::move(onChallenge);
-        Requested requested{shared_from_this(), std::move(handler), realm.uri(),
-                            realm.abortReason({})};
-        auto timeout = timeoutOrFallback(realm.timeout());
-        request(std::move(realm), timeout, std::move(requested));
+        Requested requested{shared_from_this(), std::move(handler),
+                            petition.uri(), petition.abortReason({})};
+        auto timeout = timeoutOrFallback(petition.timeout());
+        request(std::move(petition), timeout, std::move(requested));
     }
 
     void doAuthenticate(Authentication&& auth)

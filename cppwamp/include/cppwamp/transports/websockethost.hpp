@@ -24,7 +24,8 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** Contains Websocket host address information, as well as other socket options.
+/** Contains Websocket host address information, as well as other
+    socket options.
     Meets the requirements of @ref TransportSettings.
     @see ConnectionWish */
 //------------------------------------------------------------------------------
@@ -42,6 +43,10 @@ public:
 
     /** Specifies the request-target (default is "/"). */
     WebsocketHost& withTarget(std::string target);
+
+    /** Specifies the custom agent string to use (default is
+        Version::agentString). */
+    WebsocketHost& withAgent(std::string agent);
 
     /** Specifies the underlying TCP socket options to use. */
     WebsocketHost& withSocketOptions(TcpOptions options);
@@ -81,6 +86,9 @@ public:
     /** Obtains the request-target. */
     const std::string& target() const;
 
+    /** Obtains the custom agent string to use. */
+    const std::string& agent() const;
+
     /** Obtains the underlying TCP socket options. */
     const TcpOptions& socketOptions() const;
 
@@ -98,6 +106,7 @@ private:
     std::string hostName_;
     std::string serviceName_;
     std::string target_ = "/";
+    std::string agent_;
     TcpOptions socketOptions_;
     Timeout heartbeatInterval_ = unspecifiedTimeout;
     Timeout abortTimeout_ = unspecifiedTimeout;
