@@ -604,8 +604,11 @@ private:
               codecIds(c),
               settings(s)
         {
+            std::string agent = s.agent();
+            if (agent.empty())
+                agent = Version::agentString();
             response.base().set(boost::beast::http::field::server,
-                                Version::agentString());
+                                std::move(agent));
         }
 
         TcpSocket tcpSocket;
@@ -622,12 +625,13 @@ private:
 
     struct Decorator
     {
+        std::string agent;
         std::string subprotocol;
 
         void operator()(boost::beast::http::response_header<>& header)
         {
             using boost::beast::http::field;
-            header.set(field::server, Version::agentString());
+            header.set(field::server, agent);
             header.set(field::sec_websocket_protocol, subprotocol);
         }
     };
@@ -743,8 +747,11 @@ private:
 
         // Set the Server and Sec-WebsocketSocket-Protocol fields of
         // the handshake
+        std::string agent = data_->settings.agent();
+        if (agent.empty())
+            agent = Version::agentString();
         ws.set_option(boost::beast::websocket::stream_base::decorator(
-            Decorator{subprotocol}));
+            Decorator{std::move(agent), subprotocol}));
 
         // Complete the handshake
         auto self = shared_from_this();

@@ -27,6 +27,13 @@ CPPWAMP_INLINE WebsocketEndpoint::WebsocketEndpoint(std::string address,
 }
 
 CPPWAMP_INLINE WebsocketEndpoint&
+WebsocketEndpoint::withAgent(std::string agent)
+{
+    agent_ = std::move(agent);
+    return *this;
+}
+
+CPPWAMP_INLINE WebsocketEndpoint&
 WebsocketEndpoint::withSocketOptions(TcpOptions options)
 {
     socketOptions_ = std::move(options);
@@ -63,6 +70,11 @@ CPPWAMP_INLINE const std::string& WebsocketEndpoint::address() const
 CPPWAMP_INLINE WebsocketEndpoint::Port WebsocketEndpoint::port() const
 {
     return port_;
+}
+
+CPPWAMP_INLINE const std::string& WebsocketEndpoint::agent() const
+{
+    return agent_;
 }
 
 CPPWAMP_INLINE const TcpOptions& WebsocketEndpoint::socketOptions() const

@@ -117,6 +117,12 @@ ServerOptions::withAuthenticator(Authenticator::Ptr a)
     return *this;
 }
 
+CPPWAMP_INLINE ServerOptions& ServerOptions::withAgent(String agent)
+{
+    agent_ = std::move(agent);
+    return *this;
+}
+
 CPPWAMP_INLINE ServerOptions&
 ServerOptions::withConnectionLimit(std::size_t limit)
 {
@@ -160,6 +166,8 @@ CPPWAMP_INLINE Authenticator::Ptr ServerOptions::authenticator() const
 {
     return authenticator_;
 }
+
+CPPWAMP_INLINE const String& ServerOptions::agent() const {return agent_;}
 
 CPPWAMP_INLINE std::size_t ServerOptions::connectionLimit() const
 {

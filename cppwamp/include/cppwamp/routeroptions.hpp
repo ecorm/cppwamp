@@ -129,6 +129,8 @@ public:
                                  std::forward<E>(executor));
     }
 
+    ServerOptions& withAgent(String agent);
+
     ServerOptions& withConnectionLimit(std::size_t limit);
 
     ServerOptions& withTransportHandshakeTimeout(Timeout timeout);
@@ -143,6 +145,8 @@ public:
 
     Authenticator::Ptr authenticator() const;
 
+    const String& agent() const;
+
     std::size_t connectionLimit() const;
 
     Timeout transporthandshakeTimeout() const;
@@ -155,6 +159,7 @@ public:
 
 private:
     String name_;
+    String agent_;
     ListenerBuilder listenerBuilder_;
     BufferCodecFactory codecFactory_;
     Authenticator::Ptr authenticator_;

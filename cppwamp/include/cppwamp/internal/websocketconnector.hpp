@@ -69,6 +69,19 @@ public:
 private:
     using tcp = boost::asio::ip::tcp;
 
+    struct Decorator
+    {
+        std::string agent;
+        std::string subprotocol;
+
+        void operator()(boost::beast::websocket::request_type& req)
+        {
+            using boost::beast::http::field;
+            req.set(field::user_agent, agent);
+            req.set(field::sec_websocket_protocol, subprotocol);
+        }
+    };
+
     static const std::string& subprotocolString(int codecId)
     {
         static const std::array<std::string, KnownCodecIds::count() + 1> ids =
@@ -125,19 +138,6 @@ private:
 
         // Set the User-Agent and Sec-WebSocket-Protocol fields of the
         // upgrade request
-        struct Decorator
-        {
-            std::string agent;
-            std::string subprotocol;
-
-            void operator()(boost::beast::websocket::request_type& req)
-            {
-                using boost::beast::http::field;
-                req.set(field::user_agent, agent);
-                req.set(field::sec_websocket_protocol, subprotocol);
-            }
-        };
-
         std::string agent = settings_.agent();
         if (agent.empty())
             agent = Version::agentString();
@@ -161,26 +161,6 @@ private:
                 if (check(netEc))
                     complete();
             });
-    }
-
-    template <typename T>
-    void setWebsocketHandshakeField(boost::beast::http::field field, T&& value)
-    {
-        namespace websocket = boost::beast::websocket;
-
-        struct Decorator
-        {
-            ValueTypeOf<T> value;
-            boost::beast::http::field field;
-
-            void operator()(websocket::request_type& req)
-            {
-                req.set(field, std::move(value));
-            }
-        };
-
-        websocket_->set_option(websocket::stream_base::decorator(
-            Decorator{std::forward<T>(value), field}));
     }
 
     void complete()

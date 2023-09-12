@@ -41,6 +41,10 @@ public:
     /** Constructor taking an address string and a port number. */
     WebsocketEndpoint(std::string address, unsigned short port);
 
+    /** Specifies the custom agent string to use (default is
+        Version::agentString). */
+    WebsocketEndpoint& withAgent(std::string agent);
+
     /** Specifies the underlying TCP socket options to use. */
     WebsocketEndpoint& withSocketOptions(TcpOptions options);
 
@@ -59,6 +63,9 @@ public:
     /** Obtains the the port number. */
     Port port() const;
 
+    /** Obtains the custom agent string. */
+    const std::string& agent() const;
+
     /** Obtains the transport options. */
     const TcpOptions& socketOptions() const;
 
@@ -76,6 +83,7 @@ public:
 
 private:
     std::string address_;
+    std::string agent_;
     TcpOptions socketOptions_;
     TcpOptions acceptorOptions_;
     std::size_t maxRxLength_ = 16*1024*1024;
