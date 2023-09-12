@@ -198,16 +198,21 @@ public:
             onSend(std::move(message));
     }
 
-    // TODO: Handler
-    /** Sends the given serialized message, placing it at the top of the queue,
-        then gracefully closes the underlying socket.
+    /** Set the post-abort closing handshake timeout period. */
+    void setAbortTimeout(Timeout abortTimeout)
+    {
+        onSetAbortTimeout(abortTimeout);
+    }
+
+    /** Sends the given serialized ABORT message, placing it at the top of the
+        queue, then gracefully closes the underlying socket.
         @pre this->state() != TransportState::initial
         @post this->state() == TransportState::stopped */
-    void sendNowAndClose(MessageBuffer message)
+    void sendAbort(MessageBuffer abortMessage)
     {
         assert(state_ != TransportState::initial);
         if (state_ == State::running)
-            onSendNowAndStop(std::move(message));
+            onSendAbort(std::move(abortMessage));
         state_ = State::stopped;
     }
 
@@ -294,11 +299,15 @@ protected:
     /** Must be overridden to send the given serialized message. */
     virtual void onSend(MessageBuffer message) = 0;
 
-    /** Must be overriden to send the given serialized message ASAP and then
-        disconnect. */
-    virtual void onSendNowAndStop(MessageBuffer message) = 0;
+    /** May be overriden to set the post-abort closing handshake
+        timeout period. */
+    virtual void onSetAbortTimeout(Timeout) {}
 
-    /** Must be overriden to stop I/O operations and gracefully close. */
+    /** Must be overriden to send the given serialized ABORT message ASAP and
+        then close gracefully. */
+    virtual void onSendAbort(MessageBuffer abortMessage) = 0;
+
+    /** May be overriden to stop I/O operations and gracefully close. */
     virtual void onClose(CloseHandler handler)
     {
         onStop();

@@ -48,6 +48,12 @@ WebsocketHost::withHearbeatInterval(Timeout interval)
     return *this;
 }
 
+CPPWAMP_INLINE WebsocketHost& WebsocketHost::withAbortTimeout(Timeout timeout)
+{
+    abortTimeout_ = timeout;
+    return *this;
+}
+
 CPPWAMP_INLINE const std::string& WebsocketHost::hostName() const
 {
     return hostName_;
@@ -76,6 +82,11 @@ CPPWAMP_INLINE std::size_t WebsocketHost::maxRxLength() const
 CPPWAMP_INLINE Timeout WebsocketHost::heartbeatInterval() const
 {
     return heartbeatInterval_;
+}
+
+CPPWAMP_INLINE Timeout WebsocketHost::abortTimeout() const
+{
+    return abortTimeout_;
 }
 
 } // namespace wamp

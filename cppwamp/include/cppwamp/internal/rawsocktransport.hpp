@@ -192,7 +192,7 @@ private:
         sendFrame(std::move(buf));
     }
 
-    void onSendNowAndStop(MessageBuffer message) override
+    void onSendAbort(MessageBuffer message) override
     {
         if (!socket_.is_open())
             return;
@@ -445,19 +445,20 @@ template <typename TConfig>
 class RawsockClientTransport : public RawsockTransport<TConfig>
 {
 public:
-    using Ptr    = std::shared_ptr<RawsockClientTransport>;
-    using Socket = typename TConfig::Traits::NetProtocol::socket;
+    using Ptr      = std::shared_ptr<RawsockClientTransport>;
+    using Socket   = typename TConfig::Traits::NetProtocol::socket;
+    using Settings = typename TConfig::Traits::ClientSettings;
 
-    static Ptr create(Socket&& s, TransportInfo i)
+    static Ptr create(Socket&& s, const Settings&, TransportInfo t)
     {
-        return Ptr(new RawsockClientTransport(std::move(s), i));
+        return Ptr(new RawsockClientTransport(std::move(s), t));
     }
 
 private:
     using Base = RawsockTransport<TConfig>;
 
-    RawsockClientTransport(Socket&& s, TransportInfo info)
-        : Base(std::move(s), info)
+    RawsockClientTransport(Socket&& s, TransportInfo t)
+        : Base(std::move(s), t)
     {}
 };
 

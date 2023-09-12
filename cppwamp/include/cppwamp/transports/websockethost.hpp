@@ -52,6 +52,10 @@ public:
     /** Enables keep-alive PING messages with the given interval. */
     WebsocketHost& withHearbeatInterval(Timeout interval);
 
+    /** Specifies the maximum duration to wait for the router to complete
+        the closing Websocket handshake after an ABORT message is sent. */
+    WebsocketHost& withAbortTimeout(Timeout interval);
+
     /** Couples a serialization format with these transport settings to
         produce a ConnectionWish that can be passed to Session::connect. */
     template <typename F, CPPWAMP_NEEDS(IsCodecFormat<F>::value) = 0>
@@ -86,12 +90,17 @@ public:
     /** Obtains the keep-alive PING message interval. */
     Timeout heartbeatInterval() const;
 
+    /** Obtains the Websocket handshake completion timeout period after
+        an ABORT message is sent. */
+    Timeout abortTimeout() const;
+
 private:
     std::string hostName_;
     std::string serviceName_;
     std::string target_ = "/";
     TcpOptions socketOptions_;
     Timeout heartbeatInterval_ = unspecifiedTimeout;
+    Timeout abortTimeout_ = unspecifiedTimeout;
     std::size_t maxRxLength_ = 16*1024*1024;
 };
 

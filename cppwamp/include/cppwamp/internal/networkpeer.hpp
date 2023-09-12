@@ -103,7 +103,7 @@ public:
 
         traceTx(msg);
         setState(State::failed);
-        transport_->sendNowAndClose(std::move(buffer));
+        transport_->sendAbort(std::move(buffer));
         if (!fits)
             return makeUnexpectedError(WampErrc::payloadSizeExceeded);
         return true;

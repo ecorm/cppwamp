@@ -23,6 +23,7 @@
 #include "../transport.hpp"
 #include "../version.hpp"
 #include "../transports/websocketendpoint.hpp"
+#include "../transports/websockethost.hpp"
 #include "../transports/websocketprotocol.hpp"
 #include "pinger.hpp"
 
@@ -112,6 +113,7 @@ protected:
         : Base(boost::asio::make_strand(ws->get_executor()),
                makeConnectionInfo(ws->next_layer()),
                info),
+          timer_(Base::strand()),
           websocket_(std::move(ws))
     {
         if (timeoutIsDefinite(Base::info().heartbeatInterval()))
@@ -121,13 +123,21 @@ protected:
     // Constructor for server transports
     WebsocketTransport(TcpSocket& tcp)
         : Base(boost::asio::make_strand(tcp.get_executor()),
-               makeConnectionInfo(tcp))
+               makeConnectionInfo(tcp)),
+          timer_(Base::strand())
     {}
 
     void assignWebsocket(WebsocketPtr&& ws, TransportInfo i)
     {
         websocket_ = std::move(ws);
         Base::completeAccept(i);
+    }
+
+    template <typename F>
+    void timeoutAfter(Timeout timeout, F&& action)
+    {
+        timer_.expires_from_now(timeout);
+        timer_.async_wait(std::forward<F>(action));
     }
 
 private:
@@ -215,7 +225,12 @@ private:
         sendFrame(std::move(buf));
     }
 
-    void onSendNowAndStop(MessageBuffer message) override
+    void onSetAbortTimeout(Timeout timeout) override
+    {
+        abortTimeout_ = timeout;
+    }
+
+    void onSendAbort(MessageBuffer message) override
     {
         if (!websocket_)
             return;
@@ -345,10 +360,38 @@ private:
                 if (!checkTxError(netEc))
                     return;
                 if (frame && frame->isPoisoned())
-                    doClose(boost::beast::websocket::going_away);
+                    postAbortClose();
                 else
                     transmit();
             });
+    }
+
+    void postAbortClose()
+    {
+        static constexpr auto closeCode = boost::beast::websocket::going_away;
+
+        if (!timeoutIsDefinite(abortTimeout_))
+            return doClose(closeCode);
+
+        auto self = this->shared_from_this();
+        std::weak_ptr<WebsocketTransport> weakSelf =
+            std::dynamic_pointer_cast<WebsocketTransport>(self);
+
+        timer_.expires_after(abortTimeout_);
+        timer_.async_wait([weakSelf](boost::system::error_code ec)
+        {
+            if (ec == boost::asio::error::operation_aborted)
+                return;
+
+            auto self = weakSelf.lock();
+            if (!self)
+                return;
+
+            if (self->websocket_)
+                self->websocket_->next_layer().close();
+        });
+
+        doClose(closeCode, [this, self](ErrorOr<bool>) {timer_.cancel();});
     }
 
     bool isReadyToTransmit() const
@@ -439,7 +482,6 @@ private:
 
         auto self =
             std::dynamic_pointer_cast<WebsocketTransport>(shared_from_this());
-        // TODO: Timeout
         websocket_->async_close(reason,
                                 Closed{std::move(self), std::move(handler)});
     }
@@ -502,6 +544,7 @@ private:
         pinger_.reset();
     }
 
+    boost::asio::steady_timer timer_;
     WebsocketPtr websocket_;
     RxHandler rxHandler_;
     TxErrorHandler txErrorHandler_;
@@ -511,6 +554,7 @@ private:
     WebsocketFrame::Ptr txFrame_;
     WebsocketFrame::Ptr pingFrame_;
     std::shared_ptr<Pinger> pinger_;
+    Timeout abortTimeout_;
 };
 
 //------------------------------------------------------------------------------
@@ -518,18 +562,22 @@ class WebsocketClientTransport : public WebsocketTransport
 {
 public:
     using Ptr = std::shared_ptr<WebsocketClientTransport>;
+    using Settings = WebsocketHost;
 
-    static Ptr create(WebsocketPtr&& s, TransportInfo i)
+    static Ptr create(WebsocketPtr&& w, const Settings& s, TransportInfo i)
     {
-        return Ptr(new WebsocketClientTransport(std::move(s), i));
+        return Ptr(new WebsocketClientTransport(std::move(w), s, i));
     }
 
 private:
     using Base = WebsocketTransport;
 
-    WebsocketClientTransport(WebsocketPtr&& s, TransportInfo info)
-        : Base(std::move(s), info)
-    {}
+    WebsocketClientTransport(WebsocketPtr&& w, const Settings& s,
+                             TransportInfo info)
+        : Base(std::move(w), info)
+    {
+        Base::setAbortTimeout(s.abortTimeout());
+    }
 };
 
 //------------------------------------------------------------------------------
@@ -553,7 +601,6 @@ private:
     {
         Data(TcpSocket&& t, const Settings& s, const CodecIdSet& c)
             : tcpSocket(std::move(t)),
-              timer(tcpSocket.get_executor()),
               codecIds(c),
               settings(s)
         {
@@ -562,7 +609,6 @@ private:
         }
 
         TcpSocket tcpSocket;
-        boost::asio::steady_timer timer;
         CodecIdSet codecIds;
         WebsocketEndpoint settings;
         AcceptHandler handler;
@@ -617,8 +663,8 @@ private:
 
         if (timeoutIsDefinite(timeout))
         {
-            data_->timer.expires_after(timeout);
-            data_->timer.async_wait(
+            Base::timeoutAfter(
+                timeout,
                 [this, self](boost::system::error_code ec) {onTimeout(ec);});
         }
 

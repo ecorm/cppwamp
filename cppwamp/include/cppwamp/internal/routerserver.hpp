@@ -154,6 +154,8 @@ public:
         info.setServer({}, serverOptions_->name(), k);
         Base::connect(std::move(info));
         peer_->listen(this);
+        transport_->setAbortTimeout(
+            serverOptions_->transporthandshakeTimeout());
     }
 
     ~ServerSession() override = default;
@@ -328,7 +330,7 @@ private:
 
         const std::weak_ptr<ServerSession> self = shared_from_this();
         transport_->accept(
-            serverOptions_->handshakeTimeout(),
+            serverOptions_->transporthandshakeTimeout(),
             [self](ErrorOr<int> codecId)
             {
                 auto me = self.lock();
@@ -691,7 +693,7 @@ private:
         if (sessions_.size() >= options_->connectionLimit())
         {
             transport->shed(
-                options_->handshakeTimeout(),
+                options_->transporthandshakeTimeout(),
                 boost::asio::bind_executor(
                     strand_,
                     [this, self, transport](ErrorOr<int> codecId)

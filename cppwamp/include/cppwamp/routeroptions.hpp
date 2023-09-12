@@ -24,6 +24,10 @@
     - Unjoined time limit
 */
 
+/* Other options wishlist
+    - Telemetry at server and realm levels
+*/
+
 #include <limits>
 #include <memory>
 #include <utility>
@@ -127,7 +131,7 @@ public:
 
     ServerOptions& withConnectionLimit(std::size_t limit);
 
-    ServerOptions& withHandshakeTimeout(Timeout timeout);
+    ServerOptions& withTransportHandshakeTimeout(Timeout timeout);
 
     ServerOptions& withChallengeTimeout(Timeout timeout);
 
@@ -141,7 +145,7 @@ public:
 
     std::size_t connectionLimit() const;
 
-    Timeout handshakeTimeout() const;
+    Timeout transporthandshakeTimeout() const;
 
     Timeout challengeTimeout() const;
 
@@ -155,7 +159,7 @@ private:
     BufferCodecFactory codecFactory_;
     Authenticator::Ptr authenticator_;
     std::size_t connectionLimit_ = std::numeric_limits<std::size_t>::max();
-    Timeout handshakeTimeout_ = unspecifiedTimeout;
+    Timeout transportHandshakeTimeout_ = unspecifiedTimeout;
     Timeout challengeTimeout_ = unspecifiedTimeout;
     Timeout overloadCooldown_ = unspecifiedTimeout;
     Timeout outageCooldown_ = unspecifiedTimeout;

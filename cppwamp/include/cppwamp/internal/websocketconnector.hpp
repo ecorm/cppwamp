@@ -183,7 +183,7 @@ private:
                               settings_.maxRxLength(),
                               settings_.heartbeatInterval()};
         Transporting::Ptr transport{Transport::create(std::move(websocket_),
-                                                      i)};
+                                                      settings_, i)};
         websocket_.reset();
         dispatchHandler(std::move(transport));
     }
