@@ -13,5 +13,4 @@
 #include <cppwamp/internal/http.inl.hpp>
 #include <cppwamp/internal/httpendpoint.inl.hpp>
 #include <cppwamp/internal/websocket.inl.hpp>
-#include <cppwamp/internal/websockethost.inl.hpp>
 #include <cppwamp/internal/websocketprotocol.inl.hpp>

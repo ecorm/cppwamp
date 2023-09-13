@@ -9,11 +9,13 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains facilities for specifying server parameters and options. */
+    @brief Contains facilities for specifying server socket parameters and
+           options. */
 //------------------------------------------------------------------------------
 
 #include <cstdint>
 #include <string>
+#include <utility>
 #include "../exceptions.hpp"
 
 namespace wamp

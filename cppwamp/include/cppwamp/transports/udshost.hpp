@@ -9,15 +9,14 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains facilities for specifying Unix domain socket
+    @brief Contains facilities for specifying Unix domain socket client
            transport parameters and options. */
 //------------------------------------------------------------------------------
 
-#include <string>
 #include "../api.hpp"
-#include "../connector.hpp"
 #include "../rawsockoptions.hpp"
 #include "udsprotocol.hpp"
+#include "sockethost.hpp"
 
 namespace wamp
 {
@@ -29,50 +28,21 @@ namespace wamp
     @see ConnectionWish */
 //------------------------------------------------------------------------------
 class CPPWAMP_API UdsHost
+    : public SocketHost<UdsHost, Uds, UdsOptions, RawsockMaxLength,
+                        RawsockMaxLength::MB_16>
 {
 public:
-    /// Transport protocol tag associated with these settings.
-    using Protocol = Uds;
-
     /** Constructor taking a path name. */
-    explicit UdsHost(std::string pathName);
-
-    /** Specifies the socket options to use. */
-    UdsHost& withSocketOptions(UdsOptions options);
-
-    /** Specifies the maximum length permitted for incoming messages. */
-    UdsHost& withMaxRxLength(RawsockMaxLength length);
-
-    /** Couples a serialization format with these transport settings to
-        produce a ConnectionWish that can be passed to Session::connect. */
-    template <typename TFormat>
-    ConnectionWish withFormat(TFormat) const
-    {
-        return ConnectionWish{*this, TFormat{}};
-    }
-
-    /** Obtains the path name. */
-    const std::string& address() const;
-
-    /** Obtains the transport options. */
-    const UdsOptions& socketOptions() const;
-
-    /** Obtains the specified maximum incoming message length. */
-    RawsockMaxLength maxRxLength() const;
-
-    /** Generates a human-friendly string of the UDS path. */
-    std::string label() const;
+    explicit UdsHost(std::string pathName)
+        : Base(std::move(pathName), "")
+    {}
 
 private:
-    std::string pathName_;
-    UdsOptions options_;
-    RawsockMaxLength maxRxLength_ = RawsockMaxLength::MB_16;
+    using Base = SocketHost<UdsHost, Uds, UdsOptions, RawsockMaxLength,
+                            RawsockMaxLength::MB_16>;
+    using Base::serviceName;
 };
 
 } // namespace wamp
-
-#ifndef CPPWAMP_COMPILED_LIB
-#include "../internal/udshost.inl.hpp"
-#endif
 
 #endif // CPPWAMP_TRANSPORTS_UDSHOST_HPP

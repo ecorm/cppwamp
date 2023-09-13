@@ -34,7 +34,7 @@ public:
     {
         // RawsockConnector will keep this TcpResolver object alive until
         // completion.
-        resolver_.async_resolve(settings.hostName(), settings.serviceName(),
+        resolver_.async_resolve(settings.address(), settings.serviceName(),
                                 std::forward<F>(callback));
     }
 

@@ -47,7 +47,6 @@
 #include <cppwamp/internal/streamlogger.inl.hpp>
 #include <cppwamp/internal/subscription.inl.hpp>
 #include <cppwamp/internal/tcp.inl.hpp>
-#include <cppwamp/internal/tcphost.inl.hpp>
 #include <cppwamp/internal/tcpprotocol.inl.hpp>
 #include <cppwamp/internal/variant.inl.hpp>
 #include <cppwamp/internal/version.inl.hpp>
@@ -55,6 +54,5 @@
 
 #ifdef CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
     #include <cppwamp/internal/uds.inl.hpp>
-    #include <cppwamp/internal/udshost.inl.hpp>
     #include <cppwamp/internal/udsprotocol.inl.hpp>
 #endif

@@ -9,114 +9,81 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains facilities for specifying Websocket transport parameters and
-           options. */
+    @brief Contains facilities for specifying Websocket client transport
+           parameters and options. */
 //------------------------------------------------------------------------------
 
-#include <string>
 #include "../api.hpp"
-#include "../connector.hpp"
-#include "../timeout.hpp"
 #include "tcpprotocol.hpp"
 #include "websocketprotocol.hpp"
+#include "sockethost.hpp"
 
 namespace wamp
 {
 
 //------------------------------------------------------------------------------
 /** Contains Websocket host address information, as well as other
-    socket options.
+    socket options for a client connection.
     Meets the requirements of @ref TransportSettings.
     @see ConnectionWish */
 //------------------------------------------------------------------------------
 class CPPWAMP_API WebsocketHost
+    : public SocketHost<WebsocketHost, Websocket, TcpOptions, std::size_t,
+                        16*1024*1024>
 {
 public:
-    /// Transport protocol tag associated with these settings.
-    using Protocol = Websocket;
-
     /** Constructor taking an URL/IP and a service string. */
-    WebsocketHost(std::string hostName, std::string serviceName);
+    WebsocketHost(std::string address, std::string serviceName)
+        : Base(std::move(address), std::move(serviceName))
+    {}
 
     /** Constructor taking an URL/IP and a numeric port number. */
-    WebsocketHost(std::string hostName, unsigned short port);
+    WebsocketHost(std::string address, Port port)
+        : WebsocketHost(std::move(address), std::to_string(port))
+    {}
 
     /** Specifies the request-target (default is "/"). */
-    WebsocketHost& withTarget(std::string target);
+    WebsocketHost& withTarget(std::string target)
+    {
+        target_ = std::move(target);
+        return *this;
+    }
 
     /** Specifies the custom agent string to use (default is
         Version::agentString). */
-    WebsocketHost& withAgent(std::string agent);
-
-    /** Specifies the underlying TCP socket options to use. */
-    WebsocketHost& withSocketOptions(TcpOptions options);
-
-    /** Specifies the maximum length permitted for incoming messages. */
-    WebsocketHost& withMaxRxLength(std::size_t length);
-
-    /** Enables keep-alive PING messages with the given interval. */
-    WebsocketHost& withHearbeatInterval(Timeout interval);
+    WebsocketHost& withAgent(std::string agent)
+    {
+        agent_ = std::move(agent);
+        return *this;
+    }
 
     /** Specifies the maximum duration to wait for the router to complete
         the closing Websocket handshake after an ABORT message is sent. */
-    WebsocketHost& withAbortTimeout(Timeout interval);
-
-    /** Couples a serialization format with these transport settings to
-        produce a ConnectionWish that can be passed to Session::connect. */
-    template <typename F, CPPWAMP_NEEDS(IsCodecFormat<F>::value) = 0>
-    ConnectionWish withFormat(F) const
+    WebsocketHost& withAbortTimeout(Timeout timeout)
     {
-        return ConnectionWish{*this, F{}};
+        abortTimeout_ = timeout;
+        return *this;
     }
-
-    /** Couples serialization format options with these transport settings to
-        produce a ConnectionWish that can be passed to Session::connect. */
-    template <typename F>
-    ConnectionWish withFormatOptions(const CodecOptions<F>& codecOptions) const
-    {
-        return ConnectionWish{*this, codecOptions};
-    }
-
-    /** Obtains the Websocket host name. */
-    const std::string& hostName() const;
-
-    /** Obtains the Websocket service name, or stringified port number. */
-    const std::string& serviceName() const;
 
     /** Obtains the request-target. */
-    const std::string& target() const;
+    const std::string& target() const {return target_;}
 
     /** Obtains the custom agent string to use. */
-    const std::string& agent() const;
-
-    /** Obtains the underlying TCP socket options. */
-    const TcpOptions& socketOptions() const;
-
-    /** Obtains the specified maximum incoming message length. */
-    std::size_t maxRxLength() const;
-
-    /** Obtains the keep-alive PING message interval. */
-    Timeout heartbeatInterval() const;
+    const std::string& agent() const {return agent_;}
 
     /** Obtains the Websocket handshake completion timeout period after
         an ABORT message is sent. */
-    Timeout abortTimeout() const;
+    Timeout abortTimeout() const {return abortTimeout_;}
 
 private:
-    std::string hostName_;
-    std::string serviceName_;
+    using Base = SocketHost<WebsocketHost, Websocket, TcpOptions, std::size_t,
+                            16*1024*1024>;
+
     std::string target_ = "/";
     std::string agent_;
-    TcpOptions socketOptions_;
-    Timeout heartbeatInterval_ = unspecifiedTimeout;
     Timeout abortTimeout_ = unspecifiedTimeout;
-    std::size_t maxRxLength_ = 16*1024*1024;
 };
 
 } // namespace wamp
-
-#ifndef CPPWAMP_COMPILED_LIB
-#include "../internal/websockethost.inl.hpp"
-#endif
 
 #endif // CPPWAMP_TRANSPORTS_WEBSOCKETHOST_HPP

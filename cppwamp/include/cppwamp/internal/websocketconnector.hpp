@@ -49,7 +49,7 @@ public:
         handler_ = std::move(handler);
         auto self = shared_from_this();
         resolver_.async_resolve(
-            settings_.hostName(), settings_.serviceName(),
+            settings_.address(), settings_.serviceName(),
             [this, self](boost::beast::error_code netEc,
                          tcp::resolver::results_type endpoints)
             {
@@ -133,7 +133,7 @@ private:
         /*  Update the host string. This will provide the value of the
             host HTTP header during the WebSocket handshake.
             See https://tools.ietf.org/html/rfc7230#section-5.4 */
-        std::string host = settings_.hostName() + ':' +
+        std::string host = settings_.address() + ':' +
                            std::to_string(ep.port());
 
         // Set the User-Agent and Sec-WebSocket-Protocol fields of the
