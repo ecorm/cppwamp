@@ -24,7 +24,7 @@
 #endif
 
 #ifdef CPPWAMP_TEST_HAS_WEB
-#include <cppwamp/transports/websocket.hpp>
+#include <cppwamp/transports/websocketserver.hpp>
 #endif
 
 namespace test

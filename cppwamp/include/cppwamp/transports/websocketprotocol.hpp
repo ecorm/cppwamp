@@ -12,9 +12,10 @@
     @brief Contains basic Websocket protocol facilities. */
 //------------------------------------------------------------------------------
 
-#include <string>
 #include <system_error>
 #include "../api.hpp"
+#include "tcpprotocol.hpp"
+#include "sockethost.hpp"
 
 namespace wamp
 {
@@ -88,6 +89,121 @@ CPPWAMP_API std::error_code make_error_code(WebsocketCloseErrc errc);
 //-----------------------------------------------------------------------------
 CPPWAMP_API std::error_condition make_error_condition(WebsocketCloseErrc errc);
 
+
+//------------------------------------------------------------------------------
+/** Contains Websocket host address information, as well as other
+    socket options for a client connection.
+    Meets the requirements of @ref TransportSettings.
+    @see ConnectionWish */
+//------------------------------------------------------------------------------
+class CPPWAMP_API WebsocketHost
+    : public SocketHost<WebsocketHost, Websocket, TcpOptions, std::size_t,
+                        16*1024*1024>
+{
+public:
+    /** Constructor taking an URL/IP and a service string. */
+    WebsocketHost(std::string address, std::string serviceName)
+        : Base(std::move(address), std::move(serviceName))
+    {}
+
+    /** Constructor taking an URL/IP and a numeric port number. */
+    WebsocketHost(std::string address, Port port)
+        : WebsocketHost(std::move(address), std::to_string(port))
+    {}
+
+    /** Specifies the request-target (default is "/"). */
+    WebsocketHost& withTarget(std::string target)
+    {
+        target_ = std::move(target);
+        return *this;
+    }
+
+    /** Specifies the custom agent string to use (default is
+        Version::agentString). */
+    WebsocketHost& withAgent(std::string agent)
+    {
+        agent_ = std::move(agent);
+        return *this;
+    }
+
+    /** Specifies the maximum duration to wait for the router to complete
+        the closing Websocket handshake after an ABORT message is sent. */
+    WebsocketHost& withAbortTimeout(Timeout timeout)
+    {
+        abortTimeout_ = timeout;
+        return *this;
+    }
+
+    /** Obtains the request-target. */
+    const std::string& target() const {return target_;}
+
+    /** Obtains the custom agent string to use. */
+    const std::string& agent() const {return agent_;}
+
+    /** Obtains the Websocket handshake completion timeout period after
+        an ABORT message is sent. */
+    Timeout abortTimeout() const {return abortTimeout_;}
+
+private:
+    using Base = SocketHost<WebsocketHost, Websocket, TcpOptions, std::size_t,
+                            16*1024*1024>;
+
+    std::string target_ = "/";
+    std::string agent_;
+    Timeout abortTimeout_ = unspecifiedTimeout;
+};
+
+
+//------------------------------------------------------------------------------
+/** Contains Websocket server address information, as well as other
+    socket options.
+    Meets the requirements of @ref TransportSettings. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API WebsocketEndpoint
+    : public SocketEndpoint<WebsocketEndpoint, Websocket, TcpOptions,
+                            std::size_t, 16*1024*1024>
+{
+public:
+    /** Constructor taking a port number. */
+    explicit WebsocketEndpoint(Port port)
+        : Base("", port)
+    {
+        mutableAcceptorOptions().withReuseAddress(true);
+    }
+
+    /** Constructor taking an address string and a port number. */
+    WebsocketEndpoint(std::string address, unsigned short port)
+        : Base(std::move(address), port)
+    {
+        mutableAcceptorOptions().withReuseAddress(true);
+    }
+
+    /** Specifies the custom agent string to use (default is
+        Version::agentString). */
+    WebsocketEndpoint& withAgent(std::string agent)
+    {
+        agent_ = std::move(agent);
+        return *this;
+    }
+
+    /** Obtains the custom agent string. */
+    const std::string& agent() const {return agent_;}
+
+    /** Generates a human-friendly string of the Websocket address/port. */
+    std::string label() const
+    {
+        auto portString = std::to_string(port());
+        if (address().empty())
+            return "Websocket Port " + portString;
+        return "Websocket " + address() + ':' + portString;
+    }
+
+private:
+    using Base = SocketEndpoint<WebsocketEndpoint, Websocket, TcpOptions,
+                                std::size_t, 16*1024*1024>;
+
+    std::string agent_;
+};
 
 } // namespace wamp
 

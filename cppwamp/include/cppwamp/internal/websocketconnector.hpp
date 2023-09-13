@@ -15,7 +15,7 @@
 #include "../asiodefs.hpp"
 #include "../version.hpp"
 #include "../transports/httpprotocol.hpp"
-#include "../transports/websockethost.hpp"
+#include "../transports/websocketprotocol.hpp"
 #include "../traits.hpp"
 #include "websockettransport.hpp"
 

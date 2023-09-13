@@ -12,7 +12,8 @@
 #include <cppwamp/codecs/cbor.hpp>
 #include <cppwamp/internal/websocketconnector.hpp>
 #include <cppwamp/internal/websocketlistener.hpp>
-#include <cppwamp/transports/websocket.hpp>
+#include <cppwamp/transports/websocketclient.hpp>
+#include <cppwamp/transports/websocketserver.hpp>
 #include "silentclient.hpp"
 
 #if defined(CPPWAMP_TEST_HAS_CORO)

@@ -22,8 +22,6 @@
 #include "../messagebuffer.hpp"
 #include "../transport.hpp"
 #include "../version.hpp"
-#include "../transports/websocketendpoint.hpp"
-#include "../transports/websockethost.hpp"
 #include "../transports/websocketprotocol.hpp"
 #include "pinger.hpp"
 

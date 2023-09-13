@@ -4,35 +4,27 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_TRANSPORTS_WEBSOCKET_HPP
-#define CPPWAMP_TRANSPORTS_WEBSOCKET_HPP
+#ifndef CPPWAMP_TRANSPORTS_WEBSOCKETCLIENT_HPP
+#define CPPWAMP_TRANSPORTS_WEBSOCKETCLIENT_HPP
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains facilities for establishing Websocket transports. */
+    @brief Contains facilities for establishing Websocket client transports. */
 //------------------------------------------------------------------------------
 
-#include <memory>
-#include <set>
-#include <utility>
 #include "../api.hpp"
 #include "../asiodefs.hpp"
 #include "../connector.hpp"
-#include "../listener.hpp"
-#include "websocketendpoint.hpp"
-#include "websockethost.hpp"
+#include "websocketprotocol.hpp"
 
-// TODO: Websocket over TLS
+// TODO: Websocket over TLS client
 
 namespace wamp
 {
 
-// Forward declarations
-namespace internal
-{
-struct WebsocketConnectorImpl;
-struct WebsocketListenerImpl;
-}
+// Forward declaration
+namespace internal { struct WebsocketConnectorImpl; }
+
 
 //------------------------------------------------------------------------------
 /** Connector specialization that establishes a client-side Websocket transport.
@@ -72,47 +64,10 @@ private:
     std::unique_ptr<internal::WebsocketConnectorImpl> impl_;
 };
 
-//------------------------------------------------------------------------------
-/** Listener specialization that establishes a server-side Websocket transport.
-    Users do not need to use this class directly and should instead pass
-    wamp::WebsocketEndpoint to wamp::Router::openServer via
-    wamp::ServerOptions. */
-//------------------------------------------------------------------------------
-template <>
-class CPPWAMP_API Listener<Websocket> : public Listening
-{
-public:
-    /** Type containing the transport settings. */
-    using Settings = WebsocketEndpoint;
-
-    /** Constructor. */
-    Listener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c);
-
-    /** Destructor. */
-    ~Listener() override;
-
-    void observe(Handler handler) override;
-
-    void establish() override;
-
-    void cancel() override;
-
-    /** @name Non-copyable and non-movable */
-    /// @{
-    Listener(const Listener&) = delete;
-    Listener(Listener&&) = delete;
-    Listener& operator=(const Listener&) = delete;
-    Listener& operator=(Listener&&) = delete;
-    /// @}
-
-private:
-    std::unique_ptr<internal::WebsocketListenerImpl> impl_;
-};
-
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "../internal/websocket.inl.hpp"
+#include "../internal/websocketclient.inl.hpp"
 #endif
 
-#endif // CPPWAMP_TRANSPORTS_WEBSOCKET_HPP
+#endif // CPPWAMP_TRANSPORTS_WEBSOCKETCLIENT_HPP
