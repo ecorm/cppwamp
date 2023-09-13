@@ -21,7 +21,7 @@
 #include <cppwamp/transports/tcpclient.hpp>
 
 #ifdef CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
-    #include <cppwamp/transports/uds.hpp>
+    #include <cppwamp/transports/udsclient.hpp>
 #endif
 
 using namespace wamp;

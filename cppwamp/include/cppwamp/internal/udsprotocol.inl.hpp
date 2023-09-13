@@ -11,6 +11,10 @@
 namespace wamp
 {
 
+//******************************************************************************
+// UdsOptions
+//******************************************************************************
+
 // NOLINTBEGIN(readability-inconsistent-declaration-parameter-name)
 CPPWAMP_INLINE UdsOptions& UdsOptions::withBroadcast(bool b)          {return set<boost::asio::socket_base::broadcast>(b);}
 CPPWAMP_INLINE UdsOptions& UdsOptions::withDebug(bool b)              {return set<boost::asio::socket_base::debug>(b);}
@@ -38,5 +42,43 @@ UdsOptions& UdsOptions::set(TArgs... args)
 // Explicit template instantiation
 template void
 UdsOptions::applyTo(boost::asio::local::stream_protocol::socket&) const;
+
+
+//******************************************************************************
+// UdsHost
+//******************************************************************************
+
+/** Constructor taking a path name. */
+CPPWAMP_INLINE UdsHost::UdsHost(std::string pathName)
+    : Base(std::move(pathName), "")
+{}
+
+
+//******************************************************************************
+// UdsEndpoint
+//******************************************************************************
+
+CPPWAMP_INLINE UdsEndpoint::UdsEndpoint(std::string pathName)
+    : Base(std::move(pathName), 0)
+{}
+
+/** Enables/disables the deletion of existing file path before listening. */
+CPPWAMP_INLINE UdsEndpoint& UdsEndpoint::withDeletePath(bool enabled)
+{
+    deletePathEnabled_ = enabled;
+    return *this;
+}
+
+/** Returns true if automatic path deletion before listening is enabled. */
+CPPWAMP_INLINE bool UdsEndpoint::deletePathEnabled() const
+{
+    return deletePathEnabled_;
+}
+
+/** Generates a human-friendly string of the UDS path. */
+CPPWAMP_INLINE std::string UdsEndpoint::label() const
+{
+    return "Unix domain socket path '" + address() + "'";
+}
 
 } // namespace wamp

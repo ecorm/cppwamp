@@ -8,6 +8,7 @@
 #define CPPWAMP_INTERNAL_TCPTRAITS_HPP
 
 #include <sstream>
+#include <boost/asio/ip/tcp.hpp>
 #include "../connectioninfo.hpp"
 #include "../timeout.hpp"
 #include "../transports/tcpprotocol.hpp"

@@ -54,7 +54,7 @@ Example with Unix Domain Socket Transport and Msgpack Format
 
 ```
 #include <cppwamp/codecs/msgpack.hpp>
-#include <cppwamp/transports/uds.hpp>
+#include <cppwamp/transports/udsclient.hpp>
 
  auto uds =                  // 'tcp' will be of type wamp::ConnectionWish
     wamp::UdpPath{           // Raw Unix domain socket transport is desired

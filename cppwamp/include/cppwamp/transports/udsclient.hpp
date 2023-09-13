@@ -4,39 +4,39 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_TRANSPORTS_TCPCLIENT_HPP
-#define CPPWAMP_TRANSPORTS_TCPCLIENT_HPP
+#ifndef CPPWAMP_TRANSPORTS_UDSCLIENT_HPP
+#define CPPWAMP_TRANSPORTS_UDSCLIENT_HPP
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains facilities for establishing TCP client transports. */
+    @brief Contains facilities for establishing Unix domain socket client
+           transports. */
 //------------------------------------------------------------------------------
 
 #include <memory>
 #include "../api.hpp"
 #include "../asiodefs.hpp"
 #include "../connector.hpp"
-#include "tcpprotocol.hpp"
-
-// TODO: TLS Client Transport
+#include "udsprotocol.hpp"
 
 namespace wamp
 {
 
 // Forward declaration
-namespace internal { struct TcpConnectorImpl; }
+namespace internal { struct UdsConnectorImpl; }
+
 
 //------------------------------------------------------------------------------
-/** Connector specialization that establishes a client-side TCP transport.
-    Users should not use this class directly, but rather pass a
+/** Connector specialization that establishes a Unix domain socket transport.
+    Users do not need to use this class directly and should pass
     wamp::ConnectionWish instead to wamp::Session::connect. */
 //------------------------------------------------------------------------------
 template <>
-class CPPWAMP_API Connector<Tcp> : public Connecting
+class CPPWAMP_API Connector<Uds> : public Connecting
 {
 public:
     /** Type containing the transport settings. */
-    using Settings = TcpHost;
+    using Settings = UdsHost;
 
     /** Constructor. */
     Connector(IoStrand i, Settings s, int codecId);
@@ -61,13 +61,13 @@ public:
     /// @}
 
 private:
-    std::unique_ptr<internal::TcpConnectorImpl> impl_;
+    std::unique_ptr<internal::UdsConnectorImpl> impl_;
 };
 
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "../internal/tcpclient.inl.hpp"
+#include "../internal/udsclient.inl.hpp"
 #endif
 
-#endif // CPPWAMP_TRANSPORTS_TCPCLIENT_HPP
+#endif // CPPWAMP_TRANSPORTS_UDSCLIENT_HPP

@@ -4,70 +4,27 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_TRANSPORTS_UDS_HPP
-#define CPPWAMP_TRANSPORTS_UDS_HPP
+#ifndef CPPWAMP_TRANSPORTS_UDSSERVER_HPP
+#define CPPWAMP_TRANSPORTS_UDSSERVER_HPP
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains facilities for establishing Unix domain socket transports. */
+    @brief Contains facilities for establishing Unix domain socket server
+           transports. */
 //------------------------------------------------------------------------------
 
 #include <memory>
-#include <utility>
 #include "../api.hpp"
 #include "../asiodefs.hpp"
-#include "../connector.hpp"
 #include "../listener.hpp"
-#include "udshost.hpp"
-#include "udsendpoint.hpp"
+#include "udsprotocol.hpp"
 
 namespace wamp
 {
 
-// Forward declarations
-namespace internal
-{
-struct UdsConnectorImpl;
-struct UdsListenerImpl;
-}
+// Forward declaration
+namespace internal { struct UdsListenerImpl; }
 
-//------------------------------------------------------------------------------
-/** Connector specialization that establishes a Unix domain socket transport.
-    Users do not need to use this class directly and should pass
-    wamp::ConnectionWish instead to wamp::Session::connect. */
-//------------------------------------------------------------------------------
-template <>
-class CPPWAMP_API Connector<Uds> : public Connecting
-{
-public:
-    /** Type containing the transport settings. */
-    using Settings = UdsHost;
-
-    /** Constructor. */
-    Connector(IoStrand i, Settings s, int codecId);
-
-    /** Destructor. */
-    ~Connector() override;
-
-    /** Starts establishing the transport connection, emitting a
-        Transportable::Ptr via the given handler if successful. */
-    void establish(Handler handler) override;
-
-    /** Cancels transport connection in progress, emitting an error code
-        via the handler passed to the establish method. */
-    void cancel() override;
-
-    /** @name Non-copyable and non-movable */
-    /// @{
-    Connector(const Connector&) = delete;
-    Connector(Connector&&) = delete;
-    Connector& operator=(const Connector&) = delete;
-    Connector& operator=(Connector&&) = delete;
-    /// @}
-
-private:
-    std::unique_ptr<internal::UdsConnectorImpl> impl_;
-};
 
 //------------------------------------------------------------------------------
 /** Listener specialization that establishes a server-side TCP transport.
@@ -112,7 +69,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "../internal/uds.inl.hpp"
+#include "../internal/udsserver.inl.hpp"
 #endif
 
-#endif // CPPWAMP_TRANSPORTS_UDS_HPP
+#endif // CPPWAMP_TRANSPORTS_UDSSERVER_HPP

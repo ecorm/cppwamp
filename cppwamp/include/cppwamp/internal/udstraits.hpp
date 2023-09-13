@@ -8,9 +8,9 @@
 #define CPPWAMP_INTERNAL_UDSTRAITS_HPP
 
 #include <sstream>
+#include <boost/asio/local/stream_protocol.hpp>
 #include "../connectioninfo.hpp"
-#include "../transports/udsendpoint.hpp"
-#include "../transports/udshost.hpp"
+#include "../transports/udsprotocol.hpp"
 
 namespace wamp
 {

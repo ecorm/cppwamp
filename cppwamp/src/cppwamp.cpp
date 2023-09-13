@@ -8,8 +8,6 @@
 #error CPPWAMP_COMPILED_LIB must be defined to use this source file
 #endif
 
-// TODO: Separate subproject for router and server stuff
-
 #include <cppwamp/config.hpp>
 
 #include <cppwamp/internal/accesslogging.inl.hpp>
@@ -56,6 +54,7 @@
 #include <cppwamp/internal/wildcarduri.inl.hpp>
 
 #ifdef CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
-    #include <cppwamp/internal/uds.inl.hpp>
+    #include <cppwamp/internal/udsclient.inl.hpp>
     #include <cppwamp/internal/udsprotocol.inl.hpp>
+    #include <cppwamp/internal/udsserver.inl.hpp>
 #endif

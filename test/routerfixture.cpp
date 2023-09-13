@@ -9,16 +9,21 @@
 #include <iostream>
 #include <thread>
 #include <cppwamp/anyhandler.hpp>
+#include <cppwamp/config.hpp>
 #include <cppwamp/router.hpp>
 #include <cppwamp/codecs/cbor.hpp>
 #include <cppwamp/codecs/json.hpp>
 #include <cppwamp/codecs/msgpack.hpp>
 #include <cppwamp/transports/tcpserver.hpp>
-#include <cppwamp/transports/uds.hpp>
 #include <cppwamp/utils/consolelogger.hpp>
 #include <cppwamp/utils/filelogger.hpp>
 
-#if defined(CPPWAMP_TEST_HAS_WEB)
+
+#ifdef CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
+#include <cppwamp/transports/udsserver.hpp>
+#endif
+
+#ifdef CPPWAMP_TEST_HAS_WEB
 #include <cppwamp/transports/websocket.hpp>
 #endif
 
@@ -150,13 +155,15 @@ private:
             .withChallengeTimeout(std::chrono::milliseconds(50));
     }
 
+#ifdef CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
     static wamp::ServerOptions udsOptions()
     {
         return wamp::ServerOptions("uds", wamp::UdsEndpoint{"./udstest"},
                                    wamp::msgpack);
     }
+#endif
 
-#if defined(CPPWAMP_TEST_HAS_WEB)
+#ifdef CPPWAMP_TEST_HAS_WEB
     static wamp::ServerOptions websocketOptions()
     {
         return wamp::ServerOptions("websocket", wamp::WebsocketEndpoint{34567},
@@ -168,14 +175,17 @@ private:
     {
         try
         {
-            remainingInfoLogEntries_ = 5;
+            remainingInfoLogEntries_ = 4;
             router_.openRealm(wamp::RealmOptions{"cppwamp.test"}
                                   .withMetaApiEnabled());
             router_.openRealm(wamp::RealmOptions{"cppwamp.authtest"});
             router_.openServer(tcpOptions());
             router_.openServer(tcpTicketOptions());
+#ifdef CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
+            ++remainingInfoLogEntries_;
             router_.openServer(udsOptions());
-#if defined(CPPWAMP_TEST_HAS_WEB)
+#endif
+#ifdef CPPWAMP_TEST_HAS_WEB
             ++remainingInfoLogEntries_;
             router_.openServer(websocketOptions());
 #endif

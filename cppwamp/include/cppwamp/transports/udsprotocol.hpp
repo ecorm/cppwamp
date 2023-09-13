@@ -13,7 +13,10 @@
 //------------------------------------------------------------------------------
 
 #include "../api.hpp"
+#include "../rawsockoptions.hpp"
 #include "../internal/socketoptions.hpp"
+#include "socketendpoint.hpp"
+#include "sockethost.hpp"
 
 // Forward declaration
 namespace boost { namespace asio { namespace local { class stream_protocol; }}}
@@ -93,6 +96,58 @@ private:
        to play nice with CRTP, so it was not feasible to factor out the
        commonality with TcpOptions as a mixin (not without giving up the
        fluent API). */
+};
+
+
+//------------------------------------------------------------------------------
+/** Contains a Unix Domain Socket path, as well as other socket options
+    for a client connection.
+    Meets the requirements of @ref TransportSettings.
+    @see ConnectionWish */
+//------------------------------------------------------------------------------
+class CPPWAMP_API UdsHost
+    : public SocketHost<UdsHost, Uds, UdsOptions, RawsockMaxLength,
+                        RawsockMaxLength::MB_16>
+{
+public:
+    /** Constructor taking a path name. */
+    explicit UdsHost(std::string pathName);
+
+private:
+    using Base = SocketHost<UdsHost, Uds, UdsOptions, RawsockMaxLength,
+                            RawsockMaxLength::MB_16>;
+    using Base::serviceName;
+};
+
+
+//------------------------------------------------------------------------------
+/** Contains a Unix Domain Socket server path, as well as other socket options.
+    Meets the requirements of @ref TransportSettings. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API UdsEndpoint
+    : public SocketEndpoint<UdsEndpoint, Uds, UdsOptions, RawsockMaxLength,
+                            RawsockMaxLength::MB_16>
+{
+public:
+    /** Constructor taking a path name. */
+    explicit UdsEndpoint(std::string pathName);
+
+    /** Enables/disables the deletion of existing file path before listening. */
+    UdsEndpoint& withDeletePath(bool enabled = true);
+
+    /** Returns true if automatic path deletion before listening is enabled. */
+    bool deletePathEnabled() const;
+
+    /** Generates a human-friendly string of the UDS path. */
+    std::string label() const;
+
+private:
+    using Base = SocketEndpoint<UdsEndpoint, Uds, UdsOptions, RawsockMaxLength,
+                                RawsockMaxLength::MB_16>;
+
+    using Base::port;
+
+    bool deletePathEnabled_ = true;
 };
 
 } // namespace wamp
