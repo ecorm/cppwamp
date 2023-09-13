@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2014-2015, 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -13,6 +13,9 @@
 //------------------------------------------------------------------------------
 
 #include "../api.hpp"
+#include "../rawsockoptions.hpp"
+#include "socketendpoint.hpp"
+#include "sockethost.hpp"
 #include "../internal/socketoptions.hpp"
 
 // Forward declaration
@@ -101,6 +104,52 @@ private:
        to play nice with CRTP, so it was not feasible to factor out the
        commonality with UdsOptions as a mixin (not without giving up the
        fluent API). */
+};
+
+
+//------------------------------------------------------------------------------
+/** Contains TCP host address information, as well as other socket options.
+    Meets the requirements of @ref TransportSettings.
+    @see ConnectionWish */
+//------------------------------------------------------------------------------
+class CPPWAMP_API TcpHost
+    : public SocketHost<TcpHost, Tcp, TcpOptions, RawsockMaxLength,
+                        RawsockMaxLength::MB_16>
+{
+public:
+    /** Constructor taking an URL/IP and a service string. */
+    TcpHost(std::string address, std::string serviceName);
+
+    /** Constructor taking an URL/IP and a numeric port number. */
+    TcpHost(std::string address, Port port);
+
+private:
+    using Base = SocketHost<TcpHost, Tcp, TcpOptions, RawsockMaxLength,
+                            RawsockMaxLength::MB_16>;
+};
+
+
+//------------------------------------------------------------------------------
+/** Contains TCP server address information, as well as other socket options.
+    Meets the requirements of @ref TransportSettings. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API TcpEndpoint
+    : public SocketEndpoint<TcpEndpoint, Tcp, TcpOptions, RawsockMaxLength,
+                            RawsockMaxLength::MB_16>
+{
+public:
+    /** Constructor taking a port number. */
+    explicit TcpEndpoint(Port port);
+
+    /** Constructor taking an address string and a port number. */
+    TcpEndpoint(std::string address, unsigned short port);
+
+    /** Generates a human-friendly string of the TCP address/port. */
+    std::string label() const;
+
+private:
+    using Base = SocketEndpoint<TcpEndpoint, Tcp, TcpOptions, RawsockMaxLength,
+                                RawsockMaxLength::MB_16>;
 };
 
 } // namespace wamp

@@ -8,7 +8,7 @@
 #define CPPWAMP_INTERNAL_TCPACCEPTOR_HPP
 
 #include <boost/asio/ip/tcp.hpp>
-#include "../transports/tcpendpoint.hpp"
+#include "../transports/tcpprotocol.hpp"
 #include "rawsockacceptor.hpp"
 #include "tcptraits.hpp"
 

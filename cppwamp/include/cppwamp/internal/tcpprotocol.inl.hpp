@@ -14,6 +14,10 @@
 namespace wamp
 {
 
+//******************************************************************************
+// TcpOptions
+//******************************************************************************
+
 // NOLINTBEGIN(readability-inconsistent-declaration-parameter-name)
 CPPWAMP_INLINE TcpOptions& TcpOptions::withBroadcast(bool b)          {return set<boost::asio::socket_base::broadcast>(b);}
 CPPWAMP_INLINE TcpOptions& TcpOptions::withDebug(bool b)              {return set<boost::asio::socket_base::debug>(b);}
@@ -43,5 +47,44 @@ TcpOptions& TcpOptions::set(TArgs... args)
 
 // Explicit template instantiation
 template void TcpOptions::applyTo(boost::asio::ip::tcp::socket&) const;
+
+
+//******************************************************************************
+// TcpHost
+//******************************************************************************
+
+CPPWAMP_INLINE TcpHost::TcpHost(std::string address, std::string serviceName)
+    : Base(std::move(address), std::move(serviceName))
+{}
+
+CPPWAMP_INLINE TcpHost::TcpHost(std::string address, Port port)
+    : TcpHost(std::move(address), std::to_string(port))
+{}
+
+
+//******************************************************************************
+// TcpEndpoint
+//******************************************************************************
+
+CPPWAMP_INLINE TcpEndpoint::TcpEndpoint(Port port)
+    : Base("", port)
+{
+    mutableAcceptorOptions().withReuseAddress(true);
+}
+
+CPPWAMP_INLINE TcpEndpoint::TcpEndpoint(std::string address,
+                                        unsigned short port)
+    : Base(std::move(address), port)
+{
+    mutableAcceptorOptions().withReuseAddress(true);
+}
+
+CPPWAMP_INLINE std::string TcpEndpoint::label() const
+{
+    auto portString = std::to_string(port());
+    if (address().empty())
+        return "TCP Port " + portString;
+    return "TCP " + address() + ':' + portString;
+}
 
 } // namespace wamp

@@ -10,8 +10,7 @@
 #include <sstream>
 #include "../connectioninfo.hpp"
 #include "../timeout.hpp"
-#include "../transports/tcphost.hpp"
-#include "../transports/tcpendpoint.hpp"
+#include "../transports/tcpprotocol.hpp"
 
 namespace wamp
 {

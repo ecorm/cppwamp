@@ -18,9 +18,9 @@
 #include "../api.hpp"
 #include "../asiodefs.hpp"
 #include "../listener.hpp"
-#include "tcpendpoint.hpp"
+#include "tcpprotocol.hpp"
 
-// TODO: TLS Transport
+// TODO: TLS Server Transport
 
 namespace wamp
 {

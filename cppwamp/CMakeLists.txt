@@ -137,8 +137,6 @@ set(HEADERS
     include/cppwamp/transports/socketendpoint.hpp
     include/cppwamp/transports/sockethost.hpp
     include/cppwamp/transports/tcpclient.hpp
-    include/cppwamp/transports/tcpendpoint.hpp
-    include/cppwamp/transports/tcphost.hpp
     include/cppwamp/transports/tcpprotocol.hpp
     include/cppwamp/transports/tcpserver.hpp
     include/cppwamp/transports/uds.hpp
