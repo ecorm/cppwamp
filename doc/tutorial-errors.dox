@@ -33,7 +33,7 @@ Example where `ErrorOr` is manually checked:
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/codecs/json.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpclient.hpp>
 
 int main()
 {
@@ -72,7 +72,7 @@ Example where `ErrorOr::value` is allowed to throw exceptions:
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/codecs/json.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpclient.hpp>
 
 int main()
 {

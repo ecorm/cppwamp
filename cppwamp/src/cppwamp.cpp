@@ -8,6 +8,8 @@
 #error CPPWAMP_COMPILED_LIB must be defined to use this source file
 #endif
 
+// TODO: Separate subproject for router and server stuff
+
 #include <cppwamp/config.hpp>
 
 #include <cppwamp/internal/accesslogging.inl.hpp>
@@ -46,8 +48,9 @@
 #include <cppwamp/internal/streaming.inl.hpp>
 #include <cppwamp/internal/streamlogger.inl.hpp>
 #include <cppwamp/internal/subscription.inl.hpp>
-#include <cppwamp/internal/tcp.inl.hpp>
+#include <cppwamp/internal/tcpclient.inl.hpp>
 #include <cppwamp/internal/tcpprotocol.inl.hpp>
+#include <cppwamp/internal/tcpserver.inl.hpp>
 #include <cppwamp/internal/variant.inl.hpp>
 #include <cppwamp/internal/version.inl.hpp>
 #include <cppwamp/internal/wildcarduri.inl.hpp>

@@ -136,10 +136,11 @@ set(HEADERS
     include/cppwamp/transports/httpprotocol.hpp
     include/cppwamp/transports/socketendpoint.hpp
     include/cppwamp/transports/sockethost.hpp
-    include/cppwamp/transports/tcp.hpp
+    include/cppwamp/transports/tcpclient.hpp
     include/cppwamp/transports/tcpendpoint.hpp
     include/cppwamp/transports/tcphost.hpp
     include/cppwamp/transports/tcpprotocol.hpp
+    include/cppwamp/transports/tcpserver.hpp
     include/cppwamp/transports/uds.hpp
     include/cppwamp/transports/udsendpoint.hpp
     include/cppwamp/transports/udshost.hpp
@@ -207,8 +208,9 @@ set(INLINES
     include/cppwamp/internal/streaming.inl.hpp
     include/cppwamp/internal/streamlogger.inl.hpp
     include/cppwamp/internal/subscription.inl.hpp
-    include/cppwamp/internal/tcp.inl.hpp
+    include/cppwamp/internal/tcpclient.inl.hpp
     include/cppwamp/internal/tcpprotocol.inl.hpp
+    include/cppwamp/internal/tcpserver.inl.hpp
     include/cppwamp/internal/uds.inl.hpp
     include/cppwamp/internal/udsprotocol.inl.hpp
     include/cppwamp/internal/variant.inl.hpp

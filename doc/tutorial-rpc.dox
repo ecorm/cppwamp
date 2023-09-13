@@ -54,7 +54,7 @@ Example:
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/codecs/json.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpclient.hpp>
 
 wamp::Outcome addToCart(wamp::Invocation inv)
 {
@@ -132,7 +132,7 @@ Example:
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/codecs/json.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpclient.hpp>
 
 float sum(float x, float y)
 {
@@ -190,7 +190,7 @@ Example:
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/codecs/json.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpclient.hpp>
 
 Outcome sum(Invocation inv, float x, float y)
 {
@@ -237,7 +237,7 @@ be used:
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/codecs/json.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpclient.hpp>
 
 int main()
 {
@@ -373,7 +373,7 @@ If successful, `call` emits a wamp::Result object via the completion handler.
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/codecs/json.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpclient.hpp>
 
 int main()
 {
@@ -421,7 +421,7 @@ via the `wamp::Rpc::captureError` option:
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/codecs/json.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpclient.hpp>
 
 int main()
 {
@@ -480,7 +480,7 @@ Example interruptible callee:
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/codecs/json.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpclient.hpp>
 
 int main()
 {
@@ -545,7 +545,7 @@ Example caller issuing a call cancellation via wamp::CallCancellationSlot:
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/codecs/json.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpclient.hpp>
 
 int main()
 {
@@ -592,7 +592,7 @@ Example caller issuing a call cancellation via a
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/codecs/json.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpclient.hpp>
 
 int main()
 {

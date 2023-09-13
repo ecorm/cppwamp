@@ -10,7 +10,6 @@
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/codecs/json.hpp>
-#include <cppwamp/transports/tcp.hpp>
 #include "mockclient.hpp"
 #include "routerfixture.hpp"
 
@@ -21,7 +20,6 @@ using internal::MessageKind;
 namespace
 {
 
-const std::string testRealm = "cppwamp.test";
 const unsigned short testPort = 12345;
 
 //------------------------------------------------------------------------------

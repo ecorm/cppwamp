@@ -18,7 +18,7 @@
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/codecs/json.hpp>
 #include <cppwamp/codecs/msgpack.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpclient.hpp>
 
 #ifdef CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
     #include <cppwamp/transports/uds.hpp>

@@ -12,7 +12,7 @@
 #include <vector>
 #include <cppwamp/codecs/json.hpp>
 #include <cppwamp/internal/message.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpserver.hpp>
 
 namespace wamp
 {

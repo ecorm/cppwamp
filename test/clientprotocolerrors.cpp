@@ -10,7 +10,7 @@
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/codecs/json.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpclient.hpp>
 #include "clienttesting.hpp"
 #include "mockserver.hpp"
 

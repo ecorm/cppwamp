@@ -15,7 +15,7 @@
 #include <cppwamp/authenticators/anonymousauthenticator.hpp>
 #include <cppwamp/router.hpp>
 #include <cppwamp/codecs/json.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpserver.hpp>
 #include <cppwamp/utils/consolelogger.hpp>
 
 //------------------------------------------------------------------------------

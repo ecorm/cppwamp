@@ -13,7 +13,7 @@
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/version.hpp>
 #include <cppwamp/codecs/json.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpclient.hpp>
 #include "routerfixture.hpp"
 
 using namespace wamp;

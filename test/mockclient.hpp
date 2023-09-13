@@ -13,7 +13,7 @@
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/codecs/json.hpp>
 #include <cppwamp/internal/message.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpclient.hpp>
 
 namespace wamp
 {

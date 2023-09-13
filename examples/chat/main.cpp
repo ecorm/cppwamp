@@ -9,7 +9,7 @@
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/codecs/json.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpclient.hpp>
 
 const std::string realm = "cppwamp.examples";
 const std::string address = "localhost";

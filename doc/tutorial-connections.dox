@@ -17,10 +17,11 @@ operation.
 The easiest way to generate a `ConnectionWish` is through a *transport settings*
 type. CppWAMP currently supports two transport settings types:
 
-Transport Settings Type | Declared in                    | For Transport
------------------------ | ------------------------------ | -----------
-@ref wamp::TcpHost      | `<cppwamp/transports/tcp.hpp>` | TCP raw socket
-@ref wamp::UdsHost      | `<cppwamp/transports/uds.hpp>` | Unix domain socket
+Transport Settings Type  | Declared in                                | For Transport
+------------------------ | ------------------------------------------ | -----------
+@ref wamp::TcpHost       | `<cppwamp/transports/tcpclient.hpp>`       | TCP raw socket
+@ref wamp::UdsHost       | `<cppwamp/transports/udsclient.hpp>`       | Unix domain socket
+@ref wamp::WebsocketHost | `<cppwamp/transports/websocketclient.hpp>` | Websocket
 
 To generatate a `ConnectionWish`, specify a serialization format tag in the
 `withFormat` method of one of the above transport settings types.
@@ -39,7 +40,7 @@ Example with TCP Raw Socket Transport and Json Format
 
 ```
 #include <cppwamp/codecs/json.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpclient.hpp>
 
 auto tcp =                // 'tcp' will be of type wamp::ConnectionWish
     wamp::TcpHost{        // Raw TCP transport is desired
@@ -95,7 +96,7 @@ for several `ConnectionWish` objects. The following example uses two
 ```
 #include <cppwamp/codecs/json.hpp>
 #include <cppwamp/codecs/msgpack.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpclient.hpp>
 
 wamp::ConnectionWishList wishList{
     wamp::TcpHost{"localhost", 8001}.withFormat(wamp::json),

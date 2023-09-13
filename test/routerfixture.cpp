@@ -13,7 +13,7 @@
 #include <cppwamp/codecs/cbor.hpp>
 #include <cppwamp/codecs/json.hpp>
 #include <cppwamp/codecs/msgpack.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpserver.hpp>
 #include <cppwamp/transports/uds.hpp>
 #include <cppwamp/utils/consolelogger.hpp>
 #include <cppwamp/utils/filelogger.hpp>

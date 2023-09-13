@@ -15,7 +15,7 @@
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/variant.hpp>
 #include <cppwamp/codecs/json.hpp>
-#include <cppwamp/transports/tcp.hpp>
+#include <cppwamp/transports/tcpclient.hpp>
 #include <boost/asio/yield.hpp>
 
 const std::string realm = "cppwamp.examples";
