@@ -419,10 +419,8 @@ private:
         Base::shutdown();
         rxHandler_ = nullptr;
         txErrorHandler_ = nullptr;
-        rxFrame_.clear();
         txQueue_.clear();
         txFrame_ = nullptr;
-        pingFrame_ = nullptr;
         socket_.close();
         pinger_.reset();
     }
@@ -434,7 +432,6 @@ private:
     TransmitQueue txQueue_;
     MessageBuffer pingBuffer_;
     RawsockFrame::Ptr txFrame_;
-    RawsockFrame::Ptr pingFrame_;
     std::shared_ptr<Pinger> pinger_;
     uint32_t handshake_ = 0;
 };

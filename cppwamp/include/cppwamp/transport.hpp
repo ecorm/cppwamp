@@ -8,6 +8,7 @@
 #define CPPWAMP_TRANSPORT_HPP
 
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -264,8 +265,7 @@ public:
     }
 
 protected:
-    explicit Transporting(IoStrand strand, ConnectionInfo ci,
-                          TransportInfo ti = {})
+    Transporting(IoStrand strand, ConnectionInfo ci, TransportInfo ti = {})
         : strand_(std::move(strand)),
           info_(ti),
           connectionInfo_(std::move(ci))

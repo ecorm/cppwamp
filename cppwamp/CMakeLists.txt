@@ -71,6 +71,7 @@ set(HEADERS
     include/cppwamp/codecs/msgpack.hpp
     include/cppwamp/internal/authorizationlistener.hpp
     include/cppwamp/internal/base64.hpp
+    include/cppwamp/internal/basictransport.hpp
     include/cppwamp/internal/broker.hpp
     include/cppwamp/internal/challenger.hpp
     include/cppwamp/internal/client.hpp

@@ -491,7 +491,7 @@ TEST_CASE( "Normal websocket communications", "[Transport][Websocket]" )
     sender->send(message);
     sender2->send(message2);
 
-    while (!receivedReply || !receivedReply2) // Stuck here
+    while (!receivedReply || !receivedReply2)
     {
         f.sctx.poll();
         f.cctx.poll();
@@ -505,7 +505,8 @@ TEST_CASE( "Normal websocket communications", "[Transport][Websocket]" )
     CHECK( receivedReply2 );
 
     f.disconnect();
-    REQUIRE_NOTHROW( f.run() );}
+    REQUIRE_NOTHROW( f.run() );
+}
 
 //------------------------------------------------------------------------------
 TEST_CASE( "Consecutive websocket send/receive", "[Transport][Websocket]" )
