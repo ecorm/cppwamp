@@ -81,6 +81,9 @@ public:
 
     void pong(const Byte* bytes, std::size_t length)
     {
+        // Unsolicited pongs may serve as unidirectional heartbeats.
+        // https://github.com/wamp-proto/wamp-proto/issues/274#issuecomment-288626150
+
         if (frame_.count() == 0 || length != frameBytes_.size())
             return;
 

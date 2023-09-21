@@ -10,20 +10,13 @@
 #include <cstddef>
 #include <cstdint>
 #include "endian.hpp"
+#include "../wampdefs.hpp"
 
 namespace wamp
 {
 
 namespace internal
 {
-
-//------------------------------------------------------------------------------
-enum class RawsockMsgKind
-{
-    wamp,
-    ping,
-    pong
-};
 
 //------------------------------------------------------------------------------
 class RawsockHeader
@@ -39,14 +32,14 @@ public:
     bool msgTypeIsValid() const
     {
         auto kind = msgKind();
-        return kind == RawsockMsgKind::wamp ||
-               kind == RawsockMsgKind::ping ||
-               kind == RawsockMsgKind::pong;
+        return kind == TransportFrameKind::wamp ||
+               kind == TransportFrameKind::ping ||
+               kind == TransportFrameKind::pong;
     }
 
-    RawsockMsgKind msgKind() const
+    TransportFrameKind msgKind() const
     {
-        return get<RawsockMsgKind>(msgKindMask_, msgKindPos_);
+        return get<TransportFrameKind>(msgKindMask_, msgKindPos_);
     }
 
     std::size_t length() const {return get<std::size_t>(lengthMask_);}
@@ -55,7 +48,7 @@ public:
 
     uint32_t toHostOrder() const {return hdr_;}
 
-    RawsockHeader& setMsgKind(RawsockMsgKind kind)
+    RawsockHeader& setMsgKind(TransportFrameKind kind)
     {
         return put(kind, msgKindPos_);
     }

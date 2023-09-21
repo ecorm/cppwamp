@@ -9,7 +9,7 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains type definitions related to WAMP IDs and sessions. */
+    @brief Contains type definitions related to the WAMP protocol. */
 //------------------------------------------------------------------------------
 
 #include <chrono>
@@ -87,6 +87,16 @@ enum class InvocationPolicy
     random,
     first,
     last
+};
+
+//------------------------------------------------------------------------------
+/** Frame types used by raw socket and Websocket transports. */
+//------------------------------------------------------------------------------
+enum class TransportFrameKind
+{
+    wamp,
+    ping,
+    pong
 };
 
 } // namespace wamp

@@ -13,6 +13,7 @@ set(HEADERS
     include/cppwamp/authinfo.hpp
     include/cppwamp/authorizer.hpp
     include/cppwamp/authenticator.hpp
+    include/cppwamp/basictransport.hpp
     include/cppwamp/blob.hpp
     include/cppwamp/cachingauthorizer.hpp
     include/cppwamp/calleestreaming.hpp
@@ -71,7 +72,6 @@ set(HEADERS
     include/cppwamp/codecs/msgpack.hpp
     include/cppwamp/internal/authorizationlistener.hpp
     include/cppwamp/internal/base64.hpp
-    include/cppwamp/internal/basictransport.hpp
     include/cppwamp/internal/broker.hpp
     include/cppwamp/internal/challenger.hpp
     include/cppwamp/internal/client.hpp
@@ -122,6 +122,7 @@ set(HEADERS
     include/cppwamp/internal/timeformatting.hpp
     include/cppwamp/internal/timeoutscheduler.hpp
     include/cppwamp/internal/tokentriemapimpl.hpp
+    include/cppwamp/internal/transportframe.hpp
     include/cppwamp/internal/udsconnector.hpp
     include/cppwamp/internal/udslistener.hpp
     include/cppwamp/internal/udstraits.hpp

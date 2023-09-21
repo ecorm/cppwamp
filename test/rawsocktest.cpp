@@ -206,10 +206,9 @@ using CannedHandshakeConnector =
 //------------------------------------------------------------------------------
 struct BadMsgKindConfig : BasicRawsockTransportConfig<TcpTraits>
 {
-    static void preProcess(internal::RawsockMsgKind& kind, MessageBuffer&)
+    static void preProcess(TransportFrameKind& kind, MessageBuffer&)
     {
-        auto badKind = internal::RawsockMsgKind(
-            (int)internal::RawsockMsgKind::pong + 1);
+        auto badKind = TransportFrameKind((int)TransportFrameKind::pong + 1);
         kind = badKind;
     }
 };
@@ -217,13 +216,13 @@ struct BadMsgKindConfig : BasicRawsockTransportConfig<TcpTraits>
 //------------------------------------------------------------------------------
 struct MonitorPingPongConfig : BasicRawsockTransportConfig<TcpTraits>
 {
-    static void preProcess(internal::RawsockMsgKind& kind, MessageBuffer& buf)
+    static void preProcess(TransportFrameKind& kind, MessageBuffer& buf)
     {
-        if (kind == internal::RawsockMsgKind::ping)
+        if (kind == TransportFrameKind::ping)
         {
             pings().push_back(buf);
         }
-        else if (kind == internal::RawsockMsgKind::pong)
+        else if (kind == TransportFrameKind::pong)
         {
             if (!cannedPong().empty())
                 buf = cannedPong();

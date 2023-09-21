@@ -394,8 +394,10 @@ TEST_CASE( "Normal websocket communications", "[Transport][Websocket]" )
 
     while (!receivedReply)
     {
-        f.sctx.poll();
-        f.cctx.poll();
+        if (!f.sctx.stopped())
+            f.sctx.poll();
+        if (!f.cctx.stopped())
+            f.cctx.poll();
     }
     f.sctx.reset();
     f.cctx.reset();
@@ -493,8 +495,10 @@ TEST_CASE( "Normal websocket communications", "[Transport][Websocket]" )
 
     while (!receivedReply || !receivedReply2)
     {
-        f.sctx.poll();
-        f.cctx.poll();
+        if (!f.sctx.stopped())
+            f.sctx.poll();
+        if (!f.cctx.stopped())
+            f.cctx.poll();
     }
     f.sctx.reset();
     f.cctx.reset();

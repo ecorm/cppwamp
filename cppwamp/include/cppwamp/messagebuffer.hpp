@@ -21,6 +21,7 @@ namespace wamp
 //------------------------------------------------------------------------------
 /** Container type used for encoded WAMP messages that are sent/received
     over a transport. */
+// TODO: Buffer pool allocator
 //------------------------------------------------------------------------------
 using MessageBuffer = std::vector<uint8_t>;
 

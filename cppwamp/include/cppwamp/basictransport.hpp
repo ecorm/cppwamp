@@ -4,59 +4,37 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_INTERNAL_BASICTRANSPORT_HPP
-#define CPPWAMP_INTERNAL_BASICTRANSPORT_HPP
+#ifndef CPPWAMP_BASICTRANSPORT_HPP
+#define CPPWAMP_BASICTRANSPORT_HPP
 
 #include <deque>
 #include <memory>
+#include <utility>
 #include <boost/asio/steady_timer.hpp>
-#include "../errorcodes.hpp"
-#include "../messagebuffer.hpp"
-#include "../transport.hpp"
-#include "pinger.hpp"
+#include "errorcodes.hpp"
+#include "messagebuffer.hpp"
+#include "transport.hpp"
+#include "internal/transportframe.hpp"
+#include "internal/pinger.hpp"
 
 namespace wamp
 {
 
-namespace internal
-{
-
 //------------------------------------------------------------------------------
-class TransportFrame
-{
-public:
-    using Ptr = std::shared_ptr<TransportFrame>;
+/** CRTP base class providing outbound message queueing and ping/pong handling
+    for transports.
 
-    TransportFrame() = default;
-
-    TransportFrame(MessageBuffer&& payload, bool isPing = false)
-        : payload_(std::move(payload)),
-          isPing_(isPing)
-    {}
-
-    void clear()
-    {
-        payload_.clear();
-        isPing_ = false;
-        isPoisoned_ = false;
-    }
-
-    bool isPing() const {return isPing_;}
-
-    const MessageBuffer& payload() const & {return payload_;}
-
-    MessageBuffer&& payload() && {return std::move(payload_);}
-
-    void poison(bool poisoned = true) {isPoisoned_ = poisoned;}
-
-    bool isPoisoned() const {return isPoisoned_;}
-
-private:
-    MessageBuffer payload_;
-    bool isPing_ = false;
-    bool isPoisoned_ = false;
-};
-
+    Derived class requirements:
+    - `bool socketIsOpen() const;`
+    - `void enablePinging();`
+    - `void disablePinging();`
+    - `void stopTransport();`
+    - `void closeTransport(CloseHandler);`
+    - `void cancelClose();`
+    - `void stopTransport();`
+    - `void failTransport(std::error_code);`
+    - `template <typename F> void transmitMessage(TransportFrameKind, MessageBuffer&, F&& callback);`
+    - `template <typename F> void receiveMessage(MessageBuffer&, F&& callback);` */
 //------------------------------------------------------------------------------
 template <typename TDerived>
 class BasicTransport : public Transporting
@@ -68,12 +46,13 @@ public:
 
 protected:
     using Byte = MessageBuffer::value_type;
+    using Pinger = internal::Pinger;
 
     BasicTransport(IoStrand strand, ConnectionInfo ci, TransportInfo ti = {})
         : Base(std::move(strand), ci, ti),
           timer_(Base::strand())
     {
-        if (timeoutIsDefinite(Base::info().heartbeatInterval()))
+        if (internal::timeoutIsDefinite(Base::info().heartbeatInterval()))
             pinger_ = std::make_shared<Pinger>(Base::strand(), Base::info());
     }
 
@@ -81,6 +60,14 @@ protected:
     {
         if (pinger_)
             pinger_->pong(data, size);
+    }
+
+    void enqueuePong(MessageBuffer payload)
+    {
+        if (!derived().socketIsOpen())
+            return;
+        auto buf = enframe(std::move(payload), TransportFrameKind::pong);
+        enqueueFrame(std::move(buf));
     }
 
     template <typename F>
@@ -91,8 +78,11 @@ protected:
     }
 
 private:
-    using Base          = Transporting;
-    using TransmitQueue = std::deque<TransportFrame::Ptr>;
+    // TODO: No need to dynamically allocate Frame objects
+    using Base = Transporting;
+    using Frame = internal::TransportFrame;
+    using TransmitQueue = std::deque<Frame::Ptr>;
+    using PingBytes = internal::PingBytes;
 
     void onStart(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
     {
@@ -121,7 +111,7 @@ private:
         if (!derived().socketIsOpen())
             return;
         auto buf = enframe(std::move(message));
-        sendFrame(std::move(buf));
+        enqueueFrame(std::move(buf));
     }
 
     void onSetAbortTimeout(Timeout timeout) override
@@ -153,6 +143,11 @@ private:
 
     void onClose(CloseHandler handler) override
     {
+        doClose(std::move(handler));
+    }
+
+    void doClose(CloseHandler handler)
+    {
         rxHandler_ = nullptr;
         txErrorHandler_ = nullptr;
         txQueue_.clear();
@@ -170,17 +165,17 @@ private:
             return fail(pingBytes.error());
 
         MessageBuffer message{pingBytes->begin(), pingBytes->end()};
-        auto buf = enframe(std::move(message), true);
-        sendFrame(std::move(buf));
+        auto buf = enframe(std::move(message), TransportFrameKind::ping);
+        enqueueFrame(std::move(buf));
     }
 
-    TransportFrame::Ptr enframe(MessageBuffer&& payload, bool isPing = false)
+    Frame::Ptr enframe(MessageBuffer&& payload,
+                       TransportFrameKind kind = TransportFrameKind::wamp)
     {
-        // TODO: Pool/reuse frames somehow
-        return std::make_shared<TransportFrame>(std::move(payload), isPing);
+        return std::make_shared<Frame>(std::move(payload), kind);
     }
 
-    void sendFrame(TransportFrame::Ptr frame)
+    void enqueueFrame(Frame::Ptr frame)
     {
         assert((frame->payload().size() <= info().maxTxLength()) &&
                "Outgoing message is longer than allowed by peer");
@@ -195,29 +190,17 @@ private:
 
         txFrame_ = txQueue_.front();
         txQueue_.pop_front();
-        if (txFrame_->isPing())
-            sendPing();
-        else
+        if (txFrame_->kind() == TransportFrameKind::wamp)
             sendWampMessage();
-    }
-
-    void sendPing()
-    {
-        auto self = this->shared_from_this();
-        derived().transmitPing(
-            txFrame_->payload(),
-            [this, self](std::error_code ec)
-            {
-                txFrame_.reset();
-                if (checkTxError(ec))
-                    transmit();
-            });
+        else
+            sendControlMessage(txFrame_->kind());
     }
 
     void sendWampMessage()
     {
         auto self = this->shared_from_this();
         derived().transmitMessage(
+            TransportFrameKind::wamp,
             txFrame_->payload(),
             [this, self](std::error_code ec)
             {
@@ -232,10 +215,24 @@ private:
             });
     }
 
+    void sendControlMessage(TransportFrameKind kind)
+    {
+        auto self = this->shared_from_this();
+        derived().transmitMessage(
+            kind,
+            txFrame_->payload(),
+            [this, self](std::error_code ec)
+            {
+                txFrame_.reset();
+                if (checkTxError(ec))
+                    transmit();
+            });
+    }
+
     void abortiveClose()
     {
-        if (!timeoutIsDefinite(abortTimeout_))
-            return onClose(nullptr);
+        if (!internal::timeoutIsDefinite(abortTimeout_))
+            return doClose([](ErrorOr<bool>) {});
 
         auto self = this->shared_from_this();
         std::weak_ptr<BasicTransport> weakSelf =
@@ -274,16 +271,18 @@ private:
         auto self = this->shared_from_this();
         derived().receiveMessage(
             rxBuffer_,
-            [this, self](std::error_code ec)
+            [this, self](ErrorOr<bool> isWampMessage)
             {
-                if (checkRxError(ec))
-                    onReceiveCompleted();
+                if (isWampMessage.has_value())
+                    return onReceiveCompleted(isWampMessage.value());
+                checkRxError(isWampMessage.error());
             });
     }
 
-    void onReceiveCompleted()
+    void onReceiveCompleted(bool isWampMessage)
     {
-        Base::post(rxHandler_, std::move(rxBuffer_));
+        if (isWampMessage && rxHandler_)
+            Base::post(rxHandler_, std::move(rxBuffer_));
         receive();
     }
 
@@ -344,14 +343,12 @@ private:
     MessageBuffer rxBuffer_;
     TransmitQueue txQueue_;
     MessageBuffer pingBuffer_;
-    TransportFrame::Ptr txFrame_;
-    TransportFrame::Ptr pingFrame_;
+    Frame::Ptr txFrame_;
+    Frame::Ptr pingFrame_;
     std::shared_ptr<Pinger> pinger_;
     Timeout abortTimeout_;
 };
 
-} // namespace internal
-
 } // namespace wamp
 
-#endif // CPPWAMP_INTERNAL_BASICTRANSPORT_HPP
+#endif // CPPWAMP_BASICTRANSPORT_HPP

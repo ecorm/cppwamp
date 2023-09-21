@@ -16,11 +16,11 @@
 #include <boost/beast/core/flat_buffer.hpp>
 #include <boost/beast/websocket/rfc6455.hpp>
 #include <boost/beast/websocket/stream.hpp>
+#include "../basictransport.hpp"
 #include "../codec.hpp"
 #include "../traits.hpp"
 #include "../version.hpp"
 #include "../transports/websocketprotocol.hpp"
-#include "basictransport.hpp"
 
 namespace wamp
 {
@@ -28,6 +28,11 @@ namespace wamp
 namespace internal
 {
 
+//------------------------------------------------------------------------------
+// Byte container wrapper meeting the requirements of Beast's DynamicBuffer.
+// Needed because websocket::stream::async_read only takes lvalues, and
+// boost::asio::dynamic_vector_buffer cannot be reassigned.
+// https://github.com/boostorg/beast/issues/1112
 //------------------------------------------------------------------------------
 template <typename TStorage>
 class DynamicWebsocketBuffer
@@ -169,23 +174,6 @@ protected:
         return ec;
     }
 
-    static std::error_code interpretCloseReason(
-        const boost::beast::websocket::close_reason& reason)
-    {
-        std::error_code ec = make_error_code(TransportErrc::disconnected);
-        auto code = reason.code;
-        if (code != boost::beast::websocket::close_code::normal)
-        {
-            auto value = static_cast<int>(code);
-            auto msg = websocketCloseCategory().message(value);
-            if (!msg.empty())
-                ec = std::error_code{value, websocketCloseCategory()};
-            if (ec == WebsocketCloseErrc::tooBig)
-                ec = make_error_code(TransportErrc::outboundTooLong);
-        }
-        return ec;
-    }
-
     // Constructor for client transports
     WebsocketTransport(WebsocketPtr&& ws, TransportInfo info)
         : Base(boost::asio::make_strand(ws->get_executor()),
@@ -237,7 +225,27 @@ private:
         return {std::move(details), oss.str()};
     }
 
-    bool socketIsOpen() const {return websocket_ != nullptr;}
+    static std::error_code interpretCloseReason(
+        const boost::beast::websocket::close_reason& reason)
+    {
+        std::error_code ec = make_error_code(TransportErrc::disconnected);
+        auto code = reason.code;
+        if (code != boost::beast::websocket::close_code::normal)
+        {
+            auto value = static_cast<int>(code);
+            auto msg = websocketCloseCategory().message(value);
+            if (!msg.empty())
+                ec = std::error_code{value, websocketCloseCategory()};
+            if (ec == WebsocketCloseErrc::tooBig)
+                ec = make_error_code(TransportErrc::outboundTooLong);
+        }
+        return ec;
+    }
+
+    bool socketIsOpen() const
+    {
+        return websocket_->next_layer().is_open() && websocket_->is_open();
+    }
 
     void enablePinging()
     {
@@ -259,37 +267,25 @@ private:
 
     void disablePinging()
     {
-        if (websocket_)
-            websocket_->control_callback();
+        websocket_->control_callback();
     }
 
     void stopTransport()
     {
-        if (websocket_)
-            websocket_->next_layer().close();
+        websocket_->next_layer().close();
     }
 
     void closeTransport(CloseHandler handler)
     {
-        doClose(boost::beast::websocket::normal, std::move(handler));
-    }
-
-    void doClose(boost::beast::websocket::close_code closeCode,
-                 CloseHandler&& handler = nullptr)
-    {
-        if (websocket_)
+        if (socketIsOpen())
             closeWebsocket(boost::beast::websocket::normal, std::move(handler));
-        if (!websocket_ && (handler != nullptr))
+        else
             Base::post(std::move(handler), true);
     }
 
     void closeWebsocket(boost::beast::websocket::close_code reason,
                         CloseHandler&& handler = nullptr)
     {
-        if (!websocket_)
-            return;
-        websocket_->control_callback();
-
         struct Closed
         {
             Ptr self;
@@ -298,9 +294,11 @@ private:
             void operator()(boost::beast::error_code netEc)
             {
                 auto ec = static_cast<std::error_code>(netEc);
-                self->onWebsocketClosed(ec, std::move(handler));
+                self->onWebsocketClosed(ec, handler);
             }
         };
+
+        websocket_->control_callback();
 
         auto self =
             std::dynamic_pointer_cast<WebsocketTransport>(shared_from_this());
@@ -308,10 +306,10 @@ private:
                                 Closed{std::move(self), std::move(handler)});
     }
 
-    void onWebsocketClosed(std::error_code ec, CloseHandler&& handler)
+    void onWebsocketClosed(std::error_code ec, CloseHandler& handler)
     {
         websocket_->next_layer().close();
-        if ((handler == nullptr))
+        if (handler == nullptr)
             return;
         if (ec)
             return Base::post(std::move(handler), makeUnexpected(ec));
@@ -320,8 +318,76 @@ private:
 
     void cancelClose()
     {
-        if (websocket_)
+        websocket_->next_layer().close();
+    }
+
+    void failTransport(std::error_code ec)
+    {
+        if (!socketIsOpen())
+        {
             websocket_->next_layer().close();
+            return;
+        }
+
+        using boost::beast::websocket::close_code;
+        using boost::beast::websocket::condition;
+        using boost::beast::websocket::error;
+
+        auto closeCode = close_code::internal_error;
+
+        if (ec == TransportErrc::inboundTooLong)
+        {
+            closeCode = close_code::too_big;
+        }
+        else if (ec == TransportErrc::expectedBinary ||
+                 ec == TransportErrc::expectedText)
+        {
+            closeCode = close_code::bad_payload;
+        }
+        else
+        {
+            auto netEc = static_cast<boost::system::error_code>(ec);
+            if (netEc == condition::protocol_violation)
+                closeCode = close_code::protocol_error;
+        }
+
+        closeWebsocket(closeCode);
+    }
+
+    template <typename F>
+    void transmitMessage(TransportFrameKind kind, const MessageBuffer& payload,
+                         F&& callback)
+    {
+        using K = TransportFrameKind;
+        switch (kind)
+        {
+        case K::wamp:
+            return transmitWampMessage(payload, std::forward<F>(callback));
+
+        case K::ping:
+            return transmitPing(payload, std::forward<F>(callback));
+
+        default:
+            assert(false && "Unexpected TransportFrameKind enumerator");
+        }
+    }
+
+    template <typename F>
+    void transmitWampMessage(const MessageBuffer& payload, F&& callback)
+    {
+        struct Written
+        {
+            Decay<F> callback;
+
+            void operator()(boost::beast::error_code netEc, size_t)
+            {
+                callback(netErrorCodeToStandard(netEc));
+            }
+        };
+
+        websocket_->async_write(
+            boost::asio::buffer(payload.data(), payload.size()),
+            Written{std::forward<F>(callback)});
     }
 
     template <typename F>
@@ -350,23 +416,6 @@ private:
     }
 
     template <typename F>
-    void transmitMessage(const MessageBuffer& payload, F&& callback)
-    {
-        struct Written
-        {
-            Decay<F> callback;
-
-            void operator()(boost::beast::error_code netEc, size_t)
-            {
-                callback(netErrorCodeToStandard(netEc));
-            }
-        };
-
-        auto buffer = boost::asio::buffer(&payload.front(), payload.size());
-        websocket_->async_write(buffer, Written{std::forward<F>(callback)});
-    }
-
-    template <typename F>
     void receiveMessage(MessageBuffer& payload, F&& callback)
     {
         struct Received
@@ -374,22 +423,19 @@ private:
             Decay<F> callback;
             WebsocketTransport* self;
 
-            void operator()(boost::beast::error_code netEc, std::size_t size)
+            void operator()(boost::beast::error_code netEc, std::size_t)
             {
-                self->onMessageReceived(netEc, size, callback);
+                self->onMessageReceived(netEc, callback);
             }
         };
 
-        // websocket::stream::async_read only takes lvalues
-        // https://github.com/boostorg/beast/issues/1112
         rxBuffer_.reset(payload);
-        Received received{std::forward<F>(callback), this};
-        websocket_->async_read(rxBuffer_, std::move(received));
+        websocket_->async_read(rxBuffer_,
+                               Received{std::forward<F>(callback), this});
     }
 
     template <typename F>
-    void onMessageReceived(boost::beast::error_code netEc, std::size_t size,
-                           F& callback)
+    void onMessageReceived(boost::beast::error_code netEc, F& callback)
     {
         std::error_code ec = netErrorCodeToStandard(netEc);
 
@@ -404,34 +450,9 @@ private:
                 ec = make_error_code(TransportErrc::expectedBinary);
         }
 
-        callback(ec);
-    }
-
-    void failTransport(std::error_code ec)
-    {
-        using boost::beast::websocket::close_code;
-        using boost::beast::websocket::condition;
-        using boost::beast::websocket::error;
-
-        auto closeCode = close_code::internal_error;
-
-        if (ec == TransportErrc::inboundTooLong)
-        {
-            closeCode = close_code::too_big;
-        }
-        else if (ec == TransportErrc::expectedBinary ||
-                 ec == TransportErrc::expectedText)
-        {
-            closeCode = close_code::bad_payload;
-        }
-        else
-        {
-            auto netEc = static_cast<boost::system::error_code>(ec);
-            if (netEc == condition::protocol_violation)
-                closeCode = close_code::protocol_error;
-        }
-
-        closeWebsocket(closeCode);
+        if (ec)
+            callback(makeUnexpected(ec));
+        return callback(true);
     }
 
     WebsocketPtr websocket_;
