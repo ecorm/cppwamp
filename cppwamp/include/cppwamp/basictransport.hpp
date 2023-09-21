@@ -78,10 +78,8 @@ protected:
     }
 
 private:
-    // TODO: No need to dynamically allocate Frame objects
     using Base = Transporting;
     using Frame = internal::TransportFrame;
-    using TransmitQueue = std::deque<Frame::Ptr>;
     using PingBytes = internal::PingBytes;
 
     void onStart(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
@@ -124,9 +122,9 @@ private:
         if (!derived().socketIsOpen())
             return;
         auto frame = enframe(std::move(message));
-        assert((frame->payload().size() <= info().maxTxLength()) &&
+        assert((frame.payload().size() <= info().maxTxLength()) &&
                "Outgoing message is longer than allowed by peer");
-        frame->poison();
+        frame.poison();
         txQueue_.push_front(std::move(frame));
         transmit();
     }
@@ -169,17 +167,17 @@ private:
         enqueueFrame(std::move(buf));
     }
 
-    Frame::Ptr enframe(MessageBuffer&& payload,
-                       TransportFrameKind kind = TransportFrameKind::wamp)
+    Frame enframe(MessageBuffer&& payload,
+                  TransportFrameKind kind = TransportFrameKind::wamp)
     {
-        return std::make_shared<Frame>(std::move(payload), kind);
+        return Frame{std::move(payload), kind};
     }
 
-    void enqueueFrame(Frame::Ptr frame)
+    void enqueueFrame(Frame&& frame)
     {
-        assert((frame->payload().size() <= info().maxTxLength()) &&
+        assert((frame.payload().size() <= info().maxTxLength()) &&
                "Outgoing message is longer than allowed by peer");
-        txQueue_.push_back(std::move(frame));
+        txQueue_.emplace_back(std::move(frame));
         transmit();
     }
 
@@ -188,27 +186,28 @@ private:
         if (!isReadyToTransmit())
             return;
 
-        txFrame_ = txQueue_.front();
+        txFrame_ = std::move(txQueue_.front());
         txQueue_.pop_front();
-        if (txFrame_->kind() == TransportFrameKind::wamp)
+        const auto kind = txFrame_.kind();
+        if (kind == TransportFrameKind::wamp)
             sendWampMessage();
         else
-            sendControlMessage(txFrame_->kind());
+            sendControlMessage(kind);
     }
 
     void sendWampMessage()
     {
         auto self = this->shared_from_this();
+        isTransmitting_ = true;
         derived().transmitMessage(
             TransportFrameKind::wamp,
-            txFrame_->payload(),
+            txFrame_.payload(),
             [this, self](std::error_code ec)
             {
-                auto frame = std::move(txFrame_);
-                txFrame_.reset();
+                isTransmitting_ = false;
                 if (!checkTxError(ec))
                     return;
-                if (frame && frame->isPoisoned())
+                if (txFrame_.isPoisoned())
                     abortiveClose();
                 else
                     transmit();
@@ -218,12 +217,15 @@ private:
     void sendControlMessage(TransportFrameKind kind)
     {
         auto self = this->shared_from_this();
+        isTransmitting_ = true;
         derived().transmitMessage(
             kind,
-            txFrame_->payload(),
+            txFrame_.payload(),
             [this, self](std::error_code ec)
             {
-                txFrame_.reset();
+                isTransmitting_ = false;
+                if (!txQueue_.empty())
+                    txQueue_.pop_front();
                 if (checkTxError(ec))
                     transmit();
             });
@@ -257,9 +259,8 @@ private:
 
     bool isReadyToTransmit() const
     {
-        return derived().socketIsOpen() &&
-               !txFrame_ &&       // No async_write is in progress
-               !txQueue_.empty(); // One or more messages are enqueued
+        return derived().socketIsOpen() && !isTransmitting_ &&
+               !txQueue_.empty();
     }
 
     void receive()
@@ -325,8 +326,6 @@ private:
         rxHandler_ = nullptr;
         txErrorHandler_ = nullptr;
         txQueue_.clear();
-        txFrame_ = nullptr;
-        pingFrame_ = nullptr;
         pinger_.reset();
     }
 
@@ -338,15 +337,14 @@ private:
     }
 
     boost::asio::steady_timer timer_;
+    std::deque<Frame> txQueue_;
+    Frame txFrame_;
+    MessageBuffer rxBuffer_;
     RxHandler rxHandler_;
     TxErrorHandler txErrorHandler_;
-    MessageBuffer rxBuffer_;
-    TransmitQueue txQueue_;
-    MessageBuffer pingBuffer_;
-    Frame::Ptr txFrame_;
-    Frame::Ptr pingFrame_;
     std::shared_ptr<Pinger> pinger_;
     Timeout abortTimeout_;
+    bool isTransmitting_ = false;
 };
 
 } // namespace wamp
