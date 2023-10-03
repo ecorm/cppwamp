@@ -15,17 +15,13 @@
 #include <string>
 #include <system_error>
 #include "../api.hpp"
+#include "httpaction.hpp"
+#include "socketendpoint.hpp"
+#include "tcpprotocol.hpp"
+#include "../utils/triemap.hpp"
 
 namespace wamp
 {
-
-//------------------------------------------------------------------------------
-/** Tag type associated with the HTTP transport. */
-//------------------------------------------------------------------------------
-struct CPPWAMP_API Http
-{
-    constexpr Http() = default;
-};
 
 //------------------------------------------------------------------------------
 /** Standard HTTP status codes. */
@@ -139,6 +135,91 @@ CPPWAMP_API std::error_code make_error_code(HttpStatus errc);
 //-----------------------------------------------------------------------------
 CPPWAMP_API std::error_condition make_error_condition(HttpStatus errc);
 
+
+//------------------------------------------------------------------------------
+/** Tag type associated with the HTTP transport. */
+//------------------------------------------------------------------------------
+struct CPPWAMP_API Http
+{
+    constexpr Http() = default;
+};
+
+
+//------------------------------------------------------------------------------
+/** Contains HTTP host address information, as well as other socket options.
+    Meets the requirements of @ref TransportSettings. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API HttpEndpoint
+    : public SocketEndpoint<HttpEndpoint, Http, TcpOptions,
+                            std::size_t, 16*1024*1024>
+{
+public:
+    /// URI and status code of an error page.
+    struct ErrorPage
+    {
+        std::string uri;
+        HttpStatus status;
+    };
+
+    /// Transport protocol tag associated with these settings.
+    using Protocol = Http;
+
+    /// Numeric port type
+    using Port = uint_least16_t;
+
+    /** Constructor taking a port number. */
+    explicit HttpEndpoint(Port port);
+
+    /** Constructor taking an address string, port number. */
+    HttpEndpoint(std::string address, unsigned short port);
+
+    /** Adds an action associated with an exact route. */
+    HttpEndpoint& addExactRoute(std::string uri, AnyHttpAction action);
+
+    /** Adds an action associated with a prefix match route. */
+    HttpEndpoint& addPrefixRoute(std::string uri, AnyHttpAction action);
+
+    /** Specifies the custom agent string to use (default is
+        Version::agentString). */
+    HttpEndpoint& withAgent(std::string agent);
+
+    /** Specifies the error page to show for the given HTTP response
+        status code. */
+    HttpEndpoint& withErrorPage(HttpStatus status, std::string uri);
+
+    /** Specifies the error page to show for the given HTTP response
+        status code, with the original status code substituted with the
+        given status code. */
+    HttpEndpoint& withErrorPage(HttpStatus status, std::string uri,
+                                HttpStatus changedStatus);
+
+    /** Obtains the custom agent string. */
+    const std::string& agent() const;
+
+    /** Generates a human-friendly string of the HTTP address/port. */
+    std::string label() const;
+
+    /** Finds the best matching action associated with the given route. */
+    template <typename TStringLike>
+    AnyHttpAction* findAction(const TStringLike& route) const
+    {
+        return doFindAction(route.data());
+    }
+
+    /** Finds the error page associated with the given HTTP status code. */
+    const ErrorPage* findErrorPage(HttpStatus status) const;
+
+private:
+    using Base = SocketEndpoint<HttpEndpoint, Http, TcpOptions,
+                                std::size_t, 16*1024*1024>;
+
+    AnyHttpAction* doFindAction(const char* route);
+
+    utils::TrieMap<AnyHttpAction> actionsByExactKey_;
+    utils::TrieMap<AnyHttpAction> actionsByPrefixKey_;
+    std::map<HttpStatus, ErrorPage> errorPages_;
+    std::string agent_;
+};
 
 } // namespace wamp
 

@@ -176,8 +176,8 @@ private:
                               std::numeric_limits<std::size_t>::max(),
                               settings_.maxRxLength(),
                               settings_.heartbeatInterval()};
-        Transporting::Ptr transport{Transport::create(std::move(websocket_),
-                                                      settings_, i)};
+        Transporting::Ptr transport =
+            std::make_shared<Transport>(std::move(websocket_), settings_, i);
         websocket_.reset();
         dispatchHandler(std::move(transport));
     }

@@ -40,6 +40,7 @@
 #include "disclosure.hpp"
 #include "listener.hpp"
 #include "logging.hpp"
+#include "routerlogger.hpp"
 #include "timeout.hpp"
 #include "uri.hpp"
 #include "internal/passkey.hpp"
@@ -171,7 +172,8 @@ private:
 
 public: // Internal use only
     Listening::Ptr makeListener(internal::PassKey, AnyIoExecutor e,
-                                IoStrand s) const;
+                                IoStrand s, const std::string& server,
+                                RouterLogger::Ptr l) const;
 
     AnyBufferCodec makeCodec(internal::PassKey, int id) const;
 };

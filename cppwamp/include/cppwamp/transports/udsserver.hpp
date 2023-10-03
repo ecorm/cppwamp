@@ -39,16 +39,11 @@ public:
     using Settings = UdsEndpoint;
 
     /** Constructor. */
-    Listener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c);
-
-    /** Move constructor. */
-    Listener(Listener&&) noexcept;
+    Listener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c,
+             const std::string& server = {}, RouterLogger::Ptr l = {});
 
     /** Destructor. */
     ~Listener() override;
-
-    /** Move assignment. */
-    Listener& operator=(Listener&&) noexcept;
 
     void observe(Handler handler) override;
 
@@ -59,7 +54,9 @@ public:
     /** @name Non-copyable and non-movable */
     /// @{
     Listener(const Listener&) = delete;
+    Listener(Listener&&) = delete;
     Listener& operator=(const Listener&) = delete;
+    Listener& operator=(Listener&&) = delete;
     /// @}
 
 private:

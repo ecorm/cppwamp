@@ -21,9 +21,10 @@ struct UdsListenerImpl
 {
     using ListenerType = internal::UdsListener;
 
-    UdsListenerImpl(AnyIoExecutor e, IoStrand i, UdsEndpoint s, CodecIdSet c)
+    UdsListenerImpl(AnyIoExecutor e, IoStrand i, UdsEndpoint s, CodecIdSet c,
+                    const std::string& server, RouterLogger::Ptr l)
         : lstn(ListenerType::create(std::move(e), std::move(i), std::move(s),
-                                    std::move(c)))
+                                    std::move(c), server, std::move(l)))
     {}
 
     ListenerType::Ptr lstn;
@@ -37,23 +38,18 @@ struct UdsListenerImpl
 //******************************************************************************
 
 CPPWAMP_INLINE Listener<Uds>::Listener(AnyIoExecutor e, IoStrand i, Settings s,
-                                       CodecIdSet c)
+                                       CodecIdSet c, const std::string& server,
+                                       RouterLogger::Ptr l)
     : Listening(s.label()),
-      impl_(new internal::UdsListenerImpl(std::move(e), std::move(i),
-                                          std::move(s), std::move(c)))
+      impl_(new internal::UdsListenerImpl(
+          std::move(e), std::move(i), std::move(s), std::move(c), server,
+          std::move(l)))
 {}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE Listener<Uds>::Listener(Listener&&) noexcept = default;
 
 //------------------------------------------------------------------------------
 // Needed to avoid incomplete type errors.
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Listener<Uds>::~Listener() = default;
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE Listener<Uds>& Listener<Uds>::operator=(Listener&&) noexcept
-    = default;
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Listener<Uds>::observe(Handler handler)

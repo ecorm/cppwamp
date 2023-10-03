@@ -7,18 +7,10 @@
 #ifndef CPPWAMP_INTERNAL_HTTPLISTENER_HPP
 #define CPPWAMP_INTERNAL_HTTPLISTENER_HPP
 
-#include <cassert>
 #include <memory>
 #include <set>
-#include <type_traits>
-#include <boost/beast/core/flat_buffer.hpp>
-#include <boost/beast/http/message.hpp>
-#include "../asiodefs.hpp"
-#include "../codec.hpp"
-#include "../listener.hpp"
-#include "../version.hpp"
-#include "../transports/httpendpoint.hpp"
-#include "websockettransport.hpp"
+#include "tcplistener.hpp"
+#include "httptransport.hpp"
 
 namespace wamp
 {
@@ -27,34 +19,11 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-class HttpListener : public std::enable_shared_from_this<HttpListener>
-{
-public:
-    using Ptr       = std::shared_ptr<HttpListener>;
-    using Settings  = HttpEndpoint;
-    using Handler   = Listening::Handler;
+using HttpListenerConfig =
+    BasicTcpListenerConfig<HttpServerTransport, HttpEndpoint>;
 
-    static Ptr create(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c)
-    {
-        return nullptr;
-        // TODO
-    }
-
-    void observe(Handler handler)
-    {
-        // TODO
-    }
-
-    void establish()
-    {
-        // TODO
-    }
-
-    void cancel()
-    {
-        // TODO
-    }
-};
+//------------------------------------------------------------------------------
+using HttpListener = RawsockListener<HttpListenerConfig>;
 
 } // namespace internal
 

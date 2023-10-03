@@ -22,6 +22,8 @@
 #include "api.hpp"
 #include "asiodefs.hpp"
 #include "codec.hpp"
+#include "connectioninfo.hpp"
+#include "routerlogger.hpp"
 #include "transport.hpp"
 #include "traits.hpp"
 
@@ -165,27 +167,34 @@ public:
 
     /** Builds a listener appropriate for the transport settings given
         in the constructor. */
-    Listening::Ptr operator()(AnyIoExecutor e, IoStrand s, CodecIdSet c) const
+    Listening::Ptr operator()(AnyIoExecutor e, IoStrand s, CodecIdSet c,
+                              const std::string& server,
+                              RouterLogger::Ptr l) const
     {
-        return builder_(std::move(e), std::move(s), std::move(c));
+        return builder_(std::move(e), std::move(s), std::move(c), server,
+                        std::move(l));
     }
 
 private:
     using Function =
-        std::function<Listening::Ptr (AnyIoExecutor, IoStrand, CodecIdSet)>;
+        std::function<Listening::Ptr (AnyIoExecutor, IoStrand, CodecIdSet,
+                                      const std::string& server,
+                                                  RouterLogger::Ptr)>;
 
     template <typename S>
-    static Function makeBuilder(S&& transportSettings)
+    static Function makeBuilder(S&& settings)
     {
         using Settings = Decay<S>;
         using Protocol = typename Settings::Protocol;
         using ConcreteListener = Listener<Protocol>;
+
         return Function{
-            [transportSettings](AnyIoExecutor e, IoStrand s, CodecIdSet c)
+            [settings](AnyIoExecutor e, IoStrand s, CodecIdSet c,
+                       const std::string& server, RouterLogger::Ptr l)
             {
                 return Listening::Ptr(new ConcreteListener(
-                    std::move(e), std::move(s), transportSettings,
-                    std::move(c)));
+                    std::move(e), std::move(s), settings, std::move(c),
+                    server, std::move(l)));
             }};
     }
 

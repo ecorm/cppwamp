@@ -182,8 +182,8 @@ private:
                               hs.maxLengthInBytes(),
                               Handshake::byteLengthOf(settings_.maxRxLength()),
                               Traits::heartbeatInterval(settings_)};
-        Transporting::Ptr transport{Transport::create(std::move(socket_),
-                                                      settings_, i)};
+        Transporting::Ptr transport =
+            std::make_shared<Transport>(std::move(socket_), settings_, i);
         dispatchHandler(std::move(transport));
     }
 

@@ -46,6 +46,7 @@ set(HEADERS
     include/cppwamp/realmobserver.hpp
     include/cppwamp/registration.hpp
     include/cppwamp/router.hpp
+    include/cppwamp/routerlogger.hpp
     include/cppwamp/routeroptions.hpp
     include/cppwamp/rpcinfo.hpp
     include/cppwamp/session.hpp
@@ -85,6 +86,7 @@ set(HEADERS
     include/cppwamp/internal/jsonencoding.hpp
     include/cppwamp/internal/hashcombine.hpp
     include/cppwamp/internal/httplistener.hpp
+    include/cppwamp/internal/httptransport.hpp
     include/cppwamp/internal/invocationpolicyoption.hpp
     include/cppwamp/internal/lrucache.hpp
     include/cppwamp/internal/matchpolicyoption.hpp
@@ -133,8 +135,8 @@ set(HEADERS
     include/cppwamp/internal/websocketconnector.hpp
     include/cppwamp/internal/websocketlistener.hpp
     include/cppwamp/internal/websockettransport.hpp
-    include/cppwamp/transports/http.hpp
-    include/cppwamp/transports/httpendpoint.hpp
+    include/cppwamp/transports/httpaction.hpp
+    include/cppwamp/transports/httpserver.hpp
     include/cppwamp/transports/httpprotocol.hpp
     include/cppwamp/transports/socketendpoint.hpp
     include/cppwamp/transports/sockethost.hpp
@@ -187,9 +189,9 @@ set(INLINES
     include/cppwamp/internal/exceptions.inl.hpp
     include/cppwamp/internal/features.inl.hpp
     include/cppwamp/internal/filelogger.inl.hpp
-    include/cppwamp/internal/http.inl.hpp
-    include/cppwamp/internal/httpendpoint.inl.hpp
+    include/cppwamp/internal/httpaction.inl.hpp
     include/cppwamp/internal/httpprotocol.inl.hpp
+    include/cppwamp/internal/httpserver.inl.hpp
     include/cppwamp/internal/json.inl.hpp
     include/cppwamp/internal/logging.inl.hpp
     include/cppwamp/internal/messagetraits.inl.hpp

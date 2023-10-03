@@ -14,10 +14,10 @@ namespace wamp
 
 CPPWAMP_INLINE ConnectionInfo::ConnectionInfo() = default;
 
-CPPWAMP_INLINE ConnectionInfo::ConnectionInfo(Object transport,
-                                              std::string endpoint)
-    : impl_(internal::ConnectionInfoImpl::create(std::move(transport),
-                                                 std::move(endpoint)))
+CPPWAMP_INLINE ConnectionInfo::ConnectionInfo(
+    Object transport, std::string endpoint, const std::string& server)
+    : impl_(std::make_shared<internal::ConnectionInfoImpl>(
+        std::move(transport), std::move(endpoint), server))
 {}
 
 CPPWAMP_INLINE const Object& ConnectionInfo::transport() const
@@ -54,10 +54,10 @@ CPPWAMP_INLINE ConnectionInfo::ConnectionInfo(
     : impl_(std::move(impl))
 {}
 
-CPPWAMP_INLINE void ConnectionInfo::setServer(
-    internal::PassKey, std::string server, ServerSessionNumber n)
+CPPWAMP_INLINE void ConnectionInfo::setServerSessionNumber(
+    internal::PassKey, ServerSessionNumber n)
 {
-    impl_->setServer(std::move(server), n);
+    impl_->setServerSessionNumber(n);
 }
 
 } // namespace wamp

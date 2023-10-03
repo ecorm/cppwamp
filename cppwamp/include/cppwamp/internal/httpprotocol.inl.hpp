@@ -6,10 +6,16 @@
 
 #include "../transports/httpprotocol.hpp"
 #include <array>
+#include <utility>
 #include "../api.hpp"
+#include "../exceptions.hpp"
 
 namespace wamp
 {
+
+//******************************************************************************
+// HttpStatusCategory
+//******************************************************************************
 
 CPPWAMP_INLINE const char* HttpStatusCategory::name() const noexcept
 {
@@ -80,7 +86,10 @@ CPPWAMP_INLINE std::string HttpStatusCategory::message(int ev) const
         case S::loopDetected:                  return "508 Loop Detected";
         case S::notExtended:                   return "510 Not Extended";
         case S::networkAuthenticationRequired: return "511 Network Authentication Required";
+        default: break;
     }
+
+    return std::to_string(ev) + " Unknown Error";
 }
 
 CPPWAMP_INLINE bool HttpStatusCategory::equivalent(
@@ -107,6 +116,96 @@ CPPWAMP_INLINE std::error_condition
 make_error_condition(HttpStatus errc)
 {
     return {static_cast<int>(errc), httpStatusCategory()};
+}
+
+
+//******************************************************************************
+// HttpEndpoint
+//******************************************************************************
+
+CPPWAMP_INLINE HttpEndpoint::HttpEndpoint(Port port)
+    : Base("", port)
+{
+    mutableAcceptorOptions().withReuseAddress(true);
+}
+
+CPPWAMP_INLINE HttpEndpoint::HttpEndpoint(std::string address,
+                                          unsigned short port)
+    : Base(std::move(address), port)
+{
+    mutableAcceptorOptions().withReuseAddress(true);
+}
+
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::addExactRoute(std::string uri,
+                                                         AnyHttpAction action)
+{
+    actionsByExactKey_[std::move(uri)] = action;
+    return *this;
+}
+
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::addPrefixRoute(std::string uri,
+                                                          AnyHttpAction action)
+{
+    actionsByPrefixKey_[std::move(uri)] = action;
+    return *this;
+}
+
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withAgent(std::string agent)
+{
+    agent_ = std::move(agent);
+    return *this;
+}
+
+/** @pre `static_cast<unsigned>(status) >= 300` */
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withErrorPage(HttpStatus status,
+                                                         std::string uri)
+{
+    CPPWAMP_LOGIC_CHECK(static_cast<unsigned>(status) >= 300,
+                        "'status' must be a redirect or error code");
+    return withErrorPage(status, std::move(uri), status);
+}
+
+/** @pre `static_cast<unsigned>(status) >= 300` */
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withErrorPage(
+    HttpStatus status, std::string uri, HttpStatus changedStatus)
+{
+    CPPWAMP_LOGIC_CHECK(static_cast<unsigned>(status) >= 300,
+                        "'status' must be a redirect or error code");
+    return *this;
+}
+
+CPPWAMP_INLINE const std::string& HttpEndpoint::agent() const {return agent_;}
+
+CPPWAMP_INLINE std::string HttpEndpoint::label() const
+{
+    auto portString = std::to_string(port());
+    if (address().empty())
+        return "HTTP Port " + portString;
+    return "HTTP " + address() + ':' + portString;
+}
+
+CPPWAMP_INLINE const HttpEndpoint::ErrorPage*
+HttpEndpoint::findErrorPage(HttpStatus status) const
+{
+    auto found = errorPages_.find(status);
+    return found == errorPages_.end() ? nullptr : &(found->second);
+}
+
+CPPWAMP_INLINE AnyHttpAction* HttpEndpoint::doFindAction(const char* route)
+{
+    {
+        auto found = actionsByExactKey_.find(route);
+        if (found != actionsByExactKey_.end())
+            return &(found.value());
+    }
+
+    {
+        auto found = actionsByPrefixKey_.longest_prefix(route);
+        if (found != actionsByPrefixKey_.end())
+            return &(found.value());
+    }
+
+    return nullptr;
 }
 
 } // namespace wamp

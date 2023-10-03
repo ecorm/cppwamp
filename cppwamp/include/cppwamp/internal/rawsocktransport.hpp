@@ -16,6 +16,7 @@
 #include "../asiodefs.hpp"
 #include "../basictransport.hpp"
 #include "../codec.hpp"
+#include "../routerlogger.hpp"
 #include "rawsockheader.hpp"
 #include "rawsockhandshake.hpp"
 
@@ -147,14 +148,15 @@ protected:
     // Constructor for client transports
     RawsockTransport(Socket&& socket, TransportInfo info)
         : Base(boost::asio::make_strand(socket.get_executor()),
-               Traits::connectionInfo(socket.remote_endpoint()), info),
+               Traits::connectionInfo(socket.remote_endpoint(), {}),
+               info),
           socket_(std::move(socket))
     {}
 
     // Constructor for server transports
-    RawsockTransport(Socket&& socket)
+    RawsockTransport(Socket&& socket, const std::string& server)
         : Base(boost::asio::make_strand(socket.get_executor()),
-               Traits::connectionInfo(socket.remote_endpoint())),
+               Traits::connectionInfo(socket.remote_endpoint(), server)),
           socket_(std::move(socket))
     {}
 
@@ -338,17 +340,12 @@ public:
     using Socket   = typename TConfig::Traits::NetProtocol::socket;
     using Settings = typename TConfig::Traits::ClientSettings;
 
-    static Ptr create(Socket&& s, const Settings&, TransportInfo t)
-    {
-        return Ptr(new RawsockClientTransport(std::move(s), t));
-    }
+    RawsockClientTransport(Socket&& s, const Settings&, TransportInfo t)
+        : Base(std::move(s), t)
+    {}
 
 private:
     using Base = RawsockTransport<TConfig>;
-
-    RawsockClientTransport(Socket&& s, TransportInfo t)
-        : Base(std::move(s), t)
-    {}
 };
 
 //------------------------------------------------------------------------------
@@ -359,13 +356,14 @@ public:
     using Ptr           = std::shared_ptr<RawsockServerTransport>;
     using Socket        = typename TConfig::Traits::NetProtocol::socket;
     using Settings      = typename TConfig::Traits::ServerSettings;
+    using SettingsPtr   = std::shared_ptr<Settings>;
     using AcceptHandler = Transporting::AcceptHandler;
 
-    static Ptr create(Socket&& s, const Settings& t, const CodecIdSet& c)
-    {
-        return Ptr(new RawsockServerTransport(std::move(s), std::move(t),
-                                              std::move(c)));
-    }
+    RawsockServerTransport(Socket&& s, SettingsPtr p, const CodecIdSet& c,
+                           const std::string& server, RouterLogger::Ptr l)
+        : Base(std::move(s), server),
+          data_(new Data(Base::socket().get_executor(), std::move(p), c))
+    {}
 
 private:
     using Base = RawsockTransport<TConfig>;
@@ -374,24 +372,19 @@ private:
     // Only used once to perform accept operation
     struct Data
     {
-        explicit Data(AnyIoExecutor e, const Settings& s, const CodecIdSet& c)
+        explicit Data(AnyIoExecutor e, SettingsPtr p, const CodecIdSet& c)
             : timer(std::move(e)),
-              settings(s),
+              settings(p),
               codecIds(c)
         {}
 
         boost::asio::steady_timer timer;
-        Settings settings;
+        SettingsPtr settings;
         CodecIdSet codecIds;
         AcceptHandler handler;
         uint32_t handshake = 0;
         RawsockMaxLength maxTxLength = {};
     };
-
-    RawsockServerTransport(Socket&& s, const Settings& t, const CodecIdSet& c)
-        : Base(std::move(s)),
-          data_(new Data(Base::socket().get_executor(), t, c))
-    {}
 
     void onAccept(Timeout timeout, AcceptHandler handler) override
     {
@@ -457,7 +450,7 @@ private:
         {
             data_->maxTxLength = hs.maxLength();
             auto bytes = TConfig::hostOrderHandshakeBytes(
-                peerCodec, data_->settings.maxRxLength());
+                peerCodec, data_->settings->maxRxLength());
             sendHandshake(Handshake(bytes));
         }
         else
@@ -514,7 +507,7 @@ private:
         const TransportInfo i{
             codecId,
             Handshake::byteLengthOf(data_->maxTxLength),
-            Handshake::byteLengthOf(data_->settings.maxRxLength())};
+            Handshake::byteLengthOf(data_->settings->maxRxLength())};
         Base::completeAccept(i);
         Base::post(std::move(data_->handler), codecId);
         data_.reset();

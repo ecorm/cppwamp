@@ -14,9 +14,9 @@
 
 #include "../api.hpp"
 #include "../rawsockoptions.hpp"
-#include "../internal/socketoptions.hpp"
 #include "socketendpoint.hpp"
 #include "sockethost.hpp"
+#include "../internal/socketoptions.hpp"
 
 // Forward declaration
 namespace boost { namespace asio { namespace local { class stream_protocol; }}}

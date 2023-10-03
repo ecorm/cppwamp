@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2022.
+    Copyright Butterfly Energy Systems 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -21,7 +21,7 @@ namespace wamp
 //------------------------------------------------------------------------------
 /** Container type used for encoded WAMP messages that are sent/received
     over a transport. */
-// TODO: Buffer pool allocator
+// TODO: Consider using std::pmr::vector so that user may customize allocator
 //------------------------------------------------------------------------------
 using MessageBuffer = std::vector<uint8_t>;
 

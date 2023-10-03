@@ -22,6 +22,7 @@
 #include "../errorcodes.hpp"
 #include "../erroror.hpp"
 #include "../listener.hpp"
+#include "../routerlogger.hpp"
 
 namespace wamp
 {
@@ -137,19 +138,23 @@ class RawsockListener
     : public std::enable_shared_from_this<RawsockListener<TConfig>>
 {
 public:
-    using Ptr      = std::shared_ptr<RawsockListener>;
-    using Settings = typename TConfig::Settings;
-    using Handler  = Listening::Handler;
+    using Ptr         = std::shared_ptr<RawsockListener>;
+    using Settings    = typename TConfig::Settings;
+    using Handler     = Listening::Handler;
 
-    static Ptr create(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c)
+    static Ptr create(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c,
+                      const std::string& server = {},
+                      RouterLogger::Ptr l = nullptr)
     {
-        return Ptr(new RawsockListener(std::move(e), std::move(i), std::move(s),
-                                       std::move(c)));
+        auto settings = std::make_shared<Settings>(std::move(s));
+        return Ptr(new RawsockListener(std::move(e), std::move(i),
+                                       std::move(settings), std::move(c),
+                                       server, std::move(l)));
     }
 
     ~RawsockListener()
     {
-        TConfig::onDestruction(settings_);
+        TConfig::onDestruction(*settings_);
     }
 
     void observe(Handler handler) {handler_ = handler;}
@@ -157,13 +162,11 @@ public:
     void establish()
     {
         assert(!establishing_ && "RawsockListener already establishing");
-        establishing_ = true;
-        if (!acceptor_.is_open() && !listen())
-        {
-            establishing_ = false;
-            return;
-        }
 
+        if (!acceptor_.is_open() && !listen())
+            return;
+
+        establishing_ = true;
         auto self = this->shared_from_this();
         acceptor_.async_accept(
             boost::asio::make_strand(executor_),
@@ -179,6 +182,7 @@ private:
     using NetProtocol = typename TConfig::NetProtocol;
     using Socket      = typename NetProtocol::socket;
     using Transport   = typename TConfig::Transport;
+    using SettingsPtr = std::shared_ptr<Settings>;
 
     static std::error_code convertNetError(boost::system::error_code netEc)
     {
@@ -195,32 +199,35 @@ private:
         return ec;
     }
 
-    RawsockListener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c)
+    RawsockListener(AnyIoExecutor e, IoStrand i, SettingsPtr s, CodecIdSet c,
+                    const std::string& server, RouterLogger::Ptr l)
         : executor_(std::move(e)),
           strand_(std::move(i)),
           codecIds_(std::move(c)),
+          server_(server),
           settings_(std::move(s)),
+          logger_(std::move(l)),
           acceptor_(strand_)
     {}
 
     bool listen()
     {
-        TConfig::onFirstEstablish(settings_);
+        TConfig::onFirstEstablish(*settings_);
 
-        auto endpoint = TConfig::makeEndpoint(settings_);
+        auto endpoint = TConfig::makeEndpoint(*settings_);
         boost::system::error_code ec;
         acceptor_.open(endpoint.protocol(), ec);
         if (ec)
             return fail(ec, "socket open");
 
-        settings_.acceptorOptions().applyTo(acceptor_);
+        settings_->acceptorOptions().applyTo(acceptor_);
         acceptor_.bind(endpoint, ec);
         if (ec)
             return fail(ec, "socket bind");
 
-        int backlog = settings_.backlogCapacity() == 0
+        int backlog = settings_->backlogCapacity() == 0
             ? boost::asio::socket_base::max_listen_connections
-            : settings_.backlogCapacity();
+            : settings_->backlogCapacity();
         acceptor_.listen(backlog, ec);
         if (ec)
             return fail(ec, "socket listen");
@@ -268,15 +275,18 @@ private:
             return;
         }
 
-        settings_.socketOptions().applyTo(socket);
-        handler_(ListenResult{Transport::create(std::move(socket), settings_,
-                                                codecIds_)});
+        settings_->socketOptions().applyTo(socket);
+        auto transport = std::make_shared<Transport>(
+            std::move(socket), settings_, codecIds_, server_, logger_);
+        handler_(ListenResult{std::move(transport)});
     }
 
     AnyIoExecutor executor_;
     IoStrand strand_;
     CodecIdSet codecIds_;
-    Settings settings_;
+    std::string server_;
+    SettingsPtr settings_;
+    RouterLogger::Ptr logger_;
     typename NetProtocol::acceptor acceptor_;
     Handler handler_;
     bool establishing_ = false;

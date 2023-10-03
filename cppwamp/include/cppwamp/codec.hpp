@@ -632,19 +632,27 @@ public:
     /** AnyCodec specialization to be built. */
     using AnyCodecType = AnyCodec<TSink, TSource>;
 
-    /** Constructor taking a set of format tags for codecs that can be built. */
+    /** Constructor taking a set of format tags/options for codecs that can be
+        built. */
     template <typename... Fs>
-    CodecFactory(Fs... formats)
+    CodecFactory(Fs&&... formats)
     {
-        addBuilders(builders_, ids_, formats...);
+        addBuilders(builders_, ids_, std::forward<Fs>(formats)...);
     }
 
     /** Adds a codec that can be built. */
     template <typename F,
              CPPWAMP_NEEDS(IsCodecFormat<F>::value) = 0>
-    void insert(F format)
+    void insert(F&& format)
     {
         addBuilder(builders_, ids_, format);
+    }
+
+    /** Adds a codec, with options, that can be built. */
+    template <typename F>
+    void insert(CodecOptions<F> options)
+    {
+        addBuilder(builders_, ids_, std::move(options));
     }
 
     /** Builds and returns a codec associated with the given ID, returning
@@ -665,22 +673,23 @@ private:
     using BuilderList = std::vector<CodecBuilder<TSink, TSource>>;
 
     template <typename F, typename... Fs>
-    static void addBuilders(BuilderList& builders, CodecIdSet& ids, F, Fs...)
+    static void addBuilders(BuilderList& builders, CodecIdSet& ids,
+                            F&& head, Fs&&... tail)
     {
-        addBuilder(builders, ids, F{});
-        addBuilders(Fs{}...);
+        addBuilder(builders, ids, std::forward<F>(head));
+        addBuilders(std::forward<Fs>(tail)...);
     }
 
     template <typename F>
-    static void addBuilders(BuilderList& builders, CodecIdSet& ids, F)
+    static void addBuilders(BuilderList& builders, CodecIdSet& ids, F&& last)
     {
-        addBuilder(builders, ids, F{});
+        addBuilder(builders, ids, std::forward<F>(last));
     }
 
     template <typename F>
-    static void addBuilder(BuilderList& builders, CodecIdSet& ids, F)
+    static void addBuilder(BuilderList& builders, CodecIdSet& ids, F&& format)
     {
-        builders.emplace_back(F{});
+        builders.emplace_back(std::forward<F>(format));
         ids.insert(builders.back().id());
     }
 

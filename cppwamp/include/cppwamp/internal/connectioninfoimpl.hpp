@@ -22,8 +22,6 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-/** Contains meta-data associated with a WAMP client session. */
-//------------------------------------------------------------------------------
 class ConnectionInfoImpl
 {
 public:
@@ -31,13 +29,18 @@ public:
     using ConstPtr = std::shared_ptr<const ConnectionInfoImpl>;
     using ServerSessionNumber = uint64_t;
 
-    static Ptr create(Object transport, String endpoint)
+    explicit ConnectionInfoImpl(Object transport, std::string endpoint,
+                                const std::string& server)
+        : transport_(std::move(transport)),
+          endpoint_(std::move(endpoint)),
+          server_(server)
     {
-        return Ptr(new ConnectionInfoImpl(std::move(transport),
-                                          std::move(endpoint)));
+        if (!server.empty())
+            transport_.emplace("server", server_);
     }
 
     ~ConnectionInfoImpl() = default;
+
     ConnectionInfoImpl(ConnectionInfoImpl&&) = default;
     ConnectionInfoImpl& operator=(ConnectionInfoImpl&&) = default;
 
@@ -52,22 +55,15 @@ public:
         return serverSessionNumber_;
     }
 
-    void setServer(std::string server, ServerSessionNumber n)
+    void setServerSessionNumber(ServerSessionNumber n)
     {
-        server_ = std::move(server);
         serverSessionNumber_ = n;
-        transport_["server"] = server_;
     }
 
     ConnectionInfoImpl(const ConnectionInfoImpl&) = delete;
     ConnectionInfoImpl& operator=(const ConnectionInfoImpl&) = delete;
 
 private:
-    explicit ConnectionInfoImpl(Object transport, std::string endpoint)
-        : transport_(std::move(transport)),
-          endpoint_(std::move(endpoint))
-    {}
-
     Object transport_;
     std::string endpoint_;
     std::string server_;

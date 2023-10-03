@@ -18,6 +18,7 @@
 #include <boost/beast/websocket/stream.hpp>
 #include "../basictransport.hpp"
 #include "../codec.hpp"
+#include "../routerlogger.hpp"
 #include "../traits.hpp"
 #include "../version.hpp"
 #include "../transports/websocketprotocol.hpp"
@@ -183,9 +184,9 @@ protected:
     {}
 
     // Constructor for server transports
-    WebsocketTransport(TcpSocket& tcp)
+    WebsocketTransport(TcpSocket& tcp, const std::string& server)
         : Base(boost::asio::make_strand(tcp.get_executor()),
-               makeConnectionInfo(tcp))
+               makeConnectionInfo(tcp, server))
     {}
 
     void assignWebsocket(WebsocketPtr&& ws, TransportInfo i)
@@ -197,7 +198,9 @@ protected:
 private:
     using Base = BasicTransport<WebsocketTransport>;
 
-    static ConnectionInfo makeConnectionInfo(const TcpSocket& socket)
+    // TODO: Consolidate with RawsockTransport
+    static ConnectionInfo makeConnectionInfo(const TcpSocket& socket,
+                                             const std::string& server = {})
     {
         static constexpr unsigned ipv4VersionNo = 4;
         static constexpr unsigned ipv6VersionNo = 6;
@@ -218,11 +221,9 @@ private:
         };
 
         if (!isIpv6)
-        {
             details.emplace("numeric_address", addr.to_v4().to_uint());
-        }
 
-        return {std::move(details), oss.str()};
+        return {std::move(details), oss.str(), server};
     }
 
     static std::error_code interpretCloseReason(
@@ -468,20 +469,15 @@ public:
     using Ptr = std::shared_ptr<WebsocketClientTransport>;
     using Settings = WebsocketHost;
 
-    static Ptr create(WebsocketPtr&& w, const Settings& s, TransportInfo i)
-    {
-        return Ptr(new WebsocketClientTransport(std::move(w), s, i));
-    }
-
-private:
-    using Base = WebsocketTransport;
-
     WebsocketClientTransport(WebsocketPtr&& w, const Settings& s,
                              TransportInfo info)
         : Base(std::move(w), info)
     {
         Base::setAbortTimeout(s.abortTimeout());
     }
+
+private:
+    using Base = WebsocketTransport;
 };
 
 //------------------------------------------------------------------------------
@@ -490,11 +486,13 @@ class WebsocketServerTransport : public WebsocketTransport
 public:
     using Ptr = std::shared_ptr<WebsocketServerTransport>;
     using Settings = WebsocketEndpoint;
+    using SettingsPtr = std::shared_ptr<WebsocketEndpoint>;
 
-    static Ptr create(TcpSocket&& t, const Settings& s, const CodecIdSet& c)
-    {
-        return Ptr(new WebsocketServerTransport(std::move(t), s, c));
-    }
+    WebsocketServerTransport(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
+                             const std::string& server, RouterLogger::Ptr l)
+        : Base(t, server),
+          data_(new Data(std::move(t), std::move(s), c))
+    {}
 
 private:
     using Base = WebsocketTransport;
@@ -503,12 +501,12 @@ private:
     // This data is only used once for accepting connections.
     struct Data
     {
-        Data(TcpSocket&& t, const Settings& s, const CodecIdSet& c)
+        Data(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c)
             : tcpSocket(std::move(t)),
               codecIds(c),
-              settings(s)
+              settings(std::move(s))
         {
-            std::string agent = s.agent();
+            std::string agent = settings->agent();
             if (agent.empty())
                 agent = Version::agentString();
             response.base().set(boost::beast::http::field::server,
@@ -517,7 +515,7 @@ private:
 
         TcpSocket tcpSocket;
         CodecIdSet codecIds;
-        WebsocketEndpoint settings;
+        SettingsPtr settings;
         AcceptHandler handler;
         boost::beast::flat_buffer buffer;
         boost::beast::http::request<boost::beast::http::string_body> request;
@@ -555,12 +553,6 @@ private:
             return KnownCodecIds::cbor();
         return 0;
     }
-
-    WebsocketServerTransport(TcpSocket&& t, const Settings& s,
-                             const CodecIdSet& c)
-        : Base(t),
-          data_(new Data(std::move(t), s, c))
-    {}
 
     void onAccept(Timeout timeout, AcceptHandler handler) override
     {
@@ -651,7 +643,7 @@ private:
 
         // Set the Server and Sec-WebsocketSocket-Protocol fields of
         // the handshake
-        std::string agent = data_->settings.agent();
+        std::string agent = data_->settings->agent();
         if (agent.empty())
             agent = Version::agentString();
         ws.set_option(boost::beast::websocket::stream_base::decorator(
@@ -693,11 +685,11 @@ private:
         else
             data_->websocket->binary(true);
 
-        data_->websocket->read_message_max(data_->settings.maxRxLength());
+        data_->websocket->read_message_max(data_->settings->maxRxLength());
 
         const TransportInfo i{data_->codecId,
                               std::numeric_limits<std::size_t>::max(),
-                              data_->settings.maxRxLength()};
+                              data_->settings->maxRxLength()};
 
         Base::assignWebsocket(std::move(data_->websocket), i);
         Base::post(std::move(data_->handler), data_->codecId);

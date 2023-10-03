@@ -26,7 +26,8 @@ struct UdsTraits
     using ServerSettings = UdsEndpoint;
 
     template <typename TEndpoint>
-    static ConnectionInfo connectionInfo(const TEndpoint& ep)
+    static ConnectionInfo connectionInfo(const TEndpoint& ep,
+                                         const std::string& server)
     {
         std::ostringstream oss;
         oss << ep;
@@ -38,7 +39,7 @@ struct UdsTraits
             {"protocol", "UDS"},
         };
 
-        return {std::move(details), oss.str()};
+        return {std::move(details), oss.str(), server};
     }
 
     static Timeout heartbeatInterval(const UdsHost&)

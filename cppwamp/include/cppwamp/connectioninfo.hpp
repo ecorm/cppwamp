@@ -37,7 +37,8 @@ public:
     /** Default constructor. */
     ConnectionInfo();
 
-    ConnectionInfo(Object transport, std::string endpoint);
+    ConnectionInfo(Object transport, std::string endpoint,
+                   const std::string& server = {});
 
     /** Obtains a dictionary of transport details which are used in the
         meta API. */
@@ -63,8 +64,7 @@ public: // Internal use only
     ConnectionInfo(internal::PassKey,
                    std::shared_ptr<internal::ConnectionInfoImpl> impl);
 
-    void setServer(internal::PassKey, std::string server,
-                   ServerSessionNumber n);
+    void setServerSessionNumber(internal::PassKey, ServerSessionNumber n);
 };
 
 } // namespace wamp

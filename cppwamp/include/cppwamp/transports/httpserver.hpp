@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_TRANSPORTS_HTTP_HPP
-#define CPPWAMP_TRANSPORTS_HTTP_HPP
+#ifndef CPPWAMP_TRANSPORTS_HTTPSERVER_HPP
+#define CPPWAMP_TRANSPORTS_HTTPSERVER_HPP
 
 //------------------------------------------------------------------------------
 /** @file
@@ -18,7 +18,7 @@
 #include "../api.hpp"
 #include "../asiodefs.hpp"
 #include "../listener.hpp"
-#include "httpendpoint.hpp"
+#include "httpprotocol.hpp"
 
 // TODO: HTTPS
 
@@ -34,7 +34,7 @@ struct HttpListenerImpl;
 
 //------------------------------------------------------------------------------
 /** Listener specialization that implememts an HTTP server.
-    Users do not need to use this class directly and should instead pass
+    Users do not  to use this class directly and should instead pass
     wamp::HttpEndpoint to wamp::Router::openServer via wamp::ServerOptions. */
 //------------------------------------------------------------------------------
 template <>
@@ -45,7 +45,8 @@ public:
     using Settings = HttpEndpoint;
 
     /** Constructor. */
-    Listener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c);
+    Listener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c,
+             const std::string& server = {}, RouterLogger::Ptr l = {});
 
     /** Destructor. */
     ~Listener() override;
@@ -71,7 +72,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "../internal/http.inl.hpp"
+#include "../internal/httpserver.inl.hpp"
 #endif
 
-#endif // CPPWAMP_TRANSPORTS_HTTP_HPP
+#endif // CPPWAMP_TRANSPORTS_HTTPSERVER_HPP

@@ -4,7 +4,7 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#include "../transports/http.hpp"
+#include "../transports/httpserver.hpp"
 #include "httplistener.hpp"
 
 namespace wamp
@@ -19,9 +19,10 @@ namespace internal
 //------------------------------------------------------------------------------
 struct HttpListenerImpl
 {
-    HttpListenerImpl(AnyIoExecutor e, IoStrand i, HttpEndpoint s, CodecIdSet c)
+    HttpListenerImpl(AnyIoExecutor e, IoStrand i, HttpEndpoint s, CodecIdSet c,
+                     const std::string& server, RouterLogger::Ptr l)
         : lstn(HttpListener::create(std::move(e), std::move(i), std::move(s),
-                                    std::move(c)))
+                                    std::move(c), server, std::move(l)))
     {}
 
     HttpListener::Ptr lstn;
@@ -36,10 +37,12 @@ struct HttpListenerImpl
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Listener<Http>::Listener(AnyIoExecutor e, IoStrand i, Settings s,
-                                        CodecIdSet c)
+                                        CodecIdSet c, const std::string& server,
+                                        RouterLogger::Ptr l)
     : Listening(s.label()),
-      impl_(new internal::HttpListenerImpl(std::move(e), std::move(i),
-                                           std::move(s), std::move(c)))
+      impl_(new internal::HttpListenerImpl(
+          std::move(e), std::move(i), std::move(s), std::move(c), server,
+          std::move(l)))
 {}
 
 //------------------------------------------------------------------------------

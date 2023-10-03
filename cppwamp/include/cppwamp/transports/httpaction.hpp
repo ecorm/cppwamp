@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_TRANSPORTS_HTTPENDPOINT_HPP
-#define CPPWAMP_TRANSPORTS_HTTPENDPOINT_HPP
+#ifndef CPPWAMP_TRANSPORTS_HTTPACTION_HPP
+#define CPPWAMP_TRANSPORTS_HTTPACTION_HPP
 
 //------------------------------------------------------------------------------
 /** @file
@@ -19,9 +19,6 @@
 #include <memory>
 #include <string>
 #include "../api.hpp"
-#include "../utils/triemap.hpp"
-#include "tcpprotocol.hpp"
-#include "httpprotocol.hpp"
 
 namespace wamp
 {
@@ -133,6 +130,7 @@ private:
 
 namespace internal
 {
+
 //------------------------------------------------------------------------------
 template <>
 class HttpAction<HttpServeStaticFile>
@@ -162,96 +160,13 @@ public:
 private:
     HttpWebsocketUpgrade options_;
 };
+
 } // namespace internal
-
-//------------------------------------------------------------------------------
-/** Contains HTTP host address information, as well as other socket options. */
-//------------------------------------------------------------------------------
-class CPPWAMP_API HttpEndpoint
-{
-public:
-    /// URI and status code of an error page.
-    struct ErrorPage
-    {
-        std::string uri;
-        HttpStatus status;
-    };
-
-    /// Transport protocol tag associated with these settings.
-    using Protocol = Http;
-
-    /// Numeric port type
-    using Port = uint_least16_t;
-
-    /** Constructor taking a port number. */
-    explicit HttpEndpoint(Port port);
-
-    /** Constructor taking an address string, port number. */
-    HttpEndpoint(std::string address, unsigned short port);
-
-    /** Specifies the underlying TCP socket options to use. */
-    HttpEndpoint& withSocketOptions(TcpOptions options);
-
-    /** Specifies the maximum length permitted for incoming messages. */
-    HttpEndpoint& withMaxRxLength(std::size_t length);
-
-    /** Adds an action associated with an exact route. */
-    HttpEndpoint& withExactRoute(std::string uri, AnyHttpAction action);
-
-    /** Adds an action associated with a prefix match route. */
-    HttpEndpoint& withPrefixRoute(std::string uri, AnyHttpAction action);
-
-    /** Specifies the error page to show for the given HTTP response
-        status code. */
-    HttpEndpoint& withErrorPage(HttpStatus status, std::string uri);
-
-    /** Specifies the error page to shown for the given HTTP response
-        status code, with the original status code subsituted with the given
-        status code. */
-    HttpEndpoint& withErrorPage(HttpStatus status, std::string uri,
-                                HttpStatus changedStatus);
-
-    /** Obtains the endpoint address. */
-    const std::string& address() const;
-
-    /** Obtains the the port number. */
-    Port port() const;
-
-    /** Obtains the transport options. */
-    const TcpOptions& options() const;
-
-    /** Obtains the specified maximum incoming message length. */
-    std::size_t maxRxLength() const;
-
-    /** Generates a human-friendly string of the HTTP address/port. */
-    std::string label() const;
-
-    /** Finds the best matching action associated with the given route. */
-    template <typename TStringLike>
-    AnyHttpAction* findAction(const TStringLike& route) const
-    {
-        return doFindAction(route.data());
-    }
-
-    /** Finds the error page associated with the given HTTP status code. */
-    const ErrorPage* findErrorPage(HttpStatus status) const;
-
-private:
-    AnyHttpAction* doFindAction(const char* route);
-
-    utils::TrieMap<AnyHttpAction> actionsByExactKey_;
-    utils::TrieMap<AnyHttpAction> actionsByPrefixKey_;
-    std::map<HttpStatus, ErrorPage> errorPages_;
-    std::string address_;
-    TcpOptions options_;
-    std::size_t maxRxLength_ = 16*1024*1024;
-    Port port_ = 0;
-};
 
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "../internal/httpendpoint.inl.hpp"
+#include "../internal/httpaction.inl.hpp"
 #endif
 
-#endif // CPPWAMP_TRANSPORTS_HTTPENDPOINT_HPP
+#endif // CPPWAMP_TRANSPORTS_HTTPACTION_HPP

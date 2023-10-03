@@ -40,7 +40,8 @@ public:
     using Settings = WebsocketEndpoint;
 
     /** Constructor. */
-    Listener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c);
+    Listener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c,
+             const std::string& server = {}, RouterLogger::Ptr l = {});
 
     /** Destructor. */
     ~Listener() override;

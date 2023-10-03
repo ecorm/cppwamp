@@ -151,7 +151,7 @@ public:
     {
         assert(serverOptions_ != nullptr);
         auto info = t->connectionInfo();
-        info.setServer({}, serverOptions_->name(), k);
+        info.setServerSessionNumber({}, k);
         Base::connect(std::move(info));
         peer_->listen(this);
         transport_->setAbortTimeout(
@@ -581,7 +581,8 @@ private:
     void startListening()
     {
         assert(!listener_);
-        listener_ = options_->makeListener({}, executor_, strand_);
+        listener_ = options_->makeListener({}, executor_, strand_,
+                                           options_->name(), logger_);
         inform("Starting server listening on " + listener_->where());
 
         const std::weak_ptr<RouterServer> self{shared_from_this()};
