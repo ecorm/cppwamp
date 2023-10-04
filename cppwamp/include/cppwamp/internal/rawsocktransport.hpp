@@ -508,7 +508,7 @@ private:
             codecId,
             Handshake::byteLengthOf(data_->maxTxLength),
             Handshake::byteLengthOf(data_->settings->maxRxLength())};
-        Base::completeAccept(i);
+        Base::completeAdmission(i);
         Base::post(std::move(data_->handler), codecId);
         data_.reset();
     }

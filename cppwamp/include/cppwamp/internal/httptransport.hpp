@@ -97,6 +97,25 @@ private:
 
     void onAccept(Timeout timeout, AdmitHandler handler) override
     {
+//        assert((data_ != nullptr) && "Accept already performed");
+
+//        data_->handler = std::move(handler);
+//        auto self = this->shared_from_this();
+
+//        if (timeoutIsDefinite(timeout))
+//        {
+//            timeoutAfter(
+//                timeout,
+//                [this, self](boost::system::error_code ec) {onTimeout(ec);});
+//        }
+
+//        boost::beast::http::async_read(
+//            data_->tcpSocket, data_->buffer, data_->request,
+//            [this, self] (const boost::beast::error_code& netEc, std::size_t)
+//            {
+//                if (check(netEc))
+//                    acceptHandshake();
+//            });
     }
 
     void onShed(Timeout timeout, AdmitHandler handler) override
@@ -132,8 +151,16 @@ private:
     {
     }
 
+    template <typename F>
+    void timeoutAfter(Timeout timeout, F&& action)
+    {
+        timer_.expires_from_now(timeout);
+        timer_.async_wait(std::forward<F>(action));
+    }
+
     boost::asio::steady_timer timer_;
     RouterLogger::Ptr logger_;
+    std::unique_ptr<Data> data_; // Only used once for accepting connection.
 };
 
 } // namespace internal

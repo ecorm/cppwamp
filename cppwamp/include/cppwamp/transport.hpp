@@ -320,7 +320,7 @@ protected:
 
     /** Should be called by derived server classes after transport details
         have been negotiated successfully. */
-    void completeAccept(TransportInfo ti)
+    void completeAdmission(TransportInfo ti)
     {
         info_ = ti;
         state_ = State::ready;

@@ -189,10 +189,20 @@ protected:
                makeConnectionInfo(tcp, server))
     {}
 
-    void assignWebsocket(WebsocketPtr&& ws, TransportInfo i)
+    void setWebsocket(WebsocketPtr&& ws) {websocket_ = std::move(ws);}
+
+    WebsocketSocket& websocket()
     {
-        websocket_ = std::move(ws);
-        Base::completeAccept(i);
+        assert(websocket_ != nullptr);
+        return *websocket_;
+    }
+
+    bool closeTcpSocket()
+    {
+        bool done = websocket_ != nullptr;
+        if (done)
+            websocket_->next_layer().close();
+        return done;
     }
 
 private:
@@ -456,7 +466,7 @@ private:
         return callback(true);
     }
 
-    WebsocketPtr websocket_;
+    WebsocketPtr websocket_; // TODO: Use optional<T>
     DynamicWebsocketBuffer<MessageBuffer> rxBuffer_;
 
     friend class BasicTransport<WebsocketTransport>;
@@ -520,7 +530,6 @@ private:
         boost::beast::flat_buffer buffer;
         boost::beast::http::request<boost::beast::http::string_body> request;
         boost::beast::http::response<boost::beast::http::string_body> response;
-        std::unique_ptr<WebsocketSocket> websocket; // TODO: Use optional<T>
         int codecId = 0;
         bool isRefusing = false;
     };
@@ -579,13 +588,8 @@ private:
 
     void onCancelHandshake() override
     {
-        if (data_)
-        {
-            if (data_->websocket)
-                data_->websocket->next_layer().close();
-            else
-                data_->tcpSocket.close();
-        }
+        if (!Base::closeTcpSocket() && data_)
+            data_->tcpSocket.close();
     }
 
     void onTimeout(boost::system::error_code ec)
@@ -637,9 +641,9 @@ private:
         }
 
         // Transfer the TCP socket to a new websocket stream
-        data_->websocket.reset(
-            new WebsocketSocket{std::move(data_->tcpSocket)});
-        auto& ws = *(data_->websocket);
+        Base::setWebsocket(
+            WebsocketPtr{new WebsocketSocket{std::move(data_->tcpSocket)}});
+        auto& ws = Base::websocket();
 
         // Set the Server and Sec-WebsocketSocket-Protocol fields of
         // the handshake
@@ -680,18 +684,19 @@ private:
         if (!data_)
             return;
 
+        auto& ws = Base::websocket();
         if (subprotocolIsText(data_->codecId))
-            data_->websocket->text(true);
+            ws.text(true);
         else
-            data_->websocket->binary(true);
+            ws.binary(true);
 
-        data_->websocket->read_message_max(data_->settings->maxRxLength());
+        ws.read_message_max(data_->settings->maxRxLength());
 
         const TransportInfo i{data_->codecId,
                               std::numeric_limits<std::size_t>::max(),
                               data_->settings->maxRxLength()};
 
-        Base::assignWebsocket(std::move(data_->websocket), i);
+        Base::completeAdmission(i);
         Base::post(std::move(data_->handler), data_->codecId);
         data_.reset();
     }
@@ -719,9 +724,7 @@ private:
 
     void shutdown()
     {
-        if (data_->websocket)
-            data_->websocket->next_layer().close();
-        else
+        if (!Base::closeTcpSocket())
             data_->tcpSocket.close();
         data_.reset();
         Base::shutdown();
