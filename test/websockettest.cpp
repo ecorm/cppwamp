@@ -81,7 +81,7 @@ struct LoopbackFixture
             {
                 auto transport = result.transport();
                 server = std::move(transport);
-                server->accept(
+                server->admit(
                     [this](ErrorOr<int> codecId)
                     {
                         if (codecId.has_value())
@@ -162,7 +162,7 @@ void checkConnection(LoopbackFixture& f, int expectedCodec,
         auto transport = result.transport();
         REQUIRE( transport );
         f.server = transport;
-        f.server->accept(
+        f.server->admit(
             [=](ErrorOr<int> codecId)
             {
                 REQUIRE(codecId.has_value());
@@ -299,7 +299,7 @@ void checkUnsupportedSerializer(LoopbackFixture& f)
     {
         REQUIRE( result.ok() );
         f.server = result.transport();
-        f.server->accept(
+        f.server->admit(
             [&serverEc](ErrorOr<int> codecId)
             {
                 if (!codecId.has_value())
@@ -423,7 +423,7 @@ TEST_CASE( "Normal websocket communications", "[Transport][Websocket]" )
             auto transport = result.transport();
             REQUIRE( transport != nullptr );
             server2 = transport;
-            server2->accept(
+            server2->admit(
                 [=, &f](ErrorOr<int> codecId)
                 {
                     REQUIRE(codecId.has_value());
@@ -576,7 +576,7 @@ TEST_CASE( "Cancel websocket connect", "[Transport][Websocket]" )
         if (result.ok())
         {
             f.server = result.transport();
-            f.server->accept(
+            f.server->admit(
                 [&](ErrorOr<int> codecId)
                 {
                     listenCompleted = true;
@@ -682,7 +682,7 @@ TEST_CASE( "Cancel websocket send", "[Transport][Websocket]" )
     {
         REQUIRE(result.ok());
         f.server = result.transport();
-        f.server->accept(
+        f.server->admit(
             [](ErrorOr<int> codecId) {REQUIRE(codecId.has_value());});
     });
     f.lstn->establish();
@@ -797,7 +797,7 @@ TEST_CASE( "Websocket server transport handshake timeout",
         {
             REQUIRE( result.ok() );
             server = result.transport();
-            server->accept(
+            server->admit(
                 std::chrono::milliseconds(50),
                 [&serverError](ErrorOr<int> codecId)
                 {

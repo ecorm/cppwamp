@@ -357,7 +357,7 @@ public:
     using Socket        = typename TConfig::Traits::NetProtocol::socket;
     using Settings      = typename TConfig::Traits::ServerSettings;
     using SettingsPtr   = std::shared_ptr<Settings>;
-    using AcceptHandler = Transporting::AcceptHandler;
+    using AdmitHandler = Transporting::AdmitHandler;
 
     RawsockServerTransport(Socket&& s, SettingsPtr p, const CodecIdSet& c,
                            const std::string& server, RouterLogger::Ptr l)
@@ -369,7 +369,7 @@ private:
     using Base = RawsockTransport<TConfig>;
     using Handshake = internal::RawsockHandshake;
 
-    // Only used once to perform accept operation
+    // Only used once to perform admit operation
     struct Data
     {
         explicit Data(AnyIoExecutor e, SettingsPtr p, const CodecIdSet& c)
@@ -381,12 +381,12 @@ private:
         boost::asio::steady_timer timer;
         SettingsPtr settings;
         CodecIdSet codecIds;
-        AcceptHandler handler;
+        AdmitHandler handler;
         uint32_t handshake = 0;
         RawsockMaxLength maxTxLength = {};
     };
 
-    void onAccept(Timeout timeout, AcceptHandler handler) override
+    void onAccept(Timeout timeout, AdmitHandler handler) override
     {
         assert((data_ != nullptr) && "Accept already performed");
 
@@ -538,7 +538,7 @@ private:
         Base::shutdown();
     }
 
-    std::unique_ptr<Data> data_; // Only used once for accept operation
+    std::unique_ptr<Data> data_; // Only used once for admit operation
 };
 
 } // namespace internal

@@ -516,7 +516,7 @@ private:
         TcpSocket tcpSocket;
         CodecIdSet codecIds;
         SettingsPtr settings;
-        AcceptHandler handler;
+        AdmitHandler handler;
         boost::beast::flat_buffer buffer;
         boost::beast::http::request<boost::beast::http::string_body> request;
         boost::beast::http::response<boost::beast::http::string_body> response;
@@ -554,7 +554,7 @@ private:
         return 0;
     }
 
-    void onAccept(Timeout timeout, AcceptHandler handler) override
+    void onAccept(Timeout timeout, AdmitHandler handler) override
     {
         assert((data_ != nullptr) && "Accept already performed");
 

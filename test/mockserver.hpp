@@ -40,7 +40,7 @@ public:
         assert(!alreadyStarted_);
         alreadyStarted_ = true;
         std::weak_ptr<MockServerSession> self = shared_from_this();
-        transport_->accept(
+        transport_->admit(
             [self](ErrorOr<int> codecId)
             {
                 auto me = self.lock();

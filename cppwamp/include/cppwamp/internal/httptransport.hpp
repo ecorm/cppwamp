@@ -36,6 +36,34 @@ public:
 
 private:
     using Base = Transporting;
+    using WebsocketSocket = boost::beast::websocket::stream<TcpSocket>;
+
+    // This data is only used once for accepting connections.
+    struct Data
+    {
+        Data(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c)
+            : tcpSocket(std::move(t)),
+              codecIds(c),
+              settings(std::move(s))
+        {
+            std::string agent = settings->agent();
+            if (agent.empty())
+                agent = Version::agentString();
+            response.base().set(boost::beast::http::field::server,
+                                std::move(agent));
+        }
+
+        TcpSocket tcpSocket;
+        CodecIdSet codecIds;
+        SettingsPtr settings;
+        AdmitHandler handler;
+        boost::beast::flat_buffer buffer;
+        boost::beast::http::request<boost::beast::http::string_body> request;
+        boost::beast::http::response<boost::beast::http::string_body> response;
+        std::unique_ptr<WebsocketSocket> websocket; // TODO: Use optional<T>
+        int codecId = 0;
+        bool isRefusing = false;
+    };
 
     // TODO: Consolidate with WebsocketTransport and RawsockTransport
     static ConnectionInfo makeConnectionInfo(const TcpSocket& socket,
@@ -65,6 +93,19 @@ private:
         }
 
         return {std::move(details), oss.str(), server};
+    }
+
+    void onAccept(Timeout timeout, AdmitHandler handler) override
+    {
+    }
+
+    void onShed(Timeout timeout, AdmitHandler handler) override
+    {
+    }
+
+    void onCancelHandshake() override
+    {
+        assert(false && "Not a server transport");
     }
 
     void onStart(RxHandler rxHandler, TxErrorHandler txErrorHandler) override

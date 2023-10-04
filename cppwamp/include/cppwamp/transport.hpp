@@ -106,7 +106,7 @@ public:
     using TxErrorHandler = std::function<void (std::error_code)>;
 
     /// Handler type used for server handshake completion.
-    using AcceptHandler = AnyCompletionHandler<void (ErrorOr<int> codecId)>;
+    using AdmitHandler = AnyCompletionHandler<void (ErrorOr<int> codecId)>;
 
     /// Handler type used for transport close completion.
     using CloseHandler = AnyCompletionHandler<void (ErrorOr<bool>)>;
@@ -134,17 +134,17 @@ public:
     /** Obtains connection information. */
     const ConnectionInfo& connectionInfo() const {return connectionInfo_;}
 
-    /** Starts the server handshake procedure.
+    /** Starts the server handshake procedure to admit a new client connection.
         @pre this->state() == TransportState::initial
         @post this->state() == TransportState::accepting */
-    void accept(AcceptHandler handler)
+    void admit(AdmitHandler handler)
     {
-        accept(unspecifiedTimeout, std::move(handler));
+        admit(unspecifiedTimeout, std::move(handler));
     }
 
     /** Starts the server handshake procedure with the given timeout.
-        @copydetails Transporting::accept(AcceptHandler) */
-    void accept(Timeout timeout, AcceptHandler handler)
+        @copydetails Transporting::admit(AdmitHandler) */
+    void admit(Timeout timeout, AdmitHandler handler)
     {
         assert(state_ == State::initial);
         onAccept(timeout, std::move(handler));
@@ -157,20 +157,20 @@ public:
         handler, or some other error due a handshake failure.
         @pre this->state() == TransportState::initial
         @post this->state() == TransportState::shedding */
-    void shed(AcceptHandler handler)
+    void shed(AdmitHandler handler)
     {
         shed(unspecifiedTimeout, std::move(handler));
     }
 
     /** Starts refusal handshake with the given timeout.
-        @copydetails Transporting::shed(AcceptHandler) */
-    void shed(Timeout timeout, AcceptHandler handler)
+        @copydetails Transporting::shed(AdmitHandler) */
+    void shed(Timeout timeout, AdmitHandler handler)
     {
         struct Dispatched
         {
             Ptr self;
             Timeout timeout;
-            AcceptHandler handler;
+            AdmitHandler handler;
             void operator()() {self->onShed(timeout, std::move(handler));}
         };
 
@@ -275,15 +275,16 @@ protected:
     }
 
     /** Must be overridden by server transports to initiate the handshake. */
-    virtual void onAccept(Timeout, AcceptHandler)
+    virtual void onAccept(Timeout, AdmitHandler)
     {
         assert(false && "Not a server transport");
     }
 
-    /** Can be overridden by server transports to shed the connection
+    /** May be overridden by server transports to shed the connection
         due to overload. */
-    virtual void onShed(Timeout timeout, AcceptHandler handler)
+    virtual void onShed(Timeout timeout, AdmitHandler handler)
     {
+        // state_ will be State::shedding when the following is called.
         onAccept(timeout, std::move(handler));
     }
 

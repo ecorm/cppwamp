@@ -329,7 +329,7 @@ private:
         alreadyStarted_ = true;
 
         const std::weak_ptr<ServerSession> self = shared_from_this();
-        transport_->accept(
+        transport_->admit(
             serverOptions_->transporthandshakeTimeout(),
             [self](ErrorOr<int> codecId)
             {
