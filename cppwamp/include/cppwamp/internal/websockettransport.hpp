@@ -17,7 +17,7 @@
 #include <boost/beast/http/parser.hpp>
 #include <boost/beast/websocket/rfc6455.hpp>
 #include <boost/beast/websocket/stream.hpp>
-#include <boost/optional.hpp>
+#include <boost/optional/optional.hpp>
 #include "../basictransport.hpp"
 #include "../codec.hpp"
 #include "../routerlogger.hpp"
@@ -30,119 +30,6 @@ namespace wamp
 
 namespace internal
 {
-
-//------------------------------------------------------------------------------
-// Byte container wrapper meeting the requirements of Beast's DynamicBuffer.
-// Needed because websocket::stream::async_read only takes lvalues, and
-// boost::asio::dynamic_vector_buffer cannot be reassigned.
-// https://github.com/boostorg/beast/issues/1112
-//------------------------------------------------------------------------------
-template <typename TStorage>
-class DynamicWebsocketBuffer
-{
-private:
-    static constexpr auto sizeLimit_ = std::numeric_limits<std::size_t>::max();
-
-public:
-    using storage_type = TStorage;
-    using const_buffers_type = boost::asio::const_buffer;
-    using mutable_buffers_type = boost::asio::mutable_buffer;
-
-    DynamicWebsocketBuffer() = default;
-
-    DynamicWebsocketBuffer(TStorage& s, std::size_t maxSize = sizeLimit_)
-        : storage_(&s),
-        maxSize_(maxSize)
-    {}
-
-    std::size_t size() const noexcept
-    {
-        if (!storage_)
-            return 0;
-        return (size_ == noSize_) ? std::min(storage_->size(), max_size())
-                                  : size_;
-    }
-
-    std::size_t max_size() const noexcept {return maxSize_;}
-
-    std::size_t capacity() const noexcept
-    {
-        return storage_ ? std::min(storage_->capacity(), max_size()) : 0;
-    }
-
-    const_buffers_type data() const noexcept
-    {
-        if (storage_)
-            return const_buffers_type{storage_->data(), storage_->size()};
-        else
-            return const_buffers_type{nullptr, 0};
-    }
-
-    mutable_buffers_type prepare(std::size_t n)
-    {
-        assert(storage_ != nullptr);
-        auto s = size();
-        auto m = max_size();
-        if ((s > m) || (m - s < n))
-        {
-            throw std::length_error("wamp::DynamicWebsocketBuffer::prepare: "
-                                    "buffer too long");
-        }
-
-        if (size_ == noSize_)
-            size_ = storage_->size();
-        storage_->resize(s + n);
-        return boost::asio::buffer(boost::asio::buffer(*storage_) + size_, n);
-    }
-
-    void commit(std::size_t n)
-    {
-        assert(storage_ != nullptr);
-        size_ += std::min(n, storage_->size() - size_);
-        storage_->resize(size_);
-    }
-
-    void consume(std::size_t n)
-    {
-        assert(storage_ != nullptr);
-        if (size_ != noSize_)
-        {
-            std::size_t length = std::min(n, size_);
-            storage_->erase(storage_->begin(), storage_->begin() + length);
-            size_ -= length;
-            return;
-        }
-        storage_->erase(storage_->begin(),
-                        storage_->begin() + std::min(size(), n));
-    }
-
-    storage_type& storage()
-    {
-        assert(storage_ != nullptr);
-        return *storage_;
-    }
-
-    void reset() {resetStorage(nullptr);}
-
-    void reset(storage_type& storage, std::size_t maxSize = sizeLimit_)
-    {
-        resetStorage(&storage, maxSize);
-    }
-
-private:
-    static constexpr auto noSize_ = std::numeric_limits<std::size_t>::max();
-
-    void resetStorage(storage_type* storage, std::size_t maxSize)
-    {
-        storage_ = storage;
-        size_ = noSize_;
-        maxSize_ = maxSize;
-    }
-
-    TStorage* storage_ = nullptr;
-    std::size_t size_ = noSize_;
-    std::size_t maxSize_ = sizeLimit_;
-};
 
 //------------------------------------------------------------------------------
 inline std::error_code websocketErrorCodeToStandard(
@@ -199,6 +86,10 @@ protected:
 
 private:
     using Base = BasicTransport<WebsocketTransport>;
+
+    using DynamicBufferAdapter =
+        boost::asio::dynamic_vector_buffer<MessageBuffer::value_type,
+                                           MessageBuffer::allocator_type>;
 
     // TODO: Consolidate with RawsockTransport
     static ConnectionInfo makeConnectionInfo(const TcpSocket& socket,
@@ -445,9 +336,9 @@ private:
             }
         };
 
-        rxBuffer_.reset(payload);
+        rxBuffer_.emplace(payload);
         assert(websocket_.has_value());
-        websocket_->async_read(rxBuffer_,
+        websocket_->async_read(*rxBuffer_,
                                Received{std::forward<F>(callback), this});
     }
 
@@ -455,6 +346,8 @@ private:
     void onMessageReceived(boost::beast::error_code netEc, F& callback)
     {
         assert(websocket_.has_value());
+
+        rxBuffer_.reset();
 
         std::error_code ec = websocketErrorCodeToStandard(netEc);
         if (netEc == boost::beast::websocket::error::closed)
@@ -474,7 +367,7 @@ private:
     }
 
     boost::optional<WebsocketSocket> websocket_;
-    DynamicWebsocketBuffer<MessageBuffer> rxBuffer_;
+    boost::optional<DynamicBufferAdapter> rxBuffer_;
 
     friend class BasicTransport<WebsocketTransport>;
 };
