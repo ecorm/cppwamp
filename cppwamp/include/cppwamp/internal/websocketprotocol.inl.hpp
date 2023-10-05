@@ -84,48 +84,38 @@ CPPWAMP_INLINE WebsocketHost::WebsocketHost(std::string address,
     : Base(std::move(address), std::move(serviceName))
 {}
 
-/** Constructor taking an URL/IP and a numeric port number. */
 CPPWAMP_INLINE WebsocketHost::WebsocketHost(std::string address, Port port)
     : WebsocketHost(std::move(address), std::to_string(port))
 {}
 
-/** Specifies the request-target (default is "/"). */
 CPPWAMP_INLINE WebsocketHost& WebsocketHost::withTarget(std::string target)
 {
     target_ = std::move(target);
     return *this;
 }
 
-/** Specifies the custom agent string to use (default is
-        Version::agentString). */
 CPPWAMP_INLINE WebsocketHost& WebsocketHost::withAgent(std::string agent)
 {
     agent_ = std::move(agent);
     return *this;
 }
 
-/** Specifies the maximum duration to wait for the router to complete
-        the closing Websocket handshake after an ABORT message is sent. */
 CPPWAMP_INLINE WebsocketHost& WebsocketHost::withAbortTimeout(Timeout timeout)
 {
     abortTimeout_ = timeout;
     return *this;
 }
 
-/** Obtains the request-target. */
 CPPWAMP_INLINE const std::string& WebsocketHost::target() const
 {
     return target_;
 }
 
-/** Obtains the custom agent string to use. */
 CPPWAMP_INLINE const std::string& WebsocketHost::agent() const
 {
     return agent_;
 }
 
-/** Obtains the Websocket handshake completion timeout period after
-        an ABORT message is sent. */
 CPPWAMP_INLINE Timeout WebsocketHost::abortTimeout() const
 {
     return abortTimeout_;
@@ -155,6 +145,13 @@ CPPWAMP_INLINE WebsocketEndpoint& WebsocketEndpoint::withAgent(std::string agent
     return *this;
 }
 
+CPPWAMP_INLINE WebsocketEndpoint&
+WebsocketEndpoint::withHttpHeaderLimit(uint32_t limit)
+{
+    httpHeaderLimit_ = limit;
+    return *this;
+}
+
 CPPWAMP_INLINE const std::string& WebsocketEndpoint::agent() const
 {
     return agent_;
@@ -166,6 +163,11 @@ CPPWAMP_INLINE std::string WebsocketEndpoint::label() const
     if (address().empty())
         return "Websocket Port " + portString;
     return "Websocket " + address() + ':' + portString;
+}
+
+CPPWAMP_INLINE uint32_t WebsocketEndpoint::httpHeaderLimit() const
+{
+    return httpHeaderLimit_;
 }
 
 } // namespace wamp

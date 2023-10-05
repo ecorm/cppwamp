@@ -420,6 +420,8 @@ public:
 
         // https://github.com/boostorg/beast/issues/971#issuecomment-356306911
         requestParser_.emplace();
+        if (settings_->httpHeaderLimit() != 0)
+            requestParser_->header_limit(settings_->httpHeaderLimit());
 
         auto self = this->shared_from_this();
 
@@ -452,7 +454,7 @@ public:
 
 private:
     using HttpStatus = boost::beast::http::status;
-    using RequestParser =
+    using Parser =
         boost::beast::http::request_parser<boost::beast::http::empty_body>;
 
     struct Decorator
@@ -612,7 +614,7 @@ private:
     SettingsPtr settings_;
     Handler handler_;
     boost::beast::flat_buffer buffer_;
-    boost::optional<RequestParser> requestParser_;
+    boost::optional<Parser> requestParser_;
     boost::beast::http::response<boost::beast::http::string_body> response_;
     boost::optional<WebsocketSocket> websocket_;
     int codecId_ = 0;

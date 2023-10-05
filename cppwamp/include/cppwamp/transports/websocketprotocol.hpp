@@ -12,6 +12,7 @@
     @brief Contains basic Websocket protocol facilities. */
 //------------------------------------------------------------------------------
 
+#include <cstdint>
 #include <system_error>
 #include "../api.hpp"
 #include "socketendpoint.hpp"
@@ -159,17 +160,24 @@ public:
         Version::agentString). */
     WebsocketEndpoint& withAgent(std::string agent);
 
+    /** Specifies the total header size limit of HTTP upgrade requests. */
+    WebsocketEndpoint& withHttpHeaderLimit(uint32_t limit);
+
     /** Obtains the custom agent string. */
     const std::string& agent() const;
 
     /** Generates a human-friendly string of the Websocket address/port. */
     std::string label() const;
 
+    /** Obtains the total header size limit of HTTP upgrade requests. */
+    uint32_t httpHeaderLimit() const;
+
 private:
     using Base = SocketEndpoint<WebsocketEndpoint, Websocket, TcpOptions,
                                 std::size_t, 16*1024*1024>;
 
     std::string agent_;
+    uint32_t httpHeaderLimit_ = 0;
 };
 
 } // namespace wamp
