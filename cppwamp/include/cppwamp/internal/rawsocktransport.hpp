@@ -386,7 +386,7 @@ private:
         RawsockMaxLength maxTxLength = {};
     };
 
-    void onAccept(Timeout timeout, AdmitHandler handler) override
+    void onAdmit(Timeout timeout, AdmitHandler handler) override
     {
         assert((data_ != nullptr) && "Accept already performed");
 
@@ -413,7 +413,7 @@ private:
             });
     }
 
-    void onCancelHandshake() override
+    void onCancelAdmission() override
     {
         Base::socket().close();
     }

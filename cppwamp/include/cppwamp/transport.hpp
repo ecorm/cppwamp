@@ -147,7 +147,7 @@ public:
     void admit(Timeout timeout, AdmitHandler handler)
     {
         assert(state_ == State::initial);
-        onAccept(timeout, std::move(handler));
+        onAdmit(timeout, std::move(handler));
         state_ = State::accepting;
     }
 
@@ -176,8 +176,11 @@ public:
 
         assert(state_ == State::initial);
         state_ = State::shedding;
-        boost::asio::dispatch(Dispatched{shared_from_this(), timeout,
-                                         std::move(handler)});
+
+        // Needs to be dispatched via strand because this function is
+        // invoked from RouterServer's execution context.
+        boost::asio::dispatch(strand_, Dispatched{shared_from_this(), timeout,
+                                                  std::move(handler)});
     }
 
     /** Starts the transport's I/O operations.
@@ -232,7 +235,7 @@ public:
 
             case State::accepting:
             case State::shedding:
-                onCancelHandshake();
+                onCancelAdmission();
                 // Fall through
             default:
                 post(std::move(handler), false);
@@ -249,7 +252,7 @@ public:
         {
         case State::accepting:
         case State::shedding:
-            onCancelHandshake();
+            onCancelAdmission();
             break;
 
         case State::ready:
@@ -275,7 +278,7 @@ protected:
     }
 
     /** Must be overridden by server transports to initiate the handshake. */
-    virtual void onAccept(Timeout, AdmitHandler)
+    virtual void onAdmit(Timeout, AdmitHandler)
     {
         assert(false && "Not a server transport");
     }
@@ -285,11 +288,11 @@ protected:
     virtual void onShed(Timeout timeout, AdmitHandler handler)
     {
         // state_ will be State::shedding when the following is called.
-        onAccept(timeout, std::move(handler));
+        onAdmit(timeout, std::move(handler));
     }
 
     /** Must be overridden by server transports to cancel a handshake. */
-    virtual void onCancelHandshake()
+    virtual void onCancelAdmission()
     {
         assert(false && "Not a server transport");
     }

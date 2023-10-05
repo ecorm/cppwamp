@@ -95,36 +95,55 @@ private:
         return {std::move(details), oss.str(), server};
     }
 
-    void onAccept(Timeout timeout, AdmitHandler handler) override
+    static std::error_code
+    netErrorCodeToStandard(boost::system::error_code netEc)
     {
-//        assert((data_ != nullptr) && "Accept already performed");
+        if (!netEc)
+            return {};
 
-//        data_->handler = std::move(handler);
-//        auto self = this->shared_from_this();
+        namespace AE = boost::asio::error;
+        bool disconnected = netEc == AE::broken_pipe ||
+                            netEc == AE::connection_reset ||
+                            netEc == AE::eof;
+        auto ec = disconnected
+                      ? make_error_code(TransportErrc::disconnected)
+                      : static_cast<std::error_code>(netEc);
 
-//        if (timeoutIsDefinite(timeout))
-//        {
-//            timeoutAfter(
-//                timeout,
-//                [this, self](boost::system::error_code ec) {onTimeout(ec);});
-//        }
+        if (netEc == AE::operation_aborted)
+            ec = make_error_code(TransportErrc::aborted);
 
-//        boost::beast::http::async_read(
-//            data_->tcpSocket, data_->buffer, data_->request,
-//            [this, self] (const boost::beast::error_code& netEc, std::size_t)
-//            {
-//                if (check(netEc))
-//                    acceptHandshake();
-//            });
+        return ec;
+    }
+
+    void onAdmit(Timeout timeout, AdmitHandler handler) override
+    {
+        assert((data_ != nullptr) && "Admit already performed");
+
+        data_->handler = std::move(handler);
+        auto self = this->shared_from_this();
+
+        if (timeoutIsDefinite(timeout))
+        {
+            timeoutAfter(
+                timeout,
+                [this, self](boost::system::error_code ec) {onTimeout(ec);});
+        }
+
+        boost::beast::http::async_read(
+            data_->tcpSocket, data_->buffer, data_->request,
+            [this, self] (const boost::beast::error_code& netEc, std::size_t)
+            {
+                if (check(netEc))
+                    receiveRequest();
+            });
     }
 
     void onShed(Timeout timeout, AdmitHandler handler) override
     {
     }
 
-    void onCancelHandshake() override
+    void onCancelAdmission() override
     {
-        assert(false && "Not a server transport");
     }
 
     void onStart(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
@@ -156,6 +175,58 @@ private:
     {
         timer_.expires_from_now(timeout);
         timer_.async_wait(std::forward<F>(action));
+    }
+
+    void onTimeout(boost::system::error_code ec)
+    {
+        if (!ec)
+            return fail(TransportErrc::timeout);
+        if (ec != boost::asio::error::operation_aborted)
+            fail(static_cast<std::error_code>(ec));
+    }
+
+    void receiveRequest()
+    {
+        if (!data_)
+            return;
+
+        // Check if we received a websocket upgrade request
+        if (!boost::beast::websocket::is_upgrade(data_->request))
+            return onWebsocketUpgrade();
+
+    }
+
+    void onWebsocketUpgrade()
+    {
+
+    }
+
+    bool check(boost::system::error_code netEc)
+    {
+        if (netEc)
+            fail(netErrorCodeToStandard(netEc));
+        return !netEc;
+    }
+
+    void fail(std::error_code ec)
+    {
+        if (!data_)
+            return;
+        Base::post(std::move(data_->handler), makeUnexpected(ec));
+        shutdown();
+    }
+
+    template <typename TErrc>
+    void fail(TErrc errc)
+    {
+        fail(static_cast<std::error_code>(make_error_code(errc)));
+    }
+
+    void shutdown()
+    {
+        data_->tcpSocket.close();
+        data_.reset();
+        Base::shutdown();
     }
 
     boost::asio::steady_timer timer_;

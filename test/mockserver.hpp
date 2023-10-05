@@ -45,7 +45,7 @@ public:
             {
                 auto me = self.lock();
                 if (me)
-                    me->onAccept(codecId);
+                    me->onAdmit(codecId);
             });
     }
     
@@ -59,7 +59,7 @@ private:
           transport_(std::move(t))
     {}
 
-    void onAccept(ErrorOr<int> codecId)
+    void onAdmit(ErrorOr<int> codecId)
     {
         if (!codecId)
             return;
