@@ -12,8 +12,8 @@
 #include <memory>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/read.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/asio/write.hpp>
-#include "../asiodefs.hpp"
 #include "../basictransport.hpp"
 #include "../codec.hpp"
 #include "../routerlogger.hpp"
@@ -576,7 +576,7 @@ private:
         if (socket.has_value())
         {
             const auto& info = admitter_->transportInfo();
-            Base::assignSocket(std::move(*(socket.value())), info);
+            Base::assignSocket(std::move(**socket), info);
             Base::post(std::move(handler), info.codecId());
         }
         else

@@ -12,6 +12,7 @@
 #include <string>
 #include <memory>
 #include <boost/asio/connect.hpp>
+#include <boost/optional/optional.hpp>
 #include "../asiodefs.hpp"
 #include "../version.hpp"
 #include "../transports/httpprotocol.hpp"
@@ -34,7 +35,6 @@ public:
     using Settings  = WebsocketHost;
     using Socket    = WebsocketTransport::WebsocketSocket;
     using Handler   = std::function<void (ErrorOr<Transporting::Ptr>)>;
-    using SocketPtr = std::unique_ptr<Socket>;
     using Transport = WebsocketClientTransport;
 
     static Ptr create(IoStrand i, Settings s, int codecId)
@@ -60,7 +60,7 @@ public:
 
     void cancel()
     {
-        if (websocket_)
+        if (websocket_.has_value())
             websocket_->next_layer().close();
         else
             resolver_.cancel();
@@ -111,8 +111,8 @@ private:
 
     void connect(const tcp::resolver::results_type& endpoints)
     {
-        assert(!websocket_);
-        websocket_ = SocketPtr{new Socket(strand_)};
+        assert(!websocket_.has_value());
+        websocket_.emplace(strand_);
         auto& tcpSocket = websocket_->next_layer();
         tcpSocket.open(boost::asio::ip::tcp::v4());
         settings_.socketOptions().applyTo(tcpSocket);
@@ -143,6 +143,7 @@ private:
             agent = Version::agentString();
         const auto& subprotocol = subprotocolString(codecId_);
         assert(!subprotocol.empty());
+        assert(websocket_.has_value());
         websocket_->set_option(boost::beast::websocket::stream_base::decorator(
             Decorator{std::move(agent), subprotocol}));
 
@@ -165,6 +166,8 @@ private:
 
     void complete()
     {
+        assert(websocket_.has_value());
+
         if (subprotocolIsText(codecId_))
             websocket_->text(true);
         else
@@ -177,7 +180,7 @@ private:
                               settings_.maxRxLength(),
                               settings_.heartbeatInterval()};
         Transporting::Ptr transport =
-            std::make_shared<Transport>(std::move(websocket_), settings_, i);
+            std::make_shared<Transport>(std::move(*websocket_), settings_, i);
         websocket_.reset();
         dispatchHandler(std::move(transport));
     }
@@ -213,7 +216,7 @@ private:
     IoStrand strand_;
     Settings settings_;
     boost::asio::ip::tcp::resolver resolver_;
-    SocketPtr websocket_;
+    boost::optional<Socket> websocket_;
     boost::beast::websocket::response_type response_;
     Handler handler_;
     int codecId_ = 0;
