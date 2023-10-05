@@ -365,8 +365,7 @@ public:
     using Socket      = typename TConfig::Traits::NetProtocol::socket;
     using Settings    = typename TConfig::Traits::ServerSettings;
     using SettingsPtr = std::shared_ptr<Settings>;
-    using Handler = AnyCompletionHandler<void (std::error_code, Socket*,
-                                               TransportInfo)>;
+    using Handler     = AnyCompletionHandler<void (ErrorOr<Socket*>)>;
 
     explicit RawsockAdmitter(Socket&& s, SettingsPtr p, const CodecIdSet& c)
         : socket_(std::move(s)),
@@ -400,6 +399,8 @@ public:
     }
 
     void cancel() {socket_.close();}
+
+    const TransportInfo& transportInfo() const {return transportInfo_;}
 
 private:
     using Handshake = internal::RawsockHandshake;
@@ -481,11 +482,11 @@ private:
     void complete(Handshake hs)
     {
         auto codecId = hs.codecId();
-        const TransportInfo i{
-            codecId,
-            Handshake::byteLengthOf(maxTxLength_),
-            Handshake::byteLengthOf(settings_->maxRxLength())};
-        handler_(std::error_code{}, &socket_, i);
+        transportInfo_ =
+            TransportInfo{codecId,
+                          Handshake::byteLengthOf(maxTxLength_),
+                          Handshake::byteLengthOf(settings_->maxRxLength())};
+        handler_(&socket_);
         handler_ = nullptr;
     }
 
@@ -500,7 +501,7 @@ private:
     {
         if (!handler_)
             return;
-        handler_(ec, nullptr, TransportInfo{});
+        handler_(makeUnexpected(ec));
         handler_ = nullptr;
         socket_.close();
     }
@@ -511,6 +512,7 @@ private:
     Socket socket_;
     boost::asio::steady_timer timer_;
     CodecIdSet codecIds_;
+    TransportInfo transportInfo_;
     Handler handler_;
     SettingsPtr settings_;
     uint32_t handshake_ = 0;
@@ -550,9 +552,9 @@ private:
             AdmitHandler handler;
             Ptr self;
 
-            void operator()(std::error_code ec, Socket* s, TransportInfo i)
+            void operator()(ErrorOr<Socket*> s)
             {
-                self->onAdmitCompletion(ec, s, i, handler);
+                self->onAdmitCompletion(s, handler);
             }
         };
 
@@ -569,18 +571,18 @@ private:
             admitter_->cancel();
     }
 
-    void onAdmitCompletion(std::error_code ec, Socket* socket,
-                           const TransportInfo& info, AdmitHandler& handler)
+    void onAdmitCompletion(ErrorOr<Socket*> socket, AdmitHandler& handler)
     {
-        if (ec)
+        if (socket.has_value())
         {
-            Base::shutdown();
-            Base::post(std::move(handler), makeUnexpected(ec));
+            const auto& info = admitter_->transportInfo();
+            Base::assignSocket(std::move(*(socket.value())), info);
+            Base::post(std::move(handler), info.codecId());
         }
         else
         {
-            Base::assignSocket(std::move(*socket), info);
-            Base::post(std::move(handler), info.codecId());
+            Base::shutdown();
+            Base::post(std::move(handler), makeUnexpected(socket.error()));
         }
 
         admitter_.reset();

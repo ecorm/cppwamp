@@ -491,8 +491,7 @@ public:
     using SettingsPtr     = std::shared_ptr<WebsocketEndpoint>;
     using WebsocketSocket = boost::beast::websocket::stream<TcpSocket>;
     using WebsocketPtr    = std::unique_ptr<WebsocketSocket>;
-    using Handler = AnyCompletionHandler<void (std::error_code, WebsocketPtr,
-                                               TransportInfo)>;
+    using Handler         = AnyCompletionHandler<void (ErrorOr<WebsocketPtr>)>;
 
     WebsocketAdmitter(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c)
         : tcpSocket_(std::move(t)),
@@ -536,6 +535,8 @@ public:
         if (ec != boost::asio::error::operation_aborted)
             fail(static_cast<std::error_code>(ec));
     }
+
+    const TransportInfo& transportInfo() const {return transportInfo_;}
 
 private:
     using HttpStatus = boost::beast::http::status;
@@ -660,10 +661,10 @@ private:
 
         websocket_->read_message_max(settings_->maxRxLength());
 
-        const TransportInfo i{codecId_, std::numeric_limits<std::size_t>::max(),
-                              settings_->maxRxLength()};
-
-        handler_(std::error_code{}, std::move(websocket_), i);
+        transportInfo_ = TransportInfo{codecId_,
+                                       std::numeric_limits<std::size_t>::max(),
+                                       settings_->maxRxLength()};
+        handler_(std::move(websocket_));
         handler_ = nullptr;
     }
 
@@ -678,7 +679,7 @@ private:
     {
         if (!handler_)
             return;
-        handler_(ec, nullptr, TransportInfo{});
+        handler_(makeUnexpected(ec));
         handler_ = nullptr;
         if (websocket_)
             websocket_->next_layer().close();
@@ -694,6 +695,7 @@ private:
 
     TcpSocket tcpSocket_;
     CodecIdSet codecIds_;
+    TransportInfo transportInfo_;
     SettingsPtr settings_;
     Handler handler_;
     boost::beast::flat_buffer buffer_;
@@ -731,10 +733,9 @@ private:
             AdmitHandler handler;
             Ptr self;
 
-            void operator()(std::error_code ec, WebsocketPtr ws,
-                            TransportInfo ti)
+            void operator()(ErrorOr<WebsocketPtr> ws)
             {
-                self->onAdmissionCompletion(ec, ws, ti, handler);
+                self->onAdmissionCompletion(ws, handler);
             }
         };
 
@@ -763,18 +764,19 @@ private:
             admitter_->cancel();
     }
 
-    void onAdmissionCompletion(std::error_code ec, WebsocketPtr& socket,
-                               const TransportInfo& info, AdmitHandler& handler)
+    void onAdmissionCompletion(ErrorOr<WebsocketPtr>& socket,
+                               AdmitHandler& handler)
     {
-        if (ec)
+        if (socket.has_value())
         {
-            Base::shutdown();
-            Base::post(std::move(handler), makeUnexpected(ec));
+            const auto& info = admitter_->transportInfo();
+            Base::assignWebsocket(std::move(socket).value(), info);
+            Base::post(std::move(handler), info.codecId());
         }
         else
         {
-            Base::assignWebsocket(std::move(socket), info);
-            Base::post(std::move(handler), info.codecId());
+            Base::shutdown();
+            Base::post(std::move(handler), makeUnexpected(socket.error()));
         }
 
         admitter_.reset();
