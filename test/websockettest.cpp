@@ -783,7 +783,7 @@ TEST_CASE( "Peer sending a websocket message longer than maximum",
 
 //------------------------------------------------------------------------------
 TEST_CASE( "Websocket server transport handshake timeout",
-           "[Transport][Rawsock]" )
+           "[Transport][Websocket]" )
 {
     IoContext ioctx;
     auto exec = ioctx.get_executor();

@@ -118,6 +118,22 @@ struct BasicRawsockTransportConfig
 };
 
 //------------------------------------------------------------------------------
+inline std::error_code rawsockErrorCodeToStandard(
+    boost::system::error_code netEc)
+{
+    bool disconnected =
+        netEc == boost::asio::error::broken_pipe ||
+        netEc == boost::asio::error::connection_reset ||
+        netEc == boost::asio::error::eof;
+    auto ec = disconnected
+                  ? make_error_code(TransportErrc::disconnected)
+                  : static_cast<std::error_code>(netEc);
+    if (netEc == boost::asio::error::operation_aborted)
+        ec = make_error_code(TransportErrc::aborted);
+    return ec;
+}
+
+//------------------------------------------------------------------------------
 template <typename TConfig>
 class RawsockTransport : public BasicTransport<RawsockTransport<TConfig>>
 {
@@ -130,21 +146,6 @@ public:
     using CloseHandler = typename Transporting::CloseHandler;
 
 protected:
-    static std::error_code netErrorCodeToStandard(
-        boost::system::error_code netEc)
-    {
-        bool disconnected =
-            netEc == boost::asio::error::broken_pipe ||
-            netEc == boost::asio::error::connection_reset ||
-            netEc == boost::asio::error::eof;
-        auto ec = disconnected
-                      ? make_error_code(TransportErrc::disconnected)
-                      : static_cast<std::error_code>(netEc);
-        if (netEc == boost::asio::error::operation_aborted)
-            ec = make_error_code(TransportErrc::aborted);
-        return ec;
-    }
-
     // Constructor for client transports
     RawsockTransport(Socket&& socket, TransportInfo info)
         : Base(boost::asio::make_strand(socket.get_executor()),
@@ -154,13 +155,19 @@ protected:
     {}
 
     // Constructor for server transports
-    RawsockTransport(Socket&& socket, const std::string& server)
+    RawsockTransport(Socket& socket, const std::string& server)
         : Base(boost::asio::make_strand(socket.get_executor()),
                Traits::connectionInfo(socket.remote_endpoint(), server)),
-          socket_(std::move(socket))
+          socket_(socket.get_executor())
     {}
 
     Socket& socket() {return socket_;}
+
+    void assignSocket(Socket&& socket, TransportInfo info)
+    {
+        socket_ = std::move(socket);
+        Base::completeAdmission(info);
+    }
 
 private:
     using Base       = BasicTransport<RawsockTransport<TConfig>>;
@@ -203,7 +210,7 @@ private:
 
             void operator()(boost::system::error_code netEc, std::size_t)
             {
-                callback(netErrorCodeToStandard(netEc));
+                callback(rawsockErrorCodeToStandard(netEc));
             }
         };
 
@@ -311,7 +318,7 @@ private:
     bool check(boost::system::error_code netEc, F& callback)
     {
         if (netEc)
-            callback(makeUnexpected(netErrorCodeToStandard(netEc)));
+            callback(makeUnexpected(rawsockErrorCodeToStandard(netEc)));
         return !netEc;
     }
 
@@ -350,73 +357,52 @@ private:
 
 //------------------------------------------------------------------------------
 template <typename TConfig>
-class RawsockServerTransport : public RawsockTransport<TConfig>
+class RawsockAdmitter
+    : public std::enable_shared_from_this<RawsockAdmitter<TConfig>>
 {
 public:
-    using Ptr           = std::shared_ptr<RawsockServerTransport>;
-    using Socket        = typename TConfig::Traits::NetProtocol::socket;
-    using Settings      = typename TConfig::Traits::ServerSettings;
-    using SettingsPtr   = std::shared_ptr<Settings>;
-    using AdmitHandler = Transporting::AdmitHandler;
+    using Ptr         = std::shared_ptr<RawsockAdmitter>;
+    using Socket      = typename TConfig::Traits::NetProtocol::socket;
+    using Settings    = typename TConfig::Traits::ServerSettings;
+    using SettingsPtr = std::shared_ptr<Settings>;
+    using Handler = AnyCompletionHandler<void (std::error_code, Socket*,
+                                               TransportInfo)>;
 
-    RawsockServerTransport(Socket&& s, SettingsPtr p, const CodecIdSet& c,
-                           const std::string& server, RouterLogger::Ptr l)
-        : Base(std::move(s), server),
-          data_(new Data(Base::socket().get_executor(), std::move(p), c))
+    explicit RawsockAdmitter(Socket&& s, SettingsPtr p, const CodecIdSet& c)
+        : socket_(std::move(s)),
+          timer_(socket_.get_executor()),
+          codecIds_(c),
+          settings_(p)
     {}
 
-private:
-    using Base = RawsockTransport<TConfig>;
-    using Handshake = internal::RawsockHandshake;
-
-    // Only used once to perform admit operation
-    struct Data
+    void admit(bool isShedding, Timeout timeout, Handler handler)
     {
-        explicit Data(AnyIoExecutor e, SettingsPtr p, const CodecIdSet& c)
-            : timer(std::move(e)),
-              settings(p),
-              codecIds(c)
-        {}
+        isShedding_ = isShedding;
+        handler_ = std::move(handler);
 
-        boost::asio::steady_timer timer;
-        SettingsPtr settings;
-        CodecIdSet codecIds;
-        AdmitHandler handler;
-        uint32_t handshake = 0;
-        RawsockMaxLength maxTxLength = {};
-    };
-
-    void onAdmit(Timeout timeout, AdmitHandler handler) override
-    {
-        assert((data_ != nullptr) && "Accept already performed");
-
-        data_->handler = std::move(handler);
         auto self = this->shared_from_this();
 
         if (timeoutIsDefinite(timeout))
         {
-            data_->timer.expires_after(timeout);
-            data_->timer.async_wait(
+            timer_.expires_after(timeout);
+            timer_.async_wait(
                 [this, self](boost::system::error_code ec) {onTimeout(ec);});
         }
 
         boost::asio::async_read(
-            Base::socket(),
-            boost::asio::buffer(&data_->handshake, sizeof(Handshake)),
+            socket_,
+            boost::asio::buffer(&handshake_, sizeof(handshake_)),
             [this, self](boost::system::error_code ec, size_t)
             {
                 if (check(ec))
-                {
-                    onHandshakeReceived(
-                        Handshake::fromBigEndian(data_->handshake));
-                }
+                    onHandshakeReceived(Handshake::fromBigEndian(handshake_));
             });
     }
 
-    void onCancelAdmission() override
-    {
-        Base::socket().close();
-    }
+    void cancel() {socket_.close();}
+
+private:
+    using Handshake = internal::RawsockHandshake;
 
     void onTimeout(boost::system::error_code ec)
     {
@@ -428,13 +414,10 @@ private:
 
     void onHandshakeReceived(Handshake hs)
     {
-        if (!data_)
-            return;
-
-        data_->timer.cancel();
+        timer_.cancel();
         auto peerCodec = hs.codecId();
 
-        if (Base::state() == TransportState::shedding)
+        if (isShedding_)
         {
             sendRefusal();
         }
@@ -446,11 +429,11 @@ private:
         {
             sendHandshake(Handshake::eReservedBitsUsed());
         }
-        else if (data_->codecIds.count(peerCodec) != 0)
+        else if (codecIds_.count(peerCodec) != 0)
         {
-            data_->maxTxLength = hs.maxLength();
+            maxTxLength_ = hs.maxLength();
             auto bytes = TConfig::hostOrderHandshakeBytes(
-                peerCodec, data_->settings->maxRxLength());
+                peerCodec, settings_->maxRxLength());
             sendHandshake(Handshake(bytes));
         }
         else
@@ -461,11 +444,11 @@ private:
 
     void sendRefusal()
     {
-        data_->handshake = Handshake::eMaxConnections().toBigEndian();
+        handshake_ = Handshake::eMaxConnections().toBigEndian();
         auto self = this->shared_from_this();
         boost::asio::async_write(
-            Base::socket(),
-            boost::asio::buffer(&data_->handshake, sizeof(Handshake)),
+            socket_,
+            boost::asio::buffer(&handshake_, sizeof(handshake_)),
             [this, self](boost::system::error_code ec, size_t)
             {
                 if (check(ec))
@@ -475,14 +458,11 @@ private:
 
     void sendHandshake(Handshake hs)
     {
-        if (!data_)
-            return;
-
-        data_->handshake = hs.toBigEndian();
+        handshake_ = hs.toBigEndian();
         auto self = this->shared_from_this();
         boost::asio::async_write(
-            Base::socket(),
-            boost::asio::buffer(&data_->handshake, sizeof(Handshake)),
+            socket_,
+            boost::asio::buffer(&handshake_, sizeof(handshake_)),
             [this, self, hs](boost::system::error_code ec, size_t)
             {
                 if (check(ec))
@@ -500,45 +480,113 @@ private:
 
     void complete(Handshake hs)
     {
-        if (!data_)
-            return;
-
         auto codecId = hs.codecId();
         const TransportInfo i{
             codecId,
-            Handshake::byteLengthOf(data_->maxTxLength),
-            Handshake::byteLengthOf(data_->settings->maxRxLength())};
-        Base::completeAdmission(i);
-        Base::post(std::move(data_->handler), codecId);
-        data_.reset();
+            Handshake::byteLengthOf(maxTxLength_),
+            Handshake::byteLengthOf(settings_->maxRxLength())};
+        handler_(std::error_code{}, &socket_, i);
+        handler_ = nullptr;
     }
 
     bool check(boost::system::error_code netEc)
     {
         if (netEc)
-            fail(Base::netErrorCodeToStandard(netEc));
+            fail(rawsockErrorCodeToStandard(netEc));
         return !netEc;
     }
 
     void fail(std::error_code ec)
     {
-        if (!data_)
+        if (!handler_)
             return;
-        Base::post(std::move(data_->handler), makeUnexpected(ec));
-        shutdown();
+        handler_(ec, nullptr, TransportInfo{});
+        handler_ = nullptr;
+        socket_.close();
     }
 
     template <typename TErrc>
     void fail(TErrc errc) {fail(make_error_code(errc));}
 
-    void shutdown()
+    Socket socket_;
+    boost::asio::steady_timer timer_;
+    CodecIdSet codecIds_;
+    Handler handler_;
+    SettingsPtr settings_;
+    uint32_t handshake_ = 0;
+    RawsockMaxLength maxTxLength_ = {};
+    bool isShedding_ = false;
+};
+
+//------------------------------------------------------------------------------
+template <typename TConfig>
+class RawsockServerTransport : public RawsockTransport<TConfig>
+{
+public:
+    using Ptr           = std::shared_ptr<RawsockServerTransport>;
+    using Socket        = typename TConfig::Traits::NetProtocol::socket;
+    using Settings      = typename TConfig::Traits::ServerSettings;
+    using SettingsPtr   = std::shared_ptr<Settings>;
+    using AdmitHandler = Transporting::AdmitHandler;
+
+    RawsockServerTransport(Socket&& s, SettingsPtr p, const CodecIdSet& c,
+                           const std::string& server, RouterLogger::Ptr l)
+        : Base(s, server),
+          admitter_(std::make_shared<Admitter>(std::move(s), std::move(p), c))
+    {}
+
+private:
+    using Base        = RawsockTransport<TConfig>;
+    using Handshake   = internal::RawsockHandshake;
+    using Admitter    = RawsockAdmitter<TConfig>;
+    using AdmitterPtr = typename Admitter::Ptr;
+
+    void onAdmit(Timeout timeout, AdmitHandler handler) override
     {
-        Base::socket().close();
-        data_.reset();
-        Base::shutdown();
+        assert((admitter_ != nullptr) && "Admit already performed");
+
+        struct Admitted
+        {
+            AdmitHandler handler;
+            Ptr self;
+
+            void operator()(std::error_code ec, Socket* s, TransportInfo i)
+            {
+                self->onAdmitCompletion(ec, s, i, handler);
+            }
+        };
+
+        auto self = std::dynamic_pointer_cast<RawsockServerTransport>(
+            this->shared_from_this());
+        bool isShedding = Base::state() == TransportState::shedding;
+        admitter_->admit(isShedding, timeout,
+                         Admitted{std::move(handler), std::move(self)});
     }
 
-    std::unique_ptr<Data> data_; // Only used once for admit operation
+    void onCancelAdmission() override
+    {
+        if (admitter_)
+            admitter_->cancel();
+    }
+
+    void onAdmitCompletion(std::error_code ec, Socket* socket,
+                           const TransportInfo& info, AdmitHandler& handler)
+    {
+        if (ec)
+        {
+            Base::shutdown();
+            Base::post(std::move(handler), makeUnexpected(ec));
+        }
+        else
+        {
+            Base::assignSocket(std::move(*socket), info);
+            Base::post(std::move(handler), info.codecId());
+        }
+
+        admitter_.reset();
+    }
+
+    typename RawsockAdmitter<TConfig>::Ptr admitter_;
 };
 
 } // namespace internal

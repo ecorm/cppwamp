@@ -521,8 +521,6 @@ public:
             });
     }
 
-    void shed() {isShedding_ = true;}
-
     void cancel()
     {
         if (websocket_)
@@ -765,8 +763,8 @@ private:
             admitter_->cancel();
     }
 
-    void onAdmissionCompletion(std::error_code ec, WebsocketPtr& ws,
-                               const TransportInfo& ti, AdmitHandler& handler)
+    void onAdmissionCompletion(std::error_code ec, WebsocketPtr& socket,
+                               const TransportInfo& info, AdmitHandler& handler)
     {
         if (ec)
         {
@@ -775,8 +773,8 @@ private:
         }
         else
         {
-            Base::assignWebsocket(std::move(ws), ti);
-            Base::post(std::move(handler), ti.codecId());
+            Base::assignWebsocket(std::move(socket), info);
+            Base::post(std::move(handler), info.codecId());
         }
 
         admitter_.reset();
