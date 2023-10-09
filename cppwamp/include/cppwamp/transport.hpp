@@ -87,6 +87,9 @@ enum class TransportState
 };
 
 
+// Forward declaration
+namespace internal { class HttpServerTransport; }
+
 //------------------------------------------------------------------------------
 /** Base class for transports. */
 //------------------------------------------------------------------------------
@@ -348,6 +351,8 @@ private:
     TransportInfo info_;
     ConnectionInfo connectionInfo_;
     State state_ = State::initial;
+
+    friend class internal::HttpServerTransport;
 };
 
 } // namespace wamp

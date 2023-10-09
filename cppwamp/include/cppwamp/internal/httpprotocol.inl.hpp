@@ -9,6 +9,7 @@
 #include <utility>
 #include "../api.hpp"
 #include "../exceptions.hpp"
+#include "../version.hpp"
 
 namespace wamp
 {
@@ -150,31 +151,98 @@ CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::addPrefixRoute(std::string uri,
     return *this;
 }
 
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withDocumentRoot(std::string root)
+{
+    documentRoot_ = std::move(root);
+    return *this;
+}
+
 CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withAgent(std::string agent)
 {
     agent_ = std::move(agent);
     return *this;
 }
 
-/** @pre `static_cast<unsigned>(status) >= 300` */
+/** @pre `static_cast<unsigned>(status) >= 400`
+    @pre `!uri.empty` */
 CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withErrorPage(HttpStatus status,
                                                          std::string uri)
 {
-    CPPWAMP_LOGIC_CHECK(static_cast<unsigned>(status) >= 300,
-                        "'status' must be a redirect or error code");
-    return withErrorPage(status, std::move(uri), status);
-}
-
-/** @pre `static_cast<unsigned>(status) >= 300` */
-CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withErrorPage(
-    HttpStatus status, std::string uri, HttpStatus changedStatus)
-{
-    CPPWAMP_LOGIC_CHECK(static_cast<unsigned>(status) >= 300,
-                        "'status' must be a redirect or error code");
+    auto n = static_cast<unsigned>(status);
+    CPPWAMP_LOGIC_CHECK(n >= 400, "'status' must be an error code");
+    CPPWAMP_LOGIC_CHECK(!uri.empty(), "'uri' cannot be empty");
+    auto newStatus = (uri.front() == '/') ? status : HttpStatus::found;
+    setErrorPage(status, uri, newStatus);
     return *this;
 }
 
-CPPWAMP_INLINE const std::string& HttpEndpoint::agent() const {return agent_;}
+/** @pre `static_cast<unsigned>(status) >= 400`
+    @pre `static_cast<unsigned>(newStatus) >= 400` */
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withErrorPage(
+    HttpStatus status, HttpStatus newStatus)
+{
+    auto n = static_cast<unsigned>(status);
+    auto m = static_cast<unsigned>(newStatus);
+    CPPWAMP_LOGIC_CHECK(n >= 400, "'status' must be an error code");
+    CPPWAMP_LOGIC_CHECK(m >= 400, "'newStatus' must be an error code");
+    setErrorPage(status, {}, newStatus);
+    return *this;
+}
+
+/** @pre `static_cast<unsigned>(status) >= 400`
+    @pre `!uri.empty`
+    @pre `static_cast<unsigned>(newStatus) >= 300` for external URL
+    @pre `static_cast<unsigned>(newStatus) < 400` for external URL
+    @pre `static_cast<unsigned>(newStatus) >= 400` for local path URI */
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withErrorPage(
+    HttpStatus status, std::string uri, HttpStatus newStatus)
+{
+    auto n = static_cast<unsigned>(status);
+    auto m = static_cast<unsigned>(newStatus);
+    CPPWAMP_LOGIC_CHECK(n >= 400, "'status' must be an error code");
+    CPPWAMP_LOGIC_CHECK(!uri.empty(), "'uri' cannot be empty");
+
+    if (uri.front() == '/')
+    {
+        CPPWAMP_LOGIC_CHECK(
+            m >= 400, "'newStatus' must be an error code for local path URI");
+    }
+    else
+    {
+        CPPWAMP_LOGIC_CHECK(
+            m >= 300 && m < 400,
+            "'newStatus' must be a redirect code for external URL");
+    }
+
+    setErrorPage(status, uri, status);
+    return *this;
+}
+
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withHeaderLimit(uint32_t limit)
+{
+    headerLimit_ = limit;
+    return *this;
+}
+
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withBodyLimit(uint32_t limit)
+{
+    bodyLimit_ = limit;
+    return *this;
+}
+
+CPPWAMP_INLINE const std::string& HttpEndpoint::documentRoot() const
+{
+    return documentRoot_;
+}
+
+CPPWAMP_INLINE const std::string& HttpEndpoint::agent() const
+{
+    return agent_.empty() ? Version::agentString() : agent_;
+}
+
+CPPWAMP_INLINE uint32_t HttpEndpoint::headerLimit() const {return headerLimit_;}
+
+CPPWAMP_INLINE uint32_t HttpEndpoint::bodyLimit() const {return bodyLimit_;}
 
 CPPWAMP_INLINE std::string HttpEndpoint::label() const
 {
@@ -206,6 +274,13 @@ CPPWAMP_INLINE AnyHttpAction* HttpEndpoint::doFindAction(const char* route)
     }
 
     return nullptr;
+}
+
+CPPWAMP_INLINE void HttpEndpoint::setErrorPage(
+    HttpStatus status, std::string uri, HttpStatus newStatus)
+{
+    std::map<HttpStatus, ErrorPage> errorPages;
+    errorPages_[status] = ErrorPage{std::move(uri), newStatus};
 }
 
 } // namespace wamp

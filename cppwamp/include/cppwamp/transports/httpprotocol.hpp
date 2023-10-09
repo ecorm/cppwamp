@@ -154,9 +154,13 @@ class CPPWAMP_API HttpEndpoint
                             std::size_t, 16*1024*1024>
 {
 public:
+    // TODO: Custom error page generator
+
     /// URI and status code of an error page.
     struct ErrorPage
     {
+        bool isRedirect() const {return static_cast<unsigned>(status) < 400;}
+
         std::string uri;
         HttpStatus status;
     };
@@ -179,6 +183,9 @@ public:
     /** Adds an action associated with a prefix match route. */
     HttpEndpoint& addPrefixRoute(std::string uri, AnyHttpAction action);
 
+    /** Specifies the default document root path for serving files. */
+    HttpEndpoint& withDocumentRoot(std::string root);
+
     /** Specifies the custom agent string to use (default is
         Version::agentString). */
     HttpEndpoint& withAgent(std::string agent);
@@ -187,14 +194,34 @@ public:
         status code. */
     HttpEndpoint& withErrorPage(HttpStatus status, std::string uri);
 
+    /** Specifies the status code that substitutes the given HTTP response
+        status code. */
+    HttpEndpoint& withErrorPage(HttpStatus status, HttpStatus newStatus);
+
     /** Specifies the error page to show for the given HTTP response
         status code, with the original status code substituted with the
         given status code. */
     HttpEndpoint& withErrorPage(HttpStatus status, std::string uri,
-                                HttpStatus changedStatus);
+                                HttpStatus newStatus);
 
-    /** Obtains the custom agent string. */
+    /** Specifies the total header size limit of HTTP requests. */
+    HttpEndpoint& withHeaderLimit(uint32_t limit);
+
+    /** Specifies the total body size limit of HTTP requests. */
+    HttpEndpoint& withBodyLimit(uint32_t limit);
+
+    /** Obtains the default document root path for serving files. */
+    const std::string& documentRoot() const;
+
+    /** Obtains the custom agent string, or Version::agentString() if none
+        was specified. */
     const std::string& agent() const;
+
+    /** Obtains the total header size limit of HTTP requests. */
+    uint32_t headerLimit() const;
+
+    /** Obtains the total body size limit of HTTP requests. */
+    uint32_t bodyLimit() const;
 
     /** Generates a human-friendly string of the HTTP address/port. */
     std::string label() const;
@@ -215,10 +242,19 @@ private:
 
     AnyHttpAction* doFindAction(const char* route);
 
+    void setErrorPage(HttpStatus status, std::string uri, HttpStatus newStatus);
+
     utils::TrieMap<AnyHttpAction> actionsByExactKey_;
     utils::TrieMap<AnyHttpAction> actionsByPrefixKey_;
     std::map<HttpStatus, ErrorPage> errorPages_;
+#ifdef _WIN32
+    std::string documentRoot_ = "C:/web/html";
+#else
+    std::string documentRoot_ = "/var/wwww/html";
+#endif
     std::string agent_;
+    uint32_t headerLimit_ = 0;
+    uint32_t bodyLimit_ = 0;
 };
 
 } // namespace wamp

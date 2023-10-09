@@ -138,14 +138,11 @@ private:
 
         // Set the User-Agent and Sec-WebSocket-Protocol fields of the
         // upgrade request
-        std::string agent = settings_.agent();
-        if (agent.empty())
-            agent = Version::agentString();
         const auto& subprotocol = subprotocolString(codecId_);
         assert(!subprotocol.empty());
         assert(websocket_.has_value());
         websocket_->set_option(boost::beast::websocket::stream_base::decorator(
-            Decorator{std::move(agent), subprotocol}));
+            Decorator{settings_.agent(), subprotocol}));
 
         // Perform the handshake
         auto self = shared_from_this();

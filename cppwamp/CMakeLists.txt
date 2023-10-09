@@ -85,6 +85,7 @@ set(HEADERS
     include/cppwamp/internal/endian.hpp
     include/cppwamp/internal/jsonencoding.hpp
     include/cppwamp/internal/hashcombine.hpp
+    include/cppwamp/internal/httpjob.hpp
     include/cppwamp/internal/httplistener.hpp
     include/cppwamp/internal/httptransport.hpp
     include/cppwamp/internal/invocationpolicyoption.hpp
@@ -98,6 +99,7 @@ set(HEADERS
     include/cppwamp/internal/peer.hpp
     include/cppwamp/internal/peerlistener.hpp
     include/cppwamp/internal/pinger.hpp
+    include/cppwamp/internal/polymorphichttpaction.hpp
     include/cppwamp/internal/procedureregistry.hpp
     include/cppwamp/internal/random.hpp
     include/cppwamp/internal/rawsockconnector.hpp

@@ -406,11 +406,8 @@ public:
           codecIds_(c),
           settings_(std::move(s))
     {
-        std::string agent = settings_->agent();
-        if (agent.empty())
-            agent = Version::agentString();
         response_.base().set(boost::beast::http::field::server,
-                             std::move(agent));
+                             settings_->agent());
     }
 
     void admit(bool isShedding, Handler handler)
@@ -496,6 +493,15 @@ private:
         if (!requestParser_->upgrade())
             return fail(boost::beast::websocket::error::no_connection_upgrade);
 
+        // Send an error response if the server connection limit
+        // has been reached
+        if (isShedding_)
+        {
+            return respondThenFail("Connection limit reached",
+                                   HttpStatus::service_unavailable,
+                                   TransportErrc::shedded);
+        }
+
         // Parse the subprotocol to determine the peer's desired codec
         using boost::beast::http::field;
         const auto& request = requestParser_->get();
@@ -515,25 +521,13 @@ private:
                                    TransportErrc::badSerializer);
         }
 
-        // Send an error response if the server connection limit
-        // has been reached
-        if (isShedding_)
-        {
-            return respondThenFail("Connection limit reached",
-                                   HttpStatus::service_unavailable,
-                                   TransportErrc::shedded);
-        }
-
         // Transfer the TCP socket to a new websocket stream
         websocket_.emplace(std::move(tcpSocket_));
 
         // Set the Server and Sec-WebsocketSocket-Protocol fields of
         // the handshake
-        std::string agent = settings_->agent();
-        if (agent.empty())
-            agent = Version::agentString();
         websocket_->set_option(boost::beast::websocket::stream_base::decorator(
-            Decorator{std::move(agent), subprotocol}));
+            Decorator{settings_->agent(), subprotocol}));
 
         // Complete the handshake
         auto self = shared_from_this();
@@ -630,7 +624,7 @@ public:
     using SettingsPtr = std::shared_ptr<WebsocketEndpoint>;
 
     WebsocketServerTransport(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
-                             const std::string& server, RouterLogger::Ptr l)
+                             const std::string& server, RouterLogger::Ptr)
         : Base(t, server),
           admitter_(std::make_shared<WebsocketAdmitter>(
               std::move(t), std::move(s), c))

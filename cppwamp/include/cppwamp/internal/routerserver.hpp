@@ -337,7 +337,7 @@ private:
                 if (!me)
                     return;
                 if (codecId.has_value())
-                    me->onPeerAccepted(*codecId);
+                    me->onPeerAdmitted(*codecId);
                 else
                     me->onPeerRejected(codecId.error());
             });
@@ -349,7 +349,7 @@ private:
         retire();
     }
 
-    void onPeerAccepted(int codecId)
+    void onPeerAdmitted(int codecId)
     {
         if (routerLogLevel() == LogLevel::trace)
             enableTracing();
@@ -839,7 +839,7 @@ private:
     RouterContext router_;
     ServerOptions::Ptr options_;
     Listening::Ptr listener_;
-    RouterLogger::Ptr logger_;
+    RouterLogger::Ptr logger_; // TODO: ServerLogger
     ServerSession::Key nextSessionIndex_ = 0;
     std::chrono::steady_clock::time_point cooldownDeadline_;
 

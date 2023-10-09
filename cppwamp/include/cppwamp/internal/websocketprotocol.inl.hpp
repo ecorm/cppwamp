@@ -7,6 +7,7 @@
 #include "../transports/websocketprotocol.hpp"
 #include <array>
 #include "../api.hpp"
+#include "../version.hpp"
 
 namespace wamp
 {
@@ -154,7 +155,7 @@ WebsocketEndpoint::withHttpHeaderLimit(uint32_t limit)
 
 CPPWAMP_INLINE const std::string& WebsocketEndpoint::agent() const
 {
-    return agent_;
+    return agent_.empty() ? Version::agentString() : agent_;
 }
 
 CPPWAMP_INLINE std::string WebsocketEndpoint::label() const

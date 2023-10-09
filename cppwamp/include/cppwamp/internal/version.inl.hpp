@@ -58,11 +58,12 @@ cppwamp/MAJOR.MINOR.PATCH
 ```
 without any zero padding. */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE std::string Version::agentString()
+CPPWAMP_INLINE const std::string& Version::agentString()
 {
     // TODO: Add platform/OS
     // TODO: Different client/server strings?
-    return "cppwamp/" + Version::toString();
+    static const std::string str{"cppwamp/" + Version::toString()};
+    return str;
 }
 
 } // namespace wamp

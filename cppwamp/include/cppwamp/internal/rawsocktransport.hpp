@@ -393,6 +393,7 @@ public:
             boost::asio::buffer(&handshake_, sizeof(handshake_)),
             [this, self](boost::system::error_code ec, size_t)
             {
+                timer_.cancel();
                 if (check(ec))
                     onHandshakeReceived(Handshake::fromBigEndian(handshake_));
             });

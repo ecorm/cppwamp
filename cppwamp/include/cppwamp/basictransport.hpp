@@ -56,32 +56,6 @@ protected:
             pinger_ = std::make_shared<Pinger>(Base::strand(), Base::info());
     }
 
-    void onPong(const Byte* data, std::size_t size)
-    {
-        if (pinger_)
-            pinger_->pong(data, size);
-    }
-
-    void enqueuePong(MessageBuffer payload)
-    {
-        if (!derived().socketIsOpen())
-            return;
-        auto buf = enframe(std::move(payload), TransportFrameKind::pong);
-        enqueueFrame(std::move(buf));
-    }
-
-    template <typename F>
-    void timeoutAfter(Timeout timeout, F&& action)
-    {
-        timer_.expires_from_now(timeout);
-        timer_.async_wait(std::forward<F>(action));
-    }
-
-private:
-    using Base = Transporting;
-    using Frame = internal::TransportFrame;
-    using PingBytes = internal::PingBytes;
-
     void onStart(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
     {
         rxHandler_ = rxHandler;
@@ -143,6 +117,33 @@ private:
     {
         doClose(std::move(handler));
     }
+
+    void onPong(const Byte* data, std::size_t size)
+    {
+        if (pinger_)
+            pinger_->pong(data, size);
+    }
+
+    void enqueuePong(MessageBuffer payload)
+    {
+        if (!derived().socketIsOpen())
+            return;
+        auto buf = enframe(std::move(payload), TransportFrameKind::pong);
+        enqueueFrame(std::move(buf));
+    }
+
+    template <typename F>
+    void timeoutAfter(Timeout timeout, F&& action)
+    {
+        timer_.expires_from_now(timeout);
+        timer_.async_wait(std::forward<F>(action));
+    }
+
+private:
+    using Base = Transporting;
+    using Frame = internal::TransportFrame;
+    using PingBytes = internal::PingBytes;
+
 
     void doClose(CloseHandler handler)
     {

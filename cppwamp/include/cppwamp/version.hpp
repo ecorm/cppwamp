@@ -66,7 +66,7 @@ struct CPPWAMP_API Version
     static std::string toString();
 
     /** Obtains the agent string sent in `HELLO` messages. */
-    static std::string agentString();
+    static const std::string& agentString();
 };
 
 } // namespace wamp

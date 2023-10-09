@@ -15,54 +15,17 @@
 
 #include <cassert>
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <string>
 #include "../api.hpp"
+#include "../internal/polymorphichttpaction.hpp"
 
 namespace wamp
 {
 
-namespace internal
-{
-
-//------------------------------------------------------------------------------
-template <typename TOptions>
-class CPPWAMP_API HttpAction
-{};
-
-//------------------------------------------------------------------------------
-class CPPWAMP_API PolymorphicHttpActionInterface
-{
-public:
-    virtual ~PolymorphicHttpActionInterface() = default;
-
-    virtual void execute(const std::string& target) = 0;
-};
-
-//------------------------------------------------------------------------------
-template <typename TOptions>
-class CPPWAMP_API PolymorphicHttpAction : public PolymorphicHttpActionInterface
-{
-public:
-    using Options = TOptions;
-
-    PolymorphicHttpAction() = default;
-
-    explicit PolymorphicHttpAction(Options options)
-        : action_(std::move(options))
-    {}
-
-    virtual void execute(const std::string& target) override
-    {
-        action_.execute(target);
-    };
-
-private:
-    HttpAction<Options> action_;
-};
-
-} // namespace internal
+namespace internal { class HttpJob; }
 
 //------------------------------------------------------------------------------
 /** Wrapper that type-erases a polymorphic HTTP action. */
@@ -70,58 +33,76 @@ private:
 class CPPWAMP_API AnyHttpAction
 {
 public:
-    /** Constructs an empty AnyCodec. */
-    AnyHttpAction() = default;
+    /** Constructs an empty AnyHttpAction. */
+    AnyHttpAction();
 
     /** Converting constructor taking action options. */
     template <typename TOptions>
-    AnyHttpAction( // NOLINT(google-explicit-constructor)
-        TOptions o)
+    AnyHttpAction(TOptions o) // NOLINT(google-explicit-constructor)
         : action_(std::make_shared<internal::PolymorphicHttpAction<TOptions>>(
             std::move(o)))
     {}
 
     /** Returns false if the AnyHttpAction is empty. */
-    explicit operator bool() const {return action_ != nullptr;}
+    explicit operator bool() const;
+
+    template <typename OptionsType>
+    bool is() const
+    {
+        using Derived = internal::PolymorphicHttpAction<OptionsType>;
+        return std::dynamic_pointer_cast<Derived>(action_) != nullptr;
+    }
 
 private:
-    void execute(const std::string& target)
-    {
-        assert(action_ != nullptr);
-        action_->execute(target);
-    };
+    void execute(internal::HttpJob& job);
 
     std::shared_ptr<internal::PolymorphicHttpActionInterface> action_;
+
+    friend class internal::HttpJob;
 };
 
 
 //------------------------------------------------------------------------------
 /** Options for serving static files via HTTP. */
 //------------------------------------------------------------------------------
-class HttpServeStaticFile
+class CPPWAMP_API HttpServeStaticFile
 {
 public:
-    explicit HttpServeStaticFile(std::string path) : path_(std::move(path)) {}
+    using MimeTypeMapper = std::function<std::string (const std::string&)>;
+
+    /** Constructor taking a path to the document root. */
+    explicit HttpServeStaticFile(std::string documentRoot);
+
+    /** Specifies the mapping function for determining MIME type based on
+        file extension. */
+    HttpServeStaticFile& withMimeTypes(MimeTypeMapper f);
+
+    /** Obtains the path to the document root. */
+    std::string documentRoot() const;
+
+    /** Obtains the MIME type associated with the given path. */
+    std::string lookupMimeType(std::string extension);
 
 private:
-    std::string path_;
+    static char toLower(char c);
+
+    std::string defaultMimeType(const std::string& extension);
+
+    std::string documentRoot_;
+    MimeTypeMapper mimeTypeMapper_;
 };
 
 //------------------------------------------------------------------------------
 /** Options for upgrading an HTTP request to a Websocket connection. */
 //------------------------------------------------------------------------------
-class HttpWebsocketUpgrade
+class CPPWAMP_API HttpWebsocketUpgrade
 {
 public:
     /** Specifies the maximum length permitted for incoming messages. */
-    HttpWebsocketUpgrade& withMaxRxLength(std::size_t length)
-    {
-        maxRxLength_ = length;
-        return *this;
-    }
+    HttpWebsocketUpgrade& withMaxRxLength(std::size_t length);
 
     /** Obtains the specified maximum incoming message length. */
-    std::size_t maxRxLength() const {return maxRxLength_;}
+    std::size_t maxRxLength() const;
 
 private:
     std::size_t maxRxLength_ = 16*1024*1024;
@@ -136,11 +117,9 @@ template <>
 class HttpAction<HttpServeStaticFile>
 {
 public:
-    HttpAction(HttpServeStaticFile options) : options_(options) {}
+    HttpAction(HttpServeStaticFile options);
 
-    void execute(const std::string& target)
-    {
-    };
+    void execute(HttpJob& job);
 
 private:
     HttpServeStaticFile options_;
@@ -151,11 +130,9 @@ template <>
 class HttpAction<HttpWebsocketUpgrade>
 {
 public:
-    HttpAction(HttpWebsocketUpgrade options) : options_(options) {}
+    HttpAction(HttpWebsocketUpgrade options);
 
-    void execute(const std::string& target)
-    {
-    };
+    void execute(HttpJob& job);
 
 private:
     HttpWebsocketUpgrade options_;
