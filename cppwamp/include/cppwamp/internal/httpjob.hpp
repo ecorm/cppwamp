@@ -33,6 +33,8 @@ public:
     using AnyMessage = boost::beast::http::message_generator;
     using FieldList = std::initializer_list<std::pair<Field, StringView>>;
 
+    virtual ~HttpJob() = default;
+
     const Request& request() const {return request_;}
 
     const HttpEndpoint& settings() const {return *settings_;}

@@ -21,19 +21,20 @@ namespace wamp
 namespace internal { class RouterImpl; }
 
 //------------------------------------------------------------------------------
-class RouterLogger : public std::enable_shared_from_this<RouterLogger>
+class RouterLogger
 {
 public:
     using Ptr = std::shared_ptr<RouterLogger>;
     using LogHandler = AnyReusableHandler<void (LogEntry)>;
     using AccessLogHandler = AnyReusableHandler<void (AccessLogEntry)>;
 
-    static Ptr create(AnyIoExecutor exec, LogHandler lh, LogLevel lv,
-                      AccessLogHandler alh)
-    {
-        return Ptr(new RouterLogger(std::move(exec), std::move(lh), lv,
-                                    std::move(alh)));
-    }
+    RouterLogger(AnyIoExecutor e, LogHandler lh, LogLevel lv,
+                 AccessLogHandler alh)
+        : executor_(std::move(e)),
+          logHandler_(std::move(lh)),
+          accessLogHandler_(std::move(alh)),
+          logLevel_(lv)
+    {}
 
     LogLevel level() const {return logLevel_.load();}
 
@@ -50,14 +51,6 @@ public:
     }
 
 private:
-    RouterLogger(AnyIoExecutor&& e, LogHandler&& lh, LogLevel lv,
-                 AccessLogHandler&& alh)
-        : executor_(std::move(e)),
-          logHandler_(std::move(lh)),
-          accessLogHandler_(std::move(alh)),
-          logLevel_(lv)
-    {}
-
     void setLevel(LogLevel level) {logLevel_.store(level);}
 
     AnyIoExecutor executor_;
@@ -66,6 +59,35 @@ private:
     std::atomic<LogLevel> logLevel_;
 
     friend class internal::RouterImpl;
+};
+
+//------------------------------------------------------------------------------
+class ServerLogger
+{
+public:
+    using Ptr = std::shared_ptr<ServerLogger>;
+
+    ServerLogger(RouterLogger::Ptr routerLogger, const std::string& serverName)
+        : logger_(std::move(routerLogger)),
+          logSuffix_(" [Server " + serverName + ']')
+    {}
+
+    LogLevel level() const {return logger_->level();}
+
+    void log(LogEntry entry)
+    {
+        entry.append(logSuffix_);
+        logger_->log(std::move(entry));
+    }
+
+    void log(AccessLogEntry entry)
+    {
+        logger_->log(std::move(entry));
+    }
+
+private:
+    RouterLogger::Ptr logger_;
+    std::string logSuffix_;
 };
 
 } // namespace wamp

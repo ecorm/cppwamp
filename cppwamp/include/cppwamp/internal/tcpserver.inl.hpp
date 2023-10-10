@@ -22,7 +22,7 @@ struct TcpListenerImpl
     using ListenerType = internal::TcpListener;
 
     TcpListenerImpl(AnyIoExecutor e, IoStrand i, TcpEndpoint s, CodecIdSet c,
-                    const std::string& server, RouterLogger::Ptr l)
+                    const std::string& server, ServerLogger::Ptr l)
         : lstn(ListenerType::create(std::move(e), std::move(i), std::move(s),
                                     std::move(c), server, std::move(l)))
     {}
@@ -40,7 +40,7 @@ struct TcpListenerImpl
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Listener<Tcp>::Listener(AnyIoExecutor e, IoStrand i, Settings s,
                                        CodecIdSet c, const std::string& server,
-                                       RouterLogger::Ptr l)
+                                       ServerLogger::Ptr l)
     : Listening(s.label()),
       impl_(new internal::TcpListenerImpl(
           std::move(e), std::move(i), std::move(s), std::move(c), server,

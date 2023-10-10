@@ -33,7 +33,7 @@ public:
     using Handler     = AnyCompletionHandler<void (ErrorOr<int> codecId)>;
 
     HttpJobImpl(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
-                const std::string& server, RouterLogger::Ptr l)
+                const std::string& server, ServerLogger::Ptr l)
         : Base(std::move(s)),
           tcpSocket_(std::move(t)),
           timer_(tcpSocket_.get_executor()),
@@ -315,7 +315,7 @@ private:
     boost::beast::flat_buffer buffer_;
     boost::optional<Parser> parser_;
     std::string server_;
-    RouterLogger::Ptr logger_;
+    ServerLogger::Ptr logger_;
     Timeout timeout_;
     bool isShedding_ = false;
 };
@@ -330,7 +330,7 @@ public:
     using SettingsPtr = std::shared_ptr<HttpEndpoint>;
 
     HttpServerTransport(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
-                        const std::string& server, RouterLogger::Ptr l)
+                        const std::string& server, ServerLogger::Ptr l)
         : Base(boost::asio::make_strand(t.get_executor()),
                makeConnectionInfo(t, server)),
           job_(std::make_shared<HttpJobImpl>(std::move(t), std::move(s), c,

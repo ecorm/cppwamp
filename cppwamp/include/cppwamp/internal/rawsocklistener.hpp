@@ -144,7 +144,7 @@ public:
 
     static Ptr create(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c,
                       const std::string& server = {},
-                      RouterLogger::Ptr l = nullptr)
+                      ServerLogger::Ptr l = nullptr)
     {
         auto settings = std::make_shared<Settings>(std::move(s));
         return Ptr(new RawsockListener(std::move(e), std::move(i),
@@ -200,7 +200,7 @@ private:
     }
 
     RawsockListener(AnyIoExecutor e, IoStrand i, SettingsPtr s, CodecIdSet c,
-                    const std::string& server, RouterLogger::Ptr l)
+                    const std::string& server, ServerLogger::Ptr l)
         : executor_(std::move(e)),
           strand_(std::move(i)),
           codecIds_(std::move(c)),
@@ -286,7 +286,7 @@ private:
     CodecIdSet codecIds_;
     std::string server_;
     SettingsPtr settings_;
-    RouterLogger::Ptr logger_;
+    ServerLogger::Ptr logger_;
     typename NetProtocol::acceptor acceptor_;
     Handler handler_;
     bool establishing_ = false;

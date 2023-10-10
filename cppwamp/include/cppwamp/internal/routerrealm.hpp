@@ -52,8 +52,8 @@ public:
         : executor_(std::move(e)),
           strand_(std::make_shared<IoStrand>(
               boost::asio::make_strand(executor_))),
-        options_(std::move(o)),
-        logSuffix_(" (Realm " + options_.uri() + ")"),
+          options_(std::move(o)),
+          logSuffix_(" (Realm " + options_.uri() + ")"),
           router_(std::move(rctx)),
           metaTopics_(std::make_shared<MetaTopics>(this, executor_, strand_,
                                                    options_.metaApiEnabled())),

@@ -10,7 +10,6 @@
 
 #include <cppwamp/config.hpp>
 
-#include <cppwamp/internal/httpaction.inl.hpp>
 #include <cppwamp/internal/httpprotocol.inl.hpp>
 #include <cppwamp/internal/httpserver.inl.hpp>
 #include <cppwamp/internal/websocketclient.inl.hpp>

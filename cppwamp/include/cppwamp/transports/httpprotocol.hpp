@@ -15,10 +15,10 @@
 #include <string>
 #include <system_error>
 #include "../api.hpp"
-#include "httpaction.hpp"
 #include "socketendpoint.hpp"
 #include "tcpprotocol.hpp"
 #include "../utils/triemap.hpp"
+#include "../internal/polymorphichttpaction.hpp"
 
 namespace wamp
 {
@@ -145,6 +145,49 @@ struct CPPWAMP_API Http
 };
 
 
+namespace internal { class HttpJob; }
+
+//------------------------------------------------------------------------------
+/** Wrapper that type-erases a polymorphic HTTP action. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API AnyHttpAction
+{
+public:
+    /** Constructs an empty AnyHttpAction. */
+    AnyHttpAction() = default;
+
+    /** Converting constructor taking action options. */
+    template <typename TOptions>
+    AnyHttpAction(TOptions o) // NOLINT(google-explicit-constructor)
+        : action_(std::make_shared<internal::PolymorphicHttpAction<TOptions>>(
+            std::move(o)))
+    {}
+
+    /** Returns false if the AnyHttpAction is empty. */
+    explicit operator bool() const {return action_ != nullptr;}
+
+    template <typename OptionsType>
+    bool is() const
+    {
+        using Derived = internal::PolymorphicHttpAction<OptionsType>;
+        return std::dynamic_pointer_cast<Derived>(action_) != nullptr;
+    }
+
+private:
+    // Template needed to break circular dependency with HttpJob
+    template <typename THttpJob>
+    void execute(THttpJob& job)
+    {
+        assert(action_ != nullptr);
+        action_->execute(job);
+    };
+
+    std::shared_ptr<internal::PolymorphicHttpActionInterface> action_;
+
+    friend class internal::HttpJob;
+};
+
+
 //------------------------------------------------------------------------------
 /** Contains HTTP host address information, as well as other socket options.
     Meets the requirements of @ref TransportSettings. */
@@ -228,7 +271,7 @@ public:
 
     /** Finds the best matching action associated with the given route. */
     template <typename TStringLike>
-    AnyHttpAction* findAction(const TStringLike& route) const
+    const AnyHttpAction* findAction(const TStringLike& route) const
     {
         return doFindAction(route.data());
     }
@@ -240,7 +283,7 @@ private:
     using Base = SocketEndpoint<HttpEndpoint, Http, TcpOptions,
                                 std::size_t, 16*1024*1024>;
 
-    AnyHttpAction* doFindAction(const char* route);
+    const AnyHttpAction* doFindAction(const char* route) const;
 
     void setErrorPage(HttpStatus status, std::string uri, HttpStatus newStatus);
 

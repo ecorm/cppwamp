@@ -206,10 +206,9 @@ private:
     RouterImpl(Executor e, RouterOptions c)
         : options_(std::move(c)),
           executor_(e),
-          logger_(RouterLogger::create(std::move(e),
-                                       options_.logHandler(),
-                                       options_.logLevel(),
-                                       options_.accessLogHandler())),
+          logger_(std::make_shared<RouterLogger>(
+              std::move(e), options_.logHandler(), options_.logLevel(),
+              options_.accessLogHandler())),
           nextDirectSessionIndex_(0)
     {
         if (!options_.rngFactory())

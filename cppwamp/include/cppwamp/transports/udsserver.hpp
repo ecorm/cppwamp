@@ -40,7 +40,7 @@ public:
 
     /** Constructor. */
     Listener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c,
-             const std::string& server = {}, RouterLogger::Ptr l = {});
+             const std::string& server = {}, ServerLogger::Ptr l = {});
 
     /** Destructor. */
     ~Listener() override;

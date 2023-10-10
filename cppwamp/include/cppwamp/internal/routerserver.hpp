@@ -569,10 +569,10 @@ private:
           strand_(boost::asio::make_strand(executor_)),
           challengeTimeouts_(SessionTimeoutScheduler::create(strand_)),
           cooldownTimer_(strand_),
-          logSuffix_(" [Server " + c.name() + ']'),
           router_(std::move(r)),
           options_(std::make_shared<ServerOptions>(std::move(c))),
-          logger_(router_.logger())
+          logger_(std::make_shared<ServerLogger>(router_.logger(),
+                                                 options_->name()))
     {
         if (!options_->authenticator())
             options_->withAuthenticator(AnonymousAuthenticator::create());
@@ -800,11 +800,7 @@ private:
         safelyDispatch<Dispatched>(key);
     }
 
-    void log(LogEntry&& e)
-    {
-        e.append(logSuffix_);
-        logger_->log(std::move(e));
-    }
+    void log(LogEntry&& e) {logger_->log(std::move(e));}
 
     void inform(String msg) {log({LogLevel::info, std::move(msg)});}
 
@@ -835,11 +831,10 @@ private:
     std::unordered_map<ServerSession::Key, ServerSession::Ptr> sessions_;
     SessionTimeoutScheduler::Ptr challengeTimeouts_;
     boost::asio::steady_timer cooldownTimer_;
-    std::string logSuffix_;
     RouterContext router_;
     ServerOptions::Ptr options_;
     Listening::Ptr listener_;
-    RouterLogger::Ptr logger_; // TODO: ServerLogger
+    ServerLogger::Ptr logger_;
     ServerSession::Key nextSessionIndex_ = 0;
     std::chrono::steady_clock::time_point cooldownDeadline_;
 

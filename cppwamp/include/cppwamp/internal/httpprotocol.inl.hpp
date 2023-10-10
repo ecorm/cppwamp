@@ -259,7 +259,8 @@ HttpEndpoint::findErrorPage(HttpStatus status) const
     return found == errorPages_.end() ? nullptr : &(found->second);
 }
 
-CPPWAMP_INLINE AnyHttpAction* HttpEndpoint::doFindAction(const char* route)
+CPPWAMP_INLINE const AnyHttpAction*
+HttpEndpoint::doFindAction(const char* route) const
 {
     {
         auto found = actionsByExactKey_.find(route);

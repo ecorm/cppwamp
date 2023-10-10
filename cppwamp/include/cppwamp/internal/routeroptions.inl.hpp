@@ -196,7 +196,7 @@ CPPWAMP_INLINE Timeout ServerOptions::outageCooldown() const
 
 CPPWAMP_INLINE Listening::Ptr ServerOptions::makeListener(
     internal::PassKey, AnyIoExecutor e, IoStrand s, const std::string& server,
-    RouterLogger::Ptr l) const
+    ServerLogger::Ptr l) const
 {
     return listenerBuilder_(std::move(e), std::move(s), codecFactory_.ids(),
                             server, std::move(l));

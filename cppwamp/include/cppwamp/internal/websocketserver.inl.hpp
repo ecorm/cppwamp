@@ -21,7 +21,7 @@ struct WebsocketListenerImpl
 {
     WebsocketListenerImpl(AnyIoExecutor e, IoStrand i, WebsocketEndpoint s,
                           CodecIdSet c, const std::string& server,
-                          RouterLogger::Ptr l)
+                          ServerLogger::Ptr l)
         : lstn(WebsocketListener::create(std::move(e), std::move(i),
                                          std::move(s), std::move(c),
                                          server, std::move(l)))
@@ -40,7 +40,7 @@ struct WebsocketListenerImpl
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Listener<Websocket>::Listener(
     AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c,
-    const std::string& server, RouterLogger::Ptr l)
+    const std::string& server, ServerLogger::Ptr l)
     : Listening(s.label()),
       impl_(new internal::WebsocketListenerImpl(
             std::move(e), std::move(i), std::move(s), std::move(c), server,

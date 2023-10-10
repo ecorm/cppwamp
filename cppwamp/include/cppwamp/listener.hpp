@@ -169,7 +169,7 @@ public:
         in the constructor. */
     Listening::Ptr operator()(AnyIoExecutor e, IoStrand s, CodecIdSet c,
                               const std::string& server,
-                              RouterLogger::Ptr l) const
+                              ServerLogger::Ptr l) const
     {
         return builder_(std::move(e), std::move(s), std::move(c), server,
                         std::move(l));
@@ -179,7 +179,7 @@ private:
     using Function =
         std::function<Listening::Ptr (AnyIoExecutor, IoStrand, CodecIdSet,
                                       const std::string& server,
-                                                  RouterLogger::Ptr)>;
+                                                  ServerLogger::Ptr)>;
 
     template <typename S>
     static Function makeBuilder(S&& settings)
@@ -190,7 +190,7 @@ private:
 
         return Function{
             [settings](AnyIoExecutor e, IoStrand s, CodecIdSet c,
-                       const std::string& server, RouterLogger::Ptr l)
+                       const std::string& server, ServerLogger::Ptr l)
             {
                 return Listening::Ptr(new ConcreteListener(
                     std::move(e), std::move(s), settings, std::move(c),

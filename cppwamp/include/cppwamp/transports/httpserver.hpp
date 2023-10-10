@@ -25,6 +25,56 @@
 namespace wamp
 {
 
+namespace internal { class HttpJob; }
+
+//------------------------------------------------------------------------------
+/** Options for serving static files via HTTP. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API HttpServeStaticFile
+{
+public:
+    using MimeTypeMapper = std::function<std::string (const std::string&)>;
+
+    /** Constructor taking a path to the document root. */
+    explicit HttpServeStaticFile(std::string documentRoot);
+
+    /** Specifies the mapping function for determining MIME type based on
+        file extension. */
+    HttpServeStaticFile& withMimeTypes(MimeTypeMapper f);
+
+    /** Obtains the path to the document root. */
+    std::string documentRoot() const;
+
+    /** Obtains the MIME type associated with the given path. */
+    std::string lookupMimeType(std::string extension);
+
+private:
+    static char toLower(char c);
+
+    std::string defaultMimeType(const std::string& extension);
+
+    std::string documentRoot_;
+    MimeTypeMapper mimeTypeMapper_;
+};
+
+
+//------------------------------------------------------------------------------
+/** Options for upgrading an HTTP request to a Websocket connection. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API HttpWebsocketUpgrade
+{
+public:
+    /** Specifies the maximum length permitted for incoming messages. */
+    HttpWebsocketUpgrade& withMaxRxLength(std::size_t length);
+
+    /** Obtains the specified maximum incoming message length. */
+    std::size_t maxRxLength() const;
+
+private:
+    std::size_t maxRxLength_ = 16*1024*1024;
+};
+
+
 // Forward declarations
 namespace internal
 {
@@ -46,7 +96,7 @@ public:
 
     /** Constructor. */
     Listener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c,
-             const std::string& server = {}, RouterLogger::Ptr l = {});
+             const std::string& server = {}, ServerLogger::Ptr l = {});
 
     /** Destructor. */
     ~Listener() override;
@@ -68,6 +118,38 @@ public:
 private:
     std::unique_ptr<internal::HttpListenerImpl> impl_;
 };
+
+
+namespace internal
+{
+
+//------------------------------------------------------------------------------
+template <>
+class HttpAction<HttpServeStaticFile>
+{
+public:
+    HttpAction(HttpServeStaticFile options);
+
+    void execute(HttpJob& job);
+
+private:
+    HttpServeStaticFile options_;
+};
+
+//------------------------------------------------------------------------------
+template <>
+class HttpAction<HttpWebsocketUpgrade>
+{
+public:
+    HttpAction(HttpWebsocketUpgrade options);
+
+    void execute(HttpJob& job);
+
+private:
+    HttpWebsocketUpgrade options_;
+};
+
+} // namespace internal
 
 } // namespace wamp
 
