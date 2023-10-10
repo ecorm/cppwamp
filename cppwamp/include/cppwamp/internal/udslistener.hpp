@@ -72,7 +72,12 @@ struct UdsListenerConfig
 };
 
 //------------------------------------------------------------------------------
-using UdsListener = RawsockListener<UdsListenerConfig>;
+class UdsListener : public RawsockListener<UdsListenerConfig>
+{
+public:
+    using Ptr = std::shared_ptr<UdsListener>;
+    using RawsockListener<UdsListenerConfig>::RawsockListener;
+};
 
 } // namespace internal
 

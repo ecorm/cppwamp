@@ -10,40 +10,16 @@
 namespace wamp
 {
 
-namespace internal
-{
-
-//------------------------------------------------------------------------------
-// Making this a nested struct inside Listener<Tcp> leads to bogus Doxygen
-// warnings.
-//------------------------------------------------------------------------------
-struct TcpListenerImpl
-{
-    using ListenerType = internal::TcpListener;
-
-    TcpListenerImpl(AnyIoExecutor e, IoStrand i, TcpEndpoint s, CodecIdSet c,
-                    const std::string& server, ServerLogger::Ptr l)
-        : lstn(ListenerType::create(std::move(e), std::move(i), std::move(s),
-                                    std::move(c), server, std::move(l)))
-    {}
-
-    ListenerType::Ptr lstn;
-};
-
-} // namespace internal
-
-
 //******************************************************************************
 // Listener<Tcp>
 //******************************************************************************
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Listener<Tcp>::Listener(AnyIoExecutor e, IoStrand i, Settings s,
-                                       CodecIdSet c, const std::string& server,
-                                       ServerLogger::Ptr l)
+                                       CodecIdSet c, ServerLogger::Ptr l)
     : Listening(s.label()),
-      impl_(new internal::TcpListenerImpl(
-          std::move(e), std::move(i), std::move(s), std::move(c), server,
+      impl_(std::make_shared<internal::TcpListener>(
+          std::move(e), std::move(i), std::move(s), std::move(c),
           std::move(l)))
 {}
 
@@ -55,13 +31,13 @@ CPPWAMP_INLINE Listener<Tcp>::~Listener() = default;
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Listener<Tcp>::observe(Handler handler)
 {
-    impl_->lstn->observe(std::move(handler));
+    impl_->observe(std::move(handler));
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Listener<Tcp>::establish() {impl_->lstn->establish();}
+CPPWAMP_INLINE void Listener<Tcp>::establish() {impl_->establish();}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Listener<Tcp>::cancel() {impl_->lstn->cancel();}
+CPPWAMP_INLINE void Listener<Tcp>::cancel() {impl_->cancel();}
 
 } // namespace wamp

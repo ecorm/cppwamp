@@ -69,8 +69,11 @@ public:
 
     ServerLogger(RouterLogger::Ptr routerLogger, const std::string& serverName)
         : logger_(std::move(routerLogger)),
+          serverName_(serverName),
           logSuffix_(" [Server " + serverName + ']')
     {}
+
+    const std::string& serverName() const {return serverName_;}
 
     LogLevel level() const {return logger_->level();}
 
@@ -87,6 +90,7 @@ public:
 
 private:
     RouterLogger::Ptr logger_;
+    std::string serverName_;
     std::string logSuffix_;
 };
 

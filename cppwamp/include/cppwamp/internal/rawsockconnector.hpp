@@ -54,10 +54,12 @@ public:
     using Settings = typename TConfig::Traits::ClientSettings;
     using Handler  = std::function<void (ErrorOr<Transporting::Ptr>)>;
 
-    static Ptr create(IoStrand i, Settings s, int codecId)
-    {
-        return Ptr(new RawsockConnector(std::move(i), std::move(s), codecId));
-    }
+    RawsockConnector(IoStrand i, Settings s, int codecId)
+        : settings_(s),
+          resolver_(i),
+          socket_(std::move(i)),
+          codecId_(codecId)
+    {}
 
     void establish(Handler handler)
     {
@@ -90,13 +92,6 @@ private:
     using Socket         = typename NetProtocol::socket;
     using Transport      = typename TConfig::Transport;
     using Handshake      = internal::RawsockHandshake;
-
-    RawsockConnector(IoStrand i, Settings s, int codecId)
-        : settings_(s),
-          resolver_(i),
-          socket_(std::move(i)),
-          codecId_(codecId)
-    {}
 
     void connect(const ResolverResult& endpoints)
     {

@@ -195,11 +195,10 @@ CPPWAMP_INLINE Timeout ServerOptions::outageCooldown() const
 }
 
 CPPWAMP_INLINE Listening::Ptr ServerOptions::makeListener(
-    internal::PassKey, AnyIoExecutor e, IoStrand s, const std::string& server,
-    ServerLogger::Ptr l) const
+    internal::PassKey, AnyIoExecutor e, IoStrand s, ServerLogger::Ptr l) const
 {
     return listenerBuilder_(std::move(e), std::move(s), codecFactory_.ids(),
-                            server, std::move(l));
+                            std::move(l));
 }
 
 CPPWAMP_INLINE AnyBufferCodec ServerOptions::makeCodec(internal::PassKey,

@@ -64,8 +64,8 @@ TEST_CASE("WAMP Client Connection Timeouts", "[WAMP][Basic]")
     auto badWhere = invalidTcp;
 
     const auto tcpEndpoint = TcpEndpoint{invalidPort};
-    auto lstn = ListenerType::create(exec, strand, tcpEndpoint,
-                                     {KnownCodecIds::json()});
+    auto lstn = std::make_shared<ListenerType>(
+        exec, strand, tcpEndpoint, CodecIdSet{KnownCodecIds::json()});
     Transporting::Ptr transport;
     lstn->observe(
         [&transport](ListenResult result)

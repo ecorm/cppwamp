@@ -85,7 +85,6 @@ set(HEADERS
     include/cppwamp/internal/endian.hpp
     include/cppwamp/internal/jsonencoding.hpp
     include/cppwamp/internal/hashcombine.hpp
-    include/cppwamp/internal/httpjob.hpp
     include/cppwamp/internal/httplistener.hpp
     include/cppwamp/internal/httptransport.hpp
     include/cppwamp/internal/invocationpolicyoption.hpp

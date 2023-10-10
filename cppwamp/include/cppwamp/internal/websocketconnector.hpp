@@ -37,10 +37,12 @@ public:
     using Handler   = std::function<void (ErrorOr<Transporting::Ptr>)>;
     using Transport = WebsocketClientTransport;
 
-    static Ptr create(IoStrand i, Settings s, int codecId)
-    {
-        return Ptr(new WebsocketConnector(std::move(i), std::move(s), codecId));
-    }
+    WebsocketConnector(IoStrand i, Settings s, int codecId)
+        : strand_(std::move(i)),
+          settings_(std::move(s)),
+          resolver_(strand_),
+          codecId_(codecId)
+    {}
 
     void establish(Handler handler)
     {
@@ -101,13 +103,6 @@ private:
     {
         return codecId == KnownCodecIds::json();
     }
-
-    WebsocketConnector(IoStrand i, Settings s, int codecId)
-        : strand_(std::move(i)),
-          settings_(std::move(s)),
-          resolver_(strand_),
-          codecId_(codecId)
-    {}
 
     void connect(const tcp::resolver::results_type& endpoints)
     {

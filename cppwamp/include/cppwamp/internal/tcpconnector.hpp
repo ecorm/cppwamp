@@ -58,7 +58,12 @@ using TcpConnectorConfig =
         RawsockClientTransport<BasicRawsockTransportConfig<TcpTraits>>>;
 
 //------------------------------------------------------------------------------
-using TcpConnector = RawsockConnector<TcpConnectorConfig>;
+class TcpConnector : public RawsockConnector<TcpConnectorConfig>
+{
+public:
+    using Ptr = std::shared_ptr<TcpConnector>;
+    using RawsockConnector<TcpConnectorConfig>::RawsockConnector;
+};
 
 } // namespace internal
 

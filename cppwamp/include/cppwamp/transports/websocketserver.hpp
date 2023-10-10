@@ -23,8 +23,7 @@ namespace wamp
 {
 
 // Forward declaration
-namespace internal { struct WebsocketListenerImpl; }
-
+namespace internal { class WebsocketListener; }
 
 //------------------------------------------------------------------------------
 /** Listener specialization that establishes a server-side Websocket transport.
@@ -41,7 +40,7 @@ public:
 
     /** Constructor. */
     Listener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c,
-             const std::string& server = {}, ServerLogger::Ptr l = {});
+             ServerLogger::Ptr l = {});
 
     /** Destructor. */
     ~Listener() override;
@@ -61,7 +60,7 @@ public:
     /// @}
 
 private:
-    std::unique_ptr<internal::WebsocketListenerImpl> impl_;
+    std::shared_ptr<internal::WebsocketListener> impl_;
 };
 
 } // namespace wamp

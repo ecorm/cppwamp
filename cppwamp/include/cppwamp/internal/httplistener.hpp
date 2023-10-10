@@ -23,7 +23,12 @@ using HttpListenerConfig =
     BasicTcpListenerConfig<HttpServerTransport, HttpEndpoint>;
 
 //------------------------------------------------------------------------------
-using HttpListener = RawsockListener<HttpListenerConfig>;
+class HttpListener : public RawsockListener<HttpListenerConfig>
+{
+public:
+    using Ptr = std::shared_ptr<HttpListener>;
+    using RawsockListener<HttpListenerConfig>::RawsockListener;
+};
 
 } // namespace internal
 

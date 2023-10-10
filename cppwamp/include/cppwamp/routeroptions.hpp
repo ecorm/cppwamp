@@ -172,8 +172,7 @@ private:
 
 public: // Internal use only
     Listening::Ptr makeListener(internal::PassKey, AnyIoExecutor e,
-                                IoStrand s, const std::string& server,
-                                ServerLogger::Ptr l) const;
+                                IoStrand s, ServerLogger::Ptr l) const;
 
     AnyBufferCodec makeCodec(internal::PassKey, int id) const;
 };

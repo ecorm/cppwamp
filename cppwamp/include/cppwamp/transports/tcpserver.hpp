@@ -24,7 +24,7 @@ namespace wamp
 {
 
 // Forward declaration
-namespace internal { struct TcpListenerImpl; }
+namespace internal { struct TcpListener; }
 
 //------------------------------------------------------------------------------
 /** Listener specialization that establishes a server-side TCP transport.
@@ -40,7 +40,7 @@ public:
 
     /** Constructor. */
     Listener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c,
-             const std::string& server = {}, ServerLogger::Ptr l = {});
+             ServerLogger::Ptr l = {});
 
     /** Destructor. */
     ~Listener() override;
@@ -60,7 +60,7 @@ public:
     /// @}
 
 private:
-    std::unique_ptr<internal::TcpListenerImpl> impl_;
+    std::shared_ptr<internal::TcpListener> impl_;
 };
 
 } // namespace wamp

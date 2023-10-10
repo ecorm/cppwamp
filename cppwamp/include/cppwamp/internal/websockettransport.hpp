@@ -624,8 +624,8 @@ public:
     using SettingsPtr = std::shared_ptr<WebsocketEndpoint>;
 
     WebsocketServerTransport(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
-                             const std::string& server, ServerLogger::Ptr)
-        : Base(t, server),
+                             ServerLogger::Ptr l)
+        : Base(t, l->serverName()),
           admitter_(std::make_shared<WebsocketAdmitter>(
               std::move(t), std::move(s), c))
     {}

@@ -533,8 +533,8 @@ public:
     using AdmitHandler = Transporting::AdmitHandler;
 
     RawsockServerTransport(Socket&& s, SettingsPtr p, const CodecIdSet& c,
-                           const std::string& server, ServerLogger::Ptr l)
-        : Base(s, server),
+                           ServerLogger::Ptr l)
+        : Base(s, l->serverName()),
           admitter_(std::make_shared<Admitter>(std::move(s), std::move(p), c))
     {}
 

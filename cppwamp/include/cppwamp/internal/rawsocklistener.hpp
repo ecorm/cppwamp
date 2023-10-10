@@ -138,19 +138,20 @@ class RawsockListener
     : public std::enable_shared_from_this<RawsockListener<TConfig>>
 {
 public:
-    using Ptr         = std::shared_ptr<RawsockListener>;
-    using Settings    = typename TConfig::Settings;
-    using Handler     = Listening::Handler;
+    using Ptr      = std::shared_ptr<RawsockListener>;
+    using Settings = typename TConfig::Settings;
+    using Handler  = Listening::Handler;
 
-    static Ptr create(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c,
-                      const std::string& server = {},
-                      ServerLogger::Ptr l = nullptr)
-    {
-        auto settings = std::make_shared<Settings>(std::move(s));
-        return Ptr(new RawsockListener(std::move(e), std::move(i),
-                                       std::move(settings), std::move(c),
-                                       server, std::move(l)));
-    }
+    // TODO: Remove server parameter
+    RawsockListener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c,
+                    ServerLogger::Ptr l = {})
+        : executor_(std::move(e)),
+          strand_(std::move(i)),
+          codecIds_(std::move(c)),
+          settings_(std::make_shared<Settings>(std::move(s))),
+          logger_(std::move(l)),
+          acceptor_(strand_)
+    {}
 
     ~RawsockListener()
     {
@@ -198,17 +199,6 @@ private:
         }
         return ec;
     }
-
-    RawsockListener(AnyIoExecutor e, IoStrand i, SettingsPtr s, CodecIdSet c,
-                    const std::string& server, ServerLogger::Ptr l)
-        : executor_(std::move(e)),
-          strand_(std::move(i)),
-          codecIds_(std::move(c)),
-          server_(server),
-          settings_(std::move(s)),
-          logger_(std::move(l)),
-          acceptor_(strand_)
-    {}
 
     bool listen()
     {
@@ -277,14 +267,13 @@ private:
 
         settings_->socketOptions().applyTo(socket);
         auto transport = std::make_shared<Transport>(
-            std::move(socket), settings_, codecIds_, server_, logger_);
+            std::move(socket), settings_, codecIds_, logger_);
         handler_(ListenResult{std::move(transport)});
     }
 
     AnyIoExecutor executor_;
     IoStrand strand_;
     CodecIdSet codecIds_;
-    std::string server_;
     SettingsPtr settings_;
     ServerLogger::Ptr logger_;
     typename NetProtocol::acceptor acceptor_;

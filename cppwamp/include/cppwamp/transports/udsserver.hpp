@@ -23,7 +23,7 @@ namespace wamp
 {
 
 // Forward declaration
-namespace internal { struct UdsListenerImpl; }
+namespace internal { struct UdsListener; }
 
 
 //------------------------------------------------------------------------------
@@ -40,7 +40,7 @@ public:
 
     /** Constructor. */
     Listener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c,
-             const std::string& server = {}, ServerLogger::Ptr l = {});
+             ServerLogger::Ptr l = {});
 
     /** Destructor. */
     ~Listener() override;
@@ -60,7 +60,7 @@ public:
     /// @}
 
 private:
-    std::unique_ptr<internal::UdsListenerImpl> impl_;
+    std::shared_ptr<internal::UdsListener> impl_;
 };
 
 } // namespace wamp

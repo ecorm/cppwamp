@@ -99,39 +99,17 @@ CPPWAMP_INLINE std::size_t HttpWebsocketUpgrade::maxRxLength() const
     return maxRxLength_;
 }
 
-namespace internal
-{
-
-//------------------------------------------------------------------------------
-// Making this a nested struct inside Listener<Http> leads to bogus Doxygen
-// warnings.
-//------------------------------------------------------------------------------
-struct HttpListenerImpl
-{
-    HttpListenerImpl(AnyIoExecutor e, IoStrand i, HttpEndpoint s, CodecIdSet c,
-                     const std::string& server, ServerLogger::Ptr l)
-        : lstn(HttpListener::create(std::move(e), std::move(i), std::move(s),
-                                    std::move(c), server, std::move(l)))
-    {}
-
-    HttpListener::Ptr lstn;
-};
-
-} // namespace internal
-
-
 //******************************************************************************
 // Listener<Http>
 //******************************************************************************
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Listener<Http>::Listener(AnyIoExecutor e, IoStrand i, Settings s,
-                                        CodecIdSet c, const std::string& server,
-                                        ServerLogger::Ptr l)
+                                        CodecIdSet c, ServerLogger::Ptr l)
     : Listening(s.label()),
-      impl_(new internal::HttpListenerImpl(
-          std::move(e), std::move(i), std::move(s), std::move(c), server,
-          std::move(l)))
+      impl_(std::make_shared<internal::HttpListener>(
+            std::move(e), std::move(i), std::move(s), std::move(c),
+            std::move(l)))
 {}
 
 //------------------------------------------------------------------------------
@@ -142,14 +120,14 @@ CPPWAMP_INLINE Listener<Http>::~Listener() = default;
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Listener<Http>::observe(Handler handler)
 {
-    impl_->lstn->observe(std::move(handler));
+    impl_->observe(std::move(handler));
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Listener<Http>::establish() {impl_->lstn->establish();}
+CPPWAMP_INLINE void Listener<Http>::establish() {impl_->establish();}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Listener<Http>::cancel() {impl_->lstn->cancel();}
+CPPWAMP_INLINE void Listener<Http>::cancel() {impl_->cancel();}
 
 namespace internal
 {

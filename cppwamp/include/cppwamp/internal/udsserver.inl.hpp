@@ -10,40 +10,15 @@
 namespace wamp
 {
 
-namespace internal
-{
-
-//------------------------------------------------------------------------------
-// Making this a nested struct inside Listener<Uds> leads to bogus Doxygen
-// warnings.
-//------------------------------------------------------------------------------
-struct UdsListenerImpl
-{
-    using ListenerType = internal::UdsListener;
-
-    UdsListenerImpl(AnyIoExecutor e, IoStrand i, UdsEndpoint s, CodecIdSet c,
-                    const std::string& server, ServerLogger::Ptr l)
-        : lstn(ListenerType::create(std::move(e), std::move(i), std::move(s),
-                                    std::move(c), server, std::move(l)))
-    {}
-
-    ListenerType::Ptr lstn;
-};
-
-} // namespace internal
-
-
 //******************************************************************************
 // Listener<Uds>
 //******************************************************************************
 
 CPPWAMP_INLINE Listener<Uds>::Listener(AnyIoExecutor e, IoStrand i, Settings s,
-                                       CodecIdSet c, const std::string& server,
-                                       ServerLogger::Ptr l)
+                                       CodecIdSet c, ServerLogger::Ptr l)
     : Listening(s.label()),
-      impl_(new internal::UdsListenerImpl(
-          std::move(e), std::move(i), std::move(s), std::move(c), server,
-          std::move(l)))
+      impl_(std::make_shared<internal::UdsListener>(
+          std::move(e), std::move(i), std::move(s), std::move(c), std::move(l)))
 {}
 
 //------------------------------------------------------------------------------
@@ -54,13 +29,13 @@ CPPWAMP_INLINE Listener<Uds>::~Listener() = default;
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Listener<Uds>::observe(Handler handler)
 {
-    impl_->lstn->observe(std::move(handler));
+    impl_->observe(std::move(handler));
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Listener<Uds>::establish() {impl_->lstn->establish();}
+CPPWAMP_INLINE void Listener<Uds>::establish() {impl_->establish();}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Listener<Uds>::cancel() {impl_->lstn->cancel();}
+CPPWAMP_INLINE void Listener<Uds>::cancel() {impl_->cancel();}
 
 } // namespace wamp

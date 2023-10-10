@@ -54,12 +54,12 @@ struct LoopbackFixture
                     CodecIdSet serverCodecs,
                     bool connected = true)
     {
-        cnct = Connector::create(boost::asio::make_strand(cctx),
-                                 std::move(clientSettings), clientCodec);
-        lstn = Listener::create(sctx.get_executor(),
-                                boost::asio::make_strand(sctx),
-                                std::move(serverSettings),
-                                std::move(serverCodecs));
+        cnct = std::make_shared<Connector>(
+            boost::asio::make_strand(cctx), std::move(clientSettings),
+            clientCodec);
+        lstn = std::make_shared<Listener>(
+            sctx.get_executor(), boost::asio::make_strand(sctx),
+            std::move(serverSettings), std::move(serverCodecs));
         if (connected)
             connect();
     }
@@ -451,8 +451,8 @@ void checkCannedServerHandshake(
     IoContext ioctx;
     auto exec = ioctx.get_executor();
     auto strand = boost::asio::make_strand(exec);
-    auto lstn = CannedHandshakeListener::create(exec, strand, tcpEndpoint,
-                                                {jsonId});
+    auto lstn = std::make_shared<CannedHandshakeListener>(
+        exec, strand, tcpEndpoint, CodecIdSet{jsonId});
     Transporting::Ptr server;
     CannedHandshakeServerTransportConfig::cannedHostBytes() = cannedHandshake;
     std::error_code serverEc;
@@ -471,7 +471,7 @@ void checkCannedServerHandshake(
     });
     lstn->establish();
 
-    auto cnct = TcpConnector::create(strand, tcpHost, jsonId);
+    auto cnct = std::make_shared<TcpConnector>(strand, tcpHost, jsonId);
     cnct->establish(
         [&clientEc](ErrorOr<Transporting::Ptr> transport)
         {
@@ -492,7 +492,8 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
     IoContext ioctx;
     auto exec = ioctx.get_executor();
     auto strand = boost::asio::make_strand(exec);
-    auto lstn = TcpListener::create(exec, strand, tcpEndpoint, {jsonId});
+    auto lstn = std::make_shared<TcpListener>(exec, strand, tcpEndpoint,
+                                              CodecIdSet{jsonId});
     Transporting::Ptr server;
     std::error_code serverEc;
     std::error_code clientEc;
@@ -511,7 +512,8 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
         });
     lstn->establish();
 
-    auto cnct = CannedHandshakeConnector::create(strand, tcpHost, jsonId);
+    auto cnct = std::make_shared<CannedHandshakeConnector>(
+        strand, tcpHost, jsonId);
     CannedHandshakeConnectorConfig::cannedHostBytes() = cannedHandshake;
     cnct->establish(
         [&clientEc](ErrorOr<Transporting::Ptr> transport)
@@ -1060,8 +1062,8 @@ GIVEN ( "a mock server under-reporting its maximum receive length" )
     MessageBuffer tooLong(64*1024 + 1, 'A');
 
     Transporting::Ptr server;
-    auto lstn = CannedHandshakeListener::create(exec, strand, tcpEndpoint,
-                                                {jsonId});
+    auto lstn = std::make_shared<CannedHandshakeListener>(
+        exec, strand, tcpEndpoint, CodecIdSet{jsonId});
     CannedHandshakeServerTransportConfig::cannedHostBytes() = 0x7F810000;
     lstn->observe(
         [&](ListenResult result)
@@ -1074,7 +1076,7 @@ GIVEN ( "a mock server under-reporting its maximum receive length" )
     lstn->establish();
 
     Transporting::Ptr client;
-    auto cnct = TcpConnector::create(strand, tcpHost, jsonId);
+    auto cnct = std::make_shared<TcpConnector>(strand, tcpHost, jsonId);
     cnct->establish(
         [&](ErrorOr<Transporting::Ptr> transport)
         {
@@ -1133,7 +1135,8 @@ GIVEN ( "a mock client under-reporting its maximum receive length" )
     MessageBuffer tooLong(64*1024 + 1, 'A');
 
     Transporting::Ptr server;
-    auto lstn = TcpListener::create(exec, strand, tcpEndpoint, {jsonId});
+    auto lstn = std::make_shared<TcpListener>(exec, strand, tcpEndpoint,
+                                              CodecIdSet{jsonId});
     lstn->observe(
         [&](ListenResult result)
         {
@@ -1144,7 +1147,8 @@ GIVEN ( "a mock client under-reporting its maximum receive length" )
         });
     lstn->establish();
 
-    auto cnct = CannedHandshakeConnector::create(strand, tcpHost, jsonId);
+    auto cnct = std::make_shared<CannedHandshakeConnector>(
+        strand, tcpHost, jsonId);
     CannedHandshakeConnectorConfig::cannedHostBytes() = 0x7F810000;
     Transporting::Ptr client;
     cnct->establish(
@@ -1202,7 +1206,8 @@ GIVEN ( "A mock client that sends an invalid message type" )
     auto exec = ioctx.get_executor();
     auto strand = boost::asio::make_strand(exec);
 
-    auto lstn = TcpListener::create(exec, strand, tcpEndpoint, {jsonId});
+    auto lstn = std::make_shared<TcpListener>(exec, strand, tcpEndpoint,
+                                              CodecIdSet{jsonId});
     Transporting::Ptr server;
     lstn->observe(
         [&](ListenResult result)
@@ -1218,7 +1223,7 @@ GIVEN ( "A mock client that sends an invalid message type" )
         RawsockConnector<
             BasicTcpConnectorConfig<RawsockClientTransport<BadMsgKindConfig>>>;
 
-    auto cnct = MockConnector::create(strand, tcpHost, jsonId);
+    auto cnct = std::make_shared<MockConnector>(strand, tcpHost, jsonId);
     Transporting::Ptr client;
     cnct->establish(
         [&](ErrorOr<Transporting::Ptr> transport)
@@ -1278,7 +1283,8 @@ GIVEN ( "A mock server that sends an invalid message type" )
     IoContext ioctx;
     auto exec = ioctx.get_executor();
     auto strand = boost::asio::make_strand(exec);
-    auto lstn = MockListener::create(exec, strand, tcpEndpoint, {jsonId});
+    auto lstn = std::make_shared<MockListener>(exec, strand, tcpEndpoint,
+                                               CodecIdSet{jsonId});
     Transporting::Ptr server;
     lstn->observe(
         [&](ListenResult result)
@@ -1290,7 +1296,7 @@ GIVEN ( "A mock server that sends an invalid message type" )
         });
     lstn->establish();
 
-    auto cnct = TcpConnector::create(strand, tcpHost, jsonId);
+    auto cnct = std::make_shared<TcpConnector>(strand, tcpHost, jsonId);
     Transporting::Ptr client;
     cnct->establish(
         [&](ErrorOr<Transporting::Ptr> transport)
@@ -1346,7 +1352,8 @@ TEST_CASE( "TCP server transport handshake timeout", "[Transport][Rawsock]" )
     auto strand = boost::asio::make_strand(exec);
     std::error_code serverError;
 
-    auto lstn = TcpListener::create(exec, strand, tcpEndpoint, {jsonId});
+    auto lstn = std::make_shared<TcpListener>(exec, strand, tcpEndpoint,
+                                              CodecIdSet{jsonId});
     Transporting::Ptr server;
     lstn->observe(
         [&](ListenResult result)
@@ -1386,7 +1393,8 @@ TEST_CASE( "TCP rawsocket heartbeat", "[Transport][Rawsock]" )
             BasicTcpListenerConfig<
                 RawsockServerTransport<MonitorPingPongConfig>>>;
 
-    auto lstn = MockListener::create(exec, strand, tcpEndpoint, {jsonId});
+    auto lstn = std::make_shared<MockListener>(exec, strand, tcpEndpoint,
+                                               CodecIdSet{jsonId});
     Transporting::Ptr server;
     lstn->observe(
         [&](ListenResult result)
@@ -1409,7 +1417,7 @@ TEST_CASE( "TCP rawsocket heartbeat", "[Transport][Rawsock]" )
 
     MonitorPingPongConfig::clear();
 
-    auto cnct = MockConnector::create(strand, where, jsonId);
+    auto cnct = std::make_shared<MockConnector>(strand, where, jsonId);
     Transporting::Ptr client;
     cnct->establish(
         [&](ErrorOr<Transporting::Ptr> transport)

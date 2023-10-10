@@ -23,7 +23,7 @@ namespace wamp
 {
 
 // Forward declaration
-namespace internal { struct UdsConnectorImpl; }
+namespace internal { struct UdsConnector; }
 
 
 //------------------------------------------------------------------------------
@@ -61,7 +61,7 @@ public:
     /// @}
 
 private:
-    std::unique_ptr<internal::UdsConnectorImpl> impl_;
+    std::shared_ptr<internal::UdsConnector> impl_;
 };
 
 } // namespace wamp

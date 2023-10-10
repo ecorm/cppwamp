@@ -10,40 +10,12 @@
 namespace wamp
 {
 
-namespace internal
-{
-
-//------------------------------------------------------------------------------
-// Making this a nested struct inside Listener<Websocket> leads to bogus Doxygen
-// warnings.
-//------------------------------------------------------------------------------
-struct WebsocketListenerImpl
-{
-    WebsocketListenerImpl(AnyIoExecutor e, IoStrand i, WebsocketEndpoint s,
-                          CodecIdSet c, const std::string& server,
-                          ServerLogger::Ptr l)
-        : lstn(WebsocketListener::create(std::move(e), std::move(i),
-                                         std::move(s), std::move(c),
-                                         server, std::move(l)))
-    {}
-
-    WebsocketListener::Ptr lstn;
-};
-
-} // namespace internal
-
-
-//******************************************************************************
-// Listener<Websocket>
-//******************************************************************************
-
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Listener<Websocket>::Listener(
-    AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c,
-    const std::string& server, ServerLogger::Ptr l)
+    AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c, ServerLogger::Ptr l)
     : Listening(s.label()),
-      impl_(new internal::WebsocketListenerImpl(
-            std::move(e), std::move(i), std::move(s), std::move(c), server,
+    impl_(std::make_shared<internal::WebsocketListener>(
+            std::move(e), std::move(i), std::move(s), std::move(c),
             std::move(l)))
 {}
 
@@ -55,16 +27,16 @@ CPPWAMP_INLINE Listener<Websocket>::~Listener() = default;
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Listener<Websocket>::observe(Handler handler)
 {
-    impl_->lstn->observe(std::move(handler));
+    impl_->observe(std::move(handler));
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Listener<Websocket>::establish()
 {
-    impl_->lstn->establish();
+    impl_->establish();
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Listener<Websocket>::cancel() {impl_->lstn->cancel();}
+CPPWAMP_INLINE void Listener<Websocket>::cancel() {impl_->cancel();}
 
 } // namespace wamp

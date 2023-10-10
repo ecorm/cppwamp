@@ -23,7 +23,12 @@ using WebsocketListenerConfig =
     BasicTcpListenerConfig<WebsocketServerTransport, WebsocketEndpoint>;
 
 //------------------------------------------------------------------------------
-using WebsocketListener = RawsockListener<WebsocketListenerConfig>;
+class WebsocketListener : public RawsockListener<WebsocketListenerConfig>
+{
+public:
+    using Ptr = std::shared_ptr<WebsocketListener>;
+    using RawsockListener<WebsocketListenerConfig>::RawsockListener;
+};
 
 } // namespace internal
 

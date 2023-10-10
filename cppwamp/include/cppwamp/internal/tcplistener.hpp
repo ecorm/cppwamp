@@ -67,7 +67,12 @@ using TcpListenerConfig =
         RawsockServerTransport<BasicRawsockTransportConfig<TcpTraits>>>;
 
 //------------------------------------------------------------------------------
-using TcpListener = RawsockListener<TcpListenerConfig>;
+class TcpListener : public RawsockListener<TcpListenerConfig>
+{
+public:
+    using Ptr = std::shared_ptr<TcpListener>;
+    using RawsockListener<TcpListenerConfig>::RawsockListener;
+};
 
 } // namespace internal
 

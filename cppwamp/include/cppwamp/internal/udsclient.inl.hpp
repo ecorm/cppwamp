@@ -10,34 +10,14 @@
 namespace wamp
 {
 
-namespace internal
-{
-
-//------------------------------------------------------------------------------
-// Making this a nested struct inside Connector<Uds> leads to bogus Doxygen
-// warnings.
-//------------------------------------------------------------------------------
-struct UdsConnectorImpl
-{
-    using ConnectorType = internal::UdsConnector;
-
-    UdsConnectorImpl(IoStrand i, UdsHost s, int codecId)
-        : cnct(ConnectorType::create(std::move(i), std::move(s), codecId))
-    {}
-
-    ConnectorType::Ptr cnct;
-};
-
-} // namespace internal
-
-
 //******************************************************************************
 // Connector<Uds>
 //******************************************************************************
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Connector<Uds>::Connector(IoStrand i, Settings s, int codecId)
-    : impl_(new internal::UdsConnectorImpl(std::move(i), std::move(s), codecId))
+    : impl_(std::make_shared<internal::UdsConnector>(
+        std::move(i), std::move(s), codecId))
 {}
 
 //------------------------------------------------------------------------------
@@ -48,10 +28,10 @@ CPPWAMP_INLINE Connector<Uds>::~Connector() = default;
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Connector<Uds>::establish(Handler handler)
 {
-    impl_->cnct->establish(std::move(handler));
+    impl_->establish(std::move(handler));
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Connector<Uds>::cancel() {impl_->cnct->cancel();}
+CPPWAMP_INLINE void Connector<Uds>::cancel() {impl_->cancel();}
 
 } // namespace wamp

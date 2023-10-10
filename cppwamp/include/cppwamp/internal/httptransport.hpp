@@ -8,11 +8,16 @@
 #define CPPWAMP_INTERNAL_HTTPTRANSPORT_HPP
 
 #include <fstream>
+#include <initializer_list>
 #include <boost/asio/steady_timer.hpp>
+#include <boost/beast/core/string_type.hpp>
+#include <boost/beast/http/field.hpp>
 #include <boost/beast/http/file_body.hpp>
+#include <boost/beast/http/message_generator.hpp>
+#include <boost/beast/http/parser.hpp>
+#include <boost/beast/http/string_body.hpp>
 #include "../routerlogger.hpp"
 #include "../transports/httpprotocol.hpp"
-#include "httpjob.hpp"
 #include "websockettransport.hpp"
 
 namespace wamp
@@ -20,6 +25,82 @@ namespace wamp
 
 namespace internal
 {
+
+//------------------------------------------------------------------------------
+inline std::string httpStaticFilePath(boost::beast::string_view base,
+                                      boost::beast::string_view path)
+{
+    if (base.empty())
+        return std::string(path);
+
+#ifdef _WIN32
+    constexpr char separator = '\\';
+#else
+    constexpr char separator = '/';
+#endif
+
+    std::string result{base};
+    if (result.back() == separator)
+        result.resize(result.size() - 1);
+    result.append(path.data(), path.size());
+
+#ifdef _WIN32
+    for (auto& c: result)
+    {
+        if (c == '/')
+            c = separator;
+    }
+#endif
+    return result;
+}
+
+//------------------------------------------------------------------------------
+class HttpJob
+{
+public:
+    using Body = boost::beast::http::string_body;
+    using Request = boost::beast::http::request<Body>;
+    using Field = boost::beast::http::field;
+    using StringView = boost::beast::string_view;
+    using AnyMessage = boost::beast::http::message_generator;
+    using FieldList = std::initializer_list<std::pair<Field, StringView>>;
+
+    virtual ~HttpJob() = default;
+
+    const Request& request() const {return request_;}
+
+    const HttpEndpoint& settings() const {return *settings_;}
+
+    void respond(AnyMessage response);
+
+    void upgrade(Transporting::Ptr transport, int codecId);
+
+    void balk(
+        HttpStatus status, std::string what = {}, bool simple = false,
+        FieldList fields = {})
+    {
+        doBalk(status, std::move(what), simple, fields);
+    }
+
+protected:
+    using SettingsPtr = std::shared_ptr<HttpEndpoint>;
+
+    HttpJob(SettingsPtr s) : settings_(std::move(s)) {}
+
+    virtual void doRespond(AnyMessage response) = 0;
+
+    virtual void doUpgrade(Transporting::Ptr transport, int codecId) = 0;
+
+    virtual void doBalk(
+        HttpStatus status, std::string what, bool simple,
+        std::initializer_list<std::pair<Field, StringView>> fields) = 0;
+
+    void setRequest(Request&& req) {request_ = std::move(req);}
+
+private:
+    Request request_;
+    SettingsPtr settings_;
+};
 
 //------------------------------------------------------------------------------
 class HttpJobImpl : public HttpJob,
@@ -33,12 +114,11 @@ public:
     using Handler     = AnyCompletionHandler<void (ErrorOr<int> codecId)>;
 
     HttpJobImpl(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
-                const std::string& server, ServerLogger::Ptr l)
+                ServerLogger::Ptr l)
         : Base(std::move(s)),
           tcpSocket_(std::move(t)),
           timer_(tcpSocket_.get_executor()),
           codecIds_(c),
-          server_(server),
           logger_(std::move(l))
     {}
 
@@ -111,7 +191,7 @@ private:
 
         auto target = parser_->get().target();
         auto* action = settings().findAction(target);
-        if ((action == nullptr) || !action->is<HttpWebsocketUpgrade>())
+        if (action == nullptr)
             return doBalk(HttpStatus::notFound, {}, isUpgrade, {});
 
         Base::setRequest(parser_->release());
@@ -314,7 +394,6 @@ private:
     Handler handler_;
     boost::beast::flat_buffer buffer_;
     boost::optional<Parser> parser_;
-    std::string server_;
     ServerLogger::Ptr logger_;
     Timeout timeout_;
     bool isShedding_ = false;
@@ -330,11 +409,11 @@ public:
     using SettingsPtr = std::shared_ptr<HttpEndpoint>;
 
     HttpServerTransport(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
-                        const std::string& server, ServerLogger::Ptr l)
+                        ServerLogger::Ptr l)
         : Base(boost::asio::make_strand(t.get_executor()),
-               makeConnectionInfo(t, server)),
+               makeConnectionInfo(t, l->serverName())),
           job_(std::make_shared<HttpJobImpl>(std::move(t), std::move(s), c,
-                                             server, std::move(l)))
+                                             std::move(l)))
     {}
 
 private:

@@ -10,34 +10,14 @@
 namespace wamp
 {
 
-namespace internal
-{
-
-//------------------------------------------------------------------------------
-// Making this a nested struct inside Connector<Tcp> leads to bogus Doxygen
-// warnings.
-//------------------------------------------------------------------------------
-struct TcpConnectorImpl
-{
-    using ConnectorType = internal::TcpConnector;
-
-    TcpConnectorImpl(IoStrand i, TcpHost s, int codecId)
-        : cnct(ConnectorType::create(std::move(i), std::move(s), codecId))
-    {}
-
-    ConnectorType::Ptr cnct;
-};
-
-} // namespace internal
-
-
 //******************************************************************************
 // Connector<Tcp>
 //******************************************************************************
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Connector<Tcp>::Connector(IoStrand i, Settings s, int codecId)
-    : impl_(new internal::TcpConnectorImpl(std::move(i), std::move(s), codecId))
+    : impl_(std::make_shared<internal::TcpConnector>(
+        std::move(i), std::move(s), codecId))
 {}
 
 //------------------------------------------------------------------------------
@@ -48,10 +28,10 @@ CPPWAMP_INLINE Connector<Tcp>::~Connector() = default;
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Connector<Tcp>::establish(Handler handler)
 {
-    impl_->cnct->establish(std::move(handler));
+    impl_->establish(std::move(handler));
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Connector<Tcp>::cancel() {impl_->cnct->cancel();}
+CPPWAMP_INLINE void Connector<Tcp>::cancel() {impl_->cancel();}
 
 } // namespace wamp

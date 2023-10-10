@@ -24,7 +24,7 @@ namespace wamp
 {
 
 // Forward declaration
-namespace internal { struct TcpConnectorImpl; }
+namespace internal { struct TcpConnector; }
 
 //------------------------------------------------------------------------------
 /** Connector specialization that establishes a client-side TCP transport.
@@ -61,7 +61,7 @@ public:
     /// @}
 
 private:
-    std::unique_ptr<internal::TcpConnectorImpl> impl_;
+    std::shared_ptr<internal::TcpConnector> impl_;
 };
 
 } // namespace wamp

@@ -76,11 +76,7 @@ private:
 
 
 // Forward declarations
-namespace internal
-{
-struct HttpConnectorImpl;
-struct HttpListenerImpl;
-}
+namespace internal {class HttpListener;}
 
 //------------------------------------------------------------------------------
 /** Listener specialization that implememts an HTTP server.
@@ -96,7 +92,7 @@ public:
 
     /** Constructor. */
     Listener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c,
-             const std::string& server = {}, ServerLogger::Ptr l = {});
+             ServerLogger::Ptr l = {});
 
     /** Destructor. */
     ~Listener() override;
@@ -116,7 +112,7 @@ public:
     /// @}
 
 private:
-    std::unique_ptr<internal::HttpListenerImpl> impl_;
+    std::shared_ptr<internal::HttpListener> impl_;
 };
 
 

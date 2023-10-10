@@ -52,12 +52,12 @@ struct LoopbackFixture
                     CodecIdSet serverCodecs,
                     bool connected = true)
     {
-        cnct = Connector::create(boost::asio::make_strand(cctx),
-                                 std::move(clientSettings), clientCodec);
-        lstn = Listener::create(sctx.get_executor(),
-                                boost::asio::make_strand(sctx),
-                                std::move(serverSettings),
-                                std::move(serverCodecs));
+        cnct = std::make_shared<Connector>(
+            boost::asio::make_strand(cctx), std::move(clientSettings),
+            clientCodec);
+        lstn = std::make_shared<Listener>(
+            sctx.get_executor(), boost::asio::make_strand(sctx),
+            std::move(serverSettings), std::move(serverCodecs));
         if (connected)
             connect();
     }
@@ -790,7 +790,8 @@ TEST_CASE( "Websocket server transport handshake timeout",
     auto strand = boost::asio::make_strand(exec);
     std::error_code serverError;
 
-    auto lstn = WebsocketListener::create(exec, strand, wsEndpoint, {jsonId});
+    auto lstn = std::make_shared<WebsocketListener>(exec, strand, wsEndpoint,
+                                                    CodecIdSet{jsonId});
     Transporting::Ptr server;
     lstn->observe(
         [&](ListenResult result)

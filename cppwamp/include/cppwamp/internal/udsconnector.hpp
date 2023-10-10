@@ -47,7 +47,12 @@ using UdsConnectorConfig =
         RawsockClientTransport<BasicRawsockTransportConfig<UdsTraits>>>;
 
 //------------------------------------------------------------------------------
-using UdsConnector = RawsockConnector<UdsConnectorConfig>;
+class UdsConnector : public RawsockConnector<UdsConnectorConfig>
+{
+public:
+    using Ptr = std::shared_ptr<UdsConnector>;
+    using RawsockConnector<UdsConnectorConfig>::RawsockConnector;
+};
 
 } // namespace internal
 

@@ -23,8 +23,7 @@ namespace wamp
 {
 
 // Forward declaration
-namespace internal { struct WebsocketConnectorImpl; }
-
+namespace internal { struct WebsocketConnector; }
 
 //------------------------------------------------------------------------------
 /** Connector specialization that establishes a client-side Websocket transport.
@@ -61,7 +60,7 @@ public:
     /// @}
 
 private:
-    std::unique_ptr<internal::WebsocketConnectorImpl> impl_;
+    std::shared_ptr<internal::WebsocketConnector> impl_;
 };
 
 } // namespace wamp
