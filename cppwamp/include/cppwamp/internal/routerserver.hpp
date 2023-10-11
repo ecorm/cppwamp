@@ -151,11 +151,11 @@ public:
     {
         assert(serverOptions_ != nullptr);
         auto info = t->connectionInfo();
-        info.setServerSessionNumber({}, k);
+        info.setServer({}, serverOptions_->name(), k);
         Base::connect(std::move(info));
         peer_->listen(this);
         transport_->setAbortTimeout(
-            serverOptions_->transporthandshakeTimeout());
+            serverOptions_->transportHandshakeTimeout());
     }
 
     ~ServerSession() override = default;
@@ -330,26 +330,48 @@ private:
 
         const std::weak_ptr<ServerSession> self = shared_from_this();
         transport_->admit(
-            serverOptions_->transporthandshakeTimeout(),
-            [self](ErrorOr<int> codecId)
+            serverOptions_->transportHandshakeTimeout(),
+            [self](AdmitResult result)
             {
                 auto me = self.lock();
                 if (!me)
                     return;
-                if (codecId.has_value())
-                    me->onPeerAdmitted(*codecId);
-                else
-                    me->onPeerRejected(codecId.error());
+                me->onPeerAdmitted(result);
             });
     }
 
-    void onPeerRejected(std::error_code ec)
+    void onPeerAdmitted(AdmitResult result)
     {
-        report({AccessAction::serverReject, {}, {}, ec});
+        using S = AdmitStatus;
+
+        switch (result.status())
+        {
+        case S::responded:
+            break;
+
+        case S::wamp:
+            return onPeerNegotiated(result.codecId());
+
+        case S::rejected:
+            Base::report({AccessAction::serverReject, {}, {}, result.error()});
+            break;
+
+        case S::failed:
+            Base::routerLog(
+                {LogLevel::error,
+                 std::string{"Handshake failure during "} + result.operation(),
+                 result.error()});
+            break;
+
+        default:
+            assert(false && "Unexpected AdmitStatus enumerator");
+            break;
+        }
+
         retire();
     }
 
-    void onPeerAdmitted(int codecId)
+    void onPeerNegotiated(int codecId)
     {
         if (routerLogLevel() == LogLevel::trace)
             enableTracing();
@@ -358,6 +380,12 @@ private:
         peer_->connect(std::move(transport_), std::move(codec));
         peer_->establishSession();
         report({AccessAction::clientConnect});
+    }
+
+    void onAdmitError(std::error_code ec, const char* operation)
+    {
+        report({AccessAction::serverReject, {}, {}, ec});
+        retire();
     }
 
     void abortSession(Reason r)
@@ -569,10 +597,10 @@ private:
           strand_(boost::asio::make_strand(executor_)),
           challengeTimeouts_(SessionTimeoutScheduler::create(strand_)),
           cooldownTimer_(strand_),
+          logSuffix_(" [Server " + c.name() + ']'),
           router_(std::move(r)),
           options_(std::make_shared<ServerOptions>(std::move(c))),
-          logger_(std::make_shared<ServerLogger>(router_.logger(),
-                                                 options_->name()))
+          logger_(router_.logger())
     {
         if (!options_->authenticator())
             options_->withAuthenticator(AnonymousAuthenticator::create());
@@ -627,11 +655,12 @@ private:
 
         case Cat::overload:
             cooldown(options_->overloadCooldown(), result,
-                     "Resource exhaustion ");
+                     "Resource exhaustion detected during ");
             break;
 
         case Cat::outage:
-            cooldown(options_->outageCooldown(), result, "Network outage ");
+            cooldown(options_->outageCooldown(), result,
+                     "Network outage detected during  ");
             break;
 
         case Cat::fatal:
@@ -648,7 +677,7 @@ private:
 
     void cooldown(Timeout delay, const ListenResult& result, std::string why)
     {
-        alert(why + " detected during " + result.operation(), result.error());
+        alert(why + result.operation(), result.error());
         if (!timeoutIsDefinite(delay))
             return listen();
 
@@ -695,14 +724,11 @@ private:
         if (sessions_.size() >= options_->connectionLimit())
         {
             transport->shed(
-                options_->transporthandshakeTimeout(),
-                boost::asio::bind_executor(
-                    strand_,
-                    [this, self, transport](ErrorOr<int> codecId)
-                    {
-                        assert(!codecId.has_value());
-                        onRefusalCompleted(codecId.error());
-                    }));
+                options_->transportHandshakeTimeout(),
+                [this, self, transport](AdmitResult result)
+                {
+                    onRefusalCompleted(result);
+                });
             return;
         }
 
@@ -716,17 +742,20 @@ private:
         s->start();
     }
 
-    void onRefusalCompleted(std::error_code ec)
+    void onRefusalCompleted(AdmitResult result)
     {
-        if (ec == TransportErrc::shedded)
+        if (result.status() == AdmitStatus::shedded)
         {
-            alert("Client connection refused due to "
-                  "connection limit", ec);
+            alert("Client connection refused due to connection limit");
+        }
+        else if (result.status() == AdmitStatus::failed)
+        {
+            alert("Error establishing connection with "
+                  "remote peer during transport handshake", result.error());
         }
         else
         {
-            alert("Error establishing connection with "
-                  "remote peer during transport handshake", ec);
+            assert(false && "Unexpected AdmitResult status");
         }
     }
 
@@ -799,7 +828,11 @@ private:
         safelyDispatch<Dispatched>(key);
     }
 
-    void log(LogEntry&& e) {logger_->log(std::move(e));}
+    void log(LogEntry&& e)
+    {
+        e.append(logSuffix_);
+        logger_->log(std::move(e));
+    }
 
     void inform(String msg) {log({LogLevel::info, std::move(msg)});}
 
@@ -830,10 +863,11 @@ private:
     std::unordered_map<ServerSession::Key, ServerSession::Ptr> sessions_;
     SessionTimeoutScheduler::Ptr challengeTimeouts_;
     boost::asio::steady_timer cooldownTimer_;
+    std::string logSuffix_;
     RouterContext router_;
     ServerOptions::Ptr options_;
     Listening::Ptr listener_;
-    ServerLogger::Ptr logger_;
+    RouterLogger::Ptr logger_;
     ServerSession::Key nextSessionIndex_ = 0;
     std::chrono::steady_clock::time_point cooldownDeadline_;
 

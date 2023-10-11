@@ -41,11 +41,11 @@ public:
         alreadyStarted_ = true;
         std::weak_ptr<MockServerSession> self = shared_from_this();
         transport_->admit(
-            [self](ErrorOr<int> codecId)
+            [self](AdmitResult result)
             {
                 auto me = self.lock();
                 if (me)
-                    me->onAdmit(codecId);
+                    me->onAdmit(result);
             });
     }
     
@@ -59,9 +59,9 @@ private:
           transport_(std::move(t))
     {}
 
-    void onAdmit(ErrorOr<int> codecId)
+    void onAdmit(AdmitResult result)
     {
-        if (!codecId)
+        if (result.status() != AdmitStatus::wamp)
             return;
         std::weak_ptr<MockServerSession> self = shared_from_this();
         transport_->start(

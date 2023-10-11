@@ -39,7 +39,7 @@ class Listener {};
 //------------------------------------------------------------------------------
 /** Categories for classifying Listening::establish errors. */
 //------------------------------------------------------------------------------
-enum class ListeningErrorCategory
+enum class ListeningErrorCategory // TODO: Rename to ListenStatus
 {
     success,    /// No error
     cancelled,  /// Due to server cancellation
@@ -168,7 +168,7 @@ public:
     /** Builds a listener appropriate for the transport settings given
         in the constructor. */
     Listening::Ptr operator()(AnyIoExecutor e, IoStrand s, CodecIdSet c,
-                              ServerLogger::Ptr l) const
+                              RouterLogger::Ptr l) const
     {
         return builder_(std::move(e), std::move(s), std::move(c), std::move(l));
     }
@@ -176,7 +176,7 @@ public:
 private:
     using Function =
         std::function<Listening::Ptr (AnyIoExecutor, IoStrand, CodecIdSet,
-                                      ServerLogger::Ptr)>;
+                                      RouterLogger::Ptr)>;
 
     template <typename S>
     static Function makeBuilder(S&& settings)
@@ -187,7 +187,7 @@ private:
 
         return Function{
             [settings](AnyIoExecutor e, IoStrand s, CodecIdSet c,
-                       ServerLogger::Ptr l)
+                       RouterLogger::Ptr l)
             {
                 return Listening::Ptr(new ConcreteListener(
                     std::move(e), std::move(s), settings, std::move(c),

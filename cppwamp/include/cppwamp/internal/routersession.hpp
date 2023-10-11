@@ -14,9 +14,9 @@
 #include "../connectioninfo.hpp"
 #include "../pubsubinfo.hpp"
 #include "../rpcinfo.hpp"
+#include "../routerlogger.hpp"
 #include "../sessioninfo.hpp"
 #include "random.hpp"
-#include "routercontext.hpp"
 #include "sessioninfoimpl.hpp"
 
 namespace wamp

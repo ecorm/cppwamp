@@ -23,7 +23,7 @@ namespace wamp
 {
 
 // Forward declaration
-namespace internal { struct UdsConnector; }
+namespace internal { class UdsConnector; }
 
 
 //------------------------------------------------------------------------------

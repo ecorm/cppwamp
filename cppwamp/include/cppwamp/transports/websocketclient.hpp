@@ -23,7 +23,7 @@ namespace wamp
 {
 
 // Forward declaration
-namespace internal { struct WebsocketConnector; }
+namespace internal { class WebsocketConnector; }
 
 //------------------------------------------------------------------------------
 /** Connector specialization that establishes a client-side Websocket transport.

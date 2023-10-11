@@ -15,7 +15,7 @@ namespace wamp
 //******************************************************************************
 
 CPPWAMP_INLINE Listener<Uds>::Listener(AnyIoExecutor e, IoStrand i, Settings s,
-                                       CodecIdSet c, ServerLogger::Ptr l)
+                                       CodecIdSet c, RouterLogger::Ptr l)
     : Listening(s.label()),
       impl_(std::make_shared<internal::UdsListener>(
           std::move(e), std::move(i), std::move(s), std::move(c), std::move(l)))

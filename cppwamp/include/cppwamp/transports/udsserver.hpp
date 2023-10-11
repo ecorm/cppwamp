@@ -23,7 +23,7 @@ namespace wamp
 {
 
 // Forward declaration
-namespace internal { struct UdsListener; }
+namespace internal { class UdsListener; }
 
 
 //------------------------------------------------------------------------------
@@ -40,7 +40,7 @@ public:
 
     /** Constructor. */
     Listener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c,
-             ServerLogger::Ptr l = {});
+             RouterLogger::Ptr l = {});
 
     /** Destructor. */
     ~Listener() override;

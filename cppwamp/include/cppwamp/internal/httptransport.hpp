@@ -55,7 +55,7 @@ inline std::string httpStaticFilePath(boost::beast::string_view base,
 }
 
 //------------------------------------------------------------------------------
-class HttpJob
+class HttpJob // TODO: Consolidate with HttpJobImpl
 {
 public:
     using Body = boost::beast::http::string_body;
@@ -82,6 +82,10 @@ public:
         doBalk(status, std::move(what), simple, fields);
     }
 
+    void log(LogEntry entry) {doLog(std::move(entry));}
+
+    void report(AccessActionInfo action) {doReport(std::move(action));}
+
 protected:
     using SettingsPtr = std::shared_ptr<HttpEndpoint>;
 
@@ -94,6 +98,10 @@ protected:
     virtual void doBalk(
         HttpStatus status, std::string what, bool simple,
         std::initializer_list<std::pair<Field, StringView>> fields) = 0;
+
+    virtual void doLog(LogEntry entry);
+
+    virtual void doReport(AccessActionInfo action);
 
     void setRequest(Request&& req) {request_ = std::move(req);}
 
@@ -111,14 +119,15 @@ public:
     using TcpSocket   = boost::asio::ip::tcp::socket;
     using Settings    = HttpEndpoint;
     using SettingsPtr = std::shared_ptr<Settings>;
-    using Handler     = AnyCompletionHandler<void (ErrorOr<int> codecId)>;
+    using Handler     = AnyCompletionHandler<void (AdmitResult)>;
 
     HttpJobImpl(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
-                ServerLogger::Ptr l)
+                ConnectionInfo i, RouterLogger::Ptr l)
         : Base(std::move(s)),
           tcpSocket_(std::move(t)),
           timer_(tcpSocket_.get_executor()),
           codecIds_(c),
+          connectionInfo_(std::move(i)),
           logger_(std::move(l))
     {}
 
@@ -164,7 +173,7 @@ private:
             [this, self] (const boost::beast::error_code& netEc, std::size_t)
             {
                 timer_.cancel();
-                if (check(netEc))
+                if (check(netEc, "socket read"))
                     onRequest();
             });
     }
@@ -172,9 +181,13 @@ private:
     void onTimeout(boost::system::error_code ec)
     {
         if (!ec)
-            return fail(TransportErrc::timeout);
+            return finish(AdmitResult::rejected(TransportErrc::timeout));
+
         if (ec != boost::asio::error::operation_aborted)
-            fail(static_cast<std::error_code>(ec));
+        {
+            finish(AdmitResult::failed(static_cast<std::error_code>(ec),
+                                       "timer wait"));
+        }
     }
 
     void onRequest()
@@ -197,26 +210,14 @@ private:
         Base::setRequest(parser_->release());
     }
 
-    bool check(boost::system::error_code netEc)
+    bool check(boost::system::error_code netEc, const char* operation)
     {
         if (netEc)
-            fail(websocketErrorCodeToStandard(netEc));
+        {
+            finish(AdmitResult::failed(websocketErrorCodeToStandard(netEc),
+                                       operation));
+        }
         return !netEc;
-    }
-
-    void fail(std::error_code ec)
-    {
-        if (!handler_)
-            return;
-        handler_(makeUnexpected(ec));
-        handler_ = nullptr;
-        tcpSocket_.close();
-    }
-
-    template <typename TErrc>
-    void fail(TErrc errc)
-    {
-        fail(static_cast<std::error_code>(make_error_code(errc)));
     }
 
     void doRespond(AnyMessage response) override
@@ -227,20 +228,20 @@ private:
             tcpSocket_, std::move(response),
             [this, self, keepAlive](boost::beast::error_code netEc, std::size_t)
             {
-                if (!check(netEc))
+                if (!check(netEc, "socket write"))
                     return;
 
                 if (keepAlive)
                     start();
                 else
-                    finish();
+                    finish(AdmitResult::responded());
             });
     }
 
     void doUpgrade(Transporting::Ptr transport, int codecId) override
     {
         upgradedTransport_ = std::move(transport);
-        finish(codecId);
+        finish(AdmitResult::wamp(codecId));
     }
 
     void doBalk(HttpStatus status, std::string what, bool simple,
@@ -265,6 +266,13 @@ private:
 
         return sendErrorFromFile(page->status, std::move(what), page->uri,
                                  fields);
+    }
+
+    void doReport(AccessActionInfo action) override
+    {
+        if (logger_)
+            logger_->log(AccessLogEntry{connectionInfo_, {},
+                                        std::move(action)});
     }
 
     void sendSimpleError(HttpStatus status, std::string&& what,
@@ -373,17 +381,19 @@ private:
             tcpSocket_, std::move(response),
             [this, self](boost::beast::error_code netEc, std::size_t)
             {
-                if (check(netEc))
-                    finish();
+                if (check(netEc, "socket write"))
+                    finish(AdmitResult::responded());
             });
     }
 
-    void finish(int codecId = 0)
+    void finish(AdmitResult result)
     {
+        if (result.status() != AdmitStatus::wamp)
+            tcpSocket_.close();
+
         if (handler_)
-            handler_(codecId);
+            handler_(result);
         handler_ = nullptr;
-        tcpSocket_.close();
     }
 
     TcpSocket tcpSocket_;
@@ -394,7 +404,8 @@ private:
     Handler handler_;
     boost::beast::flat_buffer buffer_;
     boost::optional<Parser> parser_;
-    ServerLogger::Ptr logger_;
+    ConnectionInfo connectionInfo_;
+    RouterLogger::Ptr logger_;
     Timeout timeout_;
     bool isShedding_ = false;
 };
@@ -409,10 +420,11 @@ public:
     using SettingsPtr = std::shared_ptr<HttpEndpoint>;
 
     HttpServerTransport(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
-                        ServerLogger::Ptr l)
+                        RouterLogger::Ptr l)
         : Base(boost::asio::make_strand(t.get_executor()),
-               makeConnectionInfo(t, l->serverName())),
+               makeConnectionInfo(t)),
           job_(std::make_shared<HttpJobImpl>(std::move(t), std::move(s), c,
+                                             Base::connectionInfo(),
                                              std::move(l)))
     {}
 
@@ -421,8 +433,7 @@ private:
     using WebsocketSocket = boost::beast::websocket::stream<TcpSocket>;
 
     // TODO: Consolidate with WebsocketTransport and RawsockTransport
-    static ConnectionInfo makeConnectionInfo(const TcpSocket& socket,
-                                             const std::string& server)
+    static ConnectionInfo makeConnectionInfo(const TcpSocket& socket)
     {
         static constexpr unsigned ipv4VersionNo = 4;
         static constexpr unsigned ipv6VersionNo = 6;
@@ -447,7 +458,7 @@ private:
             details.emplace("numeric_address", addr.to_v4().to_uint());
         }
 
-        return {std::move(details), oss.str(), server};
+        return {std::move(details), oss.str()};
     }
 
     static std::error_code
@@ -479,9 +490,9 @@ private:
             AdmitHandler handler;
             Ptr self;
 
-            void operator()(ErrorOr<int> codecId)
+            void operator()(AdmitResult result)
             {
-                self->onJobProcessed(codecId, handler);
+                self->onJobProcessed(result, handler);
             }
         };
 
@@ -500,19 +511,12 @@ private:
             job_->cancel();
     }
 
-    void onJobProcessed(ErrorOr<int>& codecId, AdmitHandler& handler)
+    void onJobProcessed(AdmitResult result, AdmitHandler& handler)
     {
-        if (!codecId.has_value())
-        {
-            job_.reset();
-            handler(makeUnexpected(codecId.error()));
-            return;
-        }
-
-        if (*codecId != 0)
+        if (result.status() == AdmitStatus::wamp)
             transport_ = job_->upgradedTransport();
         job_.reset();
-        handler(*codecId);
+        handler(result);
     }
 
     void onStart(RxHandler rxHandler, TxErrorHandler txErrorHandler) override

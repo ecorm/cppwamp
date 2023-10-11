@@ -150,7 +150,7 @@ public:
 
     std::size_t connectionLimit() const;
 
-    Timeout transporthandshakeTimeout() const;
+    Timeout transportHandshakeTimeout() const;
 
     Timeout challengeTimeout() const;
 
@@ -172,7 +172,7 @@ private:
 
 public: // Internal use only
     Listening::Ptr makeListener(internal::PassKey, AnyIoExecutor e,
-                                IoStrand s, ServerLogger::Ptr l) const;
+                                IoStrand s, RouterLogger::Ptr l) const;
 
     AnyBufferCodec makeCodec(internal::PassKey, int id) const;
 };

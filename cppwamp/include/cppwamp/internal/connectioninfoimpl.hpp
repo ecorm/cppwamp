@@ -29,15 +29,10 @@ public:
     using ConstPtr = std::shared_ptr<const ConnectionInfoImpl>;
     using ServerSessionNumber = uint64_t;
 
-    explicit ConnectionInfoImpl(Object transport, std::string endpoint,
-                                const std::string& server)
+    explicit ConnectionInfoImpl(Object transport, std::string endpoint)
         : transport_(std::move(transport)),
-          endpoint_(std::move(endpoint)),
-          server_(server)
-    {
-        if (!server.empty())
-            transport_.emplace("server", server_);
-    }
+          endpoint_(std::move(endpoint))
+    {}
 
     ~ConnectionInfoImpl() = default;
 
@@ -55,9 +50,11 @@ public:
         return serverSessionNumber_;
     }
 
-    void setServerSessionNumber(ServerSessionNumber n)
+    void setServer(const std::string& name, ServerSessionNumber n)
     {
+        server_ = name;
         serverSessionNumber_ = n;
+        transport_.emplace("server", name);
     }
 
     ConnectionInfoImpl(const ConnectionInfoImpl&) = delete;

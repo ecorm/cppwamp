@@ -62,36 +62,29 @@ private:
 };
 
 //------------------------------------------------------------------------------
-class ServerLogger
+class AdmissionLogger
 {
 public:
-    using Ptr = std::shared_ptr<ServerLogger>;
+    using Ptr = std::shared_ptr<AdmissionLogger>;
 
-    ServerLogger(RouterLogger::Ptr routerLogger, const std::string& serverName)
-        : logger_(std::move(routerLogger)),
-          serverName_(serverName),
-          logSuffix_(" [Server " + serverName + ']')
+    AdmissionLogger() = default;
+
+    explicit AdmissionLogger(ConnectionInfo i, RouterLogger::Ptr l)
+        : info_(std::move(i)),
+          logger_(std::move(l))
     {}
 
-    const std::string& serverName() const {return serverName_;}
+    LogLevel level() const {return !logger_ ? LogLevel::off : logger_->level();}
 
-    LogLevel level() const {return logger_->level();}
-
-    void log(LogEntry entry)
+    void report(AccessActionInfo action)
     {
-        entry.append(logSuffix_);
-        logger_->log(std::move(entry));
-    }
-
-    void log(AccessLogEntry entry)
-    {
-        logger_->log(std::move(entry));
+        if (logger_)
+            logger_->log(AccessLogEntry{info_, {}, action});
     }
 
 private:
+    ConnectionInfo info_;
     RouterLogger::Ptr logger_;
-    std::string serverName_;
-    std::string logSuffix_;
 };
 
 } // namespace wamp

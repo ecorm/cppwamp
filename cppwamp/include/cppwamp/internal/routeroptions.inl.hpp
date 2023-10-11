@@ -174,7 +174,7 @@ CPPWAMP_INLINE std::size_t ServerOptions::connectionLimit() const
     return connectionLimit_;
 }
 
-CPPWAMP_INLINE Timeout ServerOptions::transporthandshakeTimeout() const
+CPPWAMP_INLINE Timeout ServerOptions::transportHandshakeTimeout() const
 {
     return challengeTimeout_;
 }
@@ -195,7 +195,7 @@ CPPWAMP_INLINE Timeout ServerOptions::outageCooldown() const
 }
 
 CPPWAMP_INLINE Listening::Ptr ServerOptions::makeListener(
-    internal::PassKey, AnyIoExecutor e, IoStrand s, ServerLogger::Ptr l) const
+    internal::PassKey, AnyIoExecutor e, IoStrand s, RouterLogger::Ptr l) const
 {
     return listenerBuilder_(std::move(e), std::move(s), codecFactory_.ids(),
                             std::move(l));

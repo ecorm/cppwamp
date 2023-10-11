@@ -73,9 +73,9 @@ protected:
     {}
 
     // Constructor for server transports
-    WebsocketTransport(TcpSocket& tcp, const std::string& server)
+    WebsocketTransport(TcpSocket& tcp)
         : Base(boost::asio::make_strand(tcp.get_executor()),
-               makeConnectionInfo(tcp, server))
+               makeConnectionInfo(tcp))
     {}
 
     void assignWebsocket(WebsocketSocket&& ws, TransportInfo i)
@@ -92,8 +92,7 @@ private:
                                            MessageBuffer::allocator_type>;
 
     // TODO: Consolidate with RawsockTransport
-    static ConnectionInfo makeConnectionInfo(const TcpSocket& socket,
-                                             const std::string& server = {})
+    static ConnectionInfo makeConnectionInfo(const TcpSocket& socket)
     {
         static constexpr unsigned ipv4VersionNo = 4;
         static constexpr unsigned ipv6VersionNo = 6;
@@ -116,7 +115,7 @@ private:
         if (!isIpv6)
             details.emplace("numeric_address", addr.to_v4().to_uint());
 
-        return {std::move(details), oss.str(), server};
+        return {std::move(details), oss.str()};
     }
 
     static std::error_code interpretCloseReason(
@@ -399,7 +398,7 @@ public:
     using Settings        = WebsocketEndpoint;
     using SettingsPtr     = std::shared_ptr<Settings>;
     using WebsocketSocket = boost::beast::websocket::stream<TcpSocket>;
-    using Handler = AnyCompletionHandler<void (ErrorOr<WebsocketSocket*>)>;
+    using Handler         = AnyCompletionHandler<void (AdmitResult)>;
 
     WebsocketAdmitter(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c)
         : tcpSocket_(std::move(t)),
@@ -426,7 +425,7 @@ public:
             tcpSocket_, buffer_, *requestParser_,
             [this, self] (const boost::beast::error_code& netEc, std::size_t)
             {
-                if (check(netEc))
+                if (check(netEc, "socket read"))
                     acceptHandshake();
             });
     }
@@ -442,12 +441,21 @@ public:
     void timeout(boost::system::error_code ec)
     {
         if (!ec)
-            return fail(TransportErrc::timeout);
+        {
+            return finish(AdmitResult::rejected(TransportErrc::timeout));
+        }
+
         if (ec != boost::asio::error::operation_aborted)
-            fail(static_cast<std::error_code>(ec));
+            fail(static_cast<std::error_code>(ec), "timer wait");
     }
 
     const TransportInfo& transportInfo() const {return transportInfo_;}
+
+    WebsocketSocket&& releaseSocket()
+    {
+        assert(websocket_.has_value());
+        return std::move(*websocket_);
+    }
 
 private:
     using HttpStatus = boost::beast::http::status;
@@ -491,15 +499,18 @@ private:
         // Check that we actually received a websocket upgrade request
         assert(requestParser_.has_value());
         if (!requestParser_->upgrade())
-            return fail(boost::beast::websocket::error::no_connection_upgrade);
+        {
+            return finish(AdmitResult::rejected(
+                boost::beast::websocket::error::no_connection_upgrade));
+        }
 
         // Send an error response if the server connection limit
         // has been reached
         if (isShedding_)
         {
-            return respondThenFail("Connection limit reached",
-                                   HttpStatus::service_unavailable,
-                                   TransportErrc::shedded);
+            return reject("Connection limit reached",
+                          HttpStatus::service_unavailable,
+                          AdmitResult::shedded());
         }
 
         // Parse the subprotocol to determine the peer's desired codec
@@ -508,17 +519,17 @@ private:
         auto found = request.base().find(field::sec_websocket_protocol);
         if (found == request.base().end())
         {
-            return respondThenFail("No subprotocol was requested",
-                                   HttpStatus::bad_request,
-                                   TransportErrc::noSerializer);
+            return reject("No subprotocol was requested",
+                          HttpStatus::bad_request,
+                          AdmitResult::rejected(TransportErrc::noSerializer));
         }
         auto subprotocol = found->value();
         codecId_ = parseSubprotocol(subprotocol);
         if (codecIds_.count(codecId_) == 0)
         {
-            return respondThenFail("Requested subprotocol is not supported",
-                                   HttpStatus::bad_request,
-                                   TransportErrc::badSerializer);
+            return reject("Requested subprotocol is not supported",
+                          HttpStatus::bad_request,
+                          AdmitResult::rejected(TransportErrc::badSerializer));
         }
 
         // Transfer the TCP socket to a new websocket stream
@@ -535,12 +546,12 @@ private:
             request,
             [this, self](boost::beast::error_code netEc)
             {
-                if (check(netEc))
+                if (check(netEc, "handshake accepted write"))
                     complete();
             });
     }
 
-    void respondThenFail(std::string msg, HttpStatus status, TransportErrc errc)
+    void reject(std::string msg, HttpStatus status, AdmitResult result)
     {
         namespace http = boost::beast::http;
         response_.result(status);
@@ -548,10 +559,10 @@ private:
         auto self = shared_from_this();
         http::async_write(
             tcpSocket_, response_,
-            [this, self, errc](boost::beast::error_code netEc, std::size_t)
+            [this, self, result](boost::beast::error_code netEc, std::size_t)
             {
-                if (check(netEc))
-                    fail(errc);
+                if (check(netEc, "handshake rejected write"))
+                    finish(result);
             });
     }
 
@@ -569,40 +580,57 @@ private:
         transportInfo_ = TransportInfo{codecId_,
                                        std::numeric_limits<std::size_t>::max(),
                                        settings_->maxRxLength()};
-        handler_(&(*websocket_));
-        websocket_.reset();
-        handler_ = nullptr;
+        finish(AdmitResult::wamp(codecId_));
     }
 
-    bool check(boost::system::error_code netEc)
+    bool check(boost::system::error_code netEc, const char* operation)
     {
         if (netEc)
-            fail(websocketErrorCodeToStandard(netEc));
+            fail(websocketErrorCodeToStandard(netEc), operation);
         return !netEc;
     }
 
-    void fail(std::error_code ec)
+    void fail(std::error_code ec, const char* operation)
     {
         if (!handler_)
             return;
-        handler_(makeUnexpected(ec));
+        close();
+        handler_(AdmitResult::failed(ec, operation));
         handler_ = nullptr;
+    }
+
+    template <typename TErrc>
+    void fail(TErrc errc, const char* operation)
+    {
+        fail(static_cast<std::error_code>(make_error_code(errc)), operation);
+    }
+
+    void finish(AdmitResult result)
+    {
+        // Keep the socket open if we're establishing a WAMP connection
+        if (result.status() != AdmitStatus::wamp)
+            close();
+
+        if (handler_)
+            handler_(result);
+        handler_ = nullptr;
+    }
+
+    void close()
+    {
         if (websocket_.has_value())
         {
             websocket_->next_layer().close();
             websocket_.reset();
         }
         else
+        {
             tcpSocket_.close();
-    }
-
-    template <typename TErrc>
-    void fail(TErrc errc)
-    {
-        fail(static_cast<std::error_code>(make_error_code(errc)));
+        }
     }
 
     TcpSocket tcpSocket_;
+    boost::optional<WebsocketSocket> websocket_;
     CodecIdSet codecIds_;
     TransportInfo transportInfo_;
     SettingsPtr settings_;
@@ -610,7 +638,6 @@ private:
     boost::beast::flat_buffer buffer_;
     boost::optional<Parser> requestParser_;
     boost::beast::http::response<boost::beast::http::string_body> response_;
-    boost::optional<WebsocketSocket> websocket_;
     int codecId_ = 0;
     bool isShedding_ = false;
 };
@@ -624,10 +651,10 @@ public:
     using SettingsPtr = std::shared_ptr<WebsocketEndpoint>;
 
     WebsocketServerTransport(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
-                             ServerLogger::Ptr l)
-        : Base(t, l->serverName()),
-          admitter_(std::make_shared<WebsocketAdmitter>(
-              std::move(t), std::move(s), c))
+                             RouterLogger::Ptr l)
+        : Base(t),
+          admitter_(std::make_shared<WebsocketAdmitter>(std::move(t),
+                                                        std::move(s), c))
     {}
 
 private:
@@ -642,9 +669,9 @@ private:
             AdmitHandler handler;
             Ptr self;
 
-            void operator()(ErrorOr<WebsocketSocket*> ws)
+            void operator()(AdmitResult result)
             {
-                self->onAdmissionCompletion(ws, handler);
+                self->onAdmissionCompletion(result, handler);
             }
         };
 
@@ -673,21 +700,19 @@ private:
             admitter_->cancel();
     }
 
-    void onAdmissionCompletion(ErrorOr<WebsocketSocket*> socket,
-                               AdmitHandler& handler)
+    void onAdmissionCompletion(AdmitResult result, AdmitHandler& handler)
     {
-        if (socket.has_value())
+        if (result.status() == AdmitStatus::wamp)
         {
-            const auto& info = admitter_->transportInfo();
-            Base::assignWebsocket(std::move(**socket), info);
-            Base::post(std::move(handler), info.codecId());
+            Base::assignWebsocket(admitter_->releaseSocket(),
+                                  admitter_->transportInfo());
         }
         else
         {
             Base::shutdown();
-            Base::post(std::move(handler), makeUnexpected(socket.error()));
         }
 
+        Base::post(std::move(handler), result);
         admitter_.reset();
     }
 

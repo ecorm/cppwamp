@@ -72,10 +72,10 @@ struct LoopbackFixture
                 auto transport = result.transport();
                 server = std::move(transport);
                 server->admit(
-                    [this](ErrorOr<int> codecId)
+                    [this](AdmitResult result)
                     {
-                        if (codecId.has_value())
-                            serverCodec = *codecId;
+                        if (result.status() == AdmitStatus::wamp)
+                            serverCodec = result.codecId();
                     });
             });
         lstn->establish();
@@ -287,10 +287,10 @@ void checkConnection(TFixture& f, int expectedCodec,
         REQUIRE( transport != nullptr );
         f.server = transport;
         f.server->admit(
-            [=](ErrorOr<int> codecId)
+            [=](AdmitResult result)
             {
-                REQUIRE(codecId.has_value());
-                CHECK(*codecId == expectedCodec);
+                REQUIRE(result.status() == AdmitStatus::wamp);
+                CHECK(result.codecId() == expectedCodec);
                 CHECK( transport->info().codecId() == expectedCodec );
                 CHECK( transport->info().maxRxLength() == serverMaxRxLength );
                 CHECK( transport->info().maxTxLength() == clientMaxRxLength );
@@ -424,11 +424,7 @@ void checkUnsupportedSerializer(TFixture& f)
         REQUIRE( result.ok() );
         f.server = result.transport();
         f.server->admit(
-            [&serverEc](ErrorOr<int> codecId)
-            {
-                if (!codecId.has_value())
-                    serverEc = codecId.error();
-            });
+            [&serverEc](AdmitResult result) {serverEc = result.error();});
     });
     f.lstn->establish();
 
@@ -463,11 +459,7 @@ void checkCannedServerHandshake(
         REQUIRE( result.ok() );
         server = result.transport();
         server->admit(
-            [&serverEc](ErrorOr<int> codecId)
-            {
-                if (!codecId.has_value())
-                    serverEc = codecId.error();
-            });
+            [&serverEc](AdmitResult result) {serverEc = result.error();});
     });
     lstn->establish();
 
@@ -504,11 +496,7 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
             REQUIRE( result.ok() );
             server = result.transport();
             server->admit(
-                [&serverEc](ErrorOr<int> codecId)
-                {
-                    if (!codecId.has_value())
-                        serverEc = codecId.error();
-                });
+                [&serverEc](AdmitResult result) {serverEc = result.error();});
         });
     lstn->establish();
 
@@ -661,10 +649,10 @@ TEMPLATE_TEST_CASE( "Normal communications", "[Transport][Rawsock]",
             REQUIRE( transport != nullptr );
             server2 = transport;
             server2->admit(
-                [=, &f](ErrorOr<int> codecId)
+                [=, &f](AdmitResult result)
                 {
-                    REQUIRE(codecId.has_value());
-                    CHECK( codecId.value() == KnownCodecIds::json() );
+                    REQUIRE(result.status() == AdmitStatus::wamp);
+                    CHECK( result.codecId() == KnownCodecIds::json() );
                     CHECK( transport->info().codecId() == KnownCodecIds::json() );
                     CHECK( transport->info().maxRxLength() == 64*1024 );
                     CHECK( transport->info().maxTxLength() == 64*1024 );
@@ -816,11 +804,10 @@ TEMPLATE_TEST_CASE( "Cancel connect", "[Transport][Rawsock]",
         {
             f.server = result.transport();
             f.server->admit(
-                [&](ErrorOr<int> codecId)
+                [&](AdmitResult result)
                 {
                     listenCompleted = true;
-                    if (!codecId.has_value())
-                        listenEc = codecId.error();
+                    listenEc = result.error();
                 });
         }
         else
@@ -925,7 +912,7 @@ TEMPLATE_TEST_CASE( "Cancel send", "[Transport][Rawsock]",
         REQUIRE(result.ok());
         f.server = result.transport();
         f.server->admit(
-            [](ErrorOr<int> codecId) {REQUIRE(codecId.has_value());});
+            [](AdmitResult r) {REQUIRE(r.status() == AdmitStatus::wamp);});
     });
     f.lstn->establish();
     f.cnct->establish([&](ErrorOr<Transporting::Ptr> transport)
@@ -1071,7 +1058,7 @@ GIVEN ( "a mock server under-reporting its maximum receive length" )
             REQUIRE( result.ok() );
             server = result.transport();
             server->admit(
-                [](ErrorOr<int> codecId) {REQUIRE(codecId.has_value());});
+                [](AdmitResult r) {REQUIRE(r.status() == AdmitStatus::wamp);});
         });
     lstn->establish();
 
@@ -1143,7 +1130,7 @@ GIVEN ( "a mock client under-reporting its maximum receive length" )
             REQUIRE( result.ok() );
             server = result.transport();
             server->admit(
-                [](ErrorOr<int> codecId) {REQUIRE(codecId.has_value());});
+                [](AdmitResult r) {REQUIRE(r.status() == AdmitStatus::wamp);});
         });
     lstn->establish();
 
@@ -1215,7 +1202,7 @@ GIVEN ( "A mock client that sends an invalid message type" )
             REQUIRE( result.ok() );
             server = result.transport();
             server->admit(
-                [](ErrorOr<int> codecId) {REQUIRE(codecId.has_value());});
+                [](AdmitResult r) {REQUIRE(r.status() == AdmitStatus::wamp);});
         });
     lstn->establish();
 
@@ -1292,7 +1279,7 @@ GIVEN ( "A mock server that sends an invalid message type" )
             REQUIRE( result.ok() );
             server = result.transport();
             server->admit(
-                [](ErrorOr<int> codecId) {REQUIRE(codecId.has_value());});
+                [](AdmitResult r) {REQUIRE(r.status() == AdmitStatus::wamp);});
         });
     lstn->establish();
 
@@ -1362,11 +1349,7 @@ TEST_CASE( "TCP server transport handshake timeout", "[Transport][Rawsock]" )
             server = result.transport();
             server->admit(
                 std::chrono::milliseconds(50),
-                [&serverError](ErrorOr<int> codecId)
-                {
-                    if (!codecId.has_value())
-                        serverError = codecId.error();
-                });
+                [&serverError](AdmitResult r) {serverError = r.error();});
         });
     lstn->establish();
 
@@ -1402,7 +1385,7 @@ TEST_CASE( "TCP rawsocket heartbeat", "[Transport][Rawsock]" )
             REQUIRE( result.ok() );
             server = result.transport();
             server->admit(
-                [](ErrorOr<int> codecId) {REQUIRE(codecId.has_value());});
+                [](AdmitResult r) {REQUIRE(r.status() == AdmitStatus::wamp);});
         });
     lstn->establish();
 

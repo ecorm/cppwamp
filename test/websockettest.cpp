@@ -82,10 +82,10 @@ struct LoopbackFixture
                 auto transport = result.transport();
                 server = std::move(transport);
                 server->admit(
-                    [this](ErrorOr<int> codecId)
+                    [this](AdmitResult result)
                     {
-                        if (codecId.has_value())
-                            serverCodec = *codecId;
+                        if (result.status() == AdmitStatus::wamp)
+                            serverCodec = result.codecId();
                     });
             });
         lstn->establish();
@@ -163,10 +163,10 @@ void checkConnection(LoopbackFixture& f, int expectedCodec,
         REQUIRE( transport );
         f.server = transport;
         f.server->admit(
-            [=](ErrorOr<int> codecId)
+            [=](AdmitResult result)
             {
-                REQUIRE(codecId.has_value());
-                CHECK(*codecId == expectedCodec);
+                REQUIRE( result.status() == AdmitStatus::wamp );
+                CHECK( result.codecId() == expectedCodec );
                 CHECK( transport->info().codecId() == expectedCodec );
                 CHECK( transport->info().maxRxLength() == serverMaxRxLength );
                 CHECK( transport->info().maxTxLength() == maxSize );
@@ -300,11 +300,7 @@ void checkUnsupportedSerializer(LoopbackFixture& f)
         REQUIRE( result.ok() );
         f.server = result.transport();
         f.server->admit(
-            [&serverEc](ErrorOr<int> codecId)
-            {
-                if (!codecId.has_value())
-                    serverEc = codecId.error();
-            });
+            [&serverEc](AdmitResult result) {serverEc = result.error();});
     });
     f.lstn->establish();
 
@@ -424,10 +420,10 @@ TEST_CASE( "Normal websocket communications", "[Transport][Websocket]" )
             REQUIRE( transport != nullptr );
             server2 = transport;
             server2->admit(
-                [=, &f](ErrorOr<int> codecId)
+                [=, &f](AdmitResult result)
                 {
-                    REQUIRE(codecId.has_value());
-                    CHECK( codecId.value() == KnownCodecIds::json() );
+                    REQUIRE( result.status() == AdmitStatus::wamp );
+                    CHECK( result.codecId() == KnownCodecIds::json() );
                     CHECK( transport->info().codecId() == KnownCodecIds::json() );
                     CHECK( transport->info().maxRxLength() == 64*1024 );
                     CHECK( transport->info().maxTxLength() == maxSize );
@@ -577,11 +573,10 @@ TEST_CASE( "Cancel websocket connect", "[Transport][Websocket]" )
         {
             f.server = result.transport();
             f.server->admit(
-                [&](ErrorOr<int> codecId)
+                [&](AdmitResult result)
                 {
                     listenCompleted = true;
-                    if (!codecId.has_value())
-                        listenEc = codecId.error();
+                    listenEc = result.error();
                 });
         }
         else
@@ -683,7 +678,7 @@ TEST_CASE( "Cancel websocket send", "[Transport][Websocket]" )
         REQUIRE(result.ok());
         f.server = result.transport();
         f.server->admit(
-            [](ErrorOr<int> codecId) {REQUIRE(codecId.has_value());});
+            [](AdmitResult r) {REQUIRE(r.status() == AdmitStatus::wamp);});
     });
     f.lstn->establish();
     f.cnct->establish([&](ErrorOr<Transporting::Ptr> transport)
@@ -800,11 +795,7 @@ TEST_CASE( "Websocket server transport handshake timeout",
             server = result.transport();
             server->admit(
                 std::chrono::milliseconds(50),
-                [&serverError](ErrorOr<int> codecId)
-                {
-                    if (!codecId.has_value())
-                        serverError = codecId.error();
-                });
+                [&serverError](AdmitResult r) {serverError = r.error();});
         });
     lstn->establish();
 

@@ -22,6 +22,8 @@
 #include "timeout.hpp"
 #include "internal/random.hpp"
 
+// TODO: inl file
+
 namespace wamp
 {
 
@@ -86,6 +88,119 @@ enum class TransportState
     stopped    /// Handshake cancelled or transport has been stopped
 };
 
+//------------------------------------------------------------------------------
+/** Enumerates the possible transport admission statuses. */
+//------------------------------------------------------------------------------
+enum class AdmitStatus
+{
+    unknown,   /// Result has not been set
+    responded, /// Request (e.g. HTTP GET) has been successfully responded to
+    wamp,      /// WAMP codec successfully negotiated
+    shedded,   /// Connection limit reached
+    rejected,  /// Rejected due to client protocol error or timeout
+    failed     /// Failed due to an I/O problem
+};
+
+//------------------------------------------------------------------------------
+/** Contains the outcome of a server handshake attempt. */
+//------------------------------------------------------------------------------
+class AdmitResult
+{
+public:
+    using Status = AdmitStatus;
+
+    /** Constructs a result for request successfully responded to. */
+    static AdmitResult responded()
+    {
+        return AdmitResult{Status::responded, 0};
+    }
+
+    /** Constructs a result for WAMP codec successfully negotiated. */
+    static AdmitResult wamp(int codecId)
+    {
+        return AdmitResult{Status::wamp, codecId};
+    }
+
+    /** Constructs a result for connection limit exceeded. */
+    static AdmitResult shedded()
+    {
+        return AdmitResult{Status::shedded, 0};
+    }
+
+    /** Constructs a result for a rejected client. */
+    static AdmitResult rejected(std::error_code e)
+    {
+        return AdmitResult{Status::rejected, e, nullptr};
+    }
+
+    /** Constructs a result for a rejected client. */
+    template <typename TErrc>
+    static AdmitResult rejected(TErrc e)
+    {
+        return rejected(static_cast<std::error_code>(make_error_code(e)));
+    }
+
+    /** Constructs a result for a failed handshake I/O operation. */
+    static AdmitResult failed(std::error_code e, const char* operation)
+    {
+        return AdmitResult{Status::failed, e, operation};
+    }
+
+    /** Constructs a result for a failed handshake I/O operation. */
+    template <typename TErrc>
+    static AdmitResult failed(TErrc e, const char* operation)
+    {
+        return failed(static_cast<std::error_code>(make_error_code(e)),
+                      operation);
+    }
+
+    /** Default constructor. */
+    AdmitResult() = default;
+
+    /** Obtains the status of the handshake operation. */
+    Status status() const {return status_;}
+
+    /** Obtains the codec ID that was negotiated. */
+    const int codecId() const {return codecId_;}
+
+    /** Obtains the error code associated with a handshake failure
+        or rejection. */
+    std::error_code error() const {return error_;}
+
+    /** Obtains the reason for client rejection.
+        @pre `this->status() == AdmitStatus::rejected` */
+    const char* reason() const
+    {
+        assert(status_ == AdmitStatus::rejected);
+        return what_;
+    }
+
+    /** Obtains the name of the handshake I/O operation that failed.
+        @pre `this->status() == AdmitStatus::failed` */
+    const char* operation() const
+    {
+        assert(status_ == AdmitStatus::failed);
+        return what_;
+    }
+
+private:
+    AdmitResult(Status status, int codecId)
+        : codecId_(codecId),
+          status_(status)
+    {}
+
+    AdmitResult(Status status, std::error_code e, const char* what)
+        : error_(e),
+          what_(what),
+          status_(status)
+    {}
+
+    std::error_code error_;
+    const char* what_ = nullptr;
+    int codecId_ = 0;
+    Status status_ = AdmitStatus::unknown;
+};
+
 
 // Forward declaration
 namespace internal { class HttpServerTransport; }
@@ -109,7 +224,7 @@ public:
     using TxErrorHandler = std::function<void (std::error_code)>;
 
     /// Handler type used for server handshake completion.
-    using AdmitHandler = AnyCompletionHandler<void (ErrorOr<int> codecId)>;
+    using AdmitHandler = AnyCompletionHandler<void (AdmitResult)>;
 
     /// Handler type used for transport close completion.
     using CloseHandler = AnyCompletionHandler<void (ErrorOr<bool>)>;

@@ -363,9 +363,8 @@ inline void DirectRouterSession::connect(DirectRouterLink&& link)
         endpointLabel = std::move(link.endpointLabel({}));
     Object transport{{"protocol", "direct"},
                      {"endpoint", endpointLabel}};
-    ConnectionInfo info{std::move(transport), std::move(endpointLabel),
-                        "direct"};
-    info.setServerSessionNumber({}, router.nextDirectSessionIndex());
+    ConnectionInfo info{std::move(transport), std::move(endpointLabel)};
+    info.setServer({}, "direct", router.nextDirectSessionIndex());
     Base::connect(std::move(info));
 }
 

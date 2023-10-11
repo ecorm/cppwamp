@@ -16,7 +16,7 @@ namespace wamp
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Listener<Tcp>::Listener(AnyIoExecutor e, IoStrand i, Settings s,
-                                       CodecIdSet c, ServerLogger::Ptr l)
+                                       CodecIdSet c, RouterLogger::Ptr l)
     : Listening(s.label()),
       impl_(std::make_shared<internal::TcpListener>(
           std::move(e), std::move(i), std::move(s), std::move(c),

@@ -144,7 +144,7 @@ public:
 
     // TODO: Remove server parameter
     RawsockListener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c,
-                    ServerLogger::Ptr l = {})
+                    RouterLogger::Ptr l = {})
         : executor_(std::move(e)),
           strand_(std::move(i)),
           codecIds_(std::move(c)),
@@ -275,7 +275,7 @@ private:
     IoStrand strand_;
     CodecIdSet codecIds_;
     SettingsPtr settings_;
-    ServerLogger::Ptr logger_;
+    RouterLogger::Ptr logger_;
     typename NetProtocol::acceptor acceptor_;
     Handler handler_;
     bool establishing_ = false;

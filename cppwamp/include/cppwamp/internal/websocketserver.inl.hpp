@@ -12,7 +12,7 @@ namespace wamp
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Listener<Websocket>::Listener(
-    AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c, ServerLogger::Ptr l)
+    AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c, RouterLogger::Ptr l)
     : Listening(s.label()),
     impl_(std::make_shared<internal::WebsocketListener>(
             std::move(e), std::move(i), std::move(s), std::move(c),

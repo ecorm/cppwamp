@@ -92,7 +92,7 @@ public:
 
     /** Constructor. */
     Listener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c,
-             ServerLogger::Ptr l = {});
+             RouterLogger::Ptr l = {});
 
     /** Destructor. */
     ~Listener() override;

@@ -27,8 +27,7 @@ struct TcpTraits
     using ServerSettings = TcpEndpoint;
 
     template <typename TEndpoint>
-    static ConnectionInfo connectionInfo(const TEndpoint& ep,
-                                         const std::string& server)
+    static ConnectionInfo connectionInfo(const TEndpoint& ep)
     {
         static constexpr unsigned ipv4VersionNo = 4;
         static constexpr unsigned ipv6VersionNo = 6;
@@ -50,7 +49,7 @@ struct TcpTraits
         if (!isIpv6)
             details.emplace("numeric_address", addr.to_v4().to_uint());
 
-        return {std::move(details), oss.str(), server};
+        return {std::move(details), oss.str()};
     }
 
     static Timeout heartbeatInterval(const TcpHost& settings)

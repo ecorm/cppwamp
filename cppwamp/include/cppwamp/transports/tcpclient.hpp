@@ -24,7 +24,7 @@ namespace wamp
 {
 
 // Forward declaration
-namespace internal { struct TcpConnector; }
+namespace internal { class TcpConnector; }
 
 //------------------------------------------------------------------------------
 /** Connector specialization that establishes a client-side TCP transport.

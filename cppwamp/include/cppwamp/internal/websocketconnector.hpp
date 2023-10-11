@@ -14,7 +14,6 @@
 #include <boost/asio/connect.hpp>
 #include <boost/optional/optional.hpp>
 #include "../asiodefs.hpp"
-#include "../version.hpp"
 #include "../transports/httpprotocol.hpp"
 #include "../transports/websocketprotocol.hpp"
 #include "../traits.hpp"
