@@ -37,16 +37,16 @@ template <typename TProtocol>
 class Listener {};
 
 //------------------------------------------------------------------------------
-/** Categories for classifying Listening::establish errors. */
+/** Classifies Listening::establish errors. */
 //------------------------------------------------------------------------------
-enum class ListeningErrorCategory // TODO: Rename to ListenStatus
+enum class ListenStatus
 {
     success,    /// No error
-    cancelled,  /// Due to server cancellation
+    cancelled,  /// Server cancellation
     transient,  /// Transient error that doesn't need delay before recovering
     overload,   /// Out of memory or resources
     outage,     /// Network down
-    fatal       /// Due to programming error
+    fatal       /// Programming error
 };
 
 //------------------------------------------------------------------------------
@@ -61,15 +61,14 @@ public:
     /** Constructor taking a transport ready for use. */
     ListenResult(Transporting::Ptr t)
         : transport_(std::move(t)),
-          category_(ListeningErrorCategory::success)
+          status_(ListenStatus::success)
     {}
 
     /** Constructor taking information on a failed listen attempt. */
-    ListenResult(std::error_code e, ListeningErrorCategory c,
-                 const char* operation)
+    ListenResult(std::error_code e, ListenStatus s, const char* operation)
         : error_(e),
           operation_(operation),
-          category_(c)
+          status_(s)
     {}
 
     /** Determines if the listen attempt was successful. */
@@ -87,8 +86,8 @@ public:
     /** Obtains the error code if the listen attempt failed. */
     std::error_code error() const {return error_;}
 
-    /** Obtains the error category if the listen attempt failed. */
-    ListeningErrorCategory errorCategory() const {return category_;}
+    /** Obtains the status of the listen attempt. */
+    ListenStatus status() const {return status_;}
 
     /** Obtains the name of the socket (or other) operation that failed,
         for logging purposes.
@@ -103,7 +102,7 @@ private:
     Transporting::Ptr transport_;
     std::error_code error_;
     const char* operation_ = nullptr;
-    ListeningErrorCategory category_ = ListeningErrorCategory::fatal;
+    ListenStatus status_ = ListenStatus::fatal;
 };
 
 //------------------------------------------------------------------------------

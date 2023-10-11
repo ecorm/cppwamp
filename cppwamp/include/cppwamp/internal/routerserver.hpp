@@ -634,36 +634,36 @@ private:
 
     void onListenerResult(ListenResult result)
     {
-        using Cat = ListeningErrorCategory;
-        auto cat = result.errorCategory();
-        switch (cat)
+        using S = ListenStatus;
+
+        switch (result.status())
         {
-        case Cat::success:
+        case S::success:
             onAccepted(result.transport());
             listen();
             break;
 
-        case Cat::cancelled:
+        case S::cancelled:
             break;
 
-        case Cat::transient:
+        case S::transient:
             alert(std::string("Error establishing connection with "
                               "remote peer during ") + result.operation(),
                   result.error());
             listen();
             break;
 
-        case Cat::overload:
+        case S::overload:
             cooldown(options_->overloadCooldown(), result,
                      "Resource exhaustion detected during ");
             break;
 
-        case Cat::outage:
+        case S::outage:
             cooldown(options_->outageCooldown(), result,
                      "Network outage detected during  ");
             break;
 
-        case Cat::fatal:
+        case S::fatal:
             panic(std::string("Fatal error establishing connection with "
                               "remote peer during ") + result.operation(),
                   result.error());
@@ -671,7 +671,7 @@ private:
             break;
 
         default:
-            assert(false && "Unexpected ListeningErrorCategory enumerator");
+            assert(false && "Unexpected ListenStatus enumerator");
         }
     }
 

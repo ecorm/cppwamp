@@ -50,24 +50,24 @@ struct UdsListenerConfig
     }
 
     // https://stackoverflow.com/q/76955978/245265
-    static ListeningErrorCategory classifyAcceptError(
+    static ListenStatus classifyAcceptError(
         boost::system::error_code ec, bool treatUnexpectedErrorsAsFatal = false)
     {
         using Helper = SocketErrorHelper;
         if (!ec)
-            return ListeningErrorCategory::success;
+            return ListenStatus::success;
         if (Helper::isAcceptCancellationError(ec))
-            return ListeningErrorCategory::cancelled;
+            return ListenStatus::cancelled;
         if (Helper::isAcceptOverloadError(ec))
-            return ListeningErrorCategory::overload;
+            return ListenStatus::overload;
         if (Helper::isAcceptTransientError(ec))
-            return ListeningErrorCategory::transient;
+            return ListenStatus::transient;
         if (treatUnexpectedErrorsAsFatal)
-            return ListeningErrorCategory::fatal;
+            return ListenStatus::fatal;
         // Treat network down errors as fatal, as there's no actual network.
         if (Helper::isAcceptFatalError(ec) || Helper::isAcceptOutageError(ec))
-            return ListeningErrorCategory::fatal;
-        return ListeningErrorCategory::transient;
+            return ListenStatus::fatal;
+        return ListenStatus::transient;
     }
 };
 

@@ -245,8 +245,7 @@ private:
         auto self = this->shared_from_this();
         boost::asio::post(
             strand_,
-            Posted{std::move(self),
-                   ListenResult{ec, ListeningErrorCategory::fatal, op}});
+            Posted{std::move(self), ListenResult{ec, ListenStatus::fatal, op}});
         return false;
     }
 
@@ -257,11 +256,11 @@ private:
         if (!handler_)
             return;
 
-        auto cat = TConfig::classifyAcceptError(netEc, false);
-        if (cat != ListeningErrorCategory::success)
+        auto status = TConfig::classifyAcceptError(netEc, false);
+        if (status != ListenStatus::success)
         {
             auto ec = static_cast<std::error_code>(netEc);
-            handler_(ListenResult{ec, cat, "socket accept"});
+            handler_(ListenResult{ec, status, "socket accept"});
             return;
         }
 
