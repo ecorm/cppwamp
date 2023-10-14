@@ -56,81 +56,98 @@ inline std::string httpStaticFilePath(boost::beast::string_view base,
 }
 
 //------------------------------------------------------------------------------
-class HttpJob // TODO: Consolidate with HttpJobImpl
+class HttpJob : public std::enable_shared_from_this<HttpJob>
 {
 public:
-    using Body = boost::beast::http::string_body;
-    using Request = boost::beast::http::request<Body>;
-    using Field = boost::beast::http::field;
-    using StringView = boost::beast::string_view;
-    using AnyMessage = boost::beast::http::message_generator;
-    using FieldList = std::initializer_list<std::pair<Field, StringView>>;
+    using Ptr         = std::shared_ptr<HttpJob>;
+    using TcpSocket   = boost::asio::ip::tcp::socket;
+    using Settings    = HttpEndpoint;
+    using SettingsPtr = std::shared_ptr<Settings>;
+    using Handler     = AnyCompletionHandler<void (AdmitResult)>;
+    using Body        = boost::beast::http::string_body;
+    using Request     = boost::beast::http::request<Body>;
+    using AnyMessage  = boost::beast::http::message_generator;
+    using Field       = boost::beast::http::field;
+    using StringView  = boost::beast::string_view;
+    using FieldList   = std::initializer_list<std::pair<Field, StringView>>;
 
-    virtual ~HttpJob() = default;
+    HttpJob(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c, ConnectionInfo i,
+            RouterLogger::Ptr l)
+        : tcpSocket_(std::move(t)),
+          timer_(tcpSocket_.get_executor()),
+          codecIds_(c),
+          connectionInfo_(std::move(i)),
+          settings_(std::move(s)),
+          logger_(std::move(l))
+    {}
 
-    const Request& request() const {return request_;}
+    const Request& request() const
+    {
+        assert(parser_.has_value());
+        return parser_->get();
+    }
 
     const HttpEndpoint& settings() const {return *settings_;}
 
-    void respond(AnyMessage response);
+    void respond(AnyMessage response)
+    {
+        bool keepAlive = response.keep_alive();
+        auto self = shared_from_this();
+        boost::beast::async_write(
+            tcpSocket_, std::move(response),
+            [this, self, keepAlive](boost::beast::error_code netEc, std::size_t)
+            {
+                if (!check(netEc, "socket write"))
+                    return;
 
-    void upgrade(Transporting::Ptr transport, int codecId);
+                if (keepAlive)
+                    start();
+                else
+                    finish(AdmitResult::responded());
+            });
+    }
+
+    void upgrade(Transporting::Ptr transport, int codecId)
+    {
+        upgradedTransport_ = std::move(transport);
+        finish(AdmitResult::wamp(codecId));
+    }
 
     void balk(
         HttpStatus status, std::string what = {}, bool simple = false,
         FieldList fields = {})
     {
-        doBalk(status, std::move(what), simple, fields);
+        // Don't send full HTML error page if request was a Websocket upgrade
+        if (simple)
+            return sendSimpleError(status, std::move(what), fields);
+
+        namespace http = boost::beast::http;
+
+        auto page = settings().findErrorPage(status);
+
+        if (page == nullptr)
+            return sendGeneratedError(status, std::move(what), fields);
+
+        if (page->uri.empty())
+            return sendGeneratedError(page->status, std::move(what), fields);
+
+        if (page->isRedirect())
+            return redirectError(page->status, page->uri, fields);
+
+        return sendErrorFromFile(page->status, std::move(what), page->uri,
+                                 fields);
     }
 
-    void log(LogEntry entry) {doLog(std::move(entry));}
-
-    void report(AccessActionInfo action) {doReport(std::move(action));}
-
-protected:
-    using SettingsPtr = std::shared_ptr<HttpEndpoint>;
-
-    HttpJob(SettingsPtr s) : settings_(std::move(s)) {}
-
-    virtual void doRespond(AnyMessage response) = 0;
-
-    virtual void doUpgrade(Transporting::Ptr transport, int codecId) = 0;
-
-    virtual void doBalk(
-        HttpStatus status, std::string what, bool simple,
-        std::initializer_list<std::pair<Field, StringView>> fields) = 0;
-
-    virtual void doLog(LogEntry entry);
-
-    virtual void doReport(AccessActionInfo action);
-
-    void setRequest(Request&& req) {request_ = std::move(req);}
+    void report(AccessActionInfo action)
+    {
+        if (logger_)
+            logger_->log(AccessLogEntry{connectionInfo_, {},
+                                        std::move(action)});
+    }
 
 private:
-    Request request_;
-    SettingsPtr settings_;
-};
-
-//------------------------------------------------------------------------------
-class HttpJobImpl : public HttpJob,
-                    public std::enable_shared_from_this<HttpJobImpl>
-{
-public:
-    using Ptr         = std::shared_ptr<HttpJobImpl>;
-    using TcpSocket   = boost::asio::ip::tcp::socket;
-    using Settings    = HttpEndpoint;
-    using SettingsPtr = std::shared_ptr<Settings>;
-    using Handler     = AnyCompletionHandler<void (AdmitResult)>;
-
-    HttpJobImpl(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
-                ConnectionInfo i, RouterLogger::Ptr l)
-        : Base(std::move(s)),
-          tcpSocket_(std::move(t)),
-          timer_(tcpSocket_.get_executor()),
-          codecIds_(c),
-          connectionInfo_(std::move(i)),
-          logger_(std::move(l))
-    {}
+    using Base = HttpJob;
+    using Parser = boost::beast::http::request_parser<Body>;
 
     void process(bool isShedding, Timeout timeout, Handler handler)
     {
@@ -146,10 +163,6 @@ public:
     {
         return upgradedTransport_;
     }
-
-private:
-    using Base = HttpJob;
-    using Parser = boost::beast::http::request_parser<Body>;
 
     void start()
     {
@@ -196,16 +209,14 @@ private:
         // has been reached
         if (isShedding_)
         {
-            return doBalk(HttpStatus::serviceUnavailable,
-                          "Connection limit exceeded", isUpgrade, {});
+            return balk(HttpStatus::serviceUnavailable,
+                        "Connection limit exceeded", isUpgrade, {});
         }
 
         auto target = parser_->get().target();
         auto* action = settings().findAction(target);
         if (action == nullptr)
-            return doBalk(HttpStatus::notFound, {}, isUpgrade, {});
-
-        Base::setRequest(parser_->release());
+            return balk(HttpStatus::notFound, {}, isUpgrade, {});
     }
 
     bool check(boost::system::error_code netEc, const char* operation)
@@ -216,61 +227,6 @@ private:
                                        operation));
         }
         return !netEc;
-    }
-
-    void doRespond(AnyMessage response) override
-    {
-        bool keepAlive = response.keep_alive();
-        auto self = shared_from_this();
-        boost::beast::async_write(
-            tcpSocket_, std::move(response),
-            [this, self, keepAlive](boost::beast::error_code netEc, std::size_t)
-            {
-                if (!check(netEc, "socket write"))
-                    return;
-
-                if (keepAlive)
-                    start();
-                else
-                    finish(AdmitResult::responded());
-            });
-    }
-
-    void doUpgrade(Transporting::Ptr transport, int codecId) override
-    {
-        upgradedTransport_ = std::move(transport);
-        finish(AdmitResult::wamp(codecId));
-    }
-
-    void doBalk(HttpStatus status, std::string what, bool simple,
-                FieldList fields) override
-    {
-        // Don't send full HTML error page if request was a Websocket upgrade
-        if (simple)
-            return sendSimpleError(status, std::move(what), fields);
-
-        namespace http = boost::beast::http;
-
-        auto page = settings().findErrorPage(status);
-
-        if (page == nullptr)
-            return sendGeneratedError(status, std::move(what), fields);
-
-        if (page->uri.empty())
-            return sendGeneratedError(page->status, std::move(what), fields);
-
-        if (page->isRedirect())
-            return redirectError(page->status, page->uri, fields);
-
-        return sendErrorFromFile(page->status, std::move(what), page->uri,
-                                 fields);
-    }
-
-    void doReport(AccessActionInfo action) override
-    {
-        if (logger_)
-            logger_->log(AccessLogEntry{connectionInfo_, {},
-                                        std::move(action)});
     }
 
     void sendSimpleError(HttpStatus status, std::string&& what,
@@ -290,7 +246,8 @@ private:
     }
 
     void sendGeneratedError(HttpStatus status, std::string&& what,
-                            FieldList fields)
+                            FieldList fields,
+                            AdmitResult result = AdmitResult::responded())
     {
         namespace http = boost::beast::http;
 
@@ -351,15 +308,17 @@ private:
         namespace beast = boost::beast;
         namespace http = beast::http;
 
-        beast::error_code ec;
+        beast::error_code netEc;
         http::file_body::value_type body;
         path = httpStaticFilePath(settings().documentRoot(), path);
-        body.open(path.c_str(), beast::file_mode::scan, ec);
+        body.open(path.c_str(), beast::file_mode::scan, netEc);
 
-        if (ec)
+        if (netEc)
         {
-            // TODO: Log problem
-            return sendGeneratedError(status, std::move(what), fields);
+            auto ec = static_cast<std::error_code>(netEc);
+            return sendGeneratedError(
+                status, std::move(what), fields,
+                AdmitResult::failed(ec, "error file read"));
         }
 
         http::response<http::file_body> response{
@@ -372,15 +331,16 @@ private:
         sendAndFinish(std::move(response));
     }
 
-    void sendAndFinish(boost::beast::http::message_generator&& response)
+    void sendAndFinish(boost::beast::http::message_generator&& response,
+                       AdmitResult result = AdmitResult::responded())
     {
         auto self = shared_from_this();
         boost::beast::async_write(
             tcpSocket_, std::move(response),
-            [this, self](boost::beast::error_code netEc, std::size_t)
+            [this, self, result](boost::beast::error_code netEc, std::size_t)
             {
                 if (check(netEc, "socket write"))
-                    finish(AdmitResult::responded());
+                    finish(result);
             });
     }
 
@@ -403,9 +363,12 @@ private:
     boost::beast::flat_buffer buffer_;
     boost::optional<Parser> parser_;
     ConnectionInfo connectionInfo_;
+    SettingsPtr settings_;
     RouterLogger::Ptr logger_;
     Timeout timeout_;
     bool isShedding_ = false;
+
+    friend class HttpServerTransport;
 };
 
 //------------------------------------------------------------------------------
@@ -421,9 +384,8 @@ public:
                         RouterLogger::Ptr l)
         : Base(boost::asio::make_strand(t.get_executor()),
                makeConnectionInfo(t)),
-          job_(std::make_shared<HttpJobImpl>(std::move(t), std::move(s), c,
-                                             Base::connectionInfo(),
-                                             std::move(l)))
+          job_(std::make_shared<HttpJob>(std::move(t), std::move(s), c,
+                                         Base::connectionInfo(), std::move(l)))
     {}
 
 private:
@@ -530,7 +492,7 @@ private:
         transport_->onClose(std::move(handler));
     }
 
-    HttpJobImpl::Ptr job_;
+    HttpJob::Ptr job_;
     Transporting::Ptr transport_;
 };
 
