@@ -18,6 +18,7 @@
 #include <boost/beast/http/string_body.hpp>
 #include "../routerlogger.hpp"
 #include "../transports/httpprotocol.hpp"
+#include "tcptraits.hpp"
 #include "websockettransport.hpp"
 
 namespace wamp
@@ -145,9 +146,6 @@ public:
     {
         return upgradedTransport_;
     }
-
-    // TODO: Remove if unused
-    const TransportInfo& transportInfo() const {return transportInfo_;}
 
 private:
     using Base = HttpJob;
@@ -432,33 +430,9 @@ private:
     using Base = Transporting;
     using WebsocketSocket = boost::beast::websocket::stream<TcpSocket>;
 
-    // TODO: Consolidate with WebsocketTransport and RawsockTransport
     static ConnectionInfo makeConnectionInfo(const TcpSocket& socket)
     {
-        static constexpr unsigned ipv4VersionNo = 4;
-        static constexpr unsigned ipv6VersionNo = 6;
-
-        const auto& ep = socket.remote_endpoint();
-        std::ostringstream oss;
-        oss << ep;
-        const auto addr = ep.address();
-        const bool isIpv6 = addr.is_v6();
-
-        Object details
-        {
-             {"address", addr.to_string()},
-             {"ip_version", isIpv6 ? ipv6VersionNo : ipv4VersionNo},
-             {"endpoint", oss.str()},
-             {"port", ep.port()},
-             {"protocol", "HTTP"},
-         };
-
-        if (!isIpv6)
-        {
-            details.emplace("numeric_address", addr.to_v4().to_uint());
-        }
-
-        return {std::move(details), oss.str()};
+        return TcpTraits::connectionInfo(socket.remote_endpoint(), "HTTP");
     }
 
     static std::error_code

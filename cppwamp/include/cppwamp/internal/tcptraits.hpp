@@ -27,7 +27,8 @@ struct TcpTraits
     using ServerSettings = TcpEndpoint;
 
     template <typename TEndpoint>
-    static ConnectionInfo connectionInfo(const TEndpoint& ep)
+    static ConnectionInfo connectionInfo(const TEndpoint& ep,
+                                         const char* protocol = "TCP")
     {
         static constexpr unsigned ipv4VersionNo = 4;
         static constexpr unsigned ipv6VersionNo = 6;
@@ -43,7 +44,7 @@ struct TcpTraits
             {"ip_version", isIpv6 ? ipv6VersionNo : ipv4VersionNo},
             {"endpoint", oss.str()},
             {"port", ep.port()},
-            {"protocol", "TCP"},
+            {"protocol", protocol},
         };
 
         if (!isIpv6)

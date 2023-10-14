@@ -55,6 +55,8 @@ enum class ListenStatus
 class ListenResult
 {
 public:
+    using Status = ListenStatus;
+
     /** Default constructor. */
     ListenResult() = default;
 
@@ -65,7 +67,7 @@ public:
     {}
 
     /** Constructor taking information on a failed listen attempt. */
-    ListenResult(std::error_code e, ListenStatus s, const char* operation)
+    ListenResult(std::error_code e, Status s, const char* operation)
         : error_(e),
           operation_(operation),
           status_(s)
@@ -87,7 +89,7 @@ public:
     std::error_code error() const {return error_;}
 
     /** Obtains the status of the listen attempt. */
-    ListenStatus status() const {return status_;}
+    Status status() const {return status_;}
 
     /** Obtains the name of the socket (or other) operation that failed,
         for logging purposes.
@@ -102,7 +104,7 @@ private:
     Transporting::Ptr transport_;
     std::error_code error_;
     const char* operation_ = nullptr;
-    ListenStatus status_ = ListenStatus::fatal;
+    Status status_ = Status::fatal;
 };
 
 //------------------------------------------------------------------------------

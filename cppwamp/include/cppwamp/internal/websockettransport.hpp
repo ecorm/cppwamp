@@ -22,8 +22,8 @@
 #include "../codec.hpp"
 #include "../routerlogger.hpp"
 #include "../traits.hpp"
-#include "../version.hpp"
 #include "../transports/websocketprotocol.hpp"
+#include "tcptraits.hpp"
 
 namespace wamp
 {
@@ -91,31 +91,9 @@ private:
         boost::asio::dynamic_vector_buffer<MessageBuffer::value_type,
                                            MessageBuffer::allocator_type>;
 
-    // TODO: Consolidate with RawsockTransport
     static ConnectionInfo makeConnectionInfo(const TcpSocket& socket)
     {
-        static constexpr unsigned ipv4VersionNo = 4;
-        static constexpr unsigned ipv6VersionNo = 6;
-
-        const auto& ep = socket.remote_endpoint();
-        std::ostringstream oss;
-        oss << ep;
-        const auto addr = ep.address();
-        const bool isIpv6 = addr.is_v6();
-
-        Object details
-            {
-             {"address", addr.to_string()},
-             {"ip_version", isIpv6 ? ipv6VersionNo : ipv4VersionNo},
-             {"endpoint", oss.str()},
-             {"port", ep.port()},
-             {"protocol", "WS"},
-             };
-
-        if (!isIpv6)
-            details.emplace("numeric_address", addr.to_v4().to_uint());
-
-        return {std::move(details), oss.str()};
+        return TcpTraits::connectionInfo(socket.remote_endpoint(), "WS");
     }
 
     static std::error_code interpretCloseReason(

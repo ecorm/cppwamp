@@ -142,7 +142,6 @@ public:
     using Settings = typename TConfig::Settings;
     using Handler  = Listening::Handler;
 
-    // TODO: Remove server parameter
     RawsockListener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c,
                     RouterLogger::Ptr l = {})
         : executor_(std::move(e)),
