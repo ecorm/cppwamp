@@ -229,6 +229,9 @@ public:
     /** Specifies the default document root path for serving files. */
     HttpEndpoint& withDocumentRoot(std::string root);
 
+    /** Specifies the default index file name. */
+    HttpEndpoint& withIndexFileName(std::string name);
+
     /** Specifies the custom agent string to use (default is
         Version::agentString). */
     HttpEndpoint& withAgent(std::string agent);
@@ -255,6 +258,9 @@ public:
 
     /** Obtains the default document root path for serving files. */
     const std::string& documentRoot() const;
+
+    /** Obtains the default index file name. */
+    const std::string& indexFileName() const;
 
     /** Obtains the custom agent string, or Version::agentString() if none
         was specified. */
@@ -295,6 +301,7 @@ private:
 #else
     std::string documentRoot_ = "/var/wwww/html";
 #endif
+    std::string indexFileName_ = "index.html";
     std::string agent_;
     uint32_t headerLimit_ = 0;
     uint32_t bodyLimit_ = 0;

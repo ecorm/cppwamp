@@ -11,27 +11,41 @@ namespace wamp
 {
 
 //******************************************************************************
-// HttpServeStaticFile
+// HttpServeStaticFiles
 //******************************************************************************
 
-CPPWAMP_INLINE HttpServeStaticFile::HttpServeStaticFile(
-    std::string documentRoot)
-    : documentRoot_(std::move(documentRoot))
-{}
+CPPWAMP_INLINE HttpServeStaticFiles&
+HttpServeStaticFiles::withDocumentRoot(std::string documentRoot)
+{
+    documentRoot_ = std::move(documentRoot);
+    return *this;
+}
 
-CPPWAMP_INLINE HttpServeStaticFile&
-HttpServeStaticFile::withMimeTypes(MimeTypeMapper f)
+CPPWAMP_INLINE HttpServeStaticFiles&
+HttpServeStaticFiles::withIndexFileName(std::string name)
+{
+    indexFileName_ = std::move(name);
+    return *this;
+}
+
+CPPWAMP_INLINE HttpServeStaticFiles&
+HttpServeStaticFiles::withMimeTypes(MimeTypeMapper f)
 {
     mimeTypeMapper_ = std::move(f);
     return *this;
 }
 
-CPPWAMP_INLINE std::string HttpServeStaticFile::documentRoot() const
+CPPWAMP_INLINE const std::string& HttpServeStaticFiles::documentRoot() const
 {
     return documentRoot_;
 }
 
-CPPWAMP_INLINE char HttpServeStaticFile::toLower(char c)
+CPPWAMP_INLINE const std::string& HttpServeStaticFiles::indexFileName() const
+{
+    return indexFileName_;
+}
+
+CPPWAMP_INLINE char HttpServeStaticFiles::toLower(char c)
 {
     static constexpr unsigned offset = 'a' - 'A';
     if (c >= 'A' && c <= 'Z')
@@ -40,7 +54,7 @@ CPPWAMP_INLINE char HttpServeStaticFile::toLower(char c)
 }
 
 CPPWAMP_INLINE std::string
-HttpServeStaticFile::lookupMimeType(std::string extension)
+HttpServeStaticFiles::lookupMimeType(std::string extension) const
 {
     for (auto& c: extension)
         c = toLower(c);
@@ -49,7 +63,7 @@ HttpServeStaticFile::lookupMimeType(std::string extension)
 }
 
 CPPWAMP_INLINE std::string
-HttpServeStaticFile::defaultMimeType(const std::string& extension)
+HttpServeStaticFiles::defaultMimeType(const std::string& extension) const
 {
     static const std::map<std::string, std::string> table =
     {
@@ -133,69 +147,31 @@ namespace internal
 {
 
 //******************************************************************************
-// HttpServeStaticFile
+// HttpServeStaticFiles
 //******************************************************************************
 
-CPPWAMP_INLINE HttpAction<HttpServeStaticFile>::HttpAction(
-    HttpServeStaticFile options)
+CPPWAMP_INLINE HttpAction<HttpServeStaticFiles>::HttpAction(
+    HttpServeStaticFiles options)
     : options_(options)
 {}
 
 void CPPWAMP_INLINE
-HttpAction<HttpServeStaticFile>::execute(HttpJob& job)
+HttpAction<HttpServeStaticFiles>::execute(HttpJob& job)
 {
-    namespace beast = boost::beast;
-    namespace http = beast::http;
+    namespace http = boost::beast::http;
 
+    if (!checkRequest(job))
+        return;
 
+    // Build file path and attempt to open the file
     const auto& req = job.request();
-    if (beast::websocket::is_upgrade(req))
-        return job.balk(HttpStatus::badRequest, "Not a Websocket resource");
-
-    if (req.method() != http::verb::get || req.method() != http::verb::head)
-    {
-        return job.balk(HttpStatus::methodNotAllowed,
-                        std::string(req.method_string()) +
-                            " method not allowed on static files");
-    }
-
-    // Request path must be absolute and not contain ".."
-    if (req.target().find("..") != beast::string_view::npos)
-        return job.balk(HttpStatus::badRequest, "Invalid request-target");
-
-    // Build the path to the requested file
-    std::string root = options_.documentRoot();
-    if (root.empty())
-        root = job.settings().documentRoot();
-    std::string path = httpStaticFilePath(options_.documentRoot(),
-                                          req.target());
-    if (req.target().back() == '/')
-        path.append("index.html");
-
-    // Attempt to open the file
-    beast::error_code ec;
+    auto path = buildPath(job.settings(), req.target());
     http::file_body::value_type body;
-    body.open(path.c_str(), beast::file_mode::scan, ec);
+    if (!openFile(job, path, body))
+        return;
 
-    // Handle the case where the file doesn't exist
-    if (ec == beast::errc::no_such_file_or_directory)
-        return job.balk(HttpStatus::notFound);
-
-    // Handle an unknown error
-    if (ec)
-    {
-        // TODO: Log problem
-        return job.balk(
-            HttpStatus::internalServerError,
-            "An error occurred on the server while processing the request");
-    }
-
-    // Extract the file extension and lookup it's MIME type
-    std::string extension;
-    const auto pos = path.rfind(".");
-    if (pos != std::string::npos)
-        extension = path.substr(pos);
-    auto mimeType = options_.lookupMimeType(extension);
+    // Extract the file extension and lookup its MIME type
+    auto mimeType = lookupMimeType(path);
 
     // Respond to HEAD request
     if (req.method() == http::verb::head)
@@ -217,6 +193,101 @@ HttpAction<HttpServeStaticFile>::execute(HttpJob& job)
     res.keep_alive(req.keep_alive());
     return job.respond(std::move(res));
 };
+
+CPPWAMP_INLINE bool
+HttpAction<HttpServeStaticFiles>::checkRequest(HttpJob& job) const
+{
+    namespace beast = boost::beast;
+    namespace http = beast::http;
+
+    // Check that request is not an HTTP upgrade request
+    const auto& req = job.request();
+    if (beast::websocket::is_upgrade(req))
+    {
+        job.balk(HttpStatus::badRequest, "Not a Websocket resource");
+        return false;
+    }
+
+    // Check that request method is supported
+    if (req.method() != http::verb::get || req.method() != http::verb::head)
+    {
+        job.balk(HttpStatus::methodNotAllowed,
+                 std::string(req.method_string()) +
+                     " method not allowed on static files");
+        return false;
+    }
+
+    // Request path must be absolute and not contain ".."
+    if (req.target().find("..") != beast::string_view::npos)
+    {
+        job.balk(HttpStatus::badRequest, "Invalid request-target");
+        return false;
+    }
+
+    return true;
+}
+
+template <typename TBody>
+bool HttpAction<HttpServeStaticFiles>::openFile(
+    HttpJob& job, const std::string& path, TBody& fileBody) const
+{
+    namespace beast = boost::beast;
+    namespace http = beast::http;
+
+    // Attempt to open the file
+    beast::error_code netEc;
+    fileBody.open(path.c_str(), beast::file_mode::scan, netEc);
+
+    // Handle the case where the file doesn't exist
+    if (netEc == beast::errc::no_such_file_or_directory)
+    {
+        job.balk(HttpStatus::notFound);
+        return false;
+    }
+
+    // Handle an unknown error
+    if (netEc)
+    {
+        auto ec = static_cast<std::error_code>(netEc);
+        job.balk(
+            HttpStatus::internalServerError,
+            "An error occurred on the server while processing the request",
+            false, {}, AdmitResult::failed(ec, "file open"));
+        return false;
+    }
+
+    return true;
+}
+
+CPPWAMP_INLINE std::string
+HttpAction<HttpServeStaticFiles>::buildPath(const HttpEndpoint& settings,
+                                            const std::string& target) const
+{
+    std::string path;
+    if (options_.documentRoot().empty())
+        path = httpStaticFilePath(settings.documentRoot(), target);
+    else
+        path = httpStaticFilePath(options_.documentRoot(), target);
+
+    if (target.back() == '/')
+    {
+        if (!options_.indexFileName().empty())
+            path.append(options_.indexFileName());
+        else
+            path.append(settings.indexFileName());
+    }
+    return path;
+}
+
+CPPWAMP_INLINE std::string
+HttpAction<HttpServeStaticFiles>::lookupMimeType(const std::string& path) const
+{
+    std::string extension;
+    const auto pos = path.rfind(".");
+    if (pos != std::string::npos)
+        extension = path.substr(pos);
+    return options_.lookupMimeType(extension);
+}
 
 
 //******************************************************************************

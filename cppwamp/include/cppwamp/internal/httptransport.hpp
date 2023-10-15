@@ -32,7 +32,7 @@ inline std::string httpStaticFilePath(boost::beast::string_view base,
                                       boost::beast::string_view path)
 {
     if (base.empty())
-        return std::string(path);
+        return std::string{path};
 
 #ifdef _WIN32
     constexpr char separator = '\\';
@@ -115,7 +115,7 @@ public:
 
     void balk(
         HttpStatus status, std::string what = {}, bool simple = false,
-        FieldList fields = {})
+        FieldList fields = {}, AdmitResult result = {})
     {
         // Don't send full HTML error page if request was a Websocket upgrade
         if (simple)
@@ -135,7 +135,7 @@ public:
             return redirectError(page->status, page->uri, fields);
 
         return sendErrorFromFile(page->status, std::move(what), page->uri,
-                                 fields);
+                                 fields, result);
     }
 
     void report(AccessActionInfo action)
@@ -303,7 +303,8 @@ private:
     }
 
     void sendErrorFromFile(HttpStatus status, std::string&& what,
-                           std::string path, FieldList fields)
+                           std::string path, FieldList fields,
+                           AdmitResult result)
     {
         namespace beast = boost::beast;
         namespace http = beast::http;
@@ -328,7 +329,7 @@ private:
         for (auto pair: fields)
             response.set(pair.first, pair.second);
         response.prepare_payload();
-        sendAndFinish(std::move(response));
+        sendAndFinish(std::move(response), result);
     }
 
     void sendAndFinish(boost::beast::http::message_generator&& response,

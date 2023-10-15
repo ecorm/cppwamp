@@ -30,30 +30,37 @@ namespace internal { class HttpJob; }
 //------------------------------------------------------------------------------
 /** Options for serving static files via HTTP. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API HttpServeStaticFile
+class CPPWAMP_API HttpServeStaticFiles
 {
 public:
     using MimeTypeMapper = std::function<std::string (const std::string&)>;
 
-    /** Constructor taking a path to the document root. */
-    explicit HttpServeStaticFile(std::string documentRoot);
+    /** Specifies the document root path. */
+    HttpServeStaticFiles& withDocumentRoot(std::string documentRoot);
+
+    /** Specifies the index file name. */
+    HttpServeStaticFiles& withIndexFileName(std::string name);
 
     /** Specifies the mapping function for determining MIME type based on
         file extension. */
-    HttpServeStaticFile& withMimeTypes(MimeTypeMapper f);
+    HttpServeStaticFiles& withMimeTypes(MimeTypeMapper f);
 
     /** Obtains the path to the document root. */
-    std::string documentRoot() const;
+    const std::string& documentRoot() const;
+
+    /** Obtains the index file name. */
+    const std::string& indexFileName() const;
 
     /** Obtains the MIME type associated with the given path. */
-    std::string lookupMimeType(std::string extension);
+    std::string lookupMimeType(std::string extension) const;
 
 private:
     static char toLower(char c);
 
-    std::string defaultMimeType(const std::string& extension);
+    std::string defaultMimeType(const std::string& extension) const;
 
     std::string documentRoot_;
+    std::string indexFileName_;
     MimeTypeMapper mimeTypeMapper_;
 };
 
@@ -121,15 +128,25 @@ namespace internal
 
 //------------------------------------------------------------------------------
 template <>
-class HttpAction<HttpServeStaticFile>
+class HttpAction<HttpServeStaticFiles>
 {
 public:
-    HttpAction(HttpServeStaticFile options);
+    HttpAction(HttpServeStaticFiles options);
 
     void execute(HttpJob& job);
 
 private:
-    HttpServeStaticFile options_;
+    bool checkRequest(HttpJob& job) const;
+
+    template <typename TBody>
+    bool openFile(HttpJob& job, const std::string& path, TBody& fileBody) const;
+
+    std::string buildPath(const HttpEndpoint& settings,
+                          const std::string& target) const;
+
+    std::string lookupMimeType(const std::string& path) const;
+
+    HttpServeStaticFiles options_;
 };
 
 //------------------------------------------------------------------------------

@@ -151,9 +151,17 @@ CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::addPrefixRoute(std::string uri,
     return *this;
 }
 
+/** If unset, it is `C:/web/html` on Windows or `/var/wwww/html` otherwise. */
 CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withDocumentRoot(std::string root)
 {
     documentRoot_ = std::move(root);
+    return *this;
+}
+
+/** If unset, it is `index.html`. */
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withIndexFileName(std::string name)
+{
+    indexFileName_ = std::move(name);
     return *this;
 }
 
@@ -233,6 +241,11 @@ CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withBodyLimit(uint32_t limit)
 CPPWAMP_INLINE const std::string& HttpEndpoint::documentRoot() const
 {
     return documentRoot_;
+}
+
+CPPWAMP_INLINE const std::string& HttpEndpoint::indexFileName() const
+{
+    return indexFileName_;
 }
 
 CPPWAMP_INLINE const std::string& HttpEndpoint::agent() const
