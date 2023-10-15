@@ -71,8 +71,8 @@ public:
     using StringView  = boost::beast::string_view;
     using FieldList   = std::initializer_list<std::pair<Field, StringView>>;
 
-    HttpJob(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c, ConnectionInfo i,
-            RouterLogger::Ptr l)
+    HttpJob(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
+            ConnectionInfo i, RouterLogger::Ptr l)
         : tcpSocket_(std::move(t)),
           timer_(tcpSocket_.get_executor()),
           codecIds_(c),
@@ -80,6 +80,8 @@ public:
           settings_(std::move(s)),
           logger_(std::move(l))
     {}
+
+    const std::string& route() const {return route_;}
 
     const Request& request() const
     {
@@ -359,11 +361,12 @@ private:
     boost::asio::steady_timer timer_;
     CodecIdSet codecIds_;
     TransportInfo transportInfo_;
-    Transporting::Ptr upgradedTransport_;
-    Handler handler_;
     boost::beast::flat_buffer buffer_;
     boost::optional<Parser> parser_;
+    std::string route_;
+    Handler handler_;
     ConnectionInfo connectionInfo_;
+    Transporting::Ptr upgradedTransport_;
     SettingsPtr settings_;
     RouterLogger::Ptr logger_;
     Timeout timeout_;

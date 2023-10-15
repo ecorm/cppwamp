@@ -35,8 +35,14 @@ class CPPWAMP_API HttpServeStaticFiles
 public:
     using MimeTypeMapper = std::function<std::string (const std::string&)>;
 
-    /** Specifies the document root path. */
-    HttpServeStaticFiles& withDocumentRoot(std::string documentRoot);
+    /** Constructor. */
+    explicit HttpServeStaticFiles(std::string route);
+
+    /** Specifies the root path. */
+    HttpServeStaticFiles& withRoot(std::string path);
+
+    /** Specifies the alias path. */
+    HttpServeStaticFiles& withAlias(std::string path);
 
     /** Specifies the index file name. */
     HttpServeStaticFiles& withIndexFileName(std::string name);
@@ -45,11 +51,19 @@ public:
         file extension. */
     HttpServeStaticFiles& withMimeTypes(MimeTypeMapper f);
 
-    /** Obtains the path to the document root. */
-    const std::string& documentRoot() const;
+    /** Obtains the route associated with this action. */
+    const std::string& route() const;
+
+    /** Determines if the path corresponds to a root or alias. */
+    bool pathIsAlias() const;
+
+    /** Obtains the root or alias path. */
+    const std::string& path() const;
 
     /** Obtains the index file name. */
     const std::string& indexFileName() const;
+
+    // TODO: Automatic directory listing (aka 'autoindex')
 
     /** Obtains the MIME type associated with the given path. */
     std::string lookupMimeType(std::string extension) const;
@@ -59,9 +73,11 @@ private:
 
     std::string defaultMimeType(const std::string& extension) const;
 
-    std::string documentRoot_;
+    std::string route_;
+    std::string path_;
     std::string indexFileName_;
     MimeTypeMapper mimeTypeMapper_;
+    bool pathIsAlias_ = false;
 };
 
 
@@ -71,13 +87,20 @@ private:
 class CPPWAMP_API HttpWebsocketUpgrade
 {
 public:
+    /** Constructor. */
+    explicit HttpWebsocketUpgrade(std::string route);
+
     /** Specifies the maximum length permitted for incoming messages. */
     HttpWebsocketUpgrade& withMaxRxLength(std::size_t length);
+
+    /** Obtains the route associated with this action. */
+    const std::string& route() const;
 
     /** Obtains the specified maximum incoming message length. */
     std::size_t maxRxLength() const;
 
 private:
+    std::string route_;
     std::size_t maxRxLength_ = 16*1024*1024;
 };
 
@@ -131,18 +154,20 @@ template <>
 class HttpAction<HttpServeStaticFiles>
 {
 public:
-    HttpAction(HttpServeStaticFiles options);
+    explicit HttpAction(HttpServeStaticFiles options);
+
+    std::string route() const;
 
     void execute(HttpJob& job);
 
 private:
     bool checkRequest(HttpJob& job) const;
 
-    template <typename TBody>
-    bool openFile(HttpJob& job, const std::string& path, TBody& fileBody) const;
-
     std::string buildPath(const HttpEndpoint& settings,
                           const std::string& target) const;
+
+    template <typename TBody>
+    bool openFile(HttpJob& job, const std::string& path, TBody& fileBody) const;
 
     std::string lookupMimeType(const std::string& path) const;
 
@@ -155,6 +180,8 @@ class HttpAction<HttpWebsocketUpgrade>
 {
 public:
     HttpAction(HttpWebsocketUpgrade options);
+
+    std::string route() const;
 
     void execute(HttpJob& job);
 

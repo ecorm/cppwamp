@@ -7,6 +7,7 @@
 #ifndef CPPWAMP_INTERNAL_POLYMORPHICHTTPACTION_HPP
 #define CPPWAMP_INTERNAL_POLYMORPHICHTTPACTION_HPP
 
+#include <string>
 #include <utility>
 
 namespace wamp
@@ -28,6 +29,8 @@ class PolymorphicHttpActionInterface
 public:
     virtual ~PolymorphicHttpActionInterface() = default;
 
+    virtual std::string route() const = 0;
+
     virtual void execute(HttpJob& job) = 0;
 };
 
@@ -40,11 +43,11 @@ public:
 
     PolymorphicHttpAction() = default;
 
-    explicit PolymorphicHttpAction(Options options)
-        : action_(std::move(options))
-    {}
+    PolymorphicHttpAction(Options options) : action_(std::move(options)) {}
 
-    virtual void execute(HttpJob& job) override {action_.execute(job);}
+    std::string route() const override {return action_.route();}
+
+    void execute(HttpJob& job) override {action_.execute(job);}
 
 private:
     HttpAction<Options> action_;

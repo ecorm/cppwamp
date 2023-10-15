@@ -166,11 +166,10 @@ public:
     /** Returns false if the AnyHttpAction is empty. */
     explicit operator bool() const {return action_ != nullptr;}
 
-    template <typename OptionsType>
-    bool is() const
+    /** Obtains the route associated with the action. */
+    std::string route() const
     {
-        using Derived = internal::PolymorphicHttpAction<OptionsType>;
-        return std::dynamic_pointer_cast<Derived>(action_) != nullptr;
+        return (action_ == nullptr) ? std::string{} : action_->route();
     }
 
 private:
@@ -221,10 +220,10 @@ public:
     HttpEndpoint(std::string address, unsigned short port);
 
     /** Adds an action associated with an exact route. */
-    HttpEndpoint& addExactRoute(std::string uri, AnyHttpAction action);
+    HttpEndpoint& addExactRoute(AnyHttpAction action);
 
     /** Adds an action associated with a prefix match route. */
-    HttpEndpoint& addPrefixRoute(std::string uri, AnyHttpAction action);
+    HttpEndpoint& addPrefixRoute(std::string route, AnyHttpAction action);
 
     /** Specifies the default document root path for serving files. */
     HttpEndpoint& withDocumentRoot(std::string root);
@@ -275,11 +274,11 @@ public:
     /** Generates a human-friendly string of the HTTP address/port. */
     std::string label() const;
 
-    /** Finds the best matching action associated with the given route. */
+    /** Finds the best matching action associated with the given target. */
     template <typename TStringLike>
-    const AnyHttpAction* findAction(const TStringLike& route) const
+    const AnyHttpAction* findAction(const TStringLike& target) const
     {
-        return doFindAction(route.data());
+        return doFindAction(target.data());
     }
 
     /** Finds the error page associated with the given HTTP status code. */

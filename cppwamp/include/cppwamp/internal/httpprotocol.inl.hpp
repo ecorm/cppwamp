@@ -137,17 +137,18 @@ CPPWAMP_INLINE HttpEndpoint::HttpEndpoint(std::string address,
     mutableAcceptorOptions().withReuseAddress(true);
 }
 
-CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::addExactRoute(std::string uri,
-                                                         AnyHttpAction action)
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::addExactRoute(AnyHttpAction action)
 {
-    actionsByExactKey_[std::move(uri)] = action;
+    auto key = action.route();
+    actionsByExactKey_[std::move(key)] = std::move(action);
     return *this;
 }
 
-CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::addPrefixRoute(std::string uri,
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::addPrefixRoute(std::string route,
                                                           AnyHttpAction action)
 {
-    actionsByPrefixKey_[std::move(uri)] = action;
+    auto key = action.route();
+    actionsByPrefixKey_[std::move(key)] = std::move(action);
     return *this;
 }
 
@@ -273,16 +274,16 @@ HttpEndpoint::findErrorPage(HttpStatus status) const
 }
 
 CPPWAMP_INLINE const AnyHttpAction*
-HttpEndpoint::doFindAction(const char* route) const
+HttpEndpoint::doFindAction(const char* target) const
 {
     {
-        auto found = actionsByExactKey_.find(route);
+        auto found = actionsByExactKey_.find(target);
         if (found != actionsByExactKey_.end())
             return &(found.value());
     }
 
     {
-        auto found = actionsByPrefixKey_.longest_prefix(route);
+        auto found = actionsByPrefixKey_.longest_prefix(target);
         if (found != actionsByPrefixKey_.end())
             return &(found.value());
     }

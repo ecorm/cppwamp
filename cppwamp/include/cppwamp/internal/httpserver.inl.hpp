@@ -14,10 +14,27 @@ namespace wamp
 // HttpServeStaticFiles
 //******************************************************************************
 
+CPPWAMP_INLINE HttpServeStaticFiles::HttpServeStaticFiles(std::string route)
+    : route_(std::move(route))
+{}
+
+/** @post `this->path() == path`
+    @post `this->pathIsAlias() == false` */
 CPPWAMP_INLINE HttpServeStaticFiles&
-HttpServeStaticFiles::withDocumentRoot(std::string documentRoot)
+HttpServeStaticFiles::withRoot(std::string path)
 {
-    documentRoot_ = std::move(documentRoot);
+    path_ = std::move(path);
+    pathIsAlias_ = false;
+    return *this;
+}
+
+/** @post `this->path() == path`
+    @post `this->pathIsAlias() == true` */
+CPPWAMP_INLINE HttpServeStaticFiles&
+HttpServeStaticFiles::withAlias(std::string path)
+{
+    path_ = std::move(path);
+    pathIsAlias_ = true;
     return *this;
 }
 
@@ -35,11 +52,23 @@ HttpServeStaticFiles::withMimeTypes(MimeTypeMapper f)
     return *this;
 }
 
-CPPWAMP_INLINE const std::string& HttpServeStaticFiles::documentRoot() const
+CPPWAMP_INLINE const std::string& HttpServeStaticFiles::route() const
 {
-    return documentRoot_;
+    return route_;
 }
 
+CPPWAMP_INLINE bool HttpServeStaticFiles::pathIsAlias() const
+{
+    return pathIsAlias_;
+}
+
+/** If empty, HttpEndpoint::documentRoot is used. */
+CPPWAMP_INLINE const std::string& HttpServeStaticFiles::path() const
+{
+    return path_;
+}
+
+/** If empty, HttpEndpoint::indexFileName is used. */
 CPPWAMP_INLINE const std::string& HttpServeStaticFiles::indexFileName() const
 {
     return indexFileName_;
@@ -101,12 +130,19 @@ HttpServeStaticFiles::defaultMimeType(const std::string& extension) const
 // HttpWebsocketUpgrade
 //******************************************************************************
 
+CPPWAMP_INLINE HttpWebsocketUpgrade::HttpWebsocketUpgrade(std::string route)
+    : route_(std::move(route))
+{}
+
 CPPWAMP_INLINE HttpWebsocketUpgrade&
 HttpWebsocketUpgrade::withMaxRxLength(std::size_t length)
 {
     maxRxLength_ = length;
     return *this;
 }
+
+CPPWAMP_INLINE const std::string& HttpWebsocketUpgrade::route() const
+{return route_;}
 
 CPPWAMP_INLINE std::size_t HttpWebsocketUpgrade::maxRxLength() const
 {
@@ -154,6 +190,11 @@ CPPWAMP_INLINE HttpAction<HttpServeStaticFiles>::HttpAction(
     HttpServeStaticFiles options)
     : options_(options)
 {}
+
+CPPWAMP_INLINE std::string HttpAction<HttpServeStaticFiles>::route() const
+{
+    return options_.route();
+}
 
 void CPPWAMP_INLINE
 HttpAction<HttpServeStaticFiles>::execute(HttpJob& job)
@@ -227,6 +268,42 @@ HttpAction<HttpServeStaticFiles>::checkRequest(HttpJob& job) const
     return true;
 }
 
+CPPWAMP_INLINE std::string
+HttpAction<HttpServeStaticFiles>::buildPath(const HttpEndpoint& settings,
+                                            const std::string& target) const
+{
+    std::string path;
+    if (options_.path().empty())
+    {
+        path = httpStaticFilePath(settings.documentRoot(), target);
+    }
+    else
+    {
+        if (options_.pathIsAlias())
+        {
+            // Substitute route portion of target with alias path
+            auto routeLength = options_.route().length();
+            assert(target.length() >= routeLength);
+            std::string base = options_.path();
+            base += target.substr(target.length() - routeLength);
+        }
+        else
+        {
+            // Append target to root path
+            path = httpStaticFilePath(options_.path(), target);
+        }
+    }
+
+    if (target.back() == '/')
+    {
+        if (!options_.indexFileName().empty())
+            path.append(options_.indexFileName());
+        else
+            path.append(settings.indexFileName());
+    }
+    return path;
+}
+
 template <typename TBody>
 bool HttpAction<HttpServeStaticFiles>::openFile(
     HttpJob& job, const std::string& path, TBody& fileBody) const
@@ -260,26 +337,6 @@ bool HttpAction<HttpServeStaticFiles>::openFile(
 }
 
 CPPWAMP_INLINE std::string
-HttpAction<HttpServeStaticFiles>::buildPath(const HttpEndpoint& settings,
-                                            const std::string& target) const
-{
-    std::string path;
-    if (options_.documentRoot().empty())
-        path = httpStaticFilePath(settings.documentRoot(), target);
-    else
-        path = httpStaticFilePath(options_.documentRoot(), target);
-
-    if (target.back() == '/')
-    {
-        if (!options_.indexFileName().empty())
-            path.append(options_.indexFileName());
-        else
-            path.append(settings.indexFileName());
-    }
-    return path;
-}
-
-CPPWAMP_INLINE std::string
 HttpAction<HttpServeStaticFiles>::lookupMimeType(const std::string& path) const
 {
     std::string extension;
@@ -297,6 +354,11 @@ HttpAction<HttpServeStaticFiles>::lookupMimeType(const std::string& path) const
 CPPWAMP_INLINE HttpAction<HttpWebsocketUpgrade>::HttpAction(
     HttpWebsocketUpgrade options)
     : options_(options) {}
+
+CPPWAMP_INLINE std::string HttpAction<HttpWebsocketUpgrade>::route() const
+{
+    return options_.route();
+}
 
 CPPWAMP_INLINE void HttpAction<HttpWebsocketUpgrade>::execute(HttpJob& job)
 {
