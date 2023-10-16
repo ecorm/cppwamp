@@ -17,6 +17,7 @@
 #include "../api.hpp"
 #include "socketendpoint.hpp"
 #include "tcpprotocol.hpp"
+#include "websocketprotocol.hpp"
 #include "../utils/triemap.hpp"
 #include "../internal/polymorphichttpaction.hpp"
 
@@ -283,6 +284,14 @@ public:
 
     /** Finds the error page associated with the given HTTP status code. */
     const ErrorPage* findErrorPage(HttpStatus status) const;
+
+    /** Converts to settings for use in Websocket upgrade requests. */
+    WebsocketEndpoint toWebsocket() const
+    {
+        return WebsocketEndpoint{address(), port()}
+            .withAgent(agent_)
+            .withHttpHeaderLimit(headerLimit_);
+    }
 
 private:
     using Base = SocketEndpoint<HttpEndpoint, Http, TcpOptions,

@@ -372,7 +372,7 @@ CPPWAMP_INLINE void HttpAction<HttpWebsocketUpgrade>::execute(HttpJob& job)
             {{boost::beast::http::field::upgrade, "websocket"}});
     }
 
-    // TODO: Hand off upgrade to new WebsocketServerTransport
+    job.websocketUpgrade();
 };
 
 } // namespace internal

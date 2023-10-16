@@ -109,10 +109,18 @@ public:
             });
     }
 
-    void upgrade(Transporting::Ptr transport, int codecId)
+    void websocketUpgrade()
     {
-        upgradedTransport_ = std::move(transport);
-        finish(AdmitResult::wamp(codecId));
+        auto self = shared_from_this();
+        auto wsEndpoint =
+            std::make_shared<WebsocketEndpoint>(settings_->toWebsocket());
+        auto t = std::make_shared<WebsocketServerTransport>(
+            std::move(tcpSocket_), std::move(wsEndpoint), codecIds_, logger_);
+        upgradedTransport_ = t;
+        assert(parser_.has_value());
+        t->upgrade(
+            parser_->get(),
+            [this, self](AdmitResult result) {finish(result);});
     }
 
     void balk(

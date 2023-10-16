@@ -377,6 +377,8 @@ public:
     using SettingsPtr     = std::shared_ptr<Settings>;
     using WebsocketSocket = boost::beast::websocket::stream<TcpSocket>;
     using Handler         = AnyCompletionHandler<void (AdmitResult)>;
+    using UpgradeRequest =
+        boost::beast::http::request<boost::beast::http::string_body>;
 
     WebsocketAdmitter(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c)
         : tcpSocket_(std::move(t)),
@@ -425,6 +427,12 @@ public:
 
         if (ec != boost::asio::error::operation_aborted)
             fail(static_cast<std::error_code>(ec), "timer wait");
+    }
+
+    void upgrade(const UpgradeRequest& request, Handler handler)
+    {
+        handler_ = std::move(handler);
+        performUpgrade(request);
     }
 
     const TransportInfo& transportInfo() const {return transportInfo_;}
@@ -491,9 +499,14 @@ private:
                           AdmitResult::shedded());
         }
 
+        performUpgrade(requestParser_->get());
+    }
+
+    template <typename TRequest>
+    void performUpgrade(const TRequest& request)
+    {
         // Parse the subprotocol to determine the peer's desired codec
         using boost::beast::http::field;
-        const auto& request = requestParser_->get();
         auto found = request.base().find(field::sec_websocket_protocol);
         if (found == request.base().end())
         {
@@ -624,9 +637,11 @@ private:
 class WebsocketServerTransport : public WebsocketTransport
 {
 public:
-    using Ptr = std::shared_ptr<WebsocketServerTransport>;
-    using Settings = WebsocketEndpoint;
+    using Ptr         = std::shared_ptr<WebsocketServerTransport>;
+    using Settings    = WebsocketEndpoint;
     using SettingsPtr = std::shared_ptr<WebsocketEndpoint>;
+    using UpgradeRequest =
+        boost::beast::http::request<boost::beast::http::string_body>;
 
     WebsocketServerTransport(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
                              RouterLogger::Ptr l)
@@ -634,6 +649,27 @@ public:
           admitter_(std::make_shared<WebsocketAdmitter>(std::move(t),
                                                         std::move(s), c))
     {}
+
+    void upgrade(const UpgradeRequest& request, AdmitHandler handler)
+    {
+        assert((admitter_ != nullptr) && "Admit already performed");
+
+        struct Admitted
+        {
+            AdmitHandler handler;
+            Ptr self;
+
+            void operator()(AdmitResult result)
+            {
+                self->onAdmissionCompletion(result, handler);
+            }
+        };
+
+        auto self = std::dynamic_pointer_cast<WebsocketServerTransport>(
+            this->shared_from_this());
+        admitter_->upgrade(request,
+                           Admitted{std::move(handler), std::move(self)});
+    }
 
 private:
     using Base = WebsocketTransport;

@@ -176,6 +176,7 @@ private:
     using Base = SocketEndpoint<WebsocketEndpoint, Websocket, TcpOptions,
                                 std::size_t, 16*1024*1024>;
 
+    // Maintenance note: Keep HttpEndpoint::toWebsocket in sync with changes.
     std::string agent_;
     uint32_t httpHeaderLimit_ = 0;
 };
