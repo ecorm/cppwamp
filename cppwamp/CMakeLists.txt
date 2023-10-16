@@ -210,6 +210,7 @@ set(INLINES
     include/cppwamp/internal/tcpclient.inl.hpp
     include/cppwamp/internal/tcpprotocol.inl.hpp
     include/cppwamp/internal/tcpserver.inl.hpp
+    include/cppwamp/internal/transport.inl.hpp
     include/cppwamp/internal/udsclient.inl.hpp
     include/cppwamp/internal/udsprotocol.inl.hpp
     include/cppwamp/internal/udsserver.inl.hpp

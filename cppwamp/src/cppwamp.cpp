@@ -49,6 +49,7 @@
 #include <cppwamp/internal/tcpclient.inl.hpp>
 #include <cppwamp/internal/tcpprotocol.inl.hpp>
 #include <cppwamp/internal/tcpserver.inl.hpp>
+#include <cppwamp/internal/transport.inl.hpp>
 #include <cppwamp/internal/variant.inl.hpp>
 #include <cppwamp/internal/version.inl.hpp>
 #include <cppwamp/internal/wildcarduri.inl.hpp>
