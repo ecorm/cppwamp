@@ -7,4 +7,4 @@
 add_executable(cppwamp-example-router main.cpp)
 
 target_link_libraries(cppwamp-example-router
-                      PRIVATE CppWAMP::core CppWAMP::coro-usage)
+                      PRIVATE CppWAMP::core)

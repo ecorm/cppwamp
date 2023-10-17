@@ -8,6 +8,7 @@ add_subdirectory(asynctimeclient)
 add_subdirectory(asynctimeservice)
 add_subdirectory(futuretimeclient)
 add_subdirectory(futuretimeservice)
+add_subdirectory(webserver)
 add_subdirectory(router)
 
 # Convenience target that groups all examples
@@ -17,7 +18,8 @@ add_dependencies(cppwamp_examples
                  cppwamp-example-asynctimeservice
                  cppwamp-example-futuretimeclient
                  cppwamp-example-futuretimeservice
-                 cppwamp-example-router)
+                 cppwamp-example-router
+                 cppwamp-example-webserver)
 
 if(CPPWAMP_OPT_WITH_CORO)
     add_subdirectory(chat)

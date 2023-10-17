@@ -115,27 +115,27 @@ HttpServeStaticFiles::defaultMimeType(const std::string& extension) const
 {
     static const std::map<std::string, std::string> table =
     {
-        {"bmp",  "image/bmp"},
-        {"css",  "text/css"},
-        {"flv",  "video/x-flv"},
-        {"gif",  "image/gif"},
-        {"htm",  "text/html"},
-        {"html", "text/html"},
-        {"ico",  "image/vnd.microsoft.icon"},
-        {"jpe",  "image/jpeg"},
-        {"jpeg", "image/jpeg"},
-        {"jpg",  "image/jpeg"},
-        {"js",   "application/javascript"},
-        {"json", "application/json"},
-        {"php",  "text/html"},
-        {"png",  "image/png"},
-        {"svg",  "image/svg+xml"},
-        {"svgz", "image/svg+xml"},
-        {"swf",  "application/x-shockwave-flash"},
-        {"tif",  "image/tiff"},
-        {"tiff", "image/tiff"},
-        {"txt",  "text/plain"},
-        {"xml",  "application/xml"}
+        {".bmp",  "image/bmp"},
+        {".css",  "text/css"},
+        {".flv",  "video/x-flv"},
+        {".gif",  "image/gif"},
+        {".htm",  "text/html"},
+        {".html", "text/html"},
+        {".ico",  "image/vnd.microsoft.icon"},
+        {".jpe",  "image/jpeg"},
+        {".jpeg", "image/jpeg"},
+        {".jpg",  "image/jpeg"},
+        {".js",   "application/javascript"},
+        {".json", "application/json"},
+        {".php",  "text/html"},
+        {".png",  "image/png"},
+        {".svg",  "image/svg+xml"},
+        {".svgz", "image/svg+xml"},
+        {".swf",  "application/x-shockwave-flash"},
+        {".tif",  "image/tiff"},
+        {".tiff", "image/tiff"},
+        {".txt",  "text/plain"},
+        {".xml",  "application/xml"}
     };
 
     auto found = table.find(extension);
@@ -224,10 +224,13 @@ struct HttpAction<HttpServeStaticFiles>::HttpServeStaticFilesImpl
         bool hasFilename = buildPath(job.settings(), options, req.target(),
                                      path);
         if (!openFile(job, path, body, found))
-        {
-            if (!found && options.autoIndex() && !hasFilename)
-                return listDirectory(job, options, path.remove_filename());
             return;
+
+        if (!found)
+        {
+            if (options.autoIndex() && !hasFilename)
+                return listDirectory(job, options, path.remove_filename());
+            return job.balk(HttpStatus::notFound);
         }
 
         // Extract the file extension and lookup its MIME type
@@ -269,23 +272,23 @@ private:
         const auto& req = job.request();
         if (beast::websocket::is_upgrade(req))
         {
-            job.balk(HttpStatus::badRequest, "Not a Websocket resource");
+            job.balk(HttpStatus::badRequest, "Not a Websocket resource", true);
             return false;
         }
 
         // Check that request method is supported
-        if (req.method() != http::verb::get || req.method() != http::verb::head)
+        if (req.method() != http::verb::get && req.method() != http::verb::head)
         {
             job.balk(HttpStatus::methodNotAllowed,
                      std::string(req.method_string()) +
-                         " method not allowed on static files");
+                         " method not allowed on static files.");
             return false;
         }
 
         // Request path must be absolute and not contain ".."
         if (req.target().find("..") != beast::string_view::npos)
         {
-            job.balk(HttpStatus::badRequest, "Invalid request-target");
+            job.balk(HttpStatus::badRequest, "Invalid request-target.");
             return false;
         }
 
@@ -319,7 +322,12 @@ private:
             }
         }
 
-        bool hasFilename = path.has_filename();
+        // path::filename differs between Boost.Filesystem v3 and v4
+        Path filename = path.filename();
+        bool hasFilename = !filename.empty() && !filename.filename_is_dot();
+
+        // Append the default index filename if the path corresponds to
+        // a directory.
         if (!hasFilename)
         {
             if (!options.indexFileName().empty())
@@ -340,11 +348,10 @@ private:
         beast::error_code netEc;
         fileBody.open(path.c_str(), beast::file_mode::scan, netEc);
 
-        found = netEc != beast::errc::no_such_file_or_directory;
-        if (!found)
+        if (netEc == beast::errc::no_such_file_or_directory)
         {
-            job.balk(HttpStatus::notFound);
-            return false;
+            found = false;
+            return true;
         }
 
         if (netEc)
@@ -352,11 +359,13 @@ private:
             auto ec = static_cast<std::error_code>(netEc);
             job.balk(
                 HttpStatus::internalServerError,
-                "An error occurred on the server while processing the request",
+                "An error occurred on the server while processing the request.",
                 false, {}, AdmitResult::failed(ec, "file open"));
+            found = false;
             return false;
         }
 
+        found = true;
         return true;
     }
 
@@ -369,7 +378,7 @@ private:
         if (!fs::exists(status) || !fs::is_directory(status))
             return job.balk(HttpStatus::notFound);
 
-        auto page = startDirectoryListing(job.request());
+        auto page = startDirectoryListing(job);
 
         boost::system::error_code sysEc;
         for (const auto& entry : fs::directory_iterator(directory, sysEc))
@@ -384,9 +393,9 @@ private:
         if (sysEc)
         {
             auto ec = static_cast<std::error_code>(sysEc);
-            job.balk(
+            return job.balk(
                 HttpStatus::internalServerError,
-                "An error occurred on the server while processing the request",
+                "An error occurred on the server while processing the request.",
                 false, {}, AdmitResult::failed(ec, "list directory"));
         }
 
@@ -394,12 +403,15 @@ private:
         job.respond(std::move(page));
     }
 
-    static StringResponse startDirectoryListing(const HttpJob::Request& req)
+    static StringResponse startDirectoryListing(HttpJob& job)
     {
+        namespace http = boost::beast::http;
+
+        auto req = job.request();
         std::string dir{req.target()};
 
-        return StringResponse{
-            boost::beast::http::status::ok,
+        StringResponse res{
+            http::status::ok,
             req.version(),
             "<html>\n"
             "<head><title>Index of " + dir + "</title></head>\n"
@@ -407,6 +419,11 @@ private:
             "<h1>Index of " + dir + "</h1>\n"
             "<hr>\n"
             "<pre>\n"};
+
+        res.base().set(http::field::server, job.settings().agent());
+        res.set(http::field::content_type, "text/html");
+        res.keep_alive(req.keep_alive());
+        return res;
     }
 
     static std::error_code addDirectoryEntry(
@@ -426,7 +443,8 @@ private:
         bool isDirectory = fs::is_directory(status);
 
         // Name column
-        auto name = entry.path().generic_path().string();
+        // TODO: Hyperlinks
+        auto name = entry.path().filename().string();
         if (name.length() > nameWidth)
         {
             name.resize(nameWidth - 3);
@@ -467,6 +485,7 @@ private:
                        "<hr>\n"
                        "</body>\n"
                        "</html>";
+        page.prepare_payload();
     }
 };
 
@@ -508,7 +527,7 @@ CPPWAMP_INLINE void HttpAction<HttpWebsocketUpgrade>::execute(HttpJob& job)
     {
         return job.balk(
             HttpStatus::upgradeRequired,
-            "Upgrade field required for accessing Websocket resource",
+            "Upgrade field required for accessing Websocket resource.",
             false,
             {{boost::beast::http::field::upgrade, "websocket"}});
     }

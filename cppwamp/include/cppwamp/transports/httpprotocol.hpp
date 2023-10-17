@@ -224,7 +224,7 @@ public:
     HttpEndpoint& addExactRoute(AnyHttpAction action);
 
     /** Adds an action associated with a prefix match route. */
-    HttpEndpoint& addPrefixRoute(std::string route, AnyHttpAction action);
+    HttpEndpoint& addPrefixRoute(AnyHttpAction action);
 
     /** Specifies the default document root path for serving files. */
     HttpEndpoint& withDocumentRoot(std::string root);
@@ -277,7 +277,7 @@ public:
 
     /** Finds the best matching action associated with the given target. */
     template <typename TStringLike>
-    const AnyHttpAction* findAction(const TStringLike& target) const
+    AnyHttpAction* findAction(const TStringLike& target)
     {
         return doFindAction(target.data());
     }
@@ -297,7 +297,7 @@ private:
     using Base = SocketEndpoint<HttpEndpoint, Http, TcpOptions,
                                 std::size_t, 16*1024*1024>;
 
-    const AnyHttpAction* doFindAction(const char* route) const;
+    AnyHttpAction* doFindAction(const char* route);
 
     void setErrorPage(HttpStatus status, std::string uri, HttpStatus newStatus);
 

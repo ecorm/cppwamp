@@ -14,6 +14,7 @@ target_compile_features(cppwamp-web-headers INTERFACE cxx_std_11)
 target_link_libraries(cppwamp-web-headers
     INTERFACE "$<TARGET_NAME_IF_EXISTS:cppwamp::core>"
               "$<TARGET_NAME_IF_EXISTS:Boost::headers>"
+              "$<TARGET_NAME_IF_EXISTS:Boost::filesystem>"
               "$<TARGET_NAME_IF_EXISTS:Boost::system>"
               "$<TARGET_NAME_IF_EXISTS:Threads::Threads>")
 set_target_properties(cppwamp-web-headers PROPERTIES EXPORT_NAME web)
@@ -49,6 +50,7 @@ else()
         PUBLIC
             "$<TARGET_NAME_IF_EXISTS:cppwamp::core>"
             "$<TARGET_NAME_IF_EXISTS:Boost::headers>"
+            "$<TARGET_NAME_IF_EXISTS:Boost::filesystem>"
             "$<TARGET_NAME_IF_EXISTS:Boost::system>"
             "$<TARGET_NAME_IF_EXISTS:Threads::Threads>")
 

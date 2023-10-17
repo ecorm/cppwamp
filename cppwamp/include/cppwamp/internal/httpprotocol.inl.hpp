@@ -144,24 +144,27 @@ CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::addExactRoute(AnyHttpAction action)
     return *this;
 }
 
-CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::addPrefixRoute(std::string route,
-                                                          AnyHttpAction action)
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::addPrefixRoute(AnyHttpAction action)
 {
     auto key = action.route();
     actionsByPrefixKey_[std::move(key)] = std::move(action);
     return *this;
 }
 
-/** If unset, it is `C:/web/html` on Windows or `/var/wwww/html` otherwise. */
+/** If unset, it is `C:/web/html` on Windows or `/var/wwww/html` otherwise.
+    @pre !root.empty() */
 CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withDocumentRoot(std::string root)
 {
+    CPPWAMP_LOGIC_CHECK(!root.empty(), "Document root cannot be empty");
     documentRoot_ = std::move(root);
     return *this;
 }
 
-/** If unset, it is `index.html`. */
+/** If unset, it is `index.html`.
+    @pre !name.empty() */
 CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withIndexFileName(std::string name)
 {
+    CPPWAMP_LOGIC_CHECK(!name.empty(), "Index filename cannot be empty");
     indexFileName_ = std::move(name);
     return *this;
 }
@@ -273,8 +276,7 @@ HttpEndpoint::findErrorPage(HttpStatus status) const
     return found == errorPages_.end() ? nullptr : &(found->second);
 }
 
-CPPWAMP_INLINE const AnyHttpAction*
-HttpEndpoint::doFindAction(const char* target) const
+CPPWAMP_INLINE AnyHttpAction* HttpEndpoint::doFindAction(const char* target)
 {
     {
         auto found = actionsByExactKey_.find(target);

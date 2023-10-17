@@ -194,7 +194,7 @@ inline void outputFileTimestamp(std::time_t time, std::ostream& out)
 #else
     std::tm* tmb = std::localtime(&time);
 #endif
-    out << std::put_time(tmb, "%FT%H:%M");
+    out << std::put_time(tmb, "%F %H:%M");
 }
 
 } // namespace internal
