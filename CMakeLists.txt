@@ -80,7 +80,7 @@ already imported by a superproject, find_package calls will be skipped."
 OFF)
 
 option(CPPWAMP_OPT_WITH_WEB
-"Adds the Boost.Beast dependency and builds tests/examples \
+"Adds the Boost.Beast Boost.Filesystem dependencies and builds tests/examples \
 that depend on it"
 ON)
 

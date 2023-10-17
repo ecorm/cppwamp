@@ -16,6 +16,7 @@
 #include <boost/beast/http/message_generator.hpp>
 #include <boost/beast/http/parser.hpp>
 #include <boost/beast/http/string_body.hpp>
+#include <boost/filesystem/path.hpp>
 #include "../routerlogger.hpp"
 #include "../transports/httpprotocol.hpp"
 #include "tcptraits.hpp"
@@ -26,34 +27,6 @@ namespace wamp
 
 namespace internal
 {
-
-//------------------------------------------------------------------------------
-inline std::string httpStaticFilePath(boost::beast::string_view base,
-                                      boost::beast::string_view path)
-{
-    if (base.empty())
-        return std::string{path};
-
-#ifdef _WIN32
-    constexpr char separator = '\\';
-#else
-    constexpr char separator = '/';
-#endif
-
-    std::string result{base};
-    if (result.back() == separator)
-        result.resize(result.size() - 1);
-    result.append(path.data(), path.size());
-
-#ifdef _WIN32
-    for (auto& c: result)
-    {
-        if (c == '/')
-            c = separator;
-    }
-#endif
-    return result;
-}
 
 //------------------------------------------------------------------------------
 class HttpJob : public std::enable_shared_from_this<HttpJob>
@@ -321,8 +294,9 @@ private:
 
         beast::error_code netEc;
         http::file_body::value_type body;
-        path = httpStaticFilePath(settings().documentRoot(), path);
-        body.open(path.c_str(), beast::file_mode::scan, netEc);
+        boost::filesystem::path absolutePath{settings().documentRoot()};
+        absolutePath /= path;
+        body.open(absolutePath.c_str(), beast::file_mode::scan, netEc);
 
         if (netEc)
         {

@@ -22,6 +22,11 @@ string(CONCAT CPPWAMP_BOOST_URL
     "https://boostorg.jfrog.io/artifactory/main/release/"
     "${CPPWAMP_VENDORIZED_BOOST_VERSION}/source/${CPPWAMP_BOOST_FILE_STEM}.tar.bz2")
 
+if(CPPWAMP_OPT_WITH_WEB)
+    list(APPEND CPPWAMP_BOOST_COMPONENTS filesystem)
+    list(APPEND CPPWAMP_BOOST_BUILD_COMPONENT_ARGS
+        "--with-filesystem")
+endif()
 if(CPPWAMP_OPT_WITH_CORO)
     list(APPEND CPPWAMP_BOOST_COMPONENTS coroutine context thread)
     list(APPEND CPPWAMP_BOOST_BUILD_COMPONENT_ARGS

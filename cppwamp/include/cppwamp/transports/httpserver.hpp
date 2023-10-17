@@ -47,6 +47,9 @@ public:
     /** Specifies the index file name. */
     HttpServeStaticFiles& withIndexFileName(std::string name);
 
+    /** Enables automatic directory listing. */
+    HttpServeStaticFiles& withAutoIndex(bool enabled = true);
+
     /** Specifies the mapping function for determining MIME type based on
         file extension. */
     HttpServeStaticFiles& withMimeTypes(MimeTypeMapper f);
@@ -63,7 +66,8 @@ public:
     /** Obtains the index file name. */
     const std::string& indexFileName() const;
 
-    // TODO: Automatic directory listing (aka 'autoindex')
+    /** Determines if automatic directory listing is enabled. */
+    bool autoIndex() const;
 
     /** Obtains the MIME type associated with the given path. */
     std::string lookupMimeType(std::string extension) const;
@@ -78,6 +82,7 @@ private:
     std::string indexFileName_;
     MimeTypeMapper mimeTypeMapper_;
     bool pathIsAlias_ = false;
+    bool autoIndex_ = false;
 };
 
 
@@ -161,16 +166,7 @@ public:
     void execute(HttpJob& job);
 
 private:
-    bool checkRequest(HttpJob& job) const;
-
-    std::string buildPath(const HttpEndpoint& settings,
-                          const std::string& target) const;
-
-    template <typename TBody>
-    bool openFile(HttpJob& job, const std::string& path, TBody& fileBody) const;
-
-    std::string lookupMimeType(const std::string& path) const;
-
+    struct HttpServeStaticFilesImpl;
     HttpServeStaticFiles options_;
 };
 

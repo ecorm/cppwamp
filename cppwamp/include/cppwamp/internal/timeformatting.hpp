@@ -18,12 +18,12 @@
 #include <sstream>
 
 #if _DEFAULT_SOURCE || _BSD_SOURCE || _SVID_SOURCE
-    #define CPPWAMP_HAS_TIMEGM
+#define CPPWAMP_HAS_TIMEGM
 #endif
 
 #if _POSIX_C_SOURCE >= 1 || _XOPEN_SOURCE || _BSD_SOURCE || _SVID_SOURCE || \
-    _POSIX_SOURCE
-    #define CPPWAMP_HAS_GMTIME_R
+_POSIX_SOURCE
+#define CPPWAMP_HAS_GMTIME_R
 #endif
 
 namespace wamp
@@ -182,6 +182,19 @@ inline bool parseRfc3339Timestamp(const std::string& s,
     std::istringstream iss{s};
     inputRfc3339Timestamp(iss, when);
     return static_cast<bool>(iss);
+}
+
+//------------------------------------------------------------------------------
+inline void outputFileTimestamp(std::time_t time, std::ostream& out)
+{
+#ifdef CPPWAMP_HAS_GMTIME_R
+    std::tm tmbResult; // NOLINT(cppcoreguidelines-pro-type-member-init)
+    std::memset(&tmbResult, 0, sizeof(tmbResult));
+    std::tm* tmb = ::localtime_r(&time, &tmbResult);
+#else
+    std::tm* tmb = std::localtime(&time);
+#endif
+    out << std::put_time(tmb, "%FT%H:%M");
 }
 
 } // namespace internal
