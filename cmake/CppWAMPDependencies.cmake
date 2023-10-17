@@ -13,17 +13,16 @@ set(FETCHCONTENT_QUIET OFF CACHE INTERNAL "")
 set(CPPWAMP_MINIMUM_BOOST_VERSION 1.81.0)
 set(CPPWAMP_MINIMUM_JSONCONS_VERSION 0.170.1)
 
-set(CPPWAMP_VENDORIZED_BOOST_VERSION 1.82.0)
+set(CPPWAMP_VENDORIZED_BOOST_VERSION 1.83.0)
 set(CPPWAMP_VENDORIZED_BOOST_SHA256
-    "a6e1ab9b0860e6a2881dd7b21fe9f737a095e5f33a3a874afc6a345228597ee6")
+    "0c6049764e80aa32754acd7d4f179fd5551d8172a83b71532ae093e7384e98da")
 
-string(REPLACE "." "_" CPPWAMP_BOOST_FILE_STEM "boost_${CPPWAMP_VENDORIZED_BOOST_VERSION}")
 string(CONCAT CPPWAMP_BOOST_URL
-    "https://boostorg.jfrog.io/artifactory/main/release/"
-    "${CPPWAMP_VENDORIZED_BOOST_VERSION}/source/${CPPWAMP_BOOST_FILE_STEM}.tar.bz2")
+    "https://github.com/boostorg/boost/releases/download/"
+    "boost-${CPPWAMP_VENDORIZED_BOOST_VERSION}/boost-${CPPWAMP_VENDORIZED_BOOST_VERSION}.tar.gz")
 
 if(CPPWAMP_OPT_WITH_WEB)
-    list(APPEND CPPWAMP_BOOST_COMPONENTS filesystem)
+    list(APPEND CPPWAMP_BOOST_COMPONENTS beast filesystem)
     list(APPEND CPPWAMP_BOOST_BUILD_COMPONENT_ARGS
         "--with-filesystem")
 endif()
@@ -34,7 +33,7 @@ if(CPPWAMP_OPT_WITH_CORO)
         "--with-coroutine"
         "--with-thread")
 endif()
-list(APPEND CPPWAMP_BOOST_COMPONENTS system)
+list(APPEND CPPWAMP_BOOST_COMPONENTS asio system)
 list(APPEND CPPWAMP_BOOST_BUILD_COMPONENT_ARGS
     "--with-system")
 
@@ -51,6 +50,34 @@ set(CPPWAMP_JSONCONS_VENDOR_DIR ${PROJECT_SOURCE_DIR}/_stage/jsoncons)
 set(CPPWAMP_CATCH2_VENDOR_DIR ${PROJECT_SOURCE_DIR}/_stage/catch2)
 
 #-------------------------------------------------------------------------------
+# Builds an already downloaded CMake project.
+#-------------------------------------------------------------------------------
+function(cppwamp_build_dependency source_dir build_dir install_dir compile options)
+
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} "-S${source_dir}" "-B${build_dir}"
+                "-DCMAKE_INSTALL_PREFIX=${install_dir}" "${options}"
+        COMMAND_ECHO STDOUT
+        WORKING_DIRECTORY ${source_dir}
+    )
+
+    if(compile)
+        execute_process(
+            COMMAND ${CMAKE_COMMAND} --build ${build_dir}
+            COMMAND_ECHO STDOUT
+            WORKING_DIRECTORY ${source_dir}
+        )
+    endif()
+
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} --install ${build_dir}
+        COMMAND_ECHO STDOUT
+        WORKING_DIRECTORY ${source_dir}
+    )
+
+endfunction()
+
+#-------------------------------------------------------------------------------
 # Finds the vendorized Boost package
 #-------------------------------------------------------------------------------
 macro(cppwamp_find_vendorized_boost)
@@ -61,67 +88,15 @@ macro(cppwamp_find_vendorized_boost)
         set(Boost_USE_STATIC_LIBS ON)
     endif()
 
+    set(BOOST_ROOT "${CPPWAMP_BOOST_VENDOR_DIR}")
+    set(Boost_NO_SYSTEM_PATHS "${CPPWAMP_BOOST_VENDOR_DIR}")
+
     find_package(Boost
-        ${CPPWAMP_VENDORIZED_BOOST_VERSION}
-        EXACT
+        ${CPPWAMP_VENDORIZED_BOOST_VERSION} EXACT
         COMPONENTS ${CPPWAMP_BOOST_COMPONENTS}
-        CONFIG
-        PATHS ${CPPWAMP_BOOST_VENDOR_DIR}
-        NO_DEFAULT_PATH)
+    )
 
 endmacro()
-
-#-------------------------------------------------------------------------------
-# Builds an already downloaded Boost.
-#-------------------------------------------------------------------------------
-function(cppwamp_build_boost source_dir build_dir install_dir)
-
-    if(WIN32)
-        set(CPPWAMP_BOOST_BOOTSTRAP_COMMAND bootstrap.bat)
-        set(CPPWAMP_BOOST_B2_COMMAND b2.exe)
-    else()
-        set(CPPWAMP_BOOST_BOOTSTRAP_COMMAND ./bootstrap.sh)
-        set(CPPWAMP_BOOST_B2_COMMAND ./b2)
-    endif()
-
-    list(APPEND CPPWAMP_BOOST_BUILD_ARGS
-        ${CPPWAMP_BOOST_BUILD_COMPONENT_ARGS}
-        "--build_dir=${build_dir}"
-        "--prefix=${install_dir}"
-        "variant=release"
-        "threading=multi"
-        "install"
-    )
-
-    if(BUILD_SHARED_LIBS)
-        list(APPEND CPPWAMP_BOOST_BUILD_ARGS "link=shared")
-    else()
-        list(APPEND CPPWAMP_BOOST_BUILD_ARGS "link=static" "cxxflags=-fPIC")
-    endif()
-
-    list(APPEND CPPWAMP_BOOST_BUILD_ARGS "stage")
-
-    if(NOT "${CPPWAMP_OPT_BOOST_CONFIG}" STREQUAL "")
-        list(APPEND CPPWAMP_BOOST_BUILD_ARGS
-             "--user-config=${CPPWAMP_OPT_BOOST_CONFIG}")
-    endif()
-
-    if(NOT "${CPPWAMP_OPT_BOOST_JOBS}" STREQUAL "")
-        list(APPEND CPPWAMP_BOOST_BUILD_ARGS
-               "-j${CPPWAMP_OPT_BOOST_JOBS}")
-    endif()
-
-    execute_process(
-        COMMAND ${CPPWAMP_BOOST_BOOTSTRAP_COMMAND}
-        WORKING_DIRECTORY ${source_dir}
-    )
-
-    execute_process(
-        COMMAND ${CPPWAMP_BOOST_B2_COMMAND} ${CPPWAMP_BOOST_BUILD_ARGS}
-        WORKING_DIRECTORY ${source_dir}
-    )
-
-endfunction()
 
 #-------------------------------------------------------------------------------
 # Finds or fetches/builds the Boost dependency.
@@ -129,61 +104,46 @@ endfunction()
 macro(cppwamp_resolve_boost_dependency)
 
     if(CPPWAMP_OPT_VENDORIZE)
-        # Avoid downloading/building Boost if it has already been done
-        # in a previous configuration run.
         cppwamp_find_vendorized_boost()
         if(NOT Boost_FOUND)
-            FetchContent_Declare(fetchboost
-                URL ${CPPWAMP_BOOST_URL}
-                URL_HASH SHA256=${CPPWAMP_VENDORIZED_BOOST_SHA256})
+            FetchContent_Declare(
+                    fetchboost
+                    URL ${CPPWAMP_BOOST_URL}
+                    URL_HASH SHA256=${CPPWAMP_VENDORIZED_BOOST_SHA256}
+                    DOWNLOAD_EXTRACT_TIMESTAMP ON)
             FetchContent_GetProperties(fetchboost)
-            if(NOT fetchboost_POPULATED)
+            if(NOT fetchboost)
                 FetchContent_Populate(fetchboost)
             endif()
-            message("CppWAMP is building Boost version "
-                    "${CPPWAMP_VENDORIZED_BOOST_VERSION}...")
-            cppwamp_build_boost(${fetchboost_SOURCE_DIR}
-                                ${fetchboost_BINARY_DIR}
-                                ${CPPWAMP_BOOST_VENDOR_DIR})
+            message("CppWAMP is building Boost...")
+            list(APPEND CPPWAMP_BOOST_OPTIONS
+                 "-DBOOST_INCLUDE_LIBRARIES=${CPPWAMP_BOOST_COMPONENTS}")
+            cppwamp_build_dependency(${fetchboost_SOURCE_DIR}
+                                     ${fetchboost_BINARY_DIR}
+                                     ${CPPWAMP_BOOST_VENDOR_DIR}
+                                     ON
+                                     "${CPPWAMP_BOOST_OPTIONS}")
             cppwamp_find_vendorized_boost()
         endif()
     else()
-        # Bypass find_package if a parent project has already imported Boost
+        # Bypass find_package if a parent project has already imported boost
         if(NOT TARGET Boost::system)
-            if(NOT BUILD_SHARED_LIBS)
+            if(BUILD_SHARED_LIBS)
+                set(Boost_USE_STATIC_LIBS OFF)
+            else()
                 set(Boost_USE_STATIC_LIBS ON)
             endif()
-            find_package(Boost ${CPPWAMP_MINIMUM_BOOST_VERSION}
+            find_package(Boost
+                ${CPPWAMP_MINIMUM_BOOST_VERSION}
                 COMPONENTS ${CPPWAMP_BOOST_COMPONENTS})
-            if(NOT Boost_FOUND)
+            if(NOT ${Boost_FOUND})
                 message(WARNING
-"Cannot find all required Boost libraries. Please either define Boost_ROOT or \
+"Cannot find Boost libraries. Please either define BOOST_ROOT or \
 enable CPPWAMP_OPT_VENDORIZE")
             endif()
         endif()
     endif()
-
 endmacro()
-
-#-------------------------------------------------------------------------------
-# Builds an already downloaded CMake project.
-#-------------------------------------------------------------------------------
-function(cppwamp_build_dependency source_dir build_dir install_dir options)
-
-    execute_process(
-        COMMAND ${CMAKE_COMMAND} "-S${source_dir}" "-B${build_dir}"
-                "-DCMAKE_INSTALL_PREFIX=${install_dir}" ${options}
-        COMMAND_ECHO STDOUT
-        WORKING_DIRECTORY ${source_dir}
-    )
-
-    execute_process(
-        COMMAND ${CMAKE_COMMAND} --install ${build_dir}
-        COMMAND_ECHO STDOUT
-        WORKING_DIRECTORY ${source_dir}
-    )
-
-endfunction()
 
 #-------------------------------------------------------------------------------
 # Finds the vendorized jsoncons package
@@ -219,6 +179,7 @@ macro(cppwamp_resolve_jsoncons_dependency)
             cppwamp_build_dependency(${fetchjsoncons_SOURCE_DIR}
                                      ${fetchjsoncons_BINARY_DIR}
                                      ${CPPWAMP_JSONCONS_VENDOR_DIR}
+                                     OFF
                                      "${CPPWAMP_JSONCONS_OPTIONS}")
             cppwamp_find_vendorized_jsoncons()
         endif()
@@ -287,6 +248,7 @@ macro(cppwamp_resolve_catch2_dependency)
             cppwamp_build_dependency(${fetchcatch2_SOURCE_DIR}
                                      ${fetchcatch2_BINARY_DIR}
                                      ${CPPWAMP_CATCH2_VENDOR_DIR}
+                                     OFF
                                      "${CPPWAMP_CATCH2_OPTIONS}")
             cppwamp_find_vendorized_catch2()
         endif()
@@ -344,10 +306,14 @@ macro(cppwamp_resolve_dependencies)
         unset(Boost_INCLUDE_DIR CACHE)
         unset(Boost_LIBRARY_DIR_DEBUG CACHE)
         unset(Boost_LIBRARY_DIR_RELEASE CACHE)
+        unset(Boost_ATOMIC_LIBRARY_DEBUG CACHE)
+        unset(Boost_ATOMIC_LIBRARY_RELEASE CACHE)
         unset(Boost_CONTEXT_LIBRARY_DEBUG CACHE)
         unset(Boost_CONTEXT_LIBRARY_RELEASE CACHE)
         unset(Boost_COROUTINE_LIBRARY_DEBUG CACHE)
         unset(Boost_COROUTINE_LIBRARY_RELEASE CACHE)
+        unset(Boost_FILESYSTEM_LIBRARY_DEBUG CACHE)
+        unset(Boost_FILESYSTEM_LIBRARY_RELEASE CACHE)
         unset(Boost_SYSTEM_LIBRARY_DEBUG CACHE)
         unset(Boost_SYSTEM_LIBRARY_RELEASE CACHE)
         unset(Boost_THREAD_LIBRARY_DEBUG CACHE)
