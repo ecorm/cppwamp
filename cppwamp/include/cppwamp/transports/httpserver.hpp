@@ -166,7 +166,6 @@ public:
     void execute(HttpJob& job);
 
 private:
-    struct HttpServeStaticFilesImpl;
     HttpServeStaticFiles options_;
 };
 

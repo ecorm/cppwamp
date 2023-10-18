@@ -43,6 +43,7 @@ public:
     using Field       = boost::beast::http::field;
     using StringView  = boost::beast::string_view;
     using FieldList   = std::initializer_list<std::pair<Field, StringView>>;
+    using Path        = boost::filesystem::path;
 
     HttpJob(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
             ConnectionInfo i, RouterLogger::Ptr l)
@@ -55,6 +56,8 @@ public:
     {}
 
     const std::string& route() const {return route_;}
+
+    const Path& target() const {return target_;}
 
     const Request& request() const
     {
@@ -102,20 +105,21 @@ public:
     {
         // Don't send full HTML error page if request was a Websocket upgrade
         if (simple)
-            return sendSimpleError(status, std::move(what), fields);
+            return sendSimpleError(status, std::move(what), fields, result);
 
         namespace http = boost::beast::http;
 
         auto page = settings().findErrorPage(status);
 
         if (page == nullptr)
-            return sendGeneratedError(status, std::move(what), fields);
+            return sendGeneratedError(status, std::move(what), fields, result);
 
         if (page->uri.empty())
-            return sendGeneratedError(page->status, std::move(what), fields);
+            return sendGeneratedError(page->status, std::move(what), fields,
+                                      result);
 
         if (page->isRedirect())
-            return redirectError(page->status, page->uri, fields);
+            return redirectError(page->status, page->uri, fields, result);
 
         return sendErrorFromFile(page->status, std::move(what), page->uri,
                                  fields, result);
@@ -198,11 +202,37 @@ private:
                         "Connection limit exceeded", isUpgrade, {});
         }
 
-        auto target = parser_->get().target();
-        auto* action = settings_->findAction(target);
+        if (!normalizeAndCheckTargetPath())
+            return balk(HttpStatus::badRequest, "Invalid request-target.");
+
+        // Lookup and execute the action associated with the normalized
+        // target path.
+        auto* action = settings_->findAction(target_.generic_string());
         if (action == nullptr)
             return balk(HttpStatus::notFound, {}, isUpgrade, {});
         action->execute(*this);
+    }
+
+    bool normalizeAndCheckTargetPath()
+    {
+        // Normalize the request target path
+        auto target = parser_->get().target();
+        target_ = Path{target.begin(), target.end()};
+        target_ = target_.lexically_normal();
+
+        // Normalize as per v3 if v4 is in effect
+        if (!target_.has_filename())
+            target_ /= ".";
+
+        // Normalized request target path must not contain a dot-dot that
+        // refers to a parent path.
+        for (const auto& elem: target_)
+        {
+            if (elem == "..")
+                return false;
+        }
+
+        return true;
     }
 
     bool check(boost::system::error_code netEc, const char* operation)
@@ -216,7 +246,7 @@ private:
     }
 
     void sendSimpleError(HttpStatus status, std::string&& what,
-                         FieldList fields)
+                         FieldList fields, AdmitResult result)
     {
         namespace http = boost::beast::http;
 
@@ -228,12 +258,11 @@ private:
             response.set(pair.first, pair.second);
 
         response.prepare_payload();
-        sendAndFinish(std::move(response));
+        sendAndFinish(std::move(response), result);
     }
 
     void sendGeneratedError(HttpStatus status, std::string&& what,
-                            FieldList fields,
-                            AdmitResult result = AdmitResult::responded())
+                            FieldList fields, AdmitResult result)
     {
         namespace http = boost::beast::http;
 
@@ -247,7 +276,7 @@ private:
             response.set(pair.first, pair.second);
 
         response.prepare_payload();
-        sendAndFinish(std::move(response));
+        sendAndFinish(std::move(response), result);
     }
 
     std::string generateErrorPage(wamp::HttpStatus status,
@@ -272,7 +301,7 @@ private:
     }
 
     void redirectError(HttpStatus status, const std::string& where,
-                       FieldList fields)
+                       FieldList fields, AdmitResult result)
     {
         namespace http = boost::beast::http;
 
@@ -285,7 +314,7 @@ private:
             response.set(pair.first, pair.second);
 
         response.prepare_payload();
-        sendAndFinish(std::move(response));
+        sendAndFinish(std::move(response), result);
     }
 
     void sendErrorFromFile(HttpStatus status, std::string&& what,
@@ -320,7 +349,7 @@ private:
     }
 
     void sendAndFinish(boost::beast::http::message_generator&& response,
-                       AdmitResult result = AdmitResult::responded())
+                       AdmitResult result)
     {
         auto self = shared_from_this();
         boost::beast::async_write(
@@ -348,6 +377,7 @@ private:
     TransportInfo transportInfo_;
     boost::beast::flat_buffer buffer_;
     boost::optional<Parser> parser_;
+    boost::filesystem::path target_;
     std::string route_;
     Handler handler_;
     ConnectionInfo connectionInfo_;

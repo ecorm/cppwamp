@@ -205,183 +205,171 @@ namespace internal
 // HttpServeStaticFiles
 //******************************************************************************
 
-struct HttpAction<HttpServeStaticFiles>::HttpServeStaticFilesImpl
+struct HttpServeStaticFilesImpl
 {
     using Options = HttpServeStaticFiles;
 
-    static void execute(HttpJob& job, const Options& options)
+    HttpServeStaticFilesImpl(HttpJob& job, const Options& options)
+        : job_(job),
+          options_(options)
+    {}
+
+    void execute()
     {
+        namespace fs = boost::filesystem;
         namespace http = boost::beast::http;
 
-        if (!checkRequest(job))
+        if (!checkRequest())
             return;
 
-        // Build file path and attempt to open the file
-        const auto& req = job.request();
-        Path path;
+        buildPath();
+        FileStatus status;
+        if (!stat(absolutePath_, status))
+            return;
+        if (!fs::exists(status))
+            return job_.balk(HttpStatus::notFound);
+
+        bool isDirectory = fs::is_directory(status);
+        if (isDirectory)
+        {
+            absolutePath_ /= indexFileName();
+            if (!stat(absolutePath_, status))
+                return;
+
+            if (!fs::exists(status))
+            {
+                if (!options_.autoIndex())
+                    return job_.balk(HttpStatus::notFound);
+                absolutePath_.remove_filename();
+                return listDirectory();
+            }
+        }
+
         FileBody body;
-        bool found = false;
-        bool hasFilename = buildPath(job.settings(), options, req.target(),
-                                     path);
-        if (!openFile(job, path, body, found))
+        if (!openFile(body))
             return;
 
-        if (!found)
-        {
-            if (options.autoIndex() && !hasFilename)
-                return listDirectory(job, options, path.remove_filename());
-            return job.balk(HttpStatus::notFound);
-        }
+        auto ext = absolutePath_.extension().string();
+        auto mimeType = options_.lookupMimeType(ext);
 
-        // Extract the file extension and lookup its MIME type
-        auto mimeType = options.lookupMimeType(path.extension().string());
-
-        // Respond to HEAD request
-        if (req.method() == http::verb::head)
-        {
-            http::response<http::empty_body> res{http::status::ok, req.version()};
-            res.set(http::field::server, job.settings().agent());
-            res.set(http::field::content_type, mimeType);
-            res.content_length(body.size());
-            res.keep_alive(req.keep_alive());
-            return job.respond(std::move(res));
-        }
-
-        // Respond to GET request
-        http::response<http::file_body> res{http::status::ok, req.version(),
-                                            std::move(body)};
-        res.set(http::field::server, job.settings().agent());
-        res.set(http::field::content_type, mimeType);
-        res.prepare_payload();
-        res.keep_alive(req.keep_alive());
-        return job.respond(std::move(res));
+        if (job_.request().method() == http::verb::head)
+            return respondToHeadRequest(body, mimeType);
+        respondToGetRequest(body, mimeType);
     };
 
 private:
-    using Path = boost::filesystem::path;
-    using FileBody = boost::beast::http::file_body::value_type;
-    using StringBody = boost::beast::http::string_body;
+    using Path           = boost::filesystem::path;
+    using FileStatus     = boost::filesystem::file_status;
+    using FileBody       = boost::beast::http::file_body::value_type;
+    using StringBody     = boost::beast::http::string_body;
     using StringResponse = boost::beast::http::response<StringBody>;
 
-    static bool checkRequest(HttpJob& job)
+    bool checkRequest()
     {
         namespace beast = boost::beast;
         namespace http = beast::http;
 
+        // HttpJob has already checked that target does not contain
+        // dot-dot parent paths.
+
         // Check that request is not an HTTP upgrade request
-        const auto& req = job.request();
+        const auto& req = job_.request();
         if (beast::websocket::is_upgrade(req))
         {
-            job.balk(HttpStatus::badRequest, "Not a Websocket resource", true);
+            job_.balk(HttpStatus::badRequest, "Not a Websocket resource", true);
             return false;
         }
 
         // Check that request method is supported
         if (req.method() != http::verb::get && req.method() != http::verb::head)
         {
-            job.balk(HttpStatus::methodNotAllowed,
+            job_.balk(HttpStatus::methodNotAllowed,
                      std::string(req.method_string()) +
                          " method not allowed on static files.");
             return false;
         }
 
-        // Request path must be absolute and not contain ".."
-        if (req.target().find("..") != beast::string_view::npos)
-        {
-            job.balk(HttpStatus::badRequest, "Invalid request-target.");
-            return false;
-        }
-
         return true;
     }
 
-    static bool buildPath(const HttpEndpoint& settings, const Options& options,
-                          const std::string& target, Path& path)
+    void buildPath()
     {
-        if (options.path().empty())
+        if (options_.path().empty())
         {
-            path = settings.documentRoot();
-            path /= target;
+            absolutePath_ = Path{job_.settings().documentRoot()} /
+                            job_.target();
         }
         else
         {
-            if (options.pathIsAlias())
+            if (options_.pathIsAlias())
             {
                 // Substitute route portion of target with alias path
-                auto routeLength = options.route().length();
-                assert(target.length() >= routeLength);
-                const auto& alias = options.path();
-                std::string base = alias;
-                path = base + target.substr(target.length() - routeLength);
+                auto routeLen = options_.route().length();
+                auto targetStr = job_.target().generic_string();
+                assert(targetStr.length() >= routeLen);
+                const auto& alias = options_.path();
+                auto targetTailLen = targetStr.length() - routeLen;
+                absolutePath_.assign(alias + targetStr.substr(targetTailLen));
             }
             else
             {
                 // Append target to root path
-                path = options.path();
-                path /= target;
+                absolutePath_ = Path{options_.path()} / job_.target();
             }
         }
-
-        // path::filename differs between Boost.Filesystem v3 and v4
-        Path filename = path.filename();
-        bool hasFilename = !filename.empty() && !filename.filename_is_dot();
-
-        // Append the default index filename if the path corresponds to
-        // a directory.
-        if (!hasFilename)
-        {
-            if (!options.indexFileName().empty())
-                path /= options.indexFileName();
-            else
-                path /= settings.indexFileName();
-        }
-
-        return hasFilename;
     }
 
-    static bool openFile(HttpJob& job, const Path& path, FileBody& fileBody,
-                         bool& found)
+    bool stat(const Path& path, bool& result)
     {
-        namespace beast = boost::beast;
-        namespace http = beast::http;
-
-        beast::error_code netEc;
-        fileBody.open(path.c_str(), beast::file_mode::scan, netEc);
-
-        if (netEc == beast::errc::no_such_file_or_directory)
-        {
-            found = false;
+        boost::system::error_code sysEc;
+        result = boost::filesystem::exists(path, sysEc);
+        if (sysEc == boost::system::errc::no_such_file_or_directory)
             return true;
-        }
-
-        if (netEc)
-        {
-            auto ec = static_cast<std::error_code>(netEc);
-            job.balk(
-                HttpStatus::internalServerError,
-                "An error occurred on the server while processing the request.",
-                false, {}, AdmitResult::failed(ec, "file open"));
-            found = false;
+        if (!check(sysEc, "file exists query"))
             return false;
-        }
-
-        found = true;
         return true;
     }
 
-    static void listDirectory(HttpJob& job, const Options& options,
-                              const Path& directory)
+    bool stat(const Path& path, FileStatus& status)
     {
         namespace fs = boost::filesystem;
 
-        auto status = fs::status(directory);
-        if (!fs::exists(status) || !fs::is_directory(status))
-            return job.balk(HttpStatus::notFound);
+        boost::system::error_code sysEc;
+        status = fs::status(path, sysEc);
 
-        auto page = startDirectoryListing(job);
+        if (sysEc == boost::system::errc::no_such_file_or_directory)
+        {
+            status = FileStatus{fs::file_type::file_not_found};
+            return true;
+        }
+
+        return check(sysEc, "file stat");
+    }
+
+    const std::string& indexFileName() const
+    {
+        return options_.indexFileName().empty()
+            ? job_.settings().indexFileName()
+            : options_.indexFileName();
+    }
+
+    bool openFile(FileBody& fileBody)
+    {
+        namespace beast = boost::beast;
+
+        beast::error_code netEc;
+        fileBody.open(absolutePath_.c_str(), beast::file_mode::scan, netEc);
+        return check(netEc, "file open");
+    }
+
+    void listDirectory()
+    {
+        namespace fs = boost::filesystem;
+
+        auto page = startDirectoryListing();
 
         boost::system::error_code sysEc;
-        for (const auto& entry : fs::directory_iterator(directory, sysEc))
+        for (const auto& entry : fs::directory_iterator(absolutePath_, sysEc))
         {
             if (sysEc)
                 break;
@@ -390,44 +378,46 @@ private:
                 break;
         }
 
-        if (sysEc)
-        {
-            auto ec = static_cast<std::error_code>(sysEc);
-            return job.balk(
-                HttpStatus::internalServerError,
-                "An error occurred on the server while processing the request.",
-                false, {}, AdmitResult::failed(ec, "list directory"));
-        }
+        if (!check(sysEc, "list directory"))
+            return;
 
         finishDirectoryListing(page);
-        job.respond(std::move(page));
+        job_.respond(std::move(page));
     }
 
-    static StringResponse startDirectoryListing(HttpJob& job)
+    StringResponse startDirectoryListing()
     {
         namespace http = boost::beast::http;
 
-        auto req = job.request();
-        std::string dir{req.target()};
+        const auto& req = job_.request();
+        const auto& dir = job_.target();
+        auto dirString = dir.generic_string();
 
-        StringResponse res{
-            http::status::ok,
-            req.version(),
+        std::string body{
             "<html>\n"
-            "<head><title>Index of " + dir + "</title></head>\n"
+            "<head><title>Index of " + dirString + "</title></head>\n"
             "<body>\n"
-            "<h1>Index of " + dir + "</h1>\n"
+            "<h1>Index of " + dirString + "</h1>\n"
             "<hr>\n"
             "<pre>\n"};
 
-        res.base().set(http::field::server, job.settings().agent());
+        // https://stackoverflow.com/a/50493087/245265
+        if (dir.has_parent_path())
+        {
+            body += "<a href=\"" + dir.parent_path().generic_string() +
+                    "\"../</a>\n";
+        }
+
+        StringResponse res{http::status::ok, req.version(), std::move(body)};
+        res.base().set(http::field::server, job_.settings().agent());
         res.set(http::field::content_type, "text/html");
         res.keep_alive(req.keep_alive());
         return res;
     }
 
-    static std::error_code addDirectoryEntry(
-        std::string& body, const boost::filesystem::directory_entry& entry)
+    std::error_code addDirectoryEntry(
+        std::string& body,
+        const boost::filesystem::directory_entry& entry) const
     {
         namespace fs = boost::filesystem;
 
@@ -443,16 +433,17 @@ private:
         bool isDirectory = fs::is_directory(status);
 
         // Name column
-        // TODO: Hyperlinks
         auto name = entry.path().filename().string();
+        if (isDirectory)
+            name += "/";
+        auto link = fs::path{job_.request().target()} / name;
+        oss << "<a href=\"" << link.generic_string() << "\">";
         if (name.length() > nameWidth)
         {
             name.resize(nameWidth - 3);
             name += "..>";
         }
-        if (isDirectory)
-            name += "/";
-        oss << std::left << std::setfill(' ') << std::setw(nameWidth) << name;
+        oss << name << "</a>" << std::string(nameWidth-name.length(), ' ');
 
         // Timestamp column
         boost::system::error_code sysEc;
@@ -462,7 +453,7 @@ private:
         outputFileTimestamp(time, oss);
 
         // Size column
-        oss << std::right << std::setw(sizeWidth);
+        oss << std::right << std::setfill(' ') << std::setw(sizeWidth);
         if (isDirectory)
         {
             oss << '-';
@@ -475,6 +466,7 @@ private:
             oss << size;
         }
 
+        oss << "\n";
         body += oss.str();
         return {};
     }
@@ -487,6 +479,53 @@ private:
                        "</html>";
         page.prepare_payload();
     }
+
+    void respondToHeadRequest(FileBody& body, std::string& mimeType)
+    {
+        namespace http = boost::beast::http;
+
+        const auto& req = job_.request();
+        http::response<http::empty_body> res{http::status::ok, req.version()};
+        res.set(http::field::server, job_.settings().agent());
+        res.set(http::field::content_type, std::move(mimeType));
+        res.content_length(body.size());
+        res.keep_alive(req.keep_alive());
+        job_.respond(std::move(res));
+    }
+
+    void respondToGetRequest(FileBody& body, std::string& mimeType)
+    {
+        namespace http = boost::beast::http;
+
+        const auto& req = job_.request();
+        http::response<http::file_body> res{http::status::ok, req.version(),
+                                            std::move(body)};
+        res.set(http::field::server, job_.settings().agent());
+        res.set(http::field::content_type, std::move(mimeType));
+        res.prepare_payload();
+        res.keep_alive(req.keep_alive());
+        job_.respond(std::move(res));
+    }
+
+    bool check(boost::system::error_code sysEc, const char* operation)
+    {
+        if (!sysEc)
+            return true;
+        fail(static_cast<std::error_code>(sysEc), operation);
+        return false;
+    }
+
+    void fail(std::error_code ec, const char* operation)
+    {
+        job_.balk(
+            HttpStatus::internalServerError,
+            "An error occurred on the server while processing the request.",
+            false, {}, AdmitResult::failed(ec, operation));
+    }
+
+    Path absolutePath_;
+    HttpJob& job_;
+    const Options& options_;
 };
 
 CPPWAMP_INLINE HttpAction<HttpServeStaticFiles>::HttpAction(
@@ -502,7 +541,7 @@ CPPWAMP_INLINE std::string HttpAction<HttpServeStaticFiles>::route() const
 void CPPWAMP_INLINE
 HttpAction<HttpServeStaticFiles>::execute(HttpJob& job)
 {
-    HttpServeStaticFilesImpl::execute(job, options_);
+    HttpServeStaticFilesImpl{job, options_}.execute();
 };
 
 
