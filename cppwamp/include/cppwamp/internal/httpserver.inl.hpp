@@ -390,7 +390,7 @@ private:
         namespace http = boost::beast::http;
 
         const auto& req = job_.request();
-        const auto& dir = job_.target();
+        auto dir = job_.target();
         auto dirString = dir.generic_string();
 
         std::string body{
@@ -401,11 +401,15 @@ private:
             "<hr>\n"
             "<pre>\n"};
 
-        // https://stackoverflow.com/a/50493087/245265
-        if (dir.has_parent_path())
+        if (dir.filename_is_dot())
+            dir.remove_filename();
+        dir.remove_filename();
+        if (!dir.empty())
         {
-            body += "<a href=\"" + dir.parent_path().generic_string() +
-                    "\"../</a>\n";
+            if (dir.has_parent_path())
+                dir.concat("/");
+            body += "<a href=\"" + dir.generic_string() + "\">"
+                    "../</a>\n";
         }
 
         StringResponse res{http::status::ok, req.version(), std::move(body)};

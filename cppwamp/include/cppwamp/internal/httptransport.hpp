@@ -223,7 +223,7 @@ private:
         target_ = target_.lexically_normal();
 
         // Normalize as per v4 if v3 is in effect
-        if (target_.filename() == ".")
+        if (target_.filename_is_dot())
         {
             target_.remove_filename();
             target_.concat("/");
