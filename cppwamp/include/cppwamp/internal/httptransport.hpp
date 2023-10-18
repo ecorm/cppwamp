@@ -101,7 +101,7 @@ public:
 
     void balk(
         HttpStatus status, std::string what = {}, bool simple = false,
-        FieldList fields = {}, AdmitResult result = {})
+        FieldList fields = {}, AdmitResult result = AdmitResult::responded())
     {
         // Don't send full HTML error page if request was a Websocket upgrade
         if (simple)
@@ -172,6 +172,8 @@ private:
             tcpSocket_, buffer_, *parser_,
             [this, self] (const boost::beast::error_code& netEc, std::size_t)
             {
+                if (netEc == boost::beast::http::error::end_of_stream)
+                    finish(AdmitResult::responded());
                 timer_.cancel();
                 if (check(netEc, "socket read"))
                     onRequest();
@@ -220,9 +222,12 @@ private:
         target_ = Path{target.begin(), target.end()};
         target_ = target_.lexically_normal();
 
-        // Normalize as per v3 if v4 is in effect
-        if (!target_.has_filename())
-            target_ /= ".";
+        // Normalize as per v4 if v3 is in effect
+        if (target_.filename() == ".")
+        {
+            target_.remove_filename();
+            target_.concat("/");
+        }
 
         // Normalized request target path must not contain a dot-dot that
         // refers to a parent path.
