@@ -198,6 +198,7 @@ class CPPWAMP_API HttpEndpoint
 {
 public:
     // TODO: Custom error page generator
+    // TODO: Custom charset field
 
     /// URI and status code of an error page.
     struct ErrorPage

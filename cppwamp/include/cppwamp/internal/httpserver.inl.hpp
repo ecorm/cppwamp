@@ -297,7 +297,7 @@ private:
         if (options_.path().empty())
         {
             absolutePath_ = Path{job_.settings().documentRoot()} /
-                            job_.target();
+                            job_.target().relative_path();
         }
         else
         {
@@ -314,7 +314,8 @@ private:
             else
             {
                 // Append target to root path
-                absolutePath_ = Path{options_.path()} / job_.target();
+                absolutePath_ = Path{options_.path()} /
+                                job_.target().relative_path();
             }
         }
     }
@@ -401,9 +402,17 @@ private:
             "<hr>\n"
             "<pre>\n"};
 
-        if (dir.filename_is_dot())
+        if (dir.filename_is_dot()) // filesystem v3
+        {
             dir.remove_filename();
-        dir.remove_filename();
+            dir.remove_filename();
+        }
+        else // filesystem v4
+        {
+            dir = dir.parent_path();
+            dir = dir.parent_path();
+        }
+
         if (!dir.empty())
         {
             if (dir.has_parent_path())
@@ -425,12 +434,6 @@ private:
     {
         namespace fs = boost::filesystem;
 
-        static constexpr unsigned lineWidth = 79;
-        static constexpr unsigned sizeWidth = 19; // Up to 2^63
-        static constexpr unsigned timestampWidth = 16; // YYYY-MM-DD HH:MM
-        static constexpr unsigned nameWidth =
-            lineWidth - sizeWidth - timestampWidth - 2;
-
         auto status = entry.status();
         std::ostringstream oss;
         oss.imbue(std::locale::classic());
@@ -442,12 +445,14 @@ private:
             name += "/";
         auto link = fs::path{job_.request().target()} / name;
         oss << "<a href=\"" << link.generic_string() << "\">";
-        if (name.length() > nameWidth)
+        if (name.length() > autoindexNameWidth_)
         {
-            name.resize(nameWidth - 3);
+            name.resize(autoindexNameWidth_ - 3);
             name += "..>";
         }
-        oss << name << "</a>" << std::string(nameWidth-name.length(), ' ');
+
+        const auto paddingLength = autoindexNameWidth_ - name.length() + 1;
+        oss << name << "</a>" << std::string(paddingLength, ' ');
 
         // Timestamp column
         boost::system::error_code sysEc;
@@ -457,7 +462,8 @@ private:
         outputFileTimestamp(time, oss);
 
         // Size column
-        oss << std::right << std::setfill(' ') << std::setw(sizeWidth);
+        oss << " " << std::right << std::setfill(' ')
+            << std::setw(autoindexSizeWidth_);
         if (isDirectory)
         {
             oss << '-';
@@ -526,6 +532,12 @@ private:
             "An error occurred on the server while processing the request.",
             false, {}, AdmitResult::failed(ec, operation));
     }
+    static constexpr unsigned autoindexLineWidth_ = 79;
+    static constexpr unsigned autoindexSizeWidth_ = 19; // Up to 2^63
+    static constexpr unsigned autoindexTimestampWidth_ = 16; // YYYY-MM-DD HH:MM
+    static constexpr unsigned autoindexNameWidth_ =
+        autoindexLineWidth_ - autoindexSizeWidth_ -
+        autoindexTimestampWidth_ - 2;
 
     Path absolutePath_;
     HttpJob& job_;
