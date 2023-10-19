@@ -183,7 +183,10 @@ private:
     void onTimeout(boost::system::error_code ec)
     {
         if (!ec)
-            return finish(AdmitResult::rejected(TransportErrc::timeout));
+        {
+            return balk(HttpStatus::requestTimeout, {}, false, {},
+                        AdmitResult::rejected(HttpStatus::requestTimeout));
+        }
 
         if (ec != boost::asio::error::operation_aborted)
         {

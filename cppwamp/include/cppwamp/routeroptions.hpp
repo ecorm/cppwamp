@@ -134,6 +134,7 @@ public:
 
     ServerOptions& withConnectionLimit(std::size_t limit);
 
+    // TODO: Move this to server transport settings
     ServerOptions& withTransportHandshakeTimeout(Timeout timeout);
 
     ServerOptions& withChallengeTimeout(Timeout timeout);

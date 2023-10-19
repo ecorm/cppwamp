@@ -126,7 +126,7 @@ public:
     /** Obtains the custom agent string to use. */
     const std::string& agent() const;
 
-    /** Obtains the Websocket handshake completion timeout period after
+    /** Obtains the Websocket close handshake completion timeout period after
         an ABORT message is sent. */
     Timeout abortTimeout() const;
 
