@@ -199,6 +199,11 @@ class CPPWAMP_API HttpEndpoint
 public:
     // TODO: Custom error page generator
     // TODO: Custom charset field
+    // TODO: Keep-alive timeout
+    // TODO: Keep-alive time limit
+    // TODO: Keep-alive request limit
+    // TODO: Request read timeout
+    // TODO: Response write timeout
 
     /// URI and status code of an error page.
     struct ErrorPage

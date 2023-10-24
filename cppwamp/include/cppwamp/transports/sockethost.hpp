@@ -55,10 +55,19 @@ public:
         return derived();
     }
 
-    /** Enables keep-alive PING messages with the given interval. */
+    /** Enables keep-alive PING messages with the given interval.
+        @throw error::Logic if the interval is negative. */
     TDerived& withHearbeatInterval(Timeout interval)
     {
-        heartbeatInterval_ = interval;
+        heartbeatInterval_ = internal::checkTimeout(interval);
+        return derived();
+    }
+
+    /** Specifies the linger timeout.
+        @throws error::Logic if the given timeout is negative */
+    TDerived& withLingerTimeout(Timeout timeout)
+    {
+        lingerTimeout_ = internal::checkTimeout(timeout);
         return derived();
     }
 
@@ -79,34 +88,22 @@ public:
     }
 
     /** Obtains the host name. */
-    const std::string& address() const
-    {
-        return address_;
-    }
+    const std::string& address() const {return address_;}
 
     /** Obtains the service name, or stringified port number. */
-    const std::string& serviceName() const
-    {
-        return serviceName_;
-    }
+    const std::string& serviceName() const {return serviceName_;}
 
     /** Obtains the socket options. */
-    const SocketOptions& socketOptions() const
-    {
-        return socketOptions_;
-    }
+    const SocketOptions& socketOptions() const {return socketOptions_;}
 
     /** Obtains the specified maximum incoming message length. */
-    TRxLength maxRxLength() const
-    {
-        return maxRxLength_;
-    }
+    TRxLength maxRxLength() const {return maxRxLength_;}
 
     /** Obtains the keep-alive PING message interval. */
-    Timeout heartbeatInterval() const
-    {
-        return heartbeatInterval_;
-    }
+    Timeout heartbeatInterval() const {return heartbeatInterval_;}
+
+    /** Obtains the linger timeout. */
+    Timeout lingerTimeout() const {return lingerTimeout_;}
 
 protected:
     SocketHost(std::string address, std::string serviceName)
@@ -126,6 +123,7 @@ private:
     std::string serviceName_;
     SocketOptions socketOptions_;
     Timeout heartbeatInterval_ = unspecifiedTimeout;
+    Timeout lingerTimeout_ = unspecifiedTimeout;
     TRxLength maxRxLength_ = defaultMaxRxLength;
 };
 

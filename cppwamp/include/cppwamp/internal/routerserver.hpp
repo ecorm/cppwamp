@@ -154,8 +154,6 @@ public:
         info.setServer({}, serverOptions_->name(), k);
         Base::connect(std::move(info));
         peer_->listen(this);
-        transport_->setAbortTimeout(
-            serverOptions_->transportHandshakeTimeout());
     }
 
     ~ServerSession() override = default;
@@ -330,7 +328,6 @@ private:
 
         const std::weak_ptr<ServerSession> self = shared_from_this();
         transport_->admit(
-            serverOptions_->transportHandshakeTimeout(),
             [self](AdmitResult result)
             {
                 auto me = self.lock();
@@ -724,7 +721,6 @@ private:
         if (sessions_.size() >= options_->connectionLimit())
         {
             transport->shed(
-                options_->transportHandshakeTimeout(),
                 [this, self, transport](AdmitResult result)
                 {
                     onRefusalCompleted(result);

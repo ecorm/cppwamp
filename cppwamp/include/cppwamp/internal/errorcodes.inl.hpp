@@ -447,8 +447,9 @@ CPPWAMP_INLINE std::string TransportCategory::message(int ev) const
     {
         /* success           */ "Transport operation successful",
         /* aborted           */ "Transport operation aborted",
+        /* ended             */ "Transport ended by other peer",
         /* disconnected      */ "Transport disconnected by other peer",
-        /* timeout           */ "Connection establishment timed out",
+        /* timeout           */ "Transport operation timed out",
         /* failed            */ "Transport operation failed",
         /* exhausted         */ "All transports failed during connection",
         /* overloaded        */ "Excessive resource usage",
@@ -480,6 +481,8 @@ CPPWAMP_INLINE bool TransportCategory::equivalent(const std::error_code& code,
             return true;
         if (condition == static_cast<int>(TransportErrc::failed))
             return code.value() > static_cast<int>(TransportErrc::failed);
+        if (condition == static_cast<int>(TransportErrc::disconnected))
+            return code.value() > static_cast<int>(TransportErrc::ended);
         return false;
     }
 

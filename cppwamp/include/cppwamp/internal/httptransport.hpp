@@ -372,7 +372,12 @@ private:
     void finish(AdmitResult result)
     {
         if (result.status() != AdmitStatus::wamp)
+        {
+            boost::system::error_code ec;
+            tcpSocket_.shutdown(boost::asio::ip::tcp::socket::shutdown_send,
+                                ec);
             tcpSocket_.close();
+        }
 
         if (handler_)
             handler_(result);
@@ -485,8 +490,6 @@ private:
     void onStart(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
     {
         assert(transport_ != nullptr);
-        if (abortTimeout_ != unspecifiedTimeout)
-            transport_->onSetAbortTimeout(abortTimeout_);
         transport_->onStart(std::move(rxHandler),
                             std::move(txErrorHandler));
     }
@@ -497,32 +500,26 @@ private:
         transport_->onSend(std::move(message));
     }
 
-    void onSetAbortTimeout(Timeout timeout) override
-    {
-        abortTimeout_ = timeout;
-    }
-
     void onSendAbort(MessageBuffer message) override
     {
         assert(transport_ != nullptr);
         transport_->onSendAbort(std::move(message));
     }
 
-    void onStop() override
+    void onShutdown(ShutdownHandler handler) override
     {
         assert(transport_ != nullptr);
-        transport_->onStop();
+        transport_->onShutdown(std::move(handler));
     }
 
-    void onClose(CloseHandler handler) override
+    void onKill() override
     {
         assert(transport_ != nullptr);
-        transport_->onClose(std::move(handler));
+        transport_->onKill();
     }
 
     HttpJob::Ptr job_;
     Transporting::Ptr transport_;
-    Timeout abortTimeout_ = unspecifiedTimeout;
 };
 
 } // namespace internal

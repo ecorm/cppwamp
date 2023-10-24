@@ -245,7 +245,8 @@ CPPWAMP_API std::error_condition make_error_condition(DecodingErrc errc);
     - any non-zero code of the `boost::asio::error::get_misc_category`
     - any non-zero code of the `boost::asio::error::get_netdb_category`
 
-    Codes equivalent to the TransportErrc::disconnected are
+    Codes equivalent to the TransportErrc::disconnected condition are
+    - `wamp::TransportErrc::ended`
     - `std::errc::connection_reset`
     - `boost::asio::error::connection_reset`
     - `boost::asio::error::eof` */
@@ -254,24 +255,25 @@ enum class TransportErrc
 {
     success           = 0,  ///< Transport operation successful
     aborted           = 1,  ///< Transport operation aborted
-    disconnected      = 2,  ///< Transport disconnected by other peer
-    timeout           = 3,  ///< Connection establishment timed out
-    failed            = 4,  ///< Transport operation failed
-    exhausted         = 5,  ///< All transports failed during connection
-    overloaded        = 6,  ///< Excessive resource usage
-    shedded           = 7,  ///< Connection dropped due to limits
-    unresponsive      = 8,  ///< The other peer is unresponsive
-    inboundTooLong    = 9,  ///< Inbound message exceeds transport's length limit
-    outboundTooLong   = 10, ///< Outbound message exceeds peer's length limit
-    handshakeDeclined = 11, ///< Handshake declined by other peer
-    badHandshake      = 12, ///< Received invalid handshake
-    badCommand        = 13, ///< Received invalid transport command
-    badSerializer     = 14, ///< Unsupported serialization format
-    badLengthLimit    = 15, ///< Unacceptable maximum message length
-    badFeature        = 16, ///< Unsupported transport feature
-    expectedBinary    = 17, ///< Expected text but got binary
-    expectedText      = 18, ///< Expected binary but got text
-    noSerializer      = 19, ///< Missing serializer information
+    ended             = 2,  ///< Transport ended by other peer
+    disconnected      = 3,  ///< Transport disconnected by other peer
+    timeout           = 4,  ///< Transport operation timed out
+    failed            = 5,  ///< Transport operation failed
+    exhausted         = 6,  ///< All transports failed during connection
+    overloaded        = 7,  ///< Excessive resource usage
+    shedded           = 8,  ///< Connection dropped due to limits
+    unresponsive      = 9,  ///< The other peer is unresponsive
+    inboundTooLong    = 10, ///< Inbound message exceeds transport's length limit
+    outboundTooLong   = 11, ///< Outbound message exceeds peer's length limit
+    handshakeDeclined = 12, ///< Handshake declined by other peer
+    badHandshake      = 13, ///< Received invalid handshake
+    badCommand        = 14, ///< Received invalid transport command
+    badSerializer     = 15, ///< Unsupported serialization format
+    badLengthLimit    = 16, ///< Unacceptable maximum message length
+    badFeature        = 17, ///< Unsupported transport feature
+    expectedBinary    = 18, ///< Expected text but got binary
+    expectedText      = 19, ///< Expected binary but got text
+    noSerializer      = 20, ///< Missing serializer information
     count
 };
 

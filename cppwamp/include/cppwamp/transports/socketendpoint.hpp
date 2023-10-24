@@ -16,7 +16,7 @@
 #include <cstdint>
 #include <string>
 #include <utility>
-#include "../exceptions.hpp"
+#include "../transport.hpp"
 
 namespace wamp
 {
@@ -24,8 +24,7 @@ namespace wamp
 //------------------------------------------------------------------------------
 /** Contains server address information, as well as other socket options. */
 //------------------------------------------------------------------------------
-template <typename TDerived, typename TProcotol, typename TSocketOptions,
-          typename TRxLength, TRxLength defaultMaxRxLength>
+template <typename TDerived, typename TProcotol, typename TSocketOptions>
 class SocketEndpoint
 {
 public:
@@ -53,21 +52,9 @@ public:
     }
 
     /** Specifies the maximum length permitted for incoming messages. */
-    TDerived& withMaxRxLength(TRxLength length)
+    TDerived& withLimits(ServerTransportLimits limits)
     {
-        maxRxLength_ = length;
-        return derived();
-    }
-
-    /** Specifies the acceptor's maximum number of pending connections.
-        A value of zero will make the acceptor use the default backlog
-        capacity.
-        @throws error::Logic if the given capacity is negative. */
-    TDerived& withBacklogCapacity(int capacity)
-    {
-        CPPWAMP_LOGIC_CHECK(capacity >= 0,
-                            "Backlog capacity cannot be negative");
-        backlogCapacity_ = capacity;
+        limits_ = limits;
         return derived();
     }
 
@@ -83,11 +70,11 @@ public:
     /** Obtains the acceptor socket options. */
     const SocketOptions& acceptorOptions() const {return acceptorOptions_;}
 
-    /** Obtains the specified maximum incoming message length. */
-    TRxLength maxRxLength() const {return maxRxLength_;}
+    /** Obtains the transport limits. */
+    const ServerTransportLimits& limits() const {return limits_;}
 
-    /** Obtains the acceptor's maximum number of pending connections. */
-    int backlogCapacity() const {return backlogCapacity_;}
+    /** Accesses the transport limits. */
+    ServerTransportLimits& limits() {return limits_;}
 
 protected:
     SocketEndpoint(std::string address, unsigned short port)
@@ -103,8 +90,7 @@ private:
     std::string address_;
     SocketOptions socketOptions_;
     SocketOptions acceptorOptions_;
-    int backlogCapacity_;
-    TRxLength maxRxLength_ = defaultMaxRxLength;
+    ServerTransportLimits limits_;
     Port port_ = 0;
 };
 

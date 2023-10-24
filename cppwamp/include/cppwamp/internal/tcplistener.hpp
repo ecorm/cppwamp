@@ -19,12 +19,14 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-template <typename TTransport, typename TSettings = TcpEndpoint>
-struct BasicTcpListenerConfig
+using TcpServerTransport = RawsockServerTransport<TcpTraits>;
+
+//------------------------------------------------------------------------------
+struct TcpListenerConfig
 {
-    using Settings    = TSettings;
+    using Settings    = TcpEndpoint;
     using NetProtocol = boost::asio::ip::tcp;
-    using Transport   = TTransport;
+    using Transport   = TcpServerTransport;
 
     static NetProtocol::endpoint makeEndpoint(const Settings& s)
     {
@@ -62,16 +64,13 @@ struct BasicTcpListenerConfig
 };
 
 //------------------------------------------------------------------------------
-using TcpListenerConfig =
-    BasicTcpListenerConfig<
-        RawsockServerTransport<BasicRawsockTransportConfig<TcpTraits>>>;
-
-//------------------------------------------------------------------------------
 class TcpListener : public RawsockListener<TcpListenerConfig>
 {
+    using Base = RawsockListener<TcpListenerConfig>;
+
 public:
     using Ptr = std::shared_ptr<TcpListener>;
-    using RawsockListener<TcpListenerConfig>::RawsockListener;
+    using Base::Base;
 };
 
 } // namespace internal

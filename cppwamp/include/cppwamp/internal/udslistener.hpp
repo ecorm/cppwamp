@@ -19,12 +19,14 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
+using UdsServerTransport = RawsockServerTransport<UdsTraits>;
+
+//------------------------------------------------------------------------------
 struct UdsListenerConfig
 {
     using Settings    = UdsEndpoint;
     using NetProtocol = boost::asio::local::stream_protocol;
-    using Transport   = RawsockServerTransport<
-                            BasicRawsockTransportConfig<UdsTraits>>;
+    using Transport   = UdsServerTransport;
 
     static NetProtocol::endpoint makeEndpoint(const Settings& s)
     {
@@ -74,9 +76,11 @@ struct UdsListenerConfig
 //------------------------------------------------------------------------------
 class UdsListener : public RawsockListener<UdsListenerConfig>
 {
+    using Base = RawsockListener<UdsListenerConfig>;
+
 public:
     using Ptr = std::shared_ptr<UdsListener>;
-    using RawsockListener<UdsListenerConfig>::RawsockListener;
+    using Base::Base;
 };
 
 } // namespace internal

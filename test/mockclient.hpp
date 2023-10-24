@@ -62,7 +62,7 @@ public:
     {
         if (!transport_)
             return;
-        transport_->stop();
+        transport_->kill();
         transport_.reset();
     }
 

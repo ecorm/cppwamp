@@ -10,19 +10,18 @@
 #include <cstdint>
 #include <deque>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <system_error>
 #include <vector>
+#include "api.hpp"
 #include "anyhandler.hpp"
 #include "asiodefs.hpp"
 #include "connectioninfo.hpp"
 #include "erroror.hpp"
 #include "messagebuffer.hpp"
 #include "timeout.hpp"
-#include "internal/random.hpp"
-
-// TODO: inl file
 
 namespace wamp
 {
@@ -30,7 +29,7 @@ namespace wamp
 //------------------------------------------------------------------------------
 /** Contains information pertaining to a transport. */
 //------------------------------------------------------------------------------
-class TransportInfo
+class CPPWAMP_API TransportInfo
 {
 public:
     /** Default constructor. */
@@ -74,8 +73,9 @@ enum class TransportState
     shedding,  /// Server is handshaking but will ultimately shed connection
     ready,     /// Transport handshake is complete (initial for client)
     running,   /// Sending and receiving of messages is enabled
-    stopping,  /// Transport is performing its closing handshake
-    stopped    /// Handshake cancelled or transport has been stopped
+    aborting,  /// Transport is sending an ABORT and shutting down
+    shutdown,  /// Transport is performing its closing handshake
+    closed     /// Transport has been closed
 };
 
 //------------------------------------------------------------------------------
@@ -94,7 +94,7 @@ enum class AdmitStatus
 //------------------------------------------------------------------------------
 /** Contains the outcome of a server handshake attempt. */
 //------------------------------------------------------------------------------
-class AdmitResult
+class CPPWAMP_API AdmitResult
 {
 public:
     using Status = AdmitStatus;
@@ -162,6 +162,121 @@ private:
 };
 
 
+//------------------------------------------------------------------------------
+class CPPWAMP_API BodyTimeout
+{
+public:
+    BodyTimeout() = default;
+
+    BodyTimeout(Timeout max) : max_(internal::checkTimeout(max)) {}
+
+    BodyTimeout(Timeout min, size_t minRate, Timeout max = unspecifiedTimeout)
+        : min_(internal::checkTimeout(min)),
+          max_(internal::checkTimeout(max)),
+          minRate_(minRate)
+    {}
+
+    Timeout min() const {return min_;}
+
+    Timeout max() const {return max_;}
+
+    size_t minRate() const {return minRate_;}
+
+private:
+    Timeout min_ = unspecifiedTimeout;
+    Timeout max_ = unspecifiedTimeout;
+    size_t minRate_ = 0;
+};
+
+//------------------------------------------------------------------------------
+/** Contains timeouts and size limits for client transports. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API ClientTransportLimits
+{
+public:
+    ClientTransportLimits& withBodySizeLimit(std::size_t n);
+
+    ClientTransportLimits& withControlSizeLimit(std::size_t n);
+
+    ClientTransportLimits& withLingerTimeout(Timeout t);
+
+    std::size_t bodySizeLimit() const;
+
+    std::size_t controlSizeLimit() const;
+
+    Timeout lingerTimeout() const;
+
+private:
+    Timeout lingerTimeout_        = neverTimeout;
+    std::size_t bodySizeLimit_    = 0;
+    std::size_t controlSizeLimit_ = 0;
+};
+
+//------------------------------------------------------------------------------
+/** Contains timeouts and size limits for server transports. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API ServerTransportLimits
+{
+public:
+    ServerTransportLimits& withHeaderSizeLimit(std::size_t n);
+
+    ServerTransportLimits& withBodySizeLimit(std::size_t n);
+
+    ServerTransportLimits& withControlSizeLimit(std::size_t n);
+
+    ServerTransportLimits& withHandshakeTimeout(Timeout t);
+
+    ServerTransportLimits& withHeaderTimeout(Timeout t);
+
+    ServerTransportLimits& withBodyTimeout(BodyTimeout t);
+
+    ServerTransportLimits& withSendTimeout(BodyTimeout t);
+
+    ServerTransportLimits& withIdleTimeout(Timeout t);
+
+    ServerTransportLimits& withLingerTimeout(Timeout t);
+
+    ServerTransportLimits& withBacklogCapacity(int n);
+
+    ServerTransportLimits& withPingKeepsAliveDisabled(bool disabled = true);
+
+    std::size_t headerSizeLimit() const;
+
+    std::size_t bodySizeLimit() const;
+
+    std::size_t controlSizeLimit() const;
+
+    Timeout handshakeTimeout() const;
+
+    Timeout headerTimeout() const;
+
+    const BodyTimeout& bodyTimeout() const;
+
+    const BodyTimeout& sendTimeout() const;
+
+    Timeout idleTimeout() const;
+
+    Timeout lingerTimeout() const;
+
+    int withBacklogCapacity() const;
+
+    bool pingKeepsAlive() const;
+
+private:
+    BodyTimeout bodyTimeout_;
+    BodyTimeout sendTimeout_;
+    Timeout handshakeTimeout_     = neverTimeout;
+    Timeout headerTimeout_        = neverTimeout;
+    Timeout idleTimeout_          = neverTimeout;
+    Timeout lingerTimeout_        = neverTimeout;
+    std::size_t headerSizeLimit_  = 0;
+    std::size_t bodySizeLimit_    = 0;
+    std::size_t controlSizeLimit_ = 0;
+    int backlogCapacity_          = 0;
+    bool pingKeepsAlive_          = true;
+};
+
+
 // Forward declaration
 namespace internal { class HttpServerTransport; }
 
@@ -184,10 +299,10 @@ public:
     using TxErrorHandler = std::function<void (std::error_code)>;
 
     /// Handler type used for server handshake completion.
-    using AdmitHandler = AnyCompletionHandler<void (AdmitResult)>;
+    using AdmitHandler = std::function<void (AdmitResult)>;
 
-    /// Handler type used for transport close completion.
-    using CloseHandler = AnyCompletionHandler<void (ErrorOr<bool>)>;
+    /// Handler type used for transport shutdown.
+    using ShutdownHandler = std::function<void (std::error_code)>;
 
     /** @name Non-copyable and non-movable. */
     /// @{
@@ -217,10 +332,6 @@ public:
         @post this->state() == TransportState::accepting */
     void admit(AdmitHandler handler);
 
-    /** Starts the server handshake procedure with the given timeout.
-        @copydetails Transporting::admit(AdmitHandler) */
-    void admit(Timeout timeout, AdmitHandler handler);
-
     /** Starts the server handshake procedure, but ultimately refuses the
         client connection due to server connection limit.
         Either an TransportErrc::saturated error will be emitted via the
@@ -228,10 +339,6 @@ public:
         @pre this->state() == TransportState::initial
         @post this->state() == TransportState::shedding */
     void shed(AdmitHandler handler);
-
-    /** Starts refusal handshake with the given timeout.
-        @copydetails Transporting::shed(AdmitHandler) */
-    void shed(Timeout timeout, AdmitHandler handler);
 
     /** Starts the transport's I/O operations.
         @pre this->state() == TransportState::initial
@@ -242,37 +349,29 @@ public:
         @pre this->state() != TransportState::initial */
     void send(MessageBuffer message);
 
-    /** Set the post-abort closing handshake timeout period. */
-    void setAbortTimeout(Timeout abortTimeout);
-
     /** Sends the given serialized ABORT message, placing it at the top of the
-        queue, then gracefully closes the underlying socket.
-        @pre this->state() != TransportState::initial
-        @post this->state() == TransportState::stopped */
-    void sendAbort(MessageBuffer abortMessage);
+        queue, then gracefully shuts down the underlying socket.
+        @pre this->state() != TransportState::initial */
+    void abort(MessageBuffer abortMessage, ShutdownHandler handler);
 
-    /** Stops I/O operations and gracefully closes the underlying socket.
-        Emits `true` upon successful completion if the transport was
-        handshaking, ready, or running. Emits `false` if the transport was
-        not in a valid state to be closed. */
-    void close(CloseHandler handler);
+    /** Stops I/O operations and gracefully shuts down the underlying
+        socket.
+        @pre this->state() != TransportState::initial */
+    void shutdown(ShutdownHandler handler);
 
     /** Stops I/O operations and abrubtly closes the underlying socket.
         @post `this->state() == TransportState::stopped` */
-    void stop();
+    void close();
 
 protected:
     Transporting(IoStrand strand, ConnectionInfo ci, TransportInfo ti = {});
 
     /** Must be overridden by server transports to initiate the handshake. */
-    virtual void onAdmit(Timeout, AdmitHandler);
+    virtual void onAdmit(AdmitHandler);
 
     /** May be overridden by server transports to shed the connection
         due to overload. */
-    virtual void onShed(Timeout timeout, AdmitHandler handler);
-
-    /** Must be overridden by server transports to cancel a handshake. */
-    virtual void onCancelAdmission();
+    virtual void onShed(AdmitHandler handler);
 
     /** Must be overridden to start the transport's I/O operations. */
     virtual void onStart(RxHandler rxHandler, TxErrorHandler txHandler) = 0;
@@ -280,27 +379,19 @@ protected:
     /** Must be overridden to send the given serialized message. */
     virtual void onSend(MessageBuffer message) = 0;
 
-    /** May be overriden to set the post-abort closing handshake
-        timeout period. */
-    virtual void onSetAbortTimeout(Timeout);
-
     /** Must be overriden to send the given serialized ABORT message ASAP and
         then close gracefully. */
     virtual void onSendAbort(MessageBuffer abortMessage) = 0;
 
-    /** May be overriden to stop I/O operations and gracefully close. */
-    virtual void onClose(CloseHandler handler);
+    /** Must be overriden to stop I/O operations and gracefully close. */
+    virtual void onShutdown(ShutdownHandler handler) = 0;
 
     /** Must be overriden to stop I/O operations and abtruptly disconnect. */
-    virtual void onStop() = 0;
+    virtual void onClose() = 0;
 
-    /** Should be called by derived server classes after transport details
+    /** Must be called by derived server classes after transport details
         have been negotiated successfully. */
-    void completeAdmission(TransportInfo ti);
-
-    /** Should be called by derived classes when the transport
-        fails/disconnects. */
-    void shutdown();
+    void setReady(TransportInfo ti);
 
     template <typename F, typename... Ts>
     void post(F&& handler, Ts&&... args)

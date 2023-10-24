@@ -20,12 +20,16 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
+using TcpClientTransport = RawsockClientTransport<TcpTraits>;
+
+//------------------------------------------------------------------------------
 class TcpResolver
 {
 public:
-    using Settings = TcpHost;
-    using Socket   = TcpTraits::NetProtocol::socket;
-    using Result   = boost::asio::ip::tcp::resolver::results_type;
+    using Traits    = TcpTraits;
+    using Settings  = TcpHost;
+    using Transport = TcpClientTransport;
+    using Result    = boost::asio::ip::tcp::resolver::results_type;
 
     TcpResolver(IoStrand strand) : resolver_(std::move(strand)) {}
 
@@ -48,21 +52,13 @@ private:
 };
 
 //------------------------------------------------------------------------------
-template <typename TTransport>
-using BasicTcpConnectorConfig =
-    BasicRawsockConnectorConfig<TcpTraits, TcpResolver, TTransport>;
-
-//------------------------------------------------------------------------------
-using TcpConnectorConfig =
-    BasicTcpConnectorConfig<
-        RawsockClientTransport<BasicRawsockTransportConfig<TcpTraits>>>;
-
-//------------------------------------------------------------------------------
-class TcpConnector : public RawsockConnector<TcpConnectorConfig>
+class TcpConnector : public RawsockConnector<TcpResolver>
 {
+    using Base = RawsockConnector<TcpResolver>;
+
 public:
     using Ptr = std::shared_ptr<TcpConnector>;
-    using RawsockConnector<TcpConnectorConfig>::RawsockConnector;
+    using Base::Base;
 };
 
 } // namespace internal

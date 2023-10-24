@@ -103,8 +103,8 @@ struct LoopbackFixture
 
     void disconnect()
     {
-        server->stop();
-        client->stop();
+        server->kill();
+        client->kill();
     }
 
     void run()
@@ -272,7 +272,7 @@ void checkConsecutiveSendReceive(LoopbackFixture& f, Transporting::Ptr& sender,
                 REQUIRE( messages.at(count) == *buf );
                 if (++count == messages.size())
                 {
-                    sender->stop();
+                    sender->kill();
                 }
             }
             else
@@ -476,8 +476,8 @@ TEST_CASE( "Normal websocket communications", "[Transport][Websocket]" )
             {
                 receivedReply2 = true;
                 CHECK( reply2 == *buf );
-                sender2->stop();
-                receiver2->stop();
+                sender2->kill();
+                receiver2->kill();
             }
             else
             {
@@ -661,7 +661,7 @@ TEST_CASE( "Cancel websocket receive", "[Transport][Websocket]" )
 
     // Close the transport while the receive operation is in progress,
     // and check the client handler is not invoked.
-    f.client->stop();
+    f.client->kill();
     REQUIRE_NOTHROW( f.run() );
     CHECK_FALSE( clientHandlerInvoked );
     CHECK_FALSE( !serverError );
@@ -706,7 +706,7 @@ TEST_CASE( "Cancel websocket send", "[Transport][Websocket]" )
     f.cctx.reset();
 
     // Close the transport and check that the client handler was not invoked.
-    f.client->stop();
+    f.client->kill();
     f.run();
     CHECK_FALSE( handlerInvoked );
 }

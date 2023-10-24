@@ -32,7 +32,7 @@ public:
     ~NetworkPeer() override
     {
         if (transport_)
-            transport_->stop();
+            transport_->kill();
     }
 
     ErrorOrDone sendMessage(const Message& msg)
@@ -171,7 +171,7 @@ private:
     {
         if (transport_)
         {
-            transport_->stop();
+            transport_->kill();
             transport_.reset();
         }
     }
@@ -202,7 +202,7 @@ private:
         {
             auto self =
                 std::dynamic_pointer_cast<NetworkPeer>(shared_from_this());
-            transport_->close(Closed{self, std::move(handler)});
+            transport_->shutDown(Closed{self, std::move(handler)});
         }
         else
         {

@@ -8,15 +8,19 @@
 #define CPPWAMP_INTERNAL_RAWSOCKTRANSPORT_HPP
 
 #include <array>
-#include <cstdint>
+#include <cstddef>
+#include <functional>
 #include <memory>
+#include <limits>
+#include <utility>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/read.hpp>
-#include <boost/asio/steady_timer.hpp>
 #include <boost/asio/write.hpp>
+#include "../anyhandler.hpp"
 #include "../basictransport.hpp"
 #include "../codec.hpp"
-#include "../routerlogger.hpp"
+#include "../errorcodes.hpp"
+#include "../traits.hpp"
 #include "rawsockheader.hpp"
 #include "rawsockhandshake.hpp"
 
@@ -27,184 +31,164 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-// Combines a raw socket transport header with an encoded message payload.
-//------------------------------------------------------------------------------
-class RawsockFrame
-{
-public:
-    using Ptr        = std::shared_ptr<RawsockFrame>;
-    using Header     = uint32_t;
-    using GatherBufs = std::array<boost::asio::const_buffer, 2>;
-
-    RawsockFrame() = default;
-
-    RawsockFrame(TransportFrameKind kind, MessageBuffer&& payload)
-        : payload_(std::move(payload)),
-          header_(computeHeader(kind, payload_))
-    {}
-
-    void clear()
-    {
-        header_ = 0;
-        payload_.clear();
-        isPoisoned_ =false;
-    }
-
-    void resize(size_t length) {payload_.resize(length);}
-
-    void prepare(TransportFrameKind kind, MessageBuffer&& payload)
-    {
-        header_ = computeHeader(kind, payload);
-        payload_ = std::move(payload);
-    }
-
-    RawsockHeader header() const {return RawsockHeader::fromBigEndian(header_);}
-
-    const MessageBuffer& payload() const & {return payload_;}
-
-    MessageBuffer&& payload() && {return std::move(payload_);}
-
-    void poison(bool poisoned = true) {isPoisoned_ = poisoned;}
-
-    bool isPoisoned() const {return isPoisoned_;}
-
-    GatherBufs gatherBuffers()
-    {
-        return GatherBufs{{ {&header_, sizeof(header_)},
-                            {payload_.data(), payload_.size()} }};
-    }
-
-    boost::asio::mutable_buffer headerBuffer()
-    {
-        return boost::asio::buffer(&header_, sizeof(header_));
-    }
-
-    boost::asio::mutable_buffer payloadBuffer()
-    {
-        return boost::asio::buffer(&payload_.front(), payload_.size());
-    }
-
-private:
-    static Header computeHeader(TransportFrameKind kind,
-                                const MessageBuffer& payload)
-    {
-        return RawsockHeader().setMsgKind(kind)
-                              .setLength(payload.size())
-                              .toBigEndian();
-    }
-
-    MessageBuffer payload_;
-    Header header_ = 0;
-    bool isPoisoned_ = false;
-};
-
-//------------------------------------------------------------------------------
-template <typename TTraits>
-struct BasicRawsockTransportConfig
-{
-    using Traits = TTraits;
-
-    // Allows pre-processing transport frame payloads for test purposes.
-    static void preProcess(TransportFrameKind&, MessageBuffer&) {}
-
-    // Allows altering server handshake bytes for test purposes.
-    static uint32_t hostOrderHandshakeBytes(int codecId,
-                                            RawsockMaxLength maxRxLength)
-    {
-        return RawsockHandshake().setCodecId(codecId)
-            .setMaxLength(maxRxLength)
-            .toHostOrder();
-    }
-};
-
-//------------------------------------------------------------------------------
 inline std::error_code rawsockErrorCodeToStandard(
     boost::system::error_code netEc)
 {
     bool disconnected =
         netEc == boost::asio::error::broken_pipe ||
-        netEc == boost::asio::error::connection_reset ||
-        netEc == boost::asio::error::eof;
-    auto ec = disconnected
-                  ? make_error_code(TransportErrc::disconnected)
-                  : static_cast<std::error_code>(netEc);
+        netEc == boost::asio::error::connection_reset;
+    if (disconnected)
+        return make_error_code(TransportErrc::disconnected);
+    if (netEc == boost::asio::error::eof)
+        return make_error_code(TransportErrc::ended);
     if (netEc == boost::asio::error::operation_aborted)
-        ec = make_error_code(TransportErrc::aborted);
-    return ec;
+        return make_error_code(TransportErrc::aborted);
+    return static_cast<std::error_code>(netEc);
 }
 
 //------------------------------------------------------------------------------
-template <typename TConfig>
-class RawsockTransport : public BasicTransport<RawsockTransport<TConfig>>
+template <typename TTraits>
+class RawsockStream
 {
 public:
-    using Config       = TConfig;
-    using Traits       = typename Config::Traits;
-    using NetProtocol  = typename Traits::NetProtocol;
-    using Ptr          = std::shared_ptr<RawsockTransport>;
-    using Socket       = typename NetProtocol::socket;
-    using CloseHandler = typename Transporting::CloseHandler;
+    using Traits      = TTraits;
+    using NetProtocol = typename Traits::NetProtocol;
+    using Socket      = typename NetProtocol::socket;
+    using Buffer      = MessageBuffer;
+    using ControlFrameHandler =
+        std::function<void (TransportFrameKind, const uint8_t* data,
+                            std::size_t size)>;
 
-protected:
-    // Constructor for client transports
-    RawsockTransport(Socket&& socket, TransportInfo info)
-        : Base(boost::asio::make_strand(socket.get_executor()),
-               Traits::connectionInfo(socket.remote_endpoint()),
-               info),
-          socket_(std::move(socket))
-    {}
+    explicit RawsockStream(Socket&& socket) : socket_(std::move(socket)) {}
 
-    // Constructor for server transports
-    RawsockTransport(Socket& socket)
-        : Base(boost::asio::make_strand(socket.get_executor()),
-               Traits::connectionInfo(socket.remote_endpoint())),
-          socket_(socket.get_executor())
-    {}
+    AnyIoExecutor executor() {return socket_.get_executor();}
 
-    Socket& socket() {return socket_;}
+    bool isOpen() const {return socket_.is_open();}
 
-    void assignSocket(Socket&& socket, TransportInfo info)
+    template <typename L>
+    void setLimits(const L& limits)
     {
-        socket_ = std::move(socket);
-        Base::completeAdmission(info);
+        wampFrameLimit_ = limits.bodySizeLimit();
+        controlFrameLimit_ = limits.controlSizeLimit();
     }
 
+    void observeControlFrames(ControlFrameHandler handler)
+    {
+        controlFrameHandler_ = std::move(handler);
+    }
+
+    void unobserveControlFrames()
+    {
+        controlFrameHandler_ = nullptr;
+    }
+
+    template <typename F>
+    void ping(const uint8_t* data, std::size_t size, F&& callback)
+    {
+        sendControlFrame(TransportFrameKind::ping, data, size,
+                         std::forward<F>(callback));
+    }
+
+    template <typename F>
+    void pong(const uint8_t* data, std::size_t size, F&& callback)
+    {
+        sendControlFrame(TransportFrameKind::pong, data, size,
+                         std::forward<F>(callback));
+    }
+
+    template <typename F>
+    void write(const uint8_t* data, std::size_t size, F&& callback)
+    {
+        if (!headerSent_)
+            return writeWampHeader(data, size, std::forward<F>(callback));
+        writeMoreWampPayload(data, size, std::forward<F>(callback));
+    }
+
+    template <typename F>
+    void writeWampHeader(const uint8_t* data, std::size_t size, F&& callback)
+    {
+        struct Written
+        {
+            Decay<F> callback;
+            const uint8_t* data;
+            std::size_t size;
+            RawsockStream* self;
+
+            void operator()(boost::system::error_code netEc, std::size_t)
+            {
+                if (netEc)
+                {
+                    callback(rawsockErrorCodeToStandard(netEc));
+                    return;
+                }
+
+                self->writeMoreWampPayload(data, size, callback);
+            }
+        };
+
+        txHeader_ = computeHeader(TransportFrameKind::wamp, size);
+        boost::asio::async_write(
+            socket_,
+            boost::asio::const_buffer{&txHeader_, sizeof(txHeader_)},
+            Written{std::move(callback)});
+    }
+
+    template <typename F>
+    void writeMoreWampPayload(const uint8_t* data, std::size_t size,
+                              F&& callback)
+    {
+        struct Written
+        {
+            Decay<F> callback;
+            std::size_t size;
+            RawsockStream* self;
+
+            void operator()(boost::system::error_code netEc, std::size_t n)
+            {
+                if (n >= size)
+                    self->headerSent_ = false;
+                callback(rawsockErrorCodeToStandard(netEc), n);
+            }
+        };
+
+        assert(headerSent_);
+        socket_.async_write_some(
+            boost::asio::const_buffer{data, size},
+            Written{std::move(callback), size, this});
+    }
+
+    template <typename F>
+    void read(Buffer& buffer, F&& callback)
+    {
+        if (wampFrameReadInProgress_)
+            return readMoreWampPayload(buffer, std::forward<F>(callback));
+        readHeader(buffer, std::forward<F>(callback));
+    }
+
+    std::error_code shutdown(std::error_code reason = {})
+    {
+        boost::system::error_code netEc;
+        socket_.shutdown(Socket::shutdown_send, netEc);
+        return netEc;
+    }
+
+    void close() {socket_.close();}
+
+
 private:
-    using Base       = BasicTransport<RawsockTransport<TConfig>>;
     using Header     = uint32_t;
     using GatherBufs = std::array<boost::asio::const_buffer, 2>;
 
-    static Header computeHeader(TransportFrameKind kind,
-                                const MessageBuffer& payload)
+    static Header computeHeader(TransportFrameKind kind, std::size_t size)
     {
-        return RawsockHeader().setMsgKind(kind)
-                              .setLength(payload.size())
-                              .toBigEndian();
+        return RawsockHeader().setMsgKind(kind).setLength(size).toBigEndian();
     }
-
-    bool socketIsOpen() const {return socket_.is_open();}
-
-    void enablePinging() {}
-
-    void disablePinging() {}
-
-    void stopTransport() {socket_.close();}
-
-    void closeTransport(CloseHandler handler)
-    {
-        stopTransport();
-        Base::post(std::move(handler), true);
-    }
-
-    void cancelClose() {}
-
-    void failTransport(std::error_code ec) {stopTransport();}
 
     template <typename F>
-    void transmitMessage(TransportFrameKind kind, MessageBuffer& payload,
-                         F&& callback)
+    void sendControlFrame(TransportFrameKind kind, const uint8_t* data,
+                          std::size_t size, F&& callback)
     {
-        struct Sent
+        struct Written
         {
             Decay<F> callback;
 
@@ -214,104 +198,174 @@ private:
             }
         };
 
-        Config::preProcess(kind, payload);
-        txHeader_ = computeHeader(kind, payload);
+        txHeader_ = computeHeader(kind, size);
         auto buffers = GatherBufs{{ {&txHeader_, sizeof(txHeader_)},
-                                    {payload.data(), payload.size()} }};
-        boost::asio::async_write(socket_, buffers, Sent{std::move(callback)});
+                                   {data, size} }};
+        boost::asio::async_write(socket_, buffers,
+                                 Written{std::move(callback)});
     }
 
     template <typename F>
-    void receiveMessage(MessageBuffer& payload, F&& callback)
+    void readHeader(Buffer& wampPayload, F&& callback)
     {
         struct Received
         {
             Decay<F> callback;
             MessageBuffer* payload;
-            RawsockTransport* self;
+            RawsockStream* self;
 
             void operator()(boost::system::error_code netEc, std::size_t)
             {
-                self->onHeaderReceived(netEc, payload, callback);
+                self->onHeaderRead(netEc, *payload, callback);
             }
         };
 
         boost::asio::async_read(
             socket_,
             boost::asio::buffer(&rxHeader_, sizeof(rxHeader_)),
-            Received{std::move(callback), &payload, this});
+            Received{std::move(callback), &wampPayload, this});
     }
 
     template <typename F>
-    void onHeaderReceived(boost::system::error_code netEc,
-                          MessageBuffer* payload, F& callback)
+    void onHeaderRead(boost::system::error_code netEc,
+                      MessageBuffer& wampPayload, F& callback)
     {
+        if (netEc == boost::asio::error::eof)
+        {
+            callback(makeUnexpectedError(TransportErrc::ended));
+            return;
+        }
         if (!check(netEc, callback))
             return;
 
-        const auto hdr = RawsockHeader::fromBigEndian(rxHeader_);
-        const auto len  = hdr.length();
-        const auto maxRxLen = Base::info().maxRxLength();
-        const bool ok =
-            check(len <= maxRxLen, TransportErrc::inboundTooLong, callback) &&
-            check(hdr.msgTypeIsValid(), TransportErrc::badCommand, callback);
-        if (ok)
-            receivePayload(hdr.msgKind(), len, payload, callback);
+        const auto header = RawsockHeader::fromBigEndian(rxHeader_);
+        if (!header.msgTypeIsValid())
+            return fail(TransportErrc::badCommand, callback);
+
+        auto kind = header.msgKind();
+        auto length = header.length();
+        auto limit = kind == TransportFrameKind::wamp ? wampFrameLimit_
+                                                      : controlFrameLimit_;
+        if (limit != 0 && length > limit)
+            return fail(TransportErrc::inboundTooLong, callback);
+
+        if (kind == TransportFrameKind::wamp)
+            readWampPayload(length, wampPayload, callback);
+
+        readControlPayload(kind, length, wampPayload, callback);
     }
 
     template <typename F>
-    void receivePayload(TransportFrameKind kind, size_t length,
-                        MessageBuffer* payload, F& callback)
+    void readWampPayload(size_t length, Buffer& payload, F& callback)
     {
-        struct Received
+        if (wampFrameLimit_ != 0 && length > wampFrameLimit_)
+            return fail(TransportErrc::inboundTooLong, callback);
+
+        try
+        {
+            payload.reserve(length);
+        }
+        catch (const std::bad_alloc&)
+        {
+            return fail(std::errc::not_enough_memory);
+        }
+        catch (const std::length_error&)
+        {
+            return fail(std::errc::not_enough_memory);
+        }
+
+        wampFrameReadInProgress_ = true;
+        wampRxBytesRemaining_ = length;
+        readMoreWampPayload(payload, callback);
+    }
+
+    template <typename F>
+    void readMoreWampPayload(TransportFrameKind kind, MessageBuffer& payload,
+                             F& callback)
+    {
+        struct Read
         {
             Decay<F> callback;
-            MessageBuffer* payload;
-            RawsockTransport* self;
+            RawsockStream* self;
+
+            void operator()(boost::system::error_code netEc, std::size_t n)
+            {
+                self->onWampPayloadRead(netEc, n, callback);
+            }
+        };
+
+        auto self = this->shared_from_this();
+        socket_.async_read_some(
+            boost::asio::dynamic_buffer(payload),
+            Read{std::move(callback), this});
+    }
+
+    template <typename F>
+    void onWampPayloadRead(boost::system::error_code netEc,
+                           std::size_t bytesRead, F& callback)
+    {
+        assert(bytesRead <= wampRxBytesRemaining_);
+        wampRxBytesRemaining_ -= bytesRead;
+        bool done = wampRxBytesRemaining_ == 0;
+        wampFrameReadInProgress_ = !done;
+        callback(rawsockErrorCodeToStandard(netEc), bytesRead, done);
+    }
+
+    template <typename F>
+    void readControlPayload(TransportFrameKind kind, size_t length,
+                            Buffer& wampPayload, F& callback)
+    {
+        struct Read
+        {
+            Decay<F> callback;
+            Buffer* wampPayload;
+            RawsockStream* self;
             TransportFrameKind kind;
 
             void operator()(boost::system::error_code netEc, std::size_t)
             {
-                self->onPayloadReceived(netEc, payload, kind, callback);
+                self->onControlPayloadRead(netEc, kind, *wampPayload, callback);
             }
         };
 
-        payload->resize(length);
+        if (controlFrameLimit_ != 0 && length > controlFrameLimit_)
+            return fail(TransportErrc::inboundTooLong, callback);
+
+        try
+        {
+            controlFramePayload_.resize(length);
+        }
+        catch (const std::bad_alloc&)
+        {
+            return fail(std::errc::not_enough_memory);
+        }
+        catch (const std::length_error&)
+        {
+            return fail(std::errc::not_enough_memory);
+        }
+
         auto self = this->shared_from_this();
         boost::asio::async_read(
             socket_,
-            boost::asio::buffer(payload->data(), length),
-            Received{std::move(callback), payload, this, kind});
+            boost::asio::buffer(controlFramePayload_.data(), length),
+            Read{std::move(callback), this, kind});
     }
 
     template <typename F>
-    void onPayloadReceived(boost::system::error_code netEc,
-                           MessageBuffer* payload, TransportFrameKind kind,
-                           F& callback)
+    void onControlPayloadRead(boost::system::error_code netEc,
+                              TransportFrameKind kind,
+                              MessageBuffer& wampPayload, F& callback)
     {
-        if (check(netEc, callback))
+        if (!check(netEc, callback))
+            return;
+
+        if (controlFrameHandler_ != nullptr)
         {
-            switch (kind)
-            {
-            case TransportFrameKind::wamp:
-                callback(true);
-                break;
-
-            case TransportFrameKind::ping:
-                Base::enqueuePong(std::move(*payload));
-                callback(false);
-                break;
-
-            case TransportFrameKind::pong:
-                Base::onPong(payload->data(), payload->size());
-                callback(false);
-                break;
-
-            default:
-                assert(false);
-                break;
-            }
+            postAny(socket_->get_executor(), controlFrameHandler_, kind,
+                    controlFramePayload_.data(), controlFramePayload_.size());
         }
+
+        read(wampPayload, callback);
     }
 
     template <typename F>
@@ -323,77 +377,55 @@ private:
     }
 
     template <typename TErrc, typename F>
-    bool check(bool condition, TErrc errc, F& callback)
+    void fail(TErrc errc, F& callback)
     {
-        if (!condition)
-            callback(makeUnexpectedError(errc));
-        return condition;
+        callback(makeUnexpectedError(errc));
     }
 
     Socket socket_;
+    std::vector<uint8_t> controlFramePayload_;
+    ControlFrameHandler controlFrameHandler_;
+    std::size_t wampFrameLimit_ = std::numeric_limits<std::size_t>::max();
+    std::size_t controlFrameLimit_ = std::numeric_limits<std::size_t>::max();
+    std::size_t wampRxBytesRemaining_ = 0;
     Header txHeader_ = 0;
     Header rxHeader_ = 0;
-
-    friend class BasicTransport<RawsockTransport<TConfig>>;
-};
-
-
-//------------------------------------------------------------------------------
-template <typename TConfig>
-class RawsockClientTransport : public RawsockTransport<TConfig>
-{
-public:
-    using Ptr      = std::shared_ptr<RawsockClientTransport>;
-    using Socket   = typename TConfig::Traits::NetProtocol::socket;
-    using Settings = typename TConfig::Traits::ClientSettings;
-
-    RawsockClientTransport(Socket&& s, const Settings&, TransportInfo t)
-        : Base(std::move(s), t)
-    {}
-
-private:
-    using Base = RawsockTransport<TConfig>;
+    bool headerSent_ = false;
+    bool wampFrameReadInProgress_ = false;
 };
 
 //------------------------------------------------------------------------------
-template <typename TConfig>
+template <typename TTraits>
 class RawsockAdmitter
-    : public std::enable_shared_from_this<RawsockAdmitter<TConfig>>
+    : public std::enable_shared_from_this<RawsockAdmitter<TTraits>>
 {
 public:
+    using Traits      = TTraits;
     using Ptr         = std::shared_ptr<RawsockAdmitter>;
-    using Socket      = typename TConfig::Traits::NetProtocol::socket;
-    using Settings    = typename TConfig::Traits::ServerSettings;
+    using Stream      = RawsockStream<Traits>;
+    using Socket      = typename Traits::NetProtocol::socket;
+    using Settings    = typename Traits::ServerSettings;
     using SettingsPtr = std::shared_ptr<Settings>;
     using Handler     = AnyCompletionHandler<void (AdmitResult)>;
 
     explicit RawsockAdmitter(Socket&& s, SettingsPtr p, const CodecIdSet& c)
         : socket_(std::move(s)),
-          timer_(socket_.get_executor()),
           codecIds_(c),
           settings_(p)
     {}
 
-    void admit(bool isShedding, Timeout timeout, Handler handler)
+    void admit(bool isShedding, Handler handler)
     {
         isShedding_ = isShedding;
         handler_ = std::move(handler);
 
         auto self = this->shared_from_this();
 
-        if (timeoutIsDefinite(timeout))
-        {
-            timer_.expires_after(timeout);
-            timer_.async_wait(
-                [this, self](boost::system::error_code ec) {onTimeout(ec);});
-        }
-
         boost::asio::async_read(
             socket_,
             boost::asio::buffer(&handshake_, sizeof(handshake_)),
             [this, self](boost::system::error_code ec, size_t)
             {
-                timer_.cancel();
                 if (check(ec, "socket read"))
                     onHandshakeReceived(Handshake::fromBigEndian(handshake_));
             });
@@ -403,26 +435,13 @@ public:
 
     const TransportInfo& transportInfo() const {return transportInfo_;}
 
-    Socket&& releaseSocket() {return std::move(socket_);}
+    Stream releaseStream() {return Stream{std::move(socket_)};}
 
 private:
     using Handshake = internal::RawsockHandshake;
 
-    void onTimeout(boost::system::error_code ec)
-    {
-        if (!ec)
-            return reject(TransportErrc::timeout);
-
-        if (ec != boost::asio::error::operation_aborted)
-        {
-            finish(AdmitResult::failed(static_cast<std::error_code>(ec),
-                                       "timer wait"));
-        }
-    }
-
     void onHandshakeReceived(Handshake hs)
     {
-        timer_.cancel();
         auto peerCodec = hs.codecId();
 
         if (isShedding_)
@@ -440,9 +459,8 @@ private:
         else if (codecIds_.count(peerCodec) != 0)
         {
             maxTxLength_ = hs.maxLength();
-            auto bytes = TConfig::hostOrderHandshakeBytes(
-                peerCodec, settings_->maxRxLength());
-            sendHandshake(Handshake(bytes));
+            sendHandshake(Handshake().setCodecId(peerCodec)
+                                     .setMaxLength(settings_->maxRxLength()));
         }
         else
         {
@@ -518,11 +536,17 @@ private:
             handler_(std::move(result));
         handler_ = nullptr;
         if (result.status() != AdmitStatus::wamp)
+        {
+            if (result.status() != AdmitStatus::failed)
+            {
+                boost::system::error_code ec;
+                socket_.shutdown(Socket::shutdown_send, ec);
+            }
             socket_.close();
+        }
     }
 
     Socket socket_;
-    boost::asio::steady_timer timer_;
     CodecIdSet codecIds_;
     TransportInfo transportInfo_;
     Handler handler_;
@@ -533,74 +557,16 @@ private:
 };
 
 //------------------------------------------------------------------------------
-template <typename TConfig>
-class RawsockServerTransport : public RawsockTransport<TConfig>
-{
-public:
-    using Ptr          = std::shared_ptr<RawsockServerTransport>;
-    using Socket       = typename TConfig::Traits::NetProtocol::socket;
-    using Settings     = typename TConfig::Traits::ServerSettings;
-    using SettingsPtr  = std::shared_ptr<Settings>;
-    using AdmitHandler = Transporting::AdmitHandler;
+template <typename TTraits>
+using RawsockClientTransport =
+    BasicClientTransport<typename TTraits::ClientSettings,
+                         RawsockStream<TTraits>>;
 
-    RawsockServerTransport(Socket&& s, SettingsPtr p, const CodecIdSet& c,
-                           RouterLogger::Ptr l)
-        : Base(s),
-          admitter_(std::make_shared<Admitter>(std::move(s), std::move(p), c))
-    {}
-
-private:
-    using Base        = RawsockTransport<TConfig>;
-    using Handshake   = internal::RawsockHandshake;
-    using Admitter    = RawsockAdmitter<TConfig>;
-    using AdmitterPtr = typename Admitter::Ptr;
-
-    void onAdmit(Timeout timeout, AdmitHandler handler) override
-    {
-        assert((admitter_ != nullptr) && "Admit already performed");
-
-        struct Admitted
-        {
-            AdmitHandler handler;
-            Ptr self;
-
-            void operator()(AdmitResult result)
-            {
-                self->onAdmitCompletion(result, handler);
-            }
-        };
-
-        auto self = std::dynamic_pointer_cast<RawsockServerTransport>(
-            this->shared_from_this());
-        bool isShedding = Base::state() == TransportState::shedding;
-        admitter_->admit(isShedding, timeout,
-                         Admitted{std::move(handler), std::move(self)});
-    }
-
-    void onCancelAdmission() override
-    {
-        if (admitter_)
-            admitter_->cancel();
-    }
-
-    void onAdmitCompletion(AdmitResult result, AdmitHandler& handler)
-    {
-        if (result.status() == AdmitStatus::wamp)
-        {
-            Base::assignSocket(admitter_->releaseSocket(),
-                               admitter_->transportInfo());
-        }
-        else
-        {
-            Base::shutdown();
-        }
-
-        Base::post(std::move(handler), result);
-        admitter_.reset();
-    }
-
-    typename RawsockAdmitter<TConfig>::Ptr admitter_;
-};
+//------------------------------------------------------------------------------
+template <typename TTraits>
+using RawsockServerTransport =
+    BasicServerTransport<typename TTraits::ServerSettings,
+                         RawsockAdmitter<TTraits>>;
 
 } // namespace internal
 

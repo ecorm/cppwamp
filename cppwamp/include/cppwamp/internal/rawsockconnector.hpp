@@ -26,33 +26,15 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-template <typename TTraits, typename TResolver, typename TTransport>
-struct BasicRawsockConnectorConfig
-{
-    using Traits = TTraits;
-    using Resolver = TResolver;
-    using Transport = TTransport;
-
-    // Allows modification of handshake bytes sent by client
-    // for testing purposes.
-    static uint32_t hostOrderHandshakeBytes(int codecId,
-                                            RawsockMaxLength maxRxLength)
-    {
-        return RawsockHandshake().setCodecId(codecId)
-                                 .setMaxLength(maxRxLength)
-                                 .toHostOrder();
-    }
-};
-
-//------------------------------------------------------------------------------
-template <typename TConfig>
+template <typename TResolver>
 class RawsockConnector
-    : public std::enable_shared_from_this<RawsockConnector<TConfig>>
+    : public std::enable_shared_from_this<RawsockConnector<TResolver>>
 {
 public:
-    using Ptr      = std::shared_ptr<RawsockConnector>;
-    using Settings = typename TConfig::Traits::ClientSettings;
-    using Handler  = std::function<void (ErrorOr<Transporting::Ptr>)>;
+    using Resolver  = TResolver;
+    using Ptr       = std::shared_ptr<RawsockConnector>;
+    using Settings  = typename Resolver::Settings;
+    using Handler   = std::function<void (ErrorOr<Transporting::Ptr>)>;
 
     RawsockConnector(IoStrand i, Settings s, int codecId)
         : settings_(s),
@@ -85,12 +67,11 @@ public:
     }
 
 private:
-    using Traits         = typename TConfig::Traits;
-    using Resolver       = typename TConfig::Resolver;
+    using Traits         = typename Resolver::Traits;
+    using Transport      = typename Resolver::Transport;
     using ResolverResult = typename Resolver::Result;
     using NetProtocol    = typename Traits::NetProtocol;
     using Socket         = typename NetProtocol::socket;
-    using Transport      = typename TConfig::Transport;
     using Handshake      = internal::RawsockHandshake;
 
     void connect(const ResolverResult& endpoints)
@@ -112,9 +93,10 @@ private:
 
     void sendHandshake()
     {
-        auto bytes = TConfig::hostOrderHandshakeBytes(codecId_,
-                                                      settings_.maxRxLength());
-        handshake_ = endian::nativeToBig32(bytes);
+        handshake_ = RawsockHandshake()
+                         .setCodecId(codecId_)
+                         .setMaxLength(settings_.maxRxLength())
+                         .toBigEndian();
         auto self = this->shared_from_this();
         boost::asio::async_write(
             socket_,

@@ -93,8 +93,8 @@ struct LoopbackFixture
 
     void disconnect()
     {
-        server->stop();
-        client->stop();
+        server->kill();
+        client->kill();
     }
 
     void run()
@@ -257,14 +257,6 @@ struct MonitorPingPongConfig : BasicRawsockTransportConfig<TcpTraits>
         return cannedPongBuffer;
     }
 };
-
-//------------------------------------------------------------------------------
-using PingPongConnectorConfig =
-    BasicTcpConnectorConfig<RawsockClientTransport<MonitorPingPongConfig>>;
-
-//------------------------------------------------------------------------------
-using PingPongListenerConfig =
-    BasicTcpListenerConfig<RawsockServerTransport<MonitorPingPongConfig>>;
 
 //------------------------------------------------------------------------------
 MessageBuffer makeMessageBuffer(const std::string& str)
@@ -705,8 +697,8 @@ TEMPLATE_TEST_CASE( "Normal communications", "[Transport][Rawsock]",
             {
                 receivedReply2 = true;
                 CHECK( reply2 == *buf );
-                sender2->stop();
-                receiver2->stop();
+                sender2->kill();
+                receiver2->kill();
             }
             else
             {

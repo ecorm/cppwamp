@@ -146,8 +146,7 @@ private:
     Meets the requirements of @ref TransportSettings. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API WebsocketEndpoint
-    : public SocketEndpoint<WebsocketEndpoint, Websocket, TcpOptions,
-                            std::size_t, 16*1024*1024>
+    : public SocketEndpoint<WebsocketEndpoint, Websocket, TcpOptions>
 {
 public:
     /** Constructor taking a port number. */
@@ -173,8 +172,7 @@ public:
     uint32_t httpHeaderLimit() const;
 
 private:
-    using Base = SocketEndpoint<WebsocketEndpoint, Websocket, TcpOptions,
-                                std::size_t, 16*1024*1024>;
+    using Base = SocketEndpoint<WebsocketEndpoint, Websocket, TcpOptions>;
 
     // Maintenance note: Keep HttpEndpoint::toWebsocket in sync with changes.
     std::string agent_;

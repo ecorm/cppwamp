@@ -19,11 +19,16 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
+using UdsClientTransport = RawsockClientTransport<UdsTraits>;
+
+//------------------------------------------------------------------------------
 class UdsResolver
 {
 public:
-    using Settings = UdsHost;
-    using Result   = std::array<std::string, 1>;
+    using Traits    = UdsTraits;
+    using Settings  = UdsHost;
+    using Transport = UdsClientTransport;
+    using Result    = std::array<std::string, 1>;
 
     UdsResolver(const IoStrand&) {}
 
@@ -37,21 +42,16 @@ public:
 };
 
 //------------------------------------------------------------------------------
-template <typename TTransport>
-using BasicUdsConnectorConfig =
-    BasicRawsockConnectorConfig<UdsTraits, UdsResolver, TTransport>;
+using UdsClientTransport = RawsockClientTransport<UdsTraits>;
 
 //------------------------------------------------------------------------------
-using UdsConnectorConfig =
-    BasicUdsConnectorConfig<
-        RawsockClientTransport<BasicRawsockTransportConfig<UdsTraits>>>;
-
-//------------------------------------------------------------------------------
-class UdsConnector : public RawsockConnector<UdsConnectorConfig>
+class UdsConnector : public RawsockConnector<UdsResolver>
 {
+    using Base = RawsockConnector<UdsResolver>;
+
 public:
     using Ptr = std::shared_ptr<UdsConnector>;
-    using RawsockConnector<UdsConnectorConfig>::RawsockConnector;
+    using Base::Base;
 };
 
 } // namespace internal

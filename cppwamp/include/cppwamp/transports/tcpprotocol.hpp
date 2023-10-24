@@ -134,8 +134,7 @@ private:
     Meets the requirements of @ref TransportSettings. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API TcpEndpoint
-    : public SocketEndpoint<TcpEndpoint, Tcp, TcpOptions, RawsockMaxLength,
-                            RawsockMaxLength::MB_16>
+    : public SocketEndpoint<TcpEndpoint, Tcp, TcpOptions>
 {
 public:
     /** Constructor taking a port number. */
@@ -148,8 +147,7 @@ public:
     std::string label() const;
 
 private:
-    using Base = SocketEndpoint<TcpEndpoint, Tcp, TcpOptions, RawsockMaxLength,
-                                RawsockMaxLength::MB_16>;
+    using Base = SocketEndpoint<TcpEndpoint, Tcp, TcpOptions>;
 };
 
 } // namespace wamp

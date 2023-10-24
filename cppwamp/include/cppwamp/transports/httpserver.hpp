@@ -21,6 +21,9 @@
 #include "httpprotocol.hpp"
 
 // TODO: HTTPS
+// TODO: HTTP compression
+// TODO: HTTP chunked transfer
+// TODO: HTTP multi-part chunked transfer
 
 namespace wamp
 {

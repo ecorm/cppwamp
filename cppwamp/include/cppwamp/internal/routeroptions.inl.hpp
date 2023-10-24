@@ -132,14 +132,6 @@ ServerOptions::withConnectionLimit(std::size_t limit)
 
 /** @throws error::Logic if the given timeout duration is negative. */
 CPPWAMP_INLINE ServerOptions&
-ServerOptions::withTransportHandshakeTimeout(Timeout timeout)
-{
-    transportHandshakeTimeout_ = internal::checkTimeout(timeout);
-    return *this;
-}
-
-/** @throws error::Logic if the given timeout duration is negative. */
-CPPWAMP_INLINE ServerOptions&
 ServerOptions::withChallengeTimeout(Timeout timeout)
 {
     challengeTimeout_ = internal::checkTimeout(timeout);
@@ -172,11 +164,6 @@ CPPWAMP_INLINE const String& ServerOptions::agent() const {return agent_;}
 CPPWAMP_INLINE std::size_t ServerOptions::connectionLimit() const
 {
     return connectionLimit_;
-}
-
-CPPWAMP_INLINE Timeout ServerOptions::transportHandshakeTimeout() const
-{
-    return challengeTimeout_;
 }
 
 CPPWAMP_INLINE Timeout ServerOptions::challengeTimeout() const
