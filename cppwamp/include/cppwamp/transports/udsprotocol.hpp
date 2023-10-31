@@ -125,8 +125,7 @@ private:
     Meets the requirements of @ref TransportSettings. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API UdsEndpoint
-    : public SocketEndpoint<UdsEndpoint, Uds, UdsOptions, RawsockMaxLength,
-                            RawsockMaxLength::MB_16>
+    : public SocketEndpoint<UdsEndpoint, Uds, UdsOptions>
 {
 public:
     /** Constructor taking a path name. */
@@ -142,8 +141,7 @@ public:
     std::string label() const;
 
 private:
-    using Base = SocketEndpoint<UdsEndpoint, Uds, UdsOptions, RawsockMaxLength,
-                                RawsockMaxLength::MB_16>;
+    using Base = SocketEndpoint<UdsEndpoint, Uds, UdsOptions>;
 
     using Base::port;
 

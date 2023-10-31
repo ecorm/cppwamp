@@ -22,6 +22,7 @@
 #include "erroror.hpp"
 #include "messagebuffer.hpp"
 #include "timeout.hpp"
+#include "traits.hpp"
 
 namespace wamp
 {
@@ -122,7 +123,16 @@ public:
     static AdmitResult failed(std::error_code e, const char* operation);
 
     /** Constructs a result for a failed handshake I/O operation. */
-    template <typename TErrc>
+    template <typename E,
+              CPPWAMP_NEEDS(!std::is_error_condition_enum<E>::value) = 0>
+    static AdmitResult failed(E netErrorCode, const char* operation)
+    {
+        return failed(static_cast<std::error_code>(netErrorCode), operation);
+    }
+
+    /** Constructs a result for a failed handshake I/O operation. */
+    template <typename TErrc,
+              CPPWAMP_NEEDS(std::is_error_condition_enum<TErrc>::value) = 0>
     static AdmitResult failed(TErrc e, const char* operation)
     {
         return failed(static_cast<std::error_code>(make_error_code(e)),
@@ -240,6 +250,7 @@ public:
 
     ServerTransportLimits& withPingKeepsAliveDisabled(bool disabled = true);
 
+    // TODO: Header/Body limits for HTTP and Websocket only
     std::size_t headerSizeLimit() const;
 
     std::size_t bodySizeLimit() const;
@@ -258,7 +269,7 @@ public:
 
     Timeout lingerTimeout() const;
 
-    int withBacklogCapacity() const;
+    int backlogCapacity() const;
 
     bool pingKeepsAlive() const;
 
@@ -301,8 +312,8 @@ public:
     /// Handler type used for server handshake completion.
     using AdmitHandler = std::function<void (AdmitResult)>;
 
-    /// Handler type used for transport shutdown.
-    using ShutdownHandler = std::function<void (std::error_code)>;
+    /// Handler type used for transport shutdown completion.
+    using ShutdownHandler = AnyCompletionHandler<void (std::error_code)>;
 
     /** @name Non-copyable and non-movable. */
     /// @{
@@ -357,7 +368,7 @@ public:
     /** Stops I/O operations and gracefully shuts down the underlying
         socket.
         @pre this->state() != TransportState::initial */
-    void shutdown(ShutdownHandler handler);
+    void shutdown(std::error_code reason, ShutdownHandler handler);
 
     /** Stops I/O operations and abrubtly closes the underlying socket.
         @post `this->state() == TransportState::stopped` */
@@ -381,10 +392,10 @@ protected:
 
     /** Must be overriden to send the given serialized ABORT message ASAP and
         then close gracefully. */
-    virtual void onSendAbort(MessageBuffer abortMessage) = 0;
+    virtual void onAbort(MessageBuffer abortMessage) = 0;
 
     /** Must be overriden to stop I/O operations and gracefully close. */
-    virtual void onShutdown(ShutdownHandler handler) = 0;
+    virtual void onShutdown(std::error_code reason, ShutdownHandler f) = 0;
 
     /** Must be overriden to stop I/O operations and abtruptly disconnect. */
     virtual void onClose() = 0;

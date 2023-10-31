@@ -14,6 +14,7 @@
 #include "codec.hpp"
 #include "errorcodes.hpp"
 #include "messagebuffer.hpp"
+#include "routerlogger.hpp"
 #include "transport.hpp"
 #include "internal/transportframe.hpp"
 #include "internal/pinger.hpp"
@@ -46,12 +47,16 @@ public:
     using Settings    = TSettings;
     using Stream      = TStream;
     using Ptr         = std::shared_ptr<BasicClientTransport>;
+    using Socket      = typename Stream::Socket;
     using SettingsPtr = std::shared_ptr<Settings>;
 
-    BasicClientTransport(Stream&& stream, SettingsPtr settings,
-                         ConnectionInfo ci, TransportInfo ti)
-        : Base(boost::asio::make_strand(stream.executor()), ci, ti),
-          timer_(stream.executor()),
+    BasicClientTransport(Socket&& socket, SettingsPtr settings,
+                         TransportInfo ti)
+        : Base(boost::asio::make_strand(socket.get_executor()),
+               Stream::makeConnectionInfo(socket),
+               ti),
+          stream_(std::move(socket), settings),
+          timer_(socket.get_executor()),
           settings_(std::move(settings))
     {
         if (internal::timeoutIsDefinite(Base::info().heartbeatInterval()))
@@ -86,7 +91,7 @@ private:
         enqueueFrame(std::move(buf));
     }
 
-    void onSendAbort(MessageBuffer message) override
+    void onAbort(MessageBuffer message) override
     {
         if (!stream_.isOpen())
             return;
@@ -98,9 +103,9 @@ private:
         transmit();
     }
 
-    void onShutdown(ShutdownHandler handler) override
+    void onShutdown(std::error_code reason, ShutdownHandler handler) override
     {
-        stop({}, std::move(handler));
+        stop(reason, std::move(handler));
     }
 
     void onClose() override
@@ -161,7 +166,7 @@ private:
         if (shutdownHandler_ != nullptr || !stream_.isOpen())
         {
             Base::post(std::move(handler),
-                       makeUnexpected(MiscErrc::invalidState));
+                       make_error_code(MiscErrc::invalidState));
             return;
         }
 
@@ -169,7 +174,7 @@ private:
         halt();
         auto self = this->shared_from_this();
 
-        auto lingerTimeout = settings().lingerTimeout();
+        auto lingerTimeout = settings_->limits().lingerTimeout();
         if (internal::timeoutIsDefinite(lingerTimeout))
         {
             timer_.expires_after(lingerTimeout);
@@ -186,25 +191,17 @@ private:
             reason,
             [this, self](std::error_code ec)
             {
-                // Successful shutdown is signalled by stream_.read
+                // Successful shutdown is signalled by stream_.readSome
                 // emitting TransportErrc::ended
                 if (ec)
-                {
-                    Base::post(shutdownHandler_, makeUnexpected(ec));
-                    shutdownHandler_ = nullptr;
-                }
+                    notifyShutdown(ec);
             });
     }
 
     void onLingerTimeout()
     {
         stream_.close();
-        if (shutdownHandler_)
-        {
-            Base::post(shutdownHandler_,
-                       makeUnexpectedError(TransportErrc::timeout));
-            shutdownHandler_ = nullptr;
-        }
+        notifyShutdown(make_error_code(TransportErrc::timeout));
     }
 
     void onPingGeneratedOrTimedOut(ErrorOr<PingBytes> pingBytes)
@@ -249,7 +246,7 @@ private:
         case TransportFrameKind::ping:
             return sendPing();
 
-        case TransportFrameKind::ping:
+        case TransportFrameKind::pong:
             return sendPong();
 
         default:
@@ -277,7 +274,7 @@ private:
         const auto* data = txFrame_.payload().data() + bytesSent;
         auto self = shared_from_this();
 
-        stream_.write(
+        stream_.writeSome(
             data, txBytesRemaining_,
             [this, self](std::error_code ec, std::size_t bytesWritten)
             {
@@ -353,12 +350,12 @@ private:
 
         rxBuffer_.clear();
         auto self = this->shared_from_this();
-        stream_.read(
-            rxBuffer_, settings_->limits().bodySizeLimit(),
+        stream_.readSome(
+            rxBuffer_,
             [this, self](std::error_code ec, std::size_t n, bool done)
             {
                 if (checkRxError(ec))
-                    onRead(ec, n, done);
+                    onRead(n, done);
             });
     }
 
@@ -368,8 +365,8 @@ private:
             return;
 
         auto self = this->shared_from_this();
-        stream_.read(
-            rxBuffer_, settings_->limits().bodySizeLimit(),
+        stream_.readSome(
+            rxBuffer_,
             [this, self](std::error_code ec, std::size_t n, bool done)
             {
                 if (checkRxError(ec))
@@ -394,8 +391,7 @@ private:
         bool isShuttingDown = shutdownHandler_ != nullptr;
         if (isShuttingDown && (ec == TransportErrc::ended))
         {
-            Base::post(shutdownHandler_, true);
-            shutdownHandler_ = nullptr;
+            notifyShutdown({});
             return true;
         }
 
@@ -409,6 +405,12 @@ private:
         if (rxHandler_)
             Base::post(rxHandler_, makeUnexpected(ec));
         rxHandler_ = nullptr;
+    }
+
+    void notifyShutdown(std::error_code ec)
+    {
+        Base::post(std::move(shutdownHandler_), ec);
+        shutdownHandler_ = nullptr;
     }
 
     Stream stream_;
@@ -447,31 +449,48 @@ template <typename TSettings, typename TAdmitter>
 class BasicServerTransport : public Transporting
 {
 public:
-    using Settings    = TSettings;
-    using Admitter    = TAdmitter;
-    using Ptr         = std::shared_ptr<BasicServerTransport>;
-    using Socket      = typename Admitter::Socket;
-    using SettingsPtr = std::shared_ptr<Settings>;
+    using Settings       = TSettings;
+    using Admitter       = TAdmitter;
+    using Ptr            = std::shared_ptr<BasicServerTransport>;
+    using ListenerSocket = typename Admitter::ListenerSocket;
+    using SettingsPtr    = std::shared_ptr<Settings>;
 
-    BasicServerTransport(Socket&& socket, SettingsPtr settings,
-                         ConnectionInfo ci, TransportInfo ti = {})
-        : Base(boost::asio::make_strand(socket.get_executor()), ci, ti),
+    BasicServerTransport(ListenerSocket&& socket, SettingsPtr settings,
+                         CodecIdSet codecIds, RouterLogger::Ptr)
+        : Base(boost::asio::make_strand(socket.get_executor()),
+               Stream::makeConnectionInfo(socket)),
           timer_(socket.get_executor()),
           txTimer_(socket.get_executor()),
           settings_(std::move(settings)),
-          admitter_(std::make_shared<Admitter>(std::move(socket)))
+          admitter_(std::make_shared<Admitter>(std::move(socket),
+                                               settings_, std::move(codecIds)))
     {}
+
+    template <typename TRequest>
+    void upgrade(const TRequest& request, AdmitHandler handler)
+    {
+        assert((admitter_ != nullptr) && "Admit already performed");
+
+        struct Admitted
+        {
+            AdmitHandler handler;
+            Ptr self;
+
+            void operator()(AdmitResult result)
+            {
+                self->onAdmissionCompletion(result, handler);
+            }
+        };
+
+        auto self = std::dynamic_pointer_cast<BasicServerTransport>(
+            this->shared_from_this());
+        admitter_->upgrade(request,
+                           Admitted{std::move(handler), std::move(self)});
+    }
 
     const Settings& settings() const {return *settings_;}
 
-private:
-    using Base = Transporting;
-    using Stream = typename TAdmitter::Stream;
-    using Frame = internal::TransportFrame;
-    using Byte = MessageBuffer::value_type;
-    using Pinger = internal::Pinger;
-    using PingBytes = internal::PingBytes;
-
+protected:
     void onAdmit(AdmitHandler handler) override
     {
         assert((admitter_ != nullptr) && "Admit already performed");
@@ -483,14 +502,14 @@ private:
             std::dynamic_pointer_cast<BasicServerTransport>(shared_from_this());
 
         auto timeout = settings_->limits().handshakeTimeout();
-        if (timeoutIsDefinite(timeout))
+        if (internal::timeoutIsDefinite(timeout))
         {
             timer_.expires_from_now(timeout);
             timer_.async_wait(
                 [this, self](boost::system::error_code ec)
                 {
                     if (ec != boost::asio::error::operation_aborted)
-                        onAdmitTimeout(ec);
+                        onAdmitTimeout(static_cast<std::error_code>(ec));
                 });
         }
 
@@ -513,7 +532,7 @@ private:
     void onAdmitTimeout(boost::system::error_code ec)
     {
         if (admitter_)
-            admitter_->cancel();
+            admitter_->close();
 
         if (!admitHandler_)
             return;
@@ -529,7 +548,7 @@ private:
         rxHandler_ = rxHandler;
         txErrorHandler_ = txErrorHandler;
 
-        auto self =
+        std::weak_ptr<BasicServerTransport> self =
             std::dynamic_pointer_cast<BasicServerTransport>(shared_from_this());
 
         stream_.observeControlFrames(
@@ -552,7 +571,7 @@ private:
         enqueueFrame(std::move(buf));
     }
 
-    void onSendAbort(MessageBuffer message) override
+    void onAbort(MessageBuffer message) override
     {
         if (!stream_.isOpen())
             return;
@@ -564,21 +583,35 @@ private:
         transmit();
     }
 
-    void onShutdown(ShutdownHandler handler) override
+    void onShutdown(std::error_code reason, ShutdownHandler handler) override
     {
-        stop({}, std::move(handler));
+        if (admitter_ != nullptr)
+            admitter_->shutdown(reason, std::move(handler));
+        else
+            stop(reason, std::move(handler));
     }
 
     void onClose() override
     {
         halt();
-        stream_.close();
+        if (admitter_ != nullptr)
+            admitter_->close();
+        else
+            stream_.close();
     }
+
+private:
+    using Base = Transporting;
+    using Stream = typename TAdmitter::Stream;
+    using Frame = internal::TransportFrame;
+    using Byte = MessageBuffer::value_type;
+    using Pinger = internal::Pinger;
+    using PingBytes = internal::PingBytes;
 
     void onAdmissionCompletion(AdmitResult result, AdmitHandler& handler)
     {
         timer_.cancel();
-        stream_ = admitter_->releaseStream();
+        stream_ = Stream{admitter_->releaseSocket(), settings_};
         Base::setReady(admitter_->transportInfo());
         Base::post(std::move(handler), result);
         admitter_.reset();
@@ -607,7 +640,7 @@ private:
         if (shutdownHandler_ != nullptr || !stream_.isOpen())
         {
             Base::post(std::move(handler),
-                       makeUnexpected(MiscErrc::invalidState));
+                       make_error_code(MiscErrc::invalidState));
             return;
         }
 
@@ -615,7 +648,7 @@ private:
         halt();
         auto self = this->shared_from_this();
 
-        auto lingerTimeout = settings().lingerTimeout();
+        auto lingerTimeout = settings_->limits().lingerTimeout();
         if (internal::timeoutIsDefinite(lingerTimeout))
         {
             timer_.expires_after(lingerTimeout);
@@ -632,13 +665,10 @@ private:
             reason,
             [this, self](std::error_code ec)
             {
-                // Successful shutdown is signalled by stream_.read
+                // Successful shutdown is signalled by stream_.readSome
                 // emitting TransportErrc::ended
                 if (ec)
-                {
-                    Base::post(shutdownHandler_, makeUnexpected(ec));
-                    shutdownHandler_ = nullptr;
-                }
+                    notifyShutdown(ec);
             });
     }
 
@@ -646,11 +676,7 @@ private:
     {
         stream_.close();
         if (shutdownHandler_)
-        {
-            Base::post(shutdownHandler_,
-                       makeUnexpectedError(TransportErrc::timeout));
-            shutdownHandler_ = nullptr;
-        }
+            notifyShutdown(make_error_code(TransportErrc::timeout));
     }
 
     void onPingGeneratedOrTimedOut(ErrorOr<PingBytes> pingBytes)
@@ -695,7 +721,7 @@ private:
         case TransportFrameKind::ping:
             return sendPing();
 
-        case TransportFrameKind::ping:
+        case TransportFrameKind::pong:
             return sendPong();
 
         default:
@@ -723,7 +749,7 @@ private:
         const auto* data = txFrame_.payload().data() + bytesSent;
         auto self = shared_from_this();
 
-        stream_.write(
+        stream_.writeSome(
             data, txBytesRemaining_,
             [this, self](std::error_code ec, std::size_t bytesWritten)
             {
@@ -799,12 +825,12 @@ private:
 
         rxBuffer_.clear();
         auto self = this->shared_from_this();
-        stream_.read(
-            rxBuffer_, settings_->limits().bodySizeLimit(),
+        stream_.readSome(
+            rxBuffer_,
             [this, self](std::error_code ec, std::size_t n, bool done)
             {
                 if (checkRxError(ec))
-                    onRead(ec, n, done);
+                    onRead(n, done);
             });
     }
 
@@ -814,8 +840,8 @@ private:
             return;
 
         auto self = this->shared_from_this();
-        stream_.read(
-            rxBuffer_, settings_->limits().bodySizeLimit(),
+        stream_.readSome(
+            rxBuffer_,
             [this, self](std::error_code ec, std::size_t n, bool done)
             {
                 if (checkRxError(ec))
@@ -840,8 +866,7 @@ private:
         bool isShuttingDown = shutdownHandler_ != nullptr;
         if (isShuttingDown && (ec == TransportErrc::ended))
         {
-            Base::post(shutdownHandler_, true);
-            shutdownHandler_ = nullptr;
+            notifyShutdown({});
             return true;
         }
 
@@ -857,7 +882,13 @@ private:
         rxHandler_ = nullptr;
     }
 
-    Stream stream_;
+    void notifyShutdown(std::error_code ec)
+    {
+        Base::post(std::move(shutdownHandler_), ec);
+        shutdownHandler_ = nullptr;
+    }
+
+    Stream stream_; // TODO: Use std::optional<Stream>
     boost::asio::steady_timer timer_;
     boost::asio::steady_timer txTimer_;
     std::deque<Frame> txQueue_;
@@ -871,6 +902,8 @@ private:
     ShutdownHandler shutdownHandler_;
     std::size_t txBytesRemaining_ = 0;
     bool isTransmitting_ = false;
+
+    friend class internal::HttpServerTransport;
 };
 
 } // namespace wamp

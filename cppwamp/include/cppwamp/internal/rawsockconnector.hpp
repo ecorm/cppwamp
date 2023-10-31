@@ -37,9 +37,9 @@ public:
     using Handler   = std::function<void (ErrorOr<Transporting::Ptr>)>;
 
     RawsockConnector(IoStrand i, Settings s, int codecId)
-        : settings_(s),
-          resolver_(i),
+        : resolver_(i),
           socket_(std::move(i)),
+          settings_(std::make_shared<Settings>(std::move(s))),
           codecId_(codecId)
     {}
 
@@ -50,7 +50,7 @@ public:
         handler_ = std::move(handler);
         auto self = this->shared_from_this();
         resolver_.resolve(
-            settings_,
+            *settings_,
             [this, self](boost::system::error_code netEc,
                          ResolverResult endpoints)
             {
@@ -77,7 +77,7 @@ private:
     void connect(const ResolverResult& endpoints)
     {
         assert(!socket_.is_open());
-        settings_.socketOptions().applyTo(socket_);
+        settings_->socketOptions().applyTo(socket_);
 
         auto self = this->shared_from_this();
         boost::asio::async_connect(
@@ -95,7 +95,7 @@ private:
     {
         handshake_ = RawsockHandshake()
                          .setCodecId(codecId_)
-                         .setMaxLength(settings_.maxRxLength())
+                         .setMaxLength(settings_->limits().bodySizeLimit())
                          .toBigEndian();
         auto self = this->shared_from_this();
         boost::asio::async_write(
@@ -157,8 +157,8 @@ private:
     {
         const TransportInfo i{codecId_,
                               hs.maxLengthInBytes(),
-                              Handshake::byteLengthOf(settings_.maxRxLength()),
-                              Traits::heartbeatInterval(settings_)};
+                              settings_->limits().bodySizeLimit(),
+                              Traits::heartbeatInterval(*settings_)};
         Transporting::Ptr transport =
             std::make_shared<Transport>(std::move(socket_), settings_, i);
         dispatchHandler(std::move(transport));
@@ -178,10 +178,10 @@ private:
         handler(std::forward<TArg>(arg));
     }
 
-    Settings settings_;
     Resolver resolver_;
     Socket socket_;
     Handler handler_;
+    std::shared_ptr<Settings> settings_;
     int codecId_ = 0;
     uint32_t handshake_ = 0;
 };

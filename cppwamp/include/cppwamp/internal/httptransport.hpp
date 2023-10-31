@@ -91,10 +91,10 @@ public:
         auto wsEndpoint =
             std::make_shared<WebsocketEndpoint>(settings_->toWebsocket());
         auto t = std::make_shared<WebsocketServerTransport>(
-            std::move(tcpSocket_), std::move(wsEndpoint), codecIds_, logger_);
-        upgradedTransport_ = t;
+            std::move(tcpSocket_), std::move(wsEndpoint), codecIds_);
+        upgradedTransport_ = std::move(t);
         assert(parser_.has_value());
-        t->upgrade(
+        upgradedTransport_->upgrade(
             parser_->get(),
             [this, self](AdmitResult result) {finish(result);});
     }
@@ -136,17 +136,25 @@ private:
     using Base = HttpJob;
     using Parser = boost::beast::http::request_parser<Body>;
 
-    void process(bool isShedding, Timeout timeout, Handler handler)
+    void process(bool isShedding, Handler handler)
     {
         isShedding_ = isShedding;
-        timeout_ = timeout;
         handler_ = std::move(handler);
         start();
     }
 
-    void cancel() {tcpSocket_.close();}
+    template <typename F>
+    void shutdown(std::error_code /*reason*/, F&& callback)
+    {
+        boost::system::error_code netEc;
+        tcpSocket_.shutdown(TcpSocket::shutdown_send, netEc);
+        auto ec = static_cast<std::error_code>(netEc);
+        postAny(tcpSocket_.get_executor(), std::forward<F>(callback), ec);
+    }
 
-    const Transporting::Ptr& upgradedTransport() const
+    void close() {tcpSocket_.close();}
+
+    const WebsocketServerTransport::Ptr& upgradedTransport() const
     {
         return upgradedTransport_;
     }
@@ -155,9 +163,11 @@ private:
     {
         auto self = shared_from_this();
 
-        if (timeoutIsDefinite(timeout_))
+        // TODO: Split header/body reading
+        auto timeout = settings_->limits().bodyTimeout().min();
+        if (timeoutIsDefinite(timeout))
         {
-            timer_.expires_after(timeout_);
+            timer_.expires_after(timeout);
             timer_.async_wait(
                 [this, self](boost::system::error_code ec) {onTimeout(ec);});
         }
@@ -394,10 +404,9 @@ private:
     std::string route_;
     Handler handler_;
     ConnectionInfo connectionInfo_;
-    Transporting::Ptr upgradedTransport_;
+    WebsocketServerTransport::Ptr upgradedTransport_;
     SettingsPtr settings_;
     RouterLogger::Ptr logger_;
-    Timeout timeout_;
     bool isShedding_ = false;
 
     friend class HttpServerTransport;
@@ -426,7 +435,7 @@ private:
 
     static ConnectionInfo makeConnectionInfo(const TcpSocket& socket)
     {
-        return TcpTraits::connectionInfo(socket.remote_endpoint(), "HTTP");
+        return TcpTraits::connectionInfo(socket, "HTTP");
     }
 
     static std::error_code
@@ -449,7 +458,7 @@ private:
         return ec;
     }
 
-    void onAdmit(Timeout timeout, AdmitHandler handler) override
+    void onAdmit(AdmitHandler handler) override
     {
         assert((job_ != nullptr) && "HTTP job already performed");
 
@@ -469,14 +478,41 @@ private:
 
         bool isShedding = Base::state() == TransportState::shedding;
         job_->process(isShedding,
-                      timeout,
                       Processed{std::move(handler), std::move(self)});
     }
 
-    void onCancelAdmission() override
+    void onStart(RxHandler r, TxErrorHandler t) override
     {
-        if (job_)
-            job_->cancel();
+        assert(transport_ != nullptr);
+        transport_->httpStart({}, std::move(r), std::move(t));
+    }
+
+    void onSend(MessageBuffer m) override
+    {
+        assert(transport_ != nullptr);
+        transport_->httpSend({}, std::move(m));
+    }
+
+    void onAbort(MessageBuffer m) override
+    {
+        assert(transport_ != nullptr);
+        transport_->httpAbort({}, std::move(m));
+    }
+
+    void onShutdown(std::error_code reason, ShutdownHandler f) override
+    {
+        if (job_ != nullptr)
+            job_->shutdown(reason, std::move(f));
+        else if (transport_ != nullptr)
+            transport_->httpShutdown({}, reason, std::move(f));
+    }
+
+    void onClose() override
+    {
+        if (job_ != nullptr)
+            job_->close();
+        if (transport_ != nullptr)
+            transport_->httpClose({});
     }
 
     void onJobProcessed(AdmitResult result, AdmitHandler& handler)
@@ -487,39 +523,8 @@ private:
         handler(result);
     }
 
-    void onStart(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
-    {
-        assert(transport_ != nullptr);
-        transport_->onStart(std::move(rxHandler),
-                            std::move(txErrorHandler));
-    }
-
-    void onSend(MessageBuffer message) override
-    {
-        assert(transport_ != nullptr);
-        transport_->onSend(std::move(message));
-    }
-
-    void onSendAbort(MessageBuffer message) override
-    {
-        assert(transport_ != nullptr);
-        transport_->onSendAbort(std::move(message));
-    }
-
-    void onShutdown(ShutdownHandler handler) override
-    {
-        assert(transport_ != nullptr);
-        transport_->onShutdown(std::move(handler));
-    }
-
-    void onKill() override
-    {
-        assert(transport_ != nullptr);
-        transport_->onKill();
-    }
-
     HttpJob::Ptr job_;
-    Transporting::Ptr transport_;
+    WebsocketServerTransport::Ptr transport_;
 };
 
 } // namespace internal

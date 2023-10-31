@@ -127,6 +127,17 @@ private:
         handler(true);
     }
 
+    ErrorOrDone abort(Reason reason) override
+    {
+        traceTx(reason.message({}));
+        session_->report(reason.info(false));
+        const bool ready = readyToAbort();
+        disconnect();
+        if (!ready)
+            return makeUnexpectedError(MiscErrc::invalidState);
+        return true;
+    }
+
     ErrorOrDone send(Petition&& hello) override
     {
         assert(state() == State::establishing);
@@ -231,17 +242,6 @@ private:
     ErrorOrDone send(Interruption&&) override   {return badCommand();}
     ErrorOrDone send(Registered&&) override     {return badCommand();}
     ErrorOrDone send(Unregistered&&) override   {return badCommand();}
-
-    ErrorOrDone abort(Reason reason) override
-    {
-        traceTx(reason.message({}));
-        session_->report(reason.info(false));
-        const bool ready = readyToAbort();
-        disconnect();
-        if (!ready)
-            return makeUnexpectedError(MiscErrc::invalidState);
-        return true;
-    }
 
     template <typename C>
     ErrorOrDone sendCommand(C& command)

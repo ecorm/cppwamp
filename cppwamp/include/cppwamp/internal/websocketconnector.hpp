@@ -32,13 +32,13 @@ class WebsocketConnector
 public:
     using Ptr       = std::shared_ptr<WebsocketConnector>;
     using Settings  = WebsocketHost;
-    using Socket    = WebsocketTransport::WebsocketSocket;
+    using Socket    = WebsocketStream::Socket;
     using Handler   = std::function<void (ErrorOr<Transporting::Ptr>)>;
     using Transport = WebsocketClientTransport;
 
     WebsocketConnector(IoStrand i, Settings s, int codecId)
         : strand_(std::move(i)),
-          settings_(std::move(s)),
+          settings_(std::make_shared<Settings>(std::move(s))),
           resolver_(strand_),
           codecId_(codecId)
     {}
@@ -50,7 +50,7 @@ public:
         handler_ = std::move(handler);
         auto self = shared_from_this();
         resolver_.async_resolve(
-            settings_.address(), settings_.serviceName(),
+            settings_->address(), settings_->serviceName(),
             [this, self](boost::beast::error_code netEc,
                          tcp::resolver::results_type endpoints)
             {
@@ -109,7 +109,7 @@ private:
         websocket_.emplace(strand_);
         auto& tcpSocket = websocket_->next_layer();
         tcpSocket.open(boost::asio::ip::tcp::v4());
-        settings_.socketOptions().applyTo(tcpSocket);
+        settings_->socketOptions().applyTo(tcpSocket);
 
         auto self = shared_from_this();
         boost::asio::async_connect(
@@ -127,7 +127,7 @@ private:
         /*  Update the host string. This will provide the value of the
             host HTTP header during the WebSocket handshake.
             See https://tools.ietf.org/html/rfc7230#section-5.4 */
-        std::string host = settings_.address() + ':' +
+        std::string host = settings_->address() + ':' +
                            std::to_string(ep.port());
 
         // Set the User-Agent and Sec-WebSocket-Protocol fields of the
@@ -136,12 +136,12 @@ private:
         assert(!subprotocol.empty());
         assert(websocket_.has_value());
         websocket_->set_option(boost::beast::websocket::stream_base::decorator(
-            Decorator{settings_.agent(), subprotocol}));
+            Decorator{settings_->agent(), subprotocol}));
 
         // Perform the handshake
         auto self = shared_from_this();
         websocket_->async_handshake(
-            response_, host, settings_.target(),
+            response_, host, settings_->target(),
             [this, self](boost::beast::error_code netEc)
             {
                 auto status = static_cast<HttpStatus>(response_.result());
@@ -164,12 +164,10 @@ private:
         else
             websocket_->binary(true);
 
-        websocket_->read_message_max(settings_.maxRxLength());
-
         const TransportInfo i{codecId_,
                               std::numeric_limits<std::size_t>::max(),
-                              settings_.maxRxLength(),
-                              settings_.heartbeatInterval()};
+                              settings_->limits().bodySizeLimit(),
+                              settings_->heartbeatInterval()};
         Transporting::Ptr transport =
             std::make_shared<Transport>(std::move(*websocket_), settings_, i);
         websocket_.reset();
@@ -205,7 +203,7 @@ private:
     }
 
     IoStrand strand_;
-    Settings settings_;
+    std::shared_ptr<Settings> settings_;
     boost::asio::ip::tcp::resolver resolver_;
     boost::optional<Socket> websocket_;
     boost::beast::websocket::response_type response_;

@@ -26,13 +26,13 @@ struct TcpTraits
     using ClientSettings = TcpHost;
     using ServerSettings = TcpEndpoint;
 
-    template <typename TEndpoint>
-    static ConnectionInfo connectionInfo(const TEndpoint& ep,
+    static ConnectionInfo connectionInfo(const NetProtocol::socket& socket,
                                          const char* protocol = "TCP")
     {
         static constexpr unsigned ipv4VersionNo = 4;
         static constexpr unsigned ipv6VersionNo = 6;
 
+        auto ep = socket.remote_endpoint();
         std::ostringstream oss;
         oss << ep;
         const auto addr = ep.address();

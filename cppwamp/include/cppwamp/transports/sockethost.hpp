@@ -19,6 +19,7 @@
 #include "../api.hpp"
 #include "../connector.hpp"
 #include "../timeout.hpp"
+#include "../transport.hpp"
 
 namespace wamp
 {
@@ -48,13 +49,6 @@ public:
         return derived();
     }
 
-    /** Specifies the maximum length permitted for incoming messages. */
-    TDerived& withMaxRxLength(TRxLength length)
-    {
-        maxRxLength_ = length;
-        return derived();
-    }
-
     /** Enables keep-alive PING messages with the given interval.
         @throw error::Logic if the interval is negative. */
     TDerived& withHearbeatInterval(Timeout interval)
@@ -63,11 +57,10 @@ public:
         return derived();
     }
 
-    /** Specifies the linger timeout.
-        @throws error::Logic if the given timeout is negative */
-    TDerived& withLingerTimeout(Timeout timeout)
+    /** Specifies the transport size limits and timeouts. */
+    TDerived& withLimits(ClientTransportLimits limits)
     {
-        lingerTimeout_ = internal::checkTimeout(timeout);
+        limits_ = limits;
         return derived();
     }
 
@@ -96,14 +89,14 @@ public:
     /** Obtains the socket options. */
     const SocketOptions& socketOptions() const {return socketOptions_;}
 
-    /** Obtains the specified maximum incoming message length. */
-    TRxLength maxRxLength() const {return maxRxLength_;}
-
     /** Obtains the keep-alive PING message interval. */
     Timeout heartbeatInterval() const {return heartbeatInterval_;}
 
-    /** Obtains the linger timeout. */
-    Timeout lingerTimeout() const {return lingerTimeout_;}
+    /** Obtains the transport size limits and timeouts. */
+    const ClientTransportLimits& limits() const {return limits_;}
+
+    /** Accesses the transport limits. */
+    ClientTransportLimits& limits() {return limits_;}
 
 protected:
     SocketHost(std::string address, std::string serviceName)
@@ -122,9 +115,8 @@ private:
     std::string address_;
     std::string serviceName_;
     SocketOptions socketOptions_;
+    ClientTransportLimits limits_;
     Timeout heartbeatInterval_ = unspecifiedTimeout;
-    Timeout lingerTimeout_ = unspecifiedTimeout;
-    TRxLength maxRxLength_ = defaultMaxRxLength;
 };
 
 } // namespace wamp

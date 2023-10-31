@@ -406,10 +406,11 @@ bindHandler(H&& handler, Ts&&... args)
     its associated executor. */
 //------------------------------------------------------------------------------
 template <typename E, typename H, typename... Ts>
-void dispatchAny(E& exec, H&& handler, Ts&&... args)
+void dispatchAny(E&& exec, H&& handler, Ts&&... args)
 {
-    boost::asio::dispatch(exec, bindHandler(std::forward<H>(handler),
-                                            std::forward<Ts>(args)...));
+    boost::asio::dispatch(std::forward<E>(exec),
+                          bindHandler(std::forward<H>(handler),
+                                      std::forward<Ts>(args)...));
 }
 
 //------------------------------------------------------------------------------
@@ -417,10 +418,11 @@ void dispatchAny(E& exec, H&& handler, Ts&&... args)
     its associated executor. */
 //------------------------------------------------------------------------------
 template <typename E, typename H, typename... Ts>
-void postAny(E& exec, H&& handler, Ts&&... args)
+void postAny(E&& exec, H&& handler, Ts&&... args)
 {
-    boost::asio::post(exec, bindHandler(std::forward<H>(handler),
-                                        std::forward<Ts>(args)...));
+    boost::asio::post(std::forward<E>(exec),
+                      bindHandler(std::forward<H>(handler),
+                                  std::forward<Ts>(args)...));
 }
 
 //------------------------------------------------------------------------------
@@ -428,10 +430,11 @@ void postAny(E& exec, H&& handler, Ts&&... args)
     its associated executor. */
 //------------------------------------------------------------------------------
 template<typename E, typename H, typename... Ts>
-void deferAny(E& exec, H&& handler, Ts&&... args)
+void deferAny(E&& exec, H&& handler, Ts&&... args)
 {
-    boost::asio::defer(exec, bindHandler(std::forward<H>(handler),
-                                         std::forward<Ts>(args)...));
+    boost::asio::defer(std::forward<E>(exec),
+                       bindHandler(std::forward<H>(handler),
+                                   std::forward<Ts>(args)...));
 }
 
 } // namespace wamp

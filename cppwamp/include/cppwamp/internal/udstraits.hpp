@@ -25,9 +25,9 @@ struct UdsTraits
     using ClientSettings = UdsHost;
     using ServerSettings = UdsEndpoint;
 
-    template <typename TEndpoint>
-    static ConnectionInfo connectionInfo(const TEndpoint& ep)
+    static ConnectionInfo connectionInfo(const NetProtocol::socket& socket)
     {
+        auto ep = socket.remote_endpoint();
         std::ostringstream oss;
         oss << ep;
 

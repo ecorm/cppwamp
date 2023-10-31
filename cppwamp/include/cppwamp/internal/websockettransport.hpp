@@ -27,6 +27,7 @@
 #include "../traits.hpp"
 #include "../transports/websocketprotocol.hpp"
 #include "../wampdefs.hpp"
+#include "tcptraits.hpp"
 
 namespace wamp
 {
@@ -62,12 +63,35 @@ inline std::error_code websocketErrorCodeToStandard(
 class WebsocketStream
 {
 public:
-    using Socket =
-        boost::beast::websocket::stream<boost::asio::ip::tcp::socket>;
+    using TcpSocket = boost::asio::ip::tcp::socket;
+    using Socket = boost::beast::websocket::stream<TcpSocket>;
 
-    using Buffer = MessageBuffer;
+    static ConnectionInfo makeConnectionInfo(const Socket& s)
+    {
+        return makeConnectionInfo(s.next_layer());
+    }
 
-    explicit WebsocketStream(Socket&& ws) : websocket_(std::move(ws)) {}
+    static ConnectionInfo makeConnectionInfo(const TcpSocket& s)
+    {
+        return TcpTraits::connectionInfo(s, "WS");
+    }
+
+    WebsocketStream() : websocket_(AnyIoExecutor{}) {}
+
+    template <typename S>
+    explicit WebsocketStream(Socket&& ws, const std::shared_ptr<S>& settings)
+        : websocket_(std::move(ws))
+    {
+        auto n = settings->limits().bodySizeLimit();
+        if (n != 0)
+            websocket_->read_message_max(n);
+    }
+
+    WebsocketStream& operator=(WebsocketStream&& rhs)
+    {
+        websocket_.emplace(std::move(rhs.websocket_).value());
+        return *this;
+    }
 
     AnyIoExecutor executor() {return websocket_->get_executor();}
 
@@ -75,14 +99,6 @@ public:
     {
         return websocket_->next_layer().is_open() &&
                websocket_->is_open();
-    }
-
-    template <typename L>
-    void setLimits(const L& limits)
-    {
-        auto n = limits.bodySizeLimit();
-        if (n != 0)
-            websocket_->read_message_max() = n;
     }
 
     template <typename F>
@@ -143,7 +159,7 @@ public:
     }
 
     template <typename F>
-    void write(const uint8_t* data, std::size_t size, F&& callback)
+    void writeSome(const uint8_t* data, std::size_t size, F&& callback)
     {
         struct Written
         {
@@ -160,7 +176,7 @@ public:
     }
 
     template <typename F>
-    void read(Buffer& buffer, F&& callback)
+    void readSome(MessageBuffer& buffer, F&& callback)
     {
         struct Received
         {
@@ -174,8 +190,10 @@ public:
         };
 
         rxBuffer_.emplace(buffer);
-        websocket_->async_read_some(*rxBuffer_,
-                                    Received{std::forward<F>(callback), this});
+        websocket_->async_read_some(
+            *rxBuffer_,
+            0, // Beast will choose 1536
+            Received{std::forward<F>(callback), this});
     }
 
     template <typename F>
@@ -309,14 +327,15 @@ class WebsocketAdmitter
 public:
     using Ptr             = std::shared_ptr<WebsocketAdmitter>;
     using Stream          = WebsocketStream;
-    using Socket          = boost::asio::ip::tcp::socket;
+    using ListenerSocket  = boost::asio::ip::tcp::socket;
+    using Socket          = boost::beast::websocket::stream<ListenerSocket>;
     using Settings        = WebsocketEndpoint;
     using SettingsPtr     = std::shared_ptr<Settings>;
     using Handler         = std::function<void (AdmitResult)>;
     using UpgradeRequest =
         boost::beast::http::request<boost::beast::http::string_body>;
 
-    WebsocketAdmitter(Socket&& t, SettingsPtr s, const CodecIdSet& c)
+    WebsocketAdmitter(ListenerSocket&& t, SettingsPtr s, const CodecIdSet& c)
         : tcpSocket_(std::move(t)),
           codecIds_(c),
           settings_(std::move(s))
@@ -345,7 +364,18 @@ public:
             });
     }
 
-    void cancel()
+    template <typename F>
+    void shutdown(std::error_code /*reason*/, F&& callback)
+    {
+        TcpSocket* socket = websocket_.has_value() ? &websocket_->next_layer()
+                                                   : &tcpSocket_;
+        boost::system::error_code netEc;
+        socket->shutdown(TcpSocket::shutdown_send, netEc);
+        auto ec = static_cast<std::error_code>(netEc);
+        postAny(socket->get_executor(), std::forward<F>(callback), ec);
+    }
+
+    void close()
     {
         if (websocket_.has_value())
             websocket_->next_layer().close();
@@ -361,14 +391,14 @@ public:
 
     const TransportInfo& transportInfo() const {return transportInfo_;}
 
-    Stream releaseStream()
+    Socket&& releaseSocket()
     {
         assert(websocket_.has_value());
-        return Stream{std::move(*websocket_)};
+        return std::move(*websocket_);
     }
 
 private:
-    using WebsocketSocket = boost::beast::websocket::stream<Socket>;
+    using TcpSocket = ListenerSocket;
     using HttpStatus = boost::beast::http::status;
     using Parser =
         boost::beast::http::request_parser<boost::beast::http::empty_body>;
@@ -525,8 +555,8 @@ private:
         handler_ = nullptr;
     }
 
-    Socket tcpSocket_;
-    boost::optional<WebsocketSocket> websocket_;
+    TcpSocket tcpSocket_;
+    boost::optional<Socket> websocket_;
     CodecIdSet codecIds_;
     TransportInfo transportInfo_;
     SettingsPtr settings_;
@@ -543,8 +573,47 @@ using WebsocketClientTransport =
     BasicClientTransport<WebsocketHost, WebsocketStream>;
 
 //------------------------------------------------------------------------------
-using WebsocketServerTransport =
-    BasicServerTransport<WebsocketEndpoint, WebsocketAdmitter>;
+class WebsocketServerTransport
+    : public BasicServerTransport<WebsocketEndpoint, WebsocketAdmitter>
+{
+    using Base = BasicServerTransport<WebsocketEndpoint, WebsocketAdmitter>;
+
+public:
+    using Ptr = std::shared_ptr<WebsocketServerTransport>;
+
+    class PassKey
+    {
+        constexpr PassKey() = default;
+        friend class HttpTransport;
+    };
+
+    WebsocketServerTransport(ListenerSocket&& l, SettingsPtr s,
+                             CodecIdSet c, RouterLogger::Ptr = {})
+        : Base(std::move(l), std::move(s), std::move(c), {})
+    {}
+
+    void httpStart(PassKey, RxHandler r, TxErrorHandler t)
+    {
+        Base::onStart(std::move(r), std::move(t));
+    }
+
+    void httpSend(PassKey, MessageBuffer message)
+    {
+        Base::onSend(std::move(message));
+    }
+
+    void httpAbort(PassKey, MessageBuffer message)
+    {
+        Base::onAbort(std::move(message));
+    }
+
+    void httpShutdown(PassKey, std::error_code reason, ShutdownHandler handler)
+    {
+        Base::onShutdown(reason, std::move(handler));
+    }
+
+    void httpClose(PassKey) {Base::onClose();}
+};
 
 } // namespace internal
 

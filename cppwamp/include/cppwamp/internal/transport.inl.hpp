@@ -287,7 +287,7 @@ CPPWAMP_INLINE Timeout ServerTransportLimits::lingerTimeout() const
     return lingerTimeout_;
 }
 
-CPPWAMP_INLINE int ServerTransportLimits::withBacklogCapacity() const
+CPPWAMP_INLINE int ServerTransportLimits::backlogCapacity() const
 {
     return backlogCapacity_;
 }
@@ -369,11 +369,12 @@ CPPWAMP_INLINE void Transporting::abort(MessageBuffer abortMessage,
                     make_error_code(MiscErrc::invalidState));
     }
 
-    onSendAbort(std::move(abortMessage));
+    onAbort(std::move(abortMessage));
     state_ = State::aborting;
 }
 
-CPPWAMP_INLINE void Transporting::shutdown(ShutdownHandler handler)
+CPPWAMP_INLINE void Transporting::shutdown(std::error_code reason,
+                                           ShutdownHandler handler)
 {
     assert(state_ != TransportState::initial);
     if (state_ != State::ready && state_ != State::running)
@@ -382,7 +383,7 @@ CPPWAMP_INLINE void Transporting::shutdown(ShutdownHandler handler)
                     make_error_code(MiscErrc::invalidState));
     }
 
-    return onShutdown(std::move(handler));
+    return onShutdown(reason, std::move(handler));
 }
 
 CPPWAMP_INLINE void Transporting::close()

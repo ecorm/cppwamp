@@ -49,7 +49,7 @@ public:
             });
     }
     
-    void close() {transport_->kill();}
+    void close() {transport_->close();}
 
     const MessageList& messages() const {return messages_;}
 

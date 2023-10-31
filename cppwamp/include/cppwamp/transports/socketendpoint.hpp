@@ -51,7 +51,7 @@ public:
         return derived();
     }
 
-    /** Specifies the maximum length permitted for incoming messages. */
+    /** Specifies the transport size limits and timeouts. */
     TDerived& withLimits(ServerTransportLimits limits)
     {
         limits_ = limits;
@@ -70,7 +70,7 @@ public:
     /** Obtains the acceptor socket options. */
     const SocketOptions& acceptorOptions() const {return acceptorOptions_;}
 
-    /** Obtains the transport limits. */
+    /** Obtains the transport size limits and timeouts. */
     const ServerTransportLimits& limits() const {return limits_;}
 
     /** Accesses the transport limits. */

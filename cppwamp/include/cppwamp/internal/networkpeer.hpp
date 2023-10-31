@@ -27,12 +27,14 @@ namespace internal
 class NetworkPeer : public Peer
 {
 public:
+    using Ptr = std::shared_ptr<NetworkPeer>;
+
     explicit NetworkPeer(bool isRouter) : Base(isRouter) {}
 
     ~NetworkPeer() override
     {
         if (transport_)
-            transport_->kill();
+            transport_->close();
     }
 
     ErrorOrDone sendMessage(const Message& msg)
@@ -48,32 +50,6 @@ public:
         transport_->send(std::move(buffer));
         return true;
     }
-
-    ErrorOrDone send(Reason&& c) override            {return sendCommand(c);}
-    ErrorOrDone send(Petition&& c) override          {return sendCommand(c);}
-    ErrorOrDone send(Welcome&& c) override           {return sendCommand(c);}
-    ErrorOrDone send(Authentication&& c) override    {return sendCommand(c);}
-    ErrorOrDone send(Challenge&& c) override         {return sendCommand(c);}
-    ErrorOrDone send(Topic&& c) override             {return sendCommand(c);}
-    ErrorOrDone send(Pub&& c) override               {return sendCommand(c);}
-    ErrorOrDone send(Event&& c) override             {return sendCommand(c);}
-    ErrorOrDone send(Subscribed&& c) override        {return sendCommand(c);}
-    ErrorOrDone send(Unsubscribe&& c) override       {return sendCommand(c);}
-    ErrorOrDone send(Unsubscribed&& c) override      {return sendCommand(c);}
-    ErrorOrDone send(Published&& c) override         {return sendCommand(c);}
-    ErrorOrDone send(Procedure&& c) override         {return sendCommand(c);}
-    ErrorOrDone send(Rpc&& c) override               {return sendCommand(c);}
-    ErrorOrDone send(Result&& c) override            {return sendCommand(c);}
-    ErrorOrDone send(Invocation&& c) override        {return sendCommand(c);}
-    ErrorOrDone send(CallCancellation&& c) override  {return sendCommand(c);}
-    ErrorOrDone send(Interruption&& c) override      {return sendCommand(c);}
-    ErrorOrDone send(Registered&& c) override        {return sendCommand(c);}
-    ErrorOrDone send(Unregister&& c) override        {return sendCommand(c);}
-    ErrorOrDone send(Unregistered&& c) override      {return sendCommand(c);}
-    ErrorOrDone send(Stream&& c) override            {return sendCommand(c);}
-    ErrorOrDone send(StreamRequest&& c) override     {return sendCommand(c);}
-    ErrorOrDone send(CalleeOutputChunk&& c) override {return sendCommand(c);}
-    ErrorOrDone send(CallerOutputChunk&& c) override {return sendCommand(c);}
 
     ErrorOrDone abort(Reason r) override
     {
@@ -103,11 +79,48 @@ public:
 
         traceTx(msg);
         setState(State::failed);
-        transport_->sendAbort(std::move(buffer));
+
+        auto self = std::dynamic_pointer_cast<NetworkPeer>(shared_from_this());
+        transport_->abort(
+            std::move(buffer),
+            [this, self](std::error_code ec)
+            {
+                transport_->close();
+                transport_.reset();
+                if (ec)
+                    fail("Transport shutdown failure", ec);
+            });
+
         if (!fits)
             return makeUnexpectedError(WampErrc::payloadSizeExceeded);
         return true;
     }
+
+    ErrorOrDone send(Reason&& c) override            {return sendCommand(c);}
+    ErrorOrDone send(Petition&& c) override          {return sendCommand(c);}
+    ErrorOrDone send(Welcome&& c) override           {return sendCommand(c);}
+    ErrorOrDone send(Authentication&& c) override    {return sendCommand(c);}
+    ErrorOrDone send(Challenge&& c) override         {return sendCommand(c);}
+    ErrorOrDone send(Topic&& c) override             {return sendCommand(c);}
+    ErrorOrDone send(Pub&& c) override               {return sendCommand(c);}
+    ErrorOrDone send(Event&& c) override             {return sendCommand(c);}
+    ErrorOrDone send(Subscribed&& c) override        {return sendCommand(c);}
+    ErrorOrDone send(Unsubscribe&& c) override       {return sendCommand(c);}
+    ErrorOrDone send(Unsubscribed&& c) override      {return sendCommand(c);}
+    ErrorOrDone send(Published&& c) override         {return sendCommand(c);}
+    ErrorOrDone send(Procedure&& c) override         {return sendCommand(c);}
+    ErrorOrDone send(Rpc&& c) override               {return sendCommand(c);}
+    ErrorOrDone send(Result&& c) override            {return sendCommand(c);}
+    ErrorOrDone send(Invocation&& c) override        {return sendCommand(c);}
+    ErrorOrDone send(CallCancellation&& c) override  {return sendCommand(c);}
+    ErrorOrDone send(Interruption&& c) override      {return sendCommand(c);}
+    ErrorOrDone send(Registered&& c) override        {return sendCommand(c);}
+    ErrorOrDone send(Unregister&& c) override        {return sendCommand(c);}
+    ErrorOrDone send(Unregistered&& c) override      {return sendCommand(c);}
+    ErrorOrDone send(Stream&& c) override            {return sendCommand(c);}
+    ErrorOrDone send(StreamRequest&& c) override     {return sendCommand(c);}
+    ErrorOrDone send(CalleeOutputChunk&& c) override {return sendCommand(c);}
+    ErrorOrDone send(CallerOutputChunk&& c) override {return sendCommand(c);}
 
     NetworkPeer(const NetworkPeer&) = delete;
     NetworkPeer(NetworkPeer&&) = delete;
@@ -171,7 +184,7 @@ private:
     {
         if (transport_)
         {
-            transport_->kill();
+            transport_->close();
             transport_.reset();
         }
     }
@@ -180,21 +193,24 @@ private:
     {
         struct Closed
         {
-            std::weak_ptr<NetworkPeer> self;
             DisconnectHandler handler;
+            Ptr self;
 
-            void operator()(ErrorOr<bool> done)
+            void operator()(std::error_code ec)
             {
-                auto me = self.lock();
-                if (me)
+                auto& me = *self;
+                me.transport_->close();
+                me.transport_.reset();
+                if (ec)
                 {
-                    me->transport_.reset();
-                    if (done.has_value())
-                        me->setState(State::disconnected);
-                    else
-                        me->fail("Transport close failure", done.error());
+                    me.fail("Transport shutdown failure", ec);
+                    handler(makeUnexpected(ec));
                 }
-                handler(done);
+                else
+                {
+                    me.setState(State::disconnected);
+                    handler(true);
+                }
             }
         };
 
@@ -202,7 +218,8 @@ private:
         {
             auto self =
                 std::dynamic_pointer_cast<NetworkPeer>(shared_from_this());
-            transport_->shutDown(Closed{self, std::move(handler)});
+            transport_->shutdown({}, Closed{std::move(handler),
+                                            std::move(self)});
         }
         else
         {

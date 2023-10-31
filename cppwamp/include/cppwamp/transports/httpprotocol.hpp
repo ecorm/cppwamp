@@ -193,8 +193,7 @@ private:
     Meets the requirements of @ref TransportSettings. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API HttpEndpoint
-    : public SocketEndpoint<HttpEndpoint, Http, TcpOptions,
-                            std::size_t, 16*1024*1024>
+    : public SocketEndpoint<HttpEndpoint, Http, TcpOptions>
 {
 public:
     // TODO: Custom error page generator
@@ -300,8 +299,7 @@ public:
     }
 
 private:
-    using Base = SocketEndpoint<HttpEndpoint, Http, TcpOptions,
-                                std::size_t, 16*1024*1024>;
+    using Base = SocketEndpoint<HttpEndpoint, Http, TcpOptions>;
 
     AnyHttpAction* doFindAction(const char* route);
 

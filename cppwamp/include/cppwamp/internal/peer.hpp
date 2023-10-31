@@ -120,6 +120,8 @@ public:
         onDisconnect(oldState);
     }
 
+    virtual ErrorOrDone abort(Reason r) = 0;
+
     virtual ErrorOrDone send(Error&&) = 0;
 
     virtual ErrorOrDone send(Reason&&) = 0;
@@ -150,8 +152,6 @@ public:
     virtual ErrorOrDone send(StreamRequest&&) = 0;
     virtual ErrorOrDone send(CalleeOutputChunk&&) = 0;
     virtual ErrorOrDone send(CallerOutputChunk&&) = 0;
-
-    virtual ErrorOrDone abort(Reason r) = 0;
 
 protected:
     static const std::string& stateLabel(State state)

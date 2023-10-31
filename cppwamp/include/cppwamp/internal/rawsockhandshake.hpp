@@ -97,6 +97,11 @@ public:
     RawsockHandshake& setMaxLength(RawsockMaxLength length)
         {return put(length, lengthPos_);}
 
+    RawsockHandshake& setMaxLength(std::size_t length)
+    {
+        return setMaxLength(sizeToRawsockMaxLength(length));
+    }
+
 private:
     static constexpr uint32_t reservedMask_            = 0x0000ffff;
     static constexpr uint32_t codecMask_               = 0x000f0000;
@@ -112,6 +117,24 @@ private:
     static constexpr int codecPos_      = 16;
     static constexpr int lengthPos_     = 20;
     static constexpr int errorPos_      = 20;
+
+    static RawsockMaxLength sizeToRawsockMaxLength(std::size_t size)
+    {
+        if (size > 8*1024*1024)
+            return RawsockMaxLength::MB_16;
+
+        uint_fast32_t limit = 512;
+        int n = 0;
+        while (n < static_cast<int>(RawsockMaxLength::MB_16))
+        {
+            if (size <= limit)
+                break;
+            ++n;
+            limit *= 2;
+        }
+
+        return static_cast<RawsockMaxLength>(n);
+    }
 
     template <typename T = uint32_t>
     T get(uint32_t mask, int pos = 0) const
