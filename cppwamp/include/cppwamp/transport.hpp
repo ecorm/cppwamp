@@ -201,61 +201,61 @@ private:
 //------------------------------------------------------------------------------
 /** Contains timeouts and size limits for client transports. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API ClientTransportLimits
+class CPPWAMP_API ClientLimits
 {
 public:
-    ClientTransportLimits& withBodySizeLimit(std::size_t n);
+    ClientLimits& withBodySize(std::size_t n);
 
-    ClientTransportLimits& withControlSizeLimit(std::size_t n);
+    ClientLimits& withControlSize(std::size_t n);
 
-    ClientTransportLimits& withLingerTimeout(Timeout t);
+    ClientLimits& withLingerTimeout(Timeout t);
 
-    std::size_t bodySizeLimit() const;
+    std::size_t bodySize() const;
 
-    std::size_t controlSizeLimit() const;
+    std::size_t controlSize() const;
 
     Timeout lingerTimeout() const;
 
 private:
-    Timeout lingerTimeout_        = neverTimeout;
-    std::size_t bodySizeLimit_    = 0;
-    std::size_t controlSizeLimit_ = 0;
+    Timeout lingerTimeout_   = neverTimeout;
+    std::size_t bodySize_    = 0;
+    std::size_t controlSize_ = 0;
 };
 
 //------------------------------------------------------------------------------
 /** Contains timeouts and size limits for server transports. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API ServerTransportLimits
+class CPPWAMP_API ServerLimits
 {
 public:
-    ServerTransportLimits& withHeaderSizeLimit(std::size_t n);
+    ServerLimits& withHeaderSize(std::size_t n);
 
-    ServerTransportLimits& withBodySizeLimit(std::size_t n);
+    ServerLimits& withBodySize(std::size_t n);
 
-    ServerTransportLimits& withControlSizeLimit(std::size_t n);
+    ServerLimits& withControlSize(std::size_t n);
 
-    ServerTransportLimits& withHandshakeTimeout(Timeout t);
+    ServerLimits& withHandshakeTimeout(Timeout t);
 
-    ServerTransportLimits& withHeaderTimeout(Timeout t);
+    ServerLimits& withHeaderTimeout(Timeout t);
 
-    ServerTransportLimits& withBodyTimeout(BodyTimeout t);
+    ServerLimits& withBodyTimeout(BodyTimeout t);
 
-    ServerTransportLimits& withSendTimeout(BodyTimeout t);
+    ServerLimits& withSendTimeout(BodyTimeout t);
 
-    ServerTransportLimits& withIdleTimeout(Timeout t);
+    ServerLimits& withIdleTimeout(Timeout t);
 
-    ServerTransportLimits& withLingerTimeout(Timeout t);
+    ServerLimits& withLingerTimeout(Timeout t);
 
-    ServerTransportLimits& withBacklogCapacity(int n);
+    ServerLimits& withBacklogCapacity(int n);
 
-    ServerTransportLimits& withPingKeepsAliveDisabled(bool disabled = true);
+    ServerLimits& withPingKeepsAliveDisabled(bool disabled = true);
 
     // TODO: Header/Body limits for HTTP and Websocket only
-    std::size_t headerSizeLimit() const;
+    std::size_t headerSize() const;
 
-    std::size_t bodySizeLimit() const;
+    std::size_t bodySize() const;
 
-    std::size_t controlSizeLimit() const;
+    std::size_t controlSize() const;
 
     Timeout handshakeTimeout() const;
 
@@ -276,15 +276,15 @@ public:
 private:
     BodyTimeout bodyTimeout_;
     BodyTimeout sendTimeout_;
-    Timeout handshakeTimeout_     = neverTimeout;
-    Timeout headerTimeout_        = neverTimeout;
-    Timeout idleTimeout_          = neverTimeout;
-    Timeout lingerTimeout_        = neverTimeout;
-    std::size_t headerSizeLimit_  = 0;
-    std::size_t bodySizeLimit_    = 0;
-    std::size_t controlSizeLimit_ = 0;
-    int backlogCapacity_          = 0;
-    bool pingKeepsAlive_          = true;
+    Timeout handshakeTimeout_ = neverTimeout;
+    Timeout headerTimeout_    = neverTimeout;
+    Timeout idleTimeout_      = neverTimeout;
+    Timeout lingerTimeout_    = neverTimeout;
+    std::size_t headerSize_   = 0;
+    std::size_t bodySize_     = 0;
+    std::size_t controlSize_  = 0;
+    int backlogCapacity_      = 0;
+    bool pingKeepsAlive_      = true;
 };
 
 

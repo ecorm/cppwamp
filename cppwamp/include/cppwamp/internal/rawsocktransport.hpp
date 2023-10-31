@@ -68,8 +68,8 @@ public:
     template <typename S>
     explicit RawsockStream(Socket&& socket, const std::shared_ptr<S>& settings)
         : socket_(std::move(socket)),
-          wampFrameLimit_(settings->limits().bodySizeLimit()),
-          controlFrameLimit_(settings->limits().controlSizeLimit())
+          wampFrameLimit_(settings->limits().bodySize()),
+          controlFrameLimit_(settings->limits().controlSize())
     {}
 
     AnyIoExecutor executor() {return socket_.get_executor();}
@@ -479,7 +479,7 @@ private:
         else if (codecIds_.count(peerCodec) != 0)
         {
             maxTxLength_ = hs.maxLength();
-            auto rxLimit = settings_->limits().bodySizeLimit();
+            auto rxLimit = settings_->limits().bodySize();
             sendHandshake(Handshake().setCodecId(peerCodec)
                                      .setMaxLength(rxLimit));
         }
@@ -531,7 +531,7 @@ private:
         transportInfo_ =
             TransportInfo{codecId,
                           Handshake::byteLengthOf(maxTxLength_),
-                          settings_->limits().bodySizeLimit()};
+                          settings_->limits().bodySize()};
         finish(AdmitResult::wamp(codecId));
     }
 

@@ -120,179 +120,163 @@ CPPWAMP_INLINE AdmitResult::AdmitResult(Status status, std::error_code e,
 
 
 //******************************************************************************
-// ClientTransportLimits
+// ClientLimits
 //******************************************************************************
 
-CPPWAMP_INLINE ClientTransportLimits&
-ClientTransportLimits::withBodySizeLimit(std::size_t n)
+CPPWAMP_INLINE ClientLimits& ClientLimits::withBodySize(std::size_t n)
 {
-    bodySizeLimit_ = n;
+    bodySize_ = n;
     return *this;
 }
 
-CPPWAMP_INLINE ClientTransportLimits&
-ClientTransportLimits::withControlSizeLimit(std::size_t n)
+CPPWAMP_INLINE ClientLimits& ClientLimits::withControlSize(std::size_t n)
 {
-    controlSizeLimit_ = n;
+    controlSize_ = n;
     return *this;
 }
 
-CPPWAMP_INLINE ClientTransportLimits&
-ClientTransportLimits::withLingerTimeout(Timeout t)
+CPPWAMP_INLINE ClientLimits& ClientLimits::withLingerTimeout(Timeout t)
 {
     lingerTimeout_ = t;
     return *this;
 }
 
-CPPWAMP_INLINE std::size_t ClientTransportLimits::bodySizeLimit() const
+CPPWAMP_INLINE std::size_t ClientLimits::bodySize() const
 {
-    return bodySizeLimit_;
+    return bodySize_;
 }
 
-CPPWAMP_INLINE std::size_t ClientTransportLimits::controlSizeLimit() const
+CPPWAMP_INLINE std::size_t ClientLimits::controlSize() const
 {
-    return controlSizeLimit_;
+    return controlSize_;
 }
 
-CPPWAMP_INLINE Timeout ClientTransportLimits::lingerTimeout() const
+CPPWAMP_INLINE Timeout ClientLimits::lingerTimeout() const
 {
     return lingerTimeout_;
 }
 
 
 //******************************************************************************
-// ServerTransportLimits
+// ServerLimits
 //******************************************************************************
 
-CPPWAMP_INLINE ServerTransportLimits&
-ServerTransportLimits::withHeaderSizeLimit(std::size_t n)
+CPPWAMP_INLINE ServerLimits& ServerLimits::withHeaderSize(std::size_t n)
 {
-    headerSizeLimit_ = n;
+    headerSize_ = n;
     return *this;
 }
 
-CPPWAMP_INLINE ServerTransportLimits&
-ServerTransportLimits::withBodySizeLimit(std::size_t n)
+CPPWAMP_INLINE ServerLimits& ServerLimits::withBodySize(std::size_t n)
 {
-    bodySizeLimit_ = n;
+    bodySize_ = n;
     return *this;
 }
 
-CPPWAMP_INLINE ServerTransportLimits&
-ServerTransportLimits::withControlSizeLimit(std::size_t n)
+CPPWAMP_INLINE ServerLimits& ServerLimits::withControlSize(std::size_t n)
 {
-    controlSizeLimit_ = n;
+    controlSize_ = n;
     return *this;
 }
 
-CPPWAMP_INLINE ServerTransportLimits&
-ServerTransportLimits::withHandshakeTimeout(Timeout t)
+CPPWAMP_INLINE ServerLimits& ServerLimits::withHandshakeTimeout(Timeout t)
 {
     handshakeTimeout_ = internal::checkTimeout(t);
     return *this;
 }
 
-CPPWAMP_INLINE ServerTransportLimits&
-ServerTransportLimits::withHeaderTimeout(Timeout t)
+CPPWAMP_INLINE ServerLimits& ServerLimits::withHeaderTimeout(Timeout t)
 {
     headerTimeout_ = internal::checkTimeout(t);
     return *this;
 }
 
-CPPWAMP_INLINE ServerTransportLimits&
-ServerTransportLimits::withBodyTimeout(BodyTimeout t)
+CPPWAMP_INLINE ServerLimits& ServerLimits::withBodyTimeout(BodyTimeout t)
 {
     bodyTimeout_ = t;
     return *this;
 }
 
-CPPWAMP_INLINE ServerTransportLimits&
-ServerTransportLimits::withSendTimeout(BodyTimeout t)
+CPPWAMP_INLINE ServerLimits& ServerLimits::withSendTimeout(BodyTimeout t)
 {
     sendTimeout_ = t;
     return *this;
 }
 
-CPPWAMP_INLINE ServerTransportLimits&
-ServerTransportLimits::withIdleTimeout(Timeout t)
+CPPWAMP_INLINE ServerLimits& ServerLimits::withIdleTimeout(Timeout t)
 {
     idleTimeout_ = internal::checkTimeout(t);
     return *this;
 }
 
-CPPWAMP_INLINE ServerTransportLimits&
-ServerTransportLimits::withLingerTimeout(Timeout t)
+CPPWAMP_INLINE ServerLimits& ServerLimits::withLingerTimeout(Timeout t)
 {
     lingerTimeout_ = internal::checkTimeout(t);
     return *this;
 }
 
-CPPWAMP_INLINE ServerTransportLimits&
-ServerTransportLimits::withBacklogCapacity(int n)
+CPPWAMP_INLINE ServerLimits& ServerLimits::withBacklogCapacity(int n)
 {
     CPPWAMP_LOGIC_CHECK(n > 0, "Backlog capacity must be positive");
     backlogCapacity_ = n;
     return *this;
 }
 
-CPPWAMP_INLINE ServerTransportLimits&
-ServerTransportLimits::withPingKeepsAliveDisabled(bool disabled)
+CPPWAMP_INLINE ServerLimits&
+ServerLimits::withPingKeepsAliveDisabled(bool disabled)
 {
     pingKeepsAlive_ = disabled;
     return *this;
 }
 
-CPPWAMP_INLINE std::size_t ServerTransportLimits::headerSizeLimit() const
+CPPWAMP_INLINE std::size_t ServerLimits::headerSize() const
 {
-    return headerSizeLimit_;
+    return headerSize_;
 }
 
-CPPWAMP_INLINE std::size_t ServerTransportLimits::bodySizeLimit() const
+CPPWAMP_INLINE std::size_t ServerLimits::bodySize() const {return bodySize_;}
+
+CPPWAMP_INLINE std::size_t ServerLimits::controlSize() const
 {
-    return bodySizeLimit_;
+    return controlSize_;
 }
 
-CPPWAMP_INLINE std::size_t ServerTransportLimits::controlSizeLimit() const
-{
-    return controlSizeLimit_;
-}
-
-CPPWAMP_INLINE Timeout ServerTransportLimits::handshakeTimeout() const
+CPPWAMP_INLINE Timeout ServerLimits::handshakeTimeout() const
 {
     return handshakeTimeout_;
 }
 
-CPPWAMP_INLINE Timeout ServerTransportLimits::headerTimeout() const
+CPPWAMP_INLINE Timeout ServerLimits::headerTimeout() const
 {
     return headerTimeout_;
 }
 
-CPPWAMP_INLINE const BodyTimeout& ServerTransportLimits::bodyTimeout() const
+CPPWAMP_INLINE const BodyTimeout& ServerLimits::bodyTimeout() const
 {
     return bodyTimeout_;
 }
 
-CPPWAMP_INLINE const BodyTimeout& ServerTransportLimits::sendTimeout() const
+CPPWAMP_INLINE const BodyTimeout& ServerLimits::sendTimeout() const
 {
     return sendTimeout_;
 }
 
-CPPWAMP_INLINE Timeout ServerTransportLimits::idleTimeout() const
+CPPWAMP_INLINE Timeout ServerLimits::idleTimeout() const
 {
     return idleTimeout_;
 }
 
-CPPWAMP_INLINE Timeout ServerTransportLimits::lingerTimeout() const
+CPPWAMP_INLINE Timeout ServerLimits::lingerTimeout() const
 {
     return lingerTimeout_;
 }
 
-CPPWAMP_INLINE int ServerTransportLimits::backlogCapacity() const
+CPPWAMP_INLINE int ServerLimits::backlogCapacity() const
 {
     return backlogCapacity_;
 }
 
-CPPWAMP_INLINE bool ServerTransportLimits::pingKeepsAlive() const
+CPPWAMP_INLINE bool ServerLimits::pingKeepsAlive() const
 {
     return pingKeepsAlive_;
 }

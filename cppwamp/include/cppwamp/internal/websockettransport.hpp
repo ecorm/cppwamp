@@ -82,7 +82,7 @@ public:
     explicit WebsocketStream(Socket&& ws, const std::shared_ptr<S>& settings)
         : websocket_(std::move(ws))
     {
-        auto n = settings->limits().bodySizeLimit();
+        auto n = settings->limits().bodySize();
         if (n != 0)
             websocket_->read_message_max(n);
     }
@@ -523,7 +523,7 @@ private:
 
         transportInfo_ = TransportInfo{codecId_,
                                        std::numeric_limits<std::size_t>::max(),
-                                       settings_->limits().bodySizeLimit()};
+                                       settings_->limits().bodySize()};
         finish(AdmitResult::wamp(codecId_));
     }
 

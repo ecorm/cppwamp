@@ -166,7 +166,7 @@ private:
 
         const TransportInfo i{codecId_,
                               std::numeric_limits<std::size_t>::max(),
-                              settings_->limits().bodySizeLimit(),
+                              settings_->limits().bodySize(),
                               settings_->heartbeatInterval()};
         Transporting::Ptr transport =
             std::make_shared<Transport>(std::move(*websocket_), settings_, i);

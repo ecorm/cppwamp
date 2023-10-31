@@ -58,7 +58,7 @@ public:
     }
 
     /** Specifies the transport size limits and timeouts. */
-    TDerived& withLimits(ClientTransportLimits limits)
+    TDerived& withLimits(ClientLimits limits)
     {
         limits_ = limits;
         return derived();
@@ -93,10 +93,10 @@ public:
     Timeout heartbeatInterval() const {return heartbeatInterval_;}
 
     /** Obtains the transport size limits and timeouts. */
-    const ClientTransportLimits& limits() const {return limits_;}
+    const ClientLimits& limits() const {return limits_;}
 
     /** Accesses the transport limits. */
-    ClientTransportLimits& limits() {return limits_;}
+    ClientLimits& limits() {return limits_;}
 
 protected:
     SocketHost(std::string address, std::string serviceName)
@@ -115,7 +115,7 @@ private:
     std::string address_;
     std::string serviceName_;
     SocketOptions socketOptions_;
-    ClientTransportLimits limits_;
+    ClientLimits limits_;
     Timeout heartbeatInterval_ = unspecifiedTimeout;
 };
 

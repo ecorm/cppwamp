@@ -52,7 +52,7 @@ public:
     }
 
     /** Specifies the transport size limits and timeouts. */
-    TDerived& withLimits(ServerTransportLimits limits)
+    TDerived& withLimits(ServerLimits limits)
     {
         limits_ = limits;
         return derived();
@@ -71,10 +71,10 @@ public:
     const SocketOptions& acceptorOptions() const {return acceptorOptions_;}
 
     /** Obtains the transport size limits and timeouts. */
-    const ServerTransportLimits& limits() const {return limits_;}
+    const ServerLimits& limits() const {return limits_;}
 
     /** Accesses the transport limits. */
-    ServerTransportLimits& limits() {return limits_;}
+    ServerLimits& limits() {return limits_;}
 
 protected:
     SocketEndpoint(std::string address, unsigned short port)
@@ -90,7 +90,7 @@ private:
     std::string address_;
     SocketOptions socketOptions_;
     SocketOptions acceptorOptions_;
-    ServerTransportLimits limits_;
+    ServerLimits limits_;
     Port port_ = 0;
 };
 
