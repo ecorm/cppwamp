@@ -95,7 +95,7 @@ private:
     {
         handshake_ = RawsockHandshake()
                          .setCodecId(codecId_)
-                         .setMaxLength(settings_->limits().rxMsgSize())
+                         .setSizeLimit(settings_->limits().rxMsgSize())
                          .toBigEndian();
         auto self = this->shared_from_this();
         boost::asio::async_write(
@@ -156,7 +156,7 @@ private:
     void complete(Handshake hs)
     {
         // Clamp send limit to smallest between settings limit and peer limit
-        const auto peerLimit = hs.maxLengthInBytes();
+        const auto peerLimit = hs.sizeLimit();
         auto txLimit = settings_->limits().txMsgSize();
         txLimit = txLimit < peerLimit ? txLimit : peerLimit;
         const auto rxLimit = settings_->limits().rxMsgSize();

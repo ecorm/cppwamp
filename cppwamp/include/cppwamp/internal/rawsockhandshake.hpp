@@ -21,35 +21,9 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-enum class RawsockMaxLength
-{
-    B_512,  ///< 512 bytes
-    kB_1,   ///< 1 kilobyte
-    kB_2,   ///< 2 kilobytes
-    kB_4,   ///< 4 kilobytes
-    kB_8,   ///< 8 kilobytes
-    kB_16,  ///< 16 kilobytes
-    kB_32,  ///< 32 kilobytes
-    kB_64,  ///< 64 kilobytes
-    kB_128, ///< 128 kilobytes
-    kB_256, ///< 256 kilobytes
-    kB_512, ///< 512 kilobytes
-    MB_1,   ///< 1 megabyte
-    MB_2,   ///< 2 megabytes
-    MB_4,   ///< 4 megabytes
-    MB_8,   ///< 8 megabytes
-    MB_16   ///< 16 megabytes
-};
-
-//------------------------------------------------------------------------------
 class RawsockHandshake
 {
 public:
-    static size_t byteLengthOf(RawsockMaxLength len)
-    {
-        return 1u << (static_cast<int>(len) + byteLengthPos_);
-    }
-
     static RawsockHandshake fromBigEndian(uint32_t big)
     {
         return RawsockHandshake(endian::bigToNative32(big));
@@ -60,9 +34,9 @@ public:
         return RawsockHandshake(magicOctet_ | eUnsupportedFormatBits_);
     }
 
-    static RawsockHandshake eUnacceptableLength()
+    static RawsockHandshake eUnacceptableLimit()
     {
-        return RawsockHandshake(magicOctet_ | eUnacceptableLengthBits_);
+        return RawsockHandshake(magicOctet_ | eUnacceptableLimitBits_);
     }
 
     static RawsockHandshake eReservedBitsUsed()
@@ -81,13 +55,13 @@ public:
 
     uint16_t reserved() const {return get<uint16_t>(reservedMask_);}
 
-    int codecId() const
-        {return get<int>(codecMask_, codecPos_);}
+    int codecId() const {return get<int>(codecMask_, codecPos_);}
 
-    RawsockMaxLength maxLength() const
-        {return get<RawsockMaxLength>(lengthMask_, lengthPos_);}
-
-    size_t maxLengthInBytes() const {return byteLengthOf(maxLength());}
+    size_t sizeLimit() const
+    {
+        auto bits = get<unsigned>(limitMask_, limitPos_);
+        return 1u << (bits + limitBase_);
+    }
 
     bool hasError() const {return get<>(codecMask_) == 0;}
 
@@ -97,7 +71,7 @@ public:
         static const std::array<TransportErrc, 16> table{
         {
             TE::success, TE::badSerializer, TE::badLengthLimit, TE::badFeature,
-             TE::overloaded, TE::failed, TE::failed, TE::failed,
+            TE::overloaded, TE::failed, TE::failed, TE::failed,
             TE::failed, TE::failed, TE::failed, TE::failed,
             TE::failed, TE::failed, TE::failed, TE::failed
         }};
@@ -114,39 +88,35 @@ public:
     RawsockHandshake& setCodecId(int codecId)
         {return put(codecId, codecPos_);}
 
-    // TODO: Rename to setSizeLimit
-    RawsockHandshake& setMaxLength(RawsockMaxLength length)
-        {return put(length, lengthPos_);}
-
-    RawsockHandshake& setMaxLength(std::size_t length)
+    RawsockHandshake& setSizeLimit(std::size_t limit)
     {
-        return setMaxLength(sizeToRawsockMaxLength(length));
+        return put(sizeLimitToBits(limit), limitPos_);
     }
 
 private:
-    static constexpr uint32_t reservedMask_            = 0x0000ffff;
-    static constexpr uint32_t codecMask_               = 0x000f0000;
-    static constexpr uint32_t lengthMask_              = 0x00f00000;
-    static constexpr uint32_t errorMask_               = 0x00f00000;
-    static constexpr uint32_t magicMask_               = 0xff000000;
-    static constexpr uint32_t magicOctet_              = 0x7f000000;
-    static constexpr uint32_t eUnsupportedFormatBits_  = 0x00100000;
-    static constexpr uint32_t eUnacceptableLengthBits_ = 0x00200000;
-    static constexpr uint32_t eReservedBitsUsedBits_   = 0x00300000;
-    static constexpr uint32_t eMaxConnectionsBits_     = 0x00400000;
-    static constexpr int byteLengthPos_ = 9;
-    static constexpr int codecPos_      = 16;
-    static constexpr int lengthPos_     = 20;
-    static constexpr int errorPos_      = 20;
+    static constexpr uint32_t reservedMask_           = 0x0000ffff;
+    static constexpr uint32_t codecMask_              = 0x000f0000;
+    static constexpr uint32_t limitMask_              = 0x00f00000;
+    static constexpr uint32_t errorMask_              = 0x00f00000;
+    static constexpr uint32_t magicMask_              = 0xff000000;
+    static constexpr uint32_t magicOctet_             = 0x7f000000;
+    static constexpr uint32_t eUnsupportedFormatBits_ = 0x00100000;
+    static constexpr uint32_t eUnacceptableLimitBits_ = 0x00200000;
+    static constexpr uint32_t eReservedBitsUsedBits_  = 0x00300000;
+    static constexpr uint32_t eMaxConnectionsBits_    = 0x00400000;
+    static constexpr int codecPos_  = 16;
+    static constexpr int limitPos_  = 20;
+    static constexpr int errorPos_  = 20;
+    static constexpr int limitBase_ = 9; // 512 bytes minimum limit
 
-    static RawsockMaxLength sizeToRawsockMaxLength(std::size_t size)
+    static unsigned sizeLimitToBits(std::size_t size)
     {
         if (size > 8*1024*1024)
-            return RawsockMaxLength::MB_16;
+            return 0x0F;
 
         uint_fast32_t limit = 512;
-        int n = 0;
-        while (n < static_cast<int>(RawsockMaxLength::MB_16))
+        unsigned n = 0;
+        while (n < 0x0F)
         {
             if (size <= limit)
                 break;
@@ -154,7 +124,7 @@ private:
             limit *= 2;
         }
 
-        return static_cast<RawsockMaxLength>(n);
+        return n;
     }
 
     template <typename T = uint32_t>

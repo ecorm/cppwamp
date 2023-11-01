@@ -73,7 +73,7 @@ maximum incoming message length, as well as with Nagle's algorithm disabled:
 
 ```
 auto tcp = wamp::TcpHost{"127.0.0.1", 8001}
-           .withMaxRxLength(wamp::RawsockMaxLength::MB_1)
+           .withLimits(RawsockLimits{}.withRxMsgSize(1024*1024))
            .withOptions(wamp::TcpOptions.withNoDelay())
            .withFormat(wamp::json)
 );

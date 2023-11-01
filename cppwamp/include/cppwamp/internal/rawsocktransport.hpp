@@ -479,10 +479,10 @@ private:
         }
         else if (codecIds_.count(peerCodec) != 0)
         {
-            peerSizeLimit_ = hs.maxLengthInBytes();
+            peerSizeLimit_ = hs.sizeLimit();
             const auto rxLimit = settings_->limits().rxMsgSize();
             sendHandshake(Handshake().setCodecId(peerCodec)
-                                     .setMaxLength(rxLimit));
+                                     .setSizeLimit(rxLimit));
         }
         else
         {
