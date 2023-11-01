@@ -21,14 +21,13 @@
 #include "connectioninfo.hpp"
 #include "erroror.hpp"
 #include "messagebuffer.hpp"
-#include "timeout.hpp"
 #include "traits.hpp"
 
 namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** Contains information pertaining to a transport. */
+/** Contains negotiated information pertaining to a transport. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API TransportInfo
 {
@@ -37,30 +36,25 @@ public:
     TransportInfo();
 
     /** Constructor taking information. */
-    TransportInfo(int codecId, std::size_t maxTxLength, std::size_t maxRxLength,
-                  Timeout heartbeatInterval = {});
+    TransportInfo(int codecId, std::size_t sendLimit, std::size_t receiveLimit);
 
-    /** Obtains the random transport instance ID. */
+    /** Obtains the random transport instance ID generated upon construction. */
     uint64_t transportId() const;
 
     /** Obtains the codec numeric ID. */
     int codecId() const;
 
     /** Obtains the maximum allowable transmit message length. */
-    std::size_t maxTxLength() const;
+    std::size_t sendLimit() const;
 
     /** Obtains the maximum allowable receive message length. */
-    std::size_t maxRxLength() const;
-
-    /** Obtains the keep-alive heartbeat interval period. */
-    Timeout heartbeatInterval() const;
+    std::size_t receiveLimit() const;
 
 private:
     uint64_t transportId_ = 0;
     int codecId_ = 0;
-    std::size_t maxTxLength_ = 0;
-    std::size_t maxRxLength_ = 0;
-    Timeout heartbeatInterval_ = {};
+    std::size_t sendLimit_ = 0;
+    std::size_t receiveLimit_ = 0;
 };
 
 
@@ -171,125 +165,6 @@ private:
     Status status_ = AdmitStatus::unknown;
 };
 
-
-//------------------------------------------------------------------------------
-class CPPWAMP_API BodyTimeout
-{
-public:
-    BodyTimeout() = default;
-
-    BodyTimeout(Timeout max) : max_(internal::checkTimeout(max)) {}
-
-    BodyTimeout(Timeout min, size_t minRate, Timeout max = unspecifiedTimeout)
-        : min_(internal::checkTimeout(min)),
-          max_(internal::checkTimeout(max)),
-          minRate_(minRate)
-    {}
-
-    Timeout min() const {return min_;}
-
-    Timeout max() const {return max_;}
-
-    size_t minRate() const {return minRate_;}
-
-private:
-    Timeout min_ = unspecifiedTimeout;
-    Timeout max_ = unspecifiedTimeout;
-    size_t minRate_ = 0;
-};
-
-//------------------------------------------------------------------------------
-/** Contains timeouts and size limits for client transports. */
-//------------------------------------------------------------------------------
-class CPPWAMP_API ClientLimits
-{
-public:
-    ClientLimits& withBodySize(std::size_t n);
-
-    ClientLimits& withControlSize(std::size_t n);
-
-    ClientLimits& withLingerTimeout(Timeout t);
-
-    std::size_t bodySize() const;
-
-    std::size_t controlSize() const;
-
-    Timeout lingerTimeout() const;
-
-private:
-    Timeout lingerTimeout_   = neverTimeout;
-    std::size_t bodySize_    = 0;
-    std::size_t controlSize_ = 0;
-};
-
-//------------------------------------------------------------------------------
-/** Contains timeouts and size limits for server transports. */
-//------------------------------------------------------------------------------
-class CPPWAMP_API ServerLimits
-{
-public:
-    ServerLimits& withHeaderSize(std::size_t n);
-
-    ServerLimits& withBodySize(std::size_t n);
-
-    ServerLimits& withControlSize(std::size_t n);
-
-    ServerLimits& withHandshakeTimeout(Timeout t);
-
-    ServerLimits& withHeaderTimeout(Timeout t);
-
-    ServerLimits& withBodyTimeout(BodyTimeout t);
-
-    ServerLimits& withSendTimeout(BodyTimeout t);
-
-    ServerLimits& withIdleTimeout(Timeout t);
-
-    ServerLimits& withLingerTimeout(Timeout t);
-
-    ServerLimits& withBacklogCapacity(int n);
-
-    ServerLimits& withPingKeepsAliveDisabled(bool disabled = true);
-
-    // TODO: Header/Body limits for HTTP and Websocket only
-    std::size_t headerSize() const;
-
-    std::size_t bodySize() const;
-
-    std::size_t controlSize() const;
-
-    Timeout handshakeTimeout() const;
-
-    Timeout headerTimeout() const;
-
-    const BodyTimeout& bodyTimeout() const;
-
-    const BodyTimeout& sendTimeout() const;
-
-    Timeout idleTimeout() const;
-
-    Timeout lingerTimeout() const;
-
-    int backlogCapacity() const;
-
-    bool pingKeepsAlive() const;
-
-private:
-    BodyTimeout bodyTimeout_;
-    BodyTimeout sendTimeout_;
-    Timeout handshakeTimeout_ = neverTimeout;
-    Timeout headerTimeout_    = neverTimeout;
-    Timeout idleTimeout_      = neverTimeout;
-    Timeout lingerTimeout_    = neverTimeout;
-    std::size_t headerSize_   = 0;
-    std::size_t bodySize_     = 0;
-    std::size_t controlSize_  = 0;
-    int backlogCapacity_      = 0;
-    bool pingKeepsAlive_      = true;
-};
-
-
-// Forward declaration
-namespace internal { class HttpServerTransport; }
 
 //------------------------------------------------------------------------------
 /** Base class for transports. */
@@ -415,8 +290,6 @@ private:
     TransportInfo info_;
     ConnectionInfo connectionInfo_;
     State state_ = State::initial;
-
-    friend class internal::HttpServerTransport;
 };
 
 } // namespace wamp

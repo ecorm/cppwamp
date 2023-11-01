@@ -82,7 +82,7 @@ public:
     explicit WebsocketStream(Socket&& ws, const std::shared_ptr<S>& settings)
         : websocket_(std::move(ws))
     {
-        auto n = settings->limits().bodySize();
+        auto n = settings->limits().rxMsgSize();
         if (n != 0)
             websocket_->read_message_max(n);
     }
@@ -351,8 +351,9 @@ public:
 
         // https://github.com/boostorg/beast/issues/971#issuecomment-356306911
         requestParser_.emplace();
-        if (settings_->httpHeaderLimit() != 0)
-            requestParser_->header_limit(settings_->httpHeaderLimit());
+        const auto headerSizeLimit = settings_->limits().headerSize();
+        if (headerSizeLimit != 0)
+            requestParser_->header_limit(headerSizeLimit);
 
         auto self = shared_from_this();
         boost::beast::http::async_read(
@@ -521,9 +522,10 @@ private:
         else
             websocket_->binary(true);
 
-        transportInfo_ = TransportInfo{codecId_,
-                                       std::numeric_limits<std::size_t>::max(),
-                                       settings_->limits().bodySize()};
+        const auto txLimit = settings_->limits().txMsgSize();
+        const auto rxLimit = settings_->limits().rxMsgSize();
+        transportInfo_ = TransportInfo{codecId_, txLimit, rxLimit};
+
         finish(AdmitResult::wamp(codecId_));
     }
 

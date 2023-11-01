@@ -43,7 +43,7 @@ public:
 
         MessageBuffer buffer;
         codec_.encode(msg.fields(), buffer);
-        if (buffer.size() > maxTxLength_)
+        if (buffer.size() > sendLimit_)
             return makeUnexpectedError(WampErrc::payloadSizeExceeded);
 
         traceTx(msg);
@@ -68,7 +68,7 @@ public:
         MessageBuffer buffer;
         codec_.encode(msg.fields(), buffer);
 
-        const bool fits = buffer.size() <= maxTxLength_;
+        const bool fits = buffer.size() <= sendLimit_;
         if (!fits)
         {
             r.options().clear();
@@ -152,7 +152,7 @@ private:
         transport_ = std::move(t);
         ++transportId_;
         codec_ = std::move(c);
-        maxTxLength_ = transport_->info().maxTxLength();
+        sendLimit_ = transport_->info().sendLimit();
     }
 
     void onEstablish() override
@@ -427,7 +427,7 @@ private:
 
     Transporting::Ptr transport_;
     AnyBufferCodec codec_;
-    std::size_t maxTxLength_ = 0;
+    std::size_t sendLimit_ = 0;
     std::size_t transportId_ = 0;
 };
 

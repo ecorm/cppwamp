@@ -19,7 +19,6 @@
 #include "../api.hpp"
 #include "../connector.hpp"
 #include "../timeout.hpp"
-#include "../transport.hpp"
 
 namespace wamp
 {
@@ -29,7 +28,7 @@ namespace wamp
     options. */
 //------------------------------------------------------------------------------
 template <typename TDerived, typename TProcotol, typename TSocketOptions,
-          typename TRxLength, TRxLength defaultMaxRxLength>
+          typename TLimits>
 class CPPWAMP_API SocketHost
 {
 public:
@@ -38,6 +37,9 @@ public:
 
     /// Socket options type
     using SocketOptions = TSocketOptions;
+
+    /// Transport limits type
+    using Limits = TLimits;
 
     /// Numeric port type
     using Port = uint_least16_t;
@@ -58,7 +60,7 @@ public:
     }
 
     /** Specifies the transport size limits and timeouts. */
-    TDerived& withLimits(ClientLimits limits)
+    TDerived& withLimits(Limits limits)
     {
         limits_ = limits;
         return derived();
@@ -93,10 +95,10 @@ public:
     Timeout heartbeatInterval() const {return heartbeatInterval_;}
 
     /** Obtains the transport size limits and timeouts. */
-    const ClientLimits& limits() const {return limits_;}
+    const Limits& limits() const {return limits_;}
 
     /** Accesses the transport limits. */
-    ClientLimits& limits() {return limits_;}
+    Limits& limits() {return limits_;}
 
 protected:
     SocketHost(std::string address, std::string serviceName)
@@ -115,7 +117,7 @@ private:
     std::string address_;
     std::string serviceName_;
     SocketOptions socketOptions_;
-    ClientLimits limits_;
+    Limits limits_;
     Timeout heartbeatInterval_ = unspecifiedTimeout;
 };
 

@@ -41,7 +41,6 @@ set(HEADERS
     include/cppwamp/options.hpp
     include/cppwamp/payload.hpp
     include/cppwamp/pubsubinfo.hpp
-    include/cppwamp/rawsockoptions.hpp
     include/cppwamp/realm.hpp
     include/cppwamp/realmobserver.hpp
     include/cppwamp/registration.hpp
@@ -58,6 +57,7 @@ set(HEADERS
     include/cppwamp/timeout.hpp
     include/cppwamp/traits.hpp
     include/cppwamp/transport.hpp
+    include/cppwamp/transportlimits.hpp
     include/cppwamp/unpacker.hpp
     include/cppwamp/uri.hpp
     include/cppwamp/variant.hpp
@@ -138,6 +138,7 @@ set(HEADERS
     include/cppwamp/internal/websockettransport.hpp
     include/cppwamp/transports/httpserver.hpp
     include/cppwamp/transports/httpprotocol.hpp
+    include/cppwamp/transports/rawsocklimits.hpp
     include/cppwamp/transports/socketendpoint.hpp
     include/cppwamp/transports/sockethost.hpp
     include/cppwamp/transports/tcpclient.hpp

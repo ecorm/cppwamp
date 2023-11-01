@@ -168,8 +168,8 @@ void checkConnection(LoopbackFixture& f, int expectedCodec,
                 REQUIRE( result.status() == AdmitStatus::wamp );
                 CHECK( result.codecId() == expectedCodec );
                 CHECK( transport->info().codecId() == expectedCodec );
-                CHECK( transport->info().maxRxLength() == serverMaxRxLength );
-                CHECK( transport->info().maxTxLength() == maxSize );
+                CHECK( transport->info().receiveLimit() == serverMaxRxLength );
+                CHECK( transport->info().sendLimit() == maxSize );
             });
     });
     f.lstn->establish();
@@ -180,8 +180,8 @@ void checkConnection(LoopbackFixture& f, int expectedCodec,
         auto transport = *transportOrError;
         REQUIRE( transport );
         CHECK( transport->info().codecId() == expectedCodec );
-        CHECK( transport->info().maxRxLength() == clientMaxRxLength );
-        CHECK( transport->info().maxTxLength() == maxSize );
+        CHECK( transport->info().receiveLimit() == clientMaxRxLength );
+        CHECK( transport->info().sendLimit() == maxSize );
         f.client = transport;
     });
 
@@ -425,8 +425,8 @@ TEST_CASE( "Normal websocket communications", "[Transport][Websocket]" )
                     REQUIRE( result.status() == AdmitStatus::wamp );
                     CHECK( result.codecId() == KnownCodecIds::json() );
                     CHECK( transport->info().codecId() == KnownCodecIds::json() );
-                    CHECK( transport->info().maxRxLength() == 64*1024 );
-                    CHECK( transport->info().maxTxLength() == maxSize );
+                    CHECK( transport->info().receiveLimit() == 64*1024 );
+                    CHECK( transport->info().sendLimit() == maxSize );
                     f.sctx.stop();
                 });
         });
@@ -439,8 +439,8 @@ TEST_CASE( "Normal websocket communications", "[Transport][Websocket]" )
             auto transport = *transportOrError;
             REQUIRE( transport );
             CHECK( transport->info().codecId() == KnownCodecIds::json() );
-            CHECK( transport->info().maxRxLength() == 64*1024 );
-            CHECK( transport->info().maxTxLength() == maxSize );
+            CHECK( transport->info().receiveLimit() == 64*1024 );
+            CHECK( transport->info().sendLimit() == maxSize );
             client2 = transport;
             f.cctx.stop();
         });
@@ -525,8 +525,8 @@ TEST_CASE( "Consecutive websocket send/receive", "[Transport][Websocket]" )
 TEST_CASE( "Maximum length websocket messages", "[Transport][Websocket]" )
 {
     LoopbackFixture f;
-    const MessageBuffer message(f.client->info().maxRxLength(), 'm');
-    const MessageBuffer reply(f.server->info().maxRxLength(), 'r');;
+    const MessageBuffer message(f.client->info().receiveLimit(), 'm');
+    const MessageBuffer reply(f.server->info().receiveLimit(), 'r');;
     checkSendReply(f, message, reply);
 }
 
@@ -685,7 +685,7 @@ TEST_CASE( "Cancel websocket send", "[Transport][Websocket]" )
     {
         REQUIRE(transport.has_value());
         f.client = *transport;
-        CHECK( f.client->info().maxTxLength() == maxSize );
+        CHECK( f.client->info().sendLimit() == maxSize );
     });
     f.run();
     f.server->start(
@@ -700,7 +700,7 @@ TEST_CASE( "Cancel websocket send", "[Transport][Websocket]" )
             handlerInvoked = true;
         },
         nullptr);
-    MessageBuffer message(f.server->info().maxRxLength(), 'a');
+    MessageBuffer message(f.server->info().receiveLimit(), 'a');
     f.client->send(message);
     REQUIRE_NOTHROW( f.cctx.poll() );
     f.cctx.reset();

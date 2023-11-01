@@ -15,6 +15,7 @@
 #include "../errorcodes.hpp"
 #include "../erroror.hpp"
 #include "../messagebuffer.hpp"
+#include "../timeout.hpp"
 #include "../transport.hpp"
 #include "endian.hpp"
 
@@ -31,6 +32,8 @@ using PingBytes = std::array<uint8_t, 2*sizeof(uint64_t)>;
 class PingFrame
 {
 public:
+    // Ping frame is prefixed with random byte sequence to avoid
+    // collision with an unsolicited pong.
     explicit PingFrame(uint64_t randomId)
         : baseId_(endian::nativeToBig64(randomId))
     {}
@@ -60,10 +63,10 @@ public:
     using Handler = std::function<void (ErrorOr<PingBytes>)>;
     using Byte = MessageBuffer::value_type;
 
-    Pinger(IoStrand strand, const TransportInfo& info)
+    Pinger(IoStrand strand, uint64_t transportId, Timeout interval)
         : timer_(strand),
-          frame_(info.transportId()),
-          interval_(info.heartbeatInterval())
+          frame_(transportId),
+          interval_(interval)
     {}
 
     void start(Handler handler)

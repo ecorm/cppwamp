@@ -173,10 +173,12 @@ private:
         }
 
         parser_.emplace();
-        if (settings().headerLimit() != 0)
-            parser_->header_limit(settings().headerLimit());
-        if (settings().bodyLimit() != 0)
-            parser_->body_limit(settings().bodyLimit());
+        const auto headerLimit = settings().limits().headerSize();
+        const auto bodyLimit = settings().limits().bodySize();
+        if (headerLimit != 0)
+            parser_->header_limit(headerLimit);
+        if (bodyLimit != 0)
+            parser_->body_limit(bodyLimit);
 
         boost::beast::http::async_read(
             tcpSocket_, buffer_, *parser_,

@@ -77,6 +77,23 @@ make_error_condition(WebsocketCloseErrc errc)
 
 
 //******************************************************************************
+// WebsocketClientLimits
+//******************************************************************************
+
+CPPWAMP_INLINE WebsocketClientLimits&
+WebsocketClientLimits::withHeaderSize(std::size_t n)
+{
+    headerSize_ = n;
+    return *this;
+}
+
+CPPWAMP_INLINE std::size_t WebsocketClientLimits::headerSize() const
+{
+    return headerSize_;
+}
+
+
+//******************************************************************************
 // WebsocketHost
 //******************************************************************************
 
@@ -124,6 +141,23 @@ CPPWAMP_INLINE Timeout WebsocketHost::abortTimeout() const
 
 
 //******************************************************************************
+// WebsocketServerLimits
+//******************************************************************************
+
+CPPWAMP_INLINE WebsocketServerLimits&
+WebsocketServerLimits::withHeaderSize(std::size_t n)
+{
+    headerSize_ = n;
+    return *this;
+}
+
+CPPWAMP_INLINE std::size_t WebsocketServerLimits::headerSize() const
+{
+    return headerSize_;
+}
+
+
+//******************************************************************************
 // WebsocketEndpoint
 //******************************************************************************
 
@@ -146,13 +180,6 @@ CPPWAMP_INLINE WebsocketEndpoint& WebsocketEndpoint::withAgent(std::string agent
     return *this;
 }
 
-CPPWAMP_INLINE WebsocketEndpoint&
-WebsocketEndpoint::withHttpHeaderLimit(uint32_t limit)
-{
-    httpHeaderLimit_ = limit;
-    return *this;
-}
-
 CPPWAMP_INLINE const std::string& WebsocketEndpoint::agent() const
 {
     return agent_.empty() ? Version::agentString() : agent_;
@@ -164,11 +191,6 @@ CPPWAMP_INLINE std::string WebsocketEndpoint::label() const
     if (address().empty())
         return "Websocket Port " + portString;
     return "Websocket " + address() + ':' + portString;
-}
-
-CPPWAMP_INLINE uint32_t WebsocketEndpoint::httpHeaderLimit() const
-{
-    return httpHeaderLimit_;
 }
 
 } // namespace wamp

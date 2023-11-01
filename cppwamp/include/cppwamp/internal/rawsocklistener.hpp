@@ -214,7 +214,7 @@ private:
         if (ec)
             return fail(ec, "socket bind");
 
-        int backlog = settings_->limits().backlogCapacity() == 0
+        int backlog = (settings_->limits().backlogCapacity() == 0)
             ? boost::asio::socket_base::max_listen_connections
             : settings_->limits().backlogCapacity();
         acceptor_.listen(backlog, ec);

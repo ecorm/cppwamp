@@ -12,7 +12,6 @@
 #include <cppwamp/asiodefs.hpp>
 #include <cppwamp/codec.hpp>
 #include <cppwamp/errorcodes.hpp>
-#include <cppwamp/rawsockoptions.hpp>
 #include <cppwamp/transport.hpp>
 #include <cppwamp/internal/tcpconnector.hpp>
 #include <cppwamp/internal/tcplistener.hpp>
@@ -27,17 +26,19 @@ namespace
 {
 
 //------------------------------------------------------------------------------
-using RML = RawsockMaxLength;
-
-//------------------------------------------------------------------------------
 constexpr auto jsonId = KnownCodecIds::json();
 constexpr auto msgpackId = KnownCodecIds::msgpack();
 constexpr unsigned short tcpTestPort = 9090;
 constexpr const char tcpLoopbackAddr[] = "127.0.0.1";
 constexpr const char udsTestPath[] = "cppwamptestuds";
-const auto tcpHost = TcpHost{tcpLoopbackAddr, tcpTestPort}
-                         .withMaxRxLength(RML::kB_64);
-const auto tcpEndpoint = TcpEndpoint{tcpTestPort}.withMaxRxLength(RML::kB_64);
+
+const auto tcpHost =
+    TcpHost{tcpLoopbackAddr, tcpTestPort}.withLimits(
+        ClientLimits{}.withBodySize(64*1024));
+
+const auto tcpEndpoint =
+    TcpEndpoint{tcpTestPort}.withLimits(
+        ServerLimits{}.withBodySize(64*1024));
 
 //------------------------------------------------------------------------------
 template <typename TConnector, typename TListener>
@@ -284,8 +285,8 @@ void checkConnection(TFixture& f, int expectedCodec,
                 REQUIRE(result.status() == AdmitStatus::wamp);
                 CHECK(result.codecId() == expectedCodec);
                 CHECK( transport->info().codecId() == expectedCodec );
-                CHECK( transport->info().maxRxLength() == serverMaxRxLength );
-                CHECK( transport->info().maxTxLength() == clientMaxRxLength );
+                CHECK( transport->info().receiveLimit() == serverMaxRxLength );
+                CHECK( transport->info().sendLimit() == clientMaxRxLength );
             });
     });
     f.lstn->establish();
@@ -296,8 +297,8 @@ void checkConnection(TFixture& f, int expectedCodec,
         auto transport = *transportOrError;
         REQUIRE( transport != nullptr );
         CHECK( transport->info().codecId() == expectedCodec );
-        CHECK( transport->info().maxRxLength() == clientMaxRxLength );
-        CHECK( transport->info().maxTxLength() == serverMaxRxLength );
+        CHECK( transport->info().receiveLimit() == clientMaxRxLength );
+        CHECK( transport->info().sendLimit() == serverMaxRxLength );
         f.client = transport;
     });
 
@@ -646,8 +647,8 @@ TEMPLATE_TEST_CASE( "Normal communications", "[Transport][Rawsock]",
                     REQUIRE(result.status() == AdmitStatus::wamp);
                     CHECK( result.codecId() == KnownCodecIds::json() );
                     CHECK( transport->info().codecId() == KnownCodecIds::json() );
-                    CHECK( transport->info().maxRxLength() == 64*1024 );
-                    CHECK( transport->info().maxTxLength() == 64*1024 );
+                    CHECK( transport->info().receiveLimit() == 64*1024 );
+                    CHECK( transport->info().sendLimit() == 64*1024 );
                     f.sctx.stop();
                 });
         });
@@ -660,8 +661,8 @@ TEMPLATE_TEST_CASE( "Normal communications", "[Transport][Rawsock]",
             auto transport = *transportOrError;
             REQUIRE( transport );
             CHECK( transport->info().codecId() == KnownCodecIds::json() );
-            CHECK( transport->info().maxRxLength() == 64*1024 );
-            CHECK( transport->info().maxTxLength() == 64*1024 );
+            CHECK( transport->info().receiveLimit() == 64*1024 );
+            CHECK( transport->info().sendLimit() == 64*1024 );
             client2 = transport;
             f.cctx.stop();
         });
@@ -745,8 +746,8 @@ TEMPLATE_TEST_CASE( "Maximum length messages", "[Transport][Rawsock]",
                     TcpLoopbackFixture, UdsLoopbackFixture )
 {
     TestType f;
-    const MessageBuffer message(f.client->info().maxRxLength(), 'm');
-    const MessageBuffer reply(f.server->info().maxRxLength(), 'r');;
+    const MessageBuffer message(f.client->info().receiveLimit(), 'm');
+    const MessageBuffer reply(f.server->info().receiveLimit(), 'r');;
     checkSendReply(f, message, reply);
 }
 
@@ -911,7 +912,7 @@ TEMPLATE_TEST_CASE( "Cancel send", "[Transport][Rawsock]",
     {
         REQUIRE(transport.has_value());
         f.client = *transport;
-        CHECK( f.client->info().maxTxLength() == 16*1024*1024 );
+        CHECK( f.client->info().sendLimit() == 16*1024*1024 );
     });
     f.run();
 
@@ -923,7 +924,7 @@ TEMPLATE_TEST_CASE( "Cancel send", "[Transport][Rawsock]",
             handlerInvoked = true;
         },
         nullptr);
-    MessageBuffer message(f.client->info().maxTxLength(), 'a');
+    MessageBuffer message(f.client->info().sendLimit(), 'a');
     f.client->send(message);
     REQUIRE_NOTHROW( f.cctx.poll() );
     f.cctx.reset();

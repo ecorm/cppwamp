@@ -20,12 +20,10 @@ namespace wamp
 CPPWAMP_INLINE TransportInfo::TransportInfo() = default;
 
 CPPWAMP_INLINE TransportInfo::TransportInfo(
-    int codecId, std::size_t maxTxLength, std::size_t maxRxLength,
-    Timeout heartbeatInterval)
+    int codecId, std::size_t sendLimit, std::size_t receiveLimit)
     : codecId_(codecId),
-      maxTxLength_(maxTxLength),
-      maxRxLength_(maxRxLength),
-      heartbeatInterval_(heartbeatInterval)
+      sendLimit_(sendLimit),
+      receiveLimit_(receiveLimit)
 {
     static std::mutex theMutex;
     static internal::DefaultPRNG64 theGenerator;
@@ -40,19 +38,11 @@ CPPWAMP_INLINE uint64_t TransportInfo::transportId() const
 
 CPPWAMP_INLINE int TransportInfo::codecId() const {return codecId_;}
 
-CPPWAMP_INLINE std::size_t TransportInfo::maxTxLength() const
-{
-    return maxTxLength_;
-}
+CPPWAMP_INLINE std::size_t TransportInfo::sendLimit() const {return sendLimit_;}
 
-CPPWAMP_INLINE std::size_t TransportInfo::maxRxLength() const
+CPPWAMP_INLINE std::size_t TransportInfo::receiveLimit() const
 {
-    return maxRxLength_;
-}
-
-CPPWAMP_INLINE Timeout TransportInfo::heartbeatInterval() const
-{
-    return heartbeatInterval_;
+    return receiveLimit_;
 }
 
 
@@ -117,173 +107,6 @@ CPPWAMP_INLINE AdmitResult::AdmitResult(Status status, std::error_code e,
       what_(what),
       status_(status)
 {}
-
-
-//******************************************************************************
-// ClientLimits
-//******************************************************************************
-
-CPPWAMP_INLINE ClientLimits& ClientLimits::withBodySize(std::size_t n)
-{
-    bodySize_ = n;
-    return *this;
-}
-
-CPPWAMP_INLINE ClientLimits& ClientLimits::withControlSize(std::size_t n)
-{
-    controlSize_ = n;
-    return *this;
-}
-
-CPPWAMP_INLINE ClientLimits& ClientLimits::withLingerTimeout(Timeout t)
-{
-    lingerTimeout_ = t;
-    return *this;
-}
-
-CPPWAMP_INLINE std::size_t ClientLimits::bodySize() const
-{
-    return bodySize_;
-}
-
-CPPWAMP_INLINE std::size_t ClientLimits::controlSize() const
-{
-    return controlSize_;
-}
-
-CPPWAMP_INLINE Timeout ClientLimits::lingerTimeout() const
-{
-    return lingerTimeout_;
-}
-
-
-//******************************************************************************
-// ServerLimits
-//******************************************************************************
-
-CPPWAMP_INLINE ServerLimits& ServerLimits::withHeaderSize(std::size_t n)
-{
-    headerSize_ = n;
-    return *this;
-}
-
-CPPWAMP_INLINE ServerLimits& ServerLimits::withBodySize(std::size_t n)
-{
-    bodySize_ = n;
-    return *this;
-}
-
-CPPWAMP_INLINE ServerLimits& ServerLimits::withControlSize(std::size_t n)
-{
-    controlSize_ = n;
-    return *this;
-}
-
-CPPWAMP_INLINE ServerLimits& ServerLimits::withHandshakeTimeout(Timeout t)
-{
-    handshakeTimeout_ = internal::checkTimeout(t);
-    return *this;
-}
-
-CPPWAMP_INLINE ServerLimits& ServerLimits::withHeaderTimeout(Timeout t)
-{
-    headerTimeout_ = internal::checkTimeout(t);
-    return *this;
-}
-
-CPPWAMP_INLINE ServerLimits& ServerLimits::withBodyTimeout(BodyTimeout t)
-{
-    bodyTimeout_ = t;
-    return *this;
-}
-
-CPPWAMP_INLINE ServerLimits& ServerLimits::withSendTimeout(BodyTimeout t)
-{
-    sendTimeout_ = t;
-    return *this;
-}
-
-CPPWAMP_INLINE ServerLimits& ServerLimits::withIdleTimeout(Timeout t)
-{
-    idleTimeout_ = internal::checkTimeout(t);
-    return *this;
-}
-
-CPPWAMP_INLINE ServerLimits& ServerLimits::withLingerTimeout(Timeout t)
-{
-    lingerTimeout_ = internal::checkTimeout(t);
-    return *this;
-}
-
-CPPWAMP_INLINE ServerLimits& ServerLimits::withBacklogCapacity(int n)
-{
-    CPPWAMP_LOGIC_CHECK(n > 0, "Backlog capacity must be positive");
-    backlogCapacity_ = n;
-    return *this;
-}
-
-CPPWAMP_INLINE ServerLimits&
-ServerLimits::withPingKeepsAliveDisabled(bool disabled)
-{
-    pingKeepsAlive_ = disabled;
-    return *this;
-}
-
-CPPWAMP_INLINE std::size_t ServerLimits::headerSize() const
-{
-    return headerSize_;
-}
-
-CPPWAMP_INLINE std::size_t ServerLimits::bodySize() const {return bodySize_;}
-
-CPPWAMP_INLINE std::size_t ServerLimits::controlSize() const
-{
-    return controlSize_;
-}
-
-CPPWAMP_INLINE Timeout ServerLimits::handshakeTimeout() const
-{
-    return handshakeTimeout_;
-}
-
-CPPWAMP_INLINE Timeout ServerLimits::headerTimeout() const
-{
-    return headerTimeout_;
-}
-
-CPPWAMP_INLINE const BodyTimeout& ServerLimits::bodyTimeout() const
-{
-    return bodyTimeout_;
-}
-
-CPPWAMP_INLINE const BodyTimeout& ServerLimits::sendTimeout() const
-{
-    return sendTimeout_;
-}
-
-CPPWAMP_INLINE Timeout ServerLimits::idleTimeout() const
-{
-    return idleTimeout_;
-}
-
-CPPWAMP_INLINE Timeout ServerLimits::lingerTimeout() const
-{
-    return lingerTimeout_;
-}
-
-CPPWAMP_INLINE int ServerLimits::backlogCapacity() const
-{
-    return backlogCapacity_;
-}
-
-CPPWAMP_INLINE bool ServerLimits::pingKeepsAlive() const
-{
-    return pingKeepsAlive_;
-}
-
-
-// Forward declaration
-namespace internal { class HttpServerTransport; }
 
 
 //******************************************************************************

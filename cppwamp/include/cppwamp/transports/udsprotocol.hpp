@@ -13,7 +13,7 @@
 //------------------------------------------------------------------------------
 
 #include "../api.hpp"
-#include "../rawsockoptions.hpp"
+#include "rawsocklimits.hpp"
 #include "socketendpoint.hpp"
 #include "sockethost.hpp"
 #include "../internal/socketoptions.hpp"
@@ -106,16 +106,14 @@ private:
     @see ConnectionWish */
 //------------------------------------------------------------------------------
 class CPPWAMP_API UdsHost
-    : public SocketHost<UdsHost, Uds, UdsOptions, RawsockMaxLength,
-                        RawsockMaxLength::MB_16>
+    : public SocketHost<UdsHost, Uds, UdsOptions, RawsockClientLimits>
 {
 public:
     /** Constructor taking a path name. */
     explicit UdsHost(std::string pathName);
 
 private:
-    using Base = SocketHost<UdsHost, Uds, UdsOptions, RawsockMaxLength,
-                            RawsockMaxLength::MB_16>;
+    using Base = SocketHost<UdsHost, Uds, UdsOptions, RawsockClientLimits>;
     using Base::serviceName;
 };
 
@@ -125,7 +123,7 @@ private:
     Meets the requirements of @ref TransportSettings. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API UdsEndpoint
-    : public SocketEndpoint<UdsEndpoint, Uds, UdsOptions>
+    : public SocketEndpoint<UdsEndpoint, Uds, UdsOptions, RawsockServerLimits>
 {
 public:
     /** Constructor taking a path name. */
@@ -141,7 +139,8 @@ public:
     std::string label() const;
 
 private:
-    using Base = SocketEndpoint<UdsEndpoint, Uds, UdsOptions>;
+    using Base = SocketEndpoint<UdsEndpoint, Uds, UdsOptions,
+                                RawsockServerLimits>;
 
     using Base::port;
 

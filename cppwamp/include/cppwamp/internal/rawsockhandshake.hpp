@@ -12,7 +12,6 @@
 #include <cstdint>
 #include <string>
 #include "../errorcodes.hpp"
-#include "../rawsockoptions.hpp"
 #include "endian.hpp"
 
 namespace wamp
@@ -20,6 +19,27 @@ namespace wamp
 
 namespace internal
 {
+
+//------------------------------------------------------------------------------
+enum class RawsockMaxLength
+{
+    B_512,  ///< 512 bytes
+    kB_1,   ///< 1 kilobyte
+    kB_2,   ///< 2 kilobytes
+    kB_4,   ///< 4 kilobytes
+    kB_8,   ///< 8 kilobytes
+    kB_16,  ///< 16 kilobytes
+    kB_32,  ///< 32 kilobytes
+    kB_64,  ///< 64 kilobytes
+    kB_128, ///< 128 kilobytes
+    kB_256, ///< 256 kilobytes
+    kB_512, ///< 512 kilobytes
+    MB_1,   ///< 1 megabyte
+    MB_2,   ///< 2 megabytes
+    MB_4,   ///< 4 megabytes
+    MB_8,   ///< 8 megabytes
+    MB_16   ///< 16 megabytes
+};
 
 //------------------------------------------------------------------------------
 class RawsockHandshake
@@ -94,6 +114,7 @@ public:
     RawsockHandshake& setCodecId(int codecId)
         {return put(codecId, codecPos_);}
 
+    // TODO: Rename to setSizeLimit
     RawsockHandshake& setMaxLength(RawsockMaxLength length)
         {return put(length, lengthPos_);}
 

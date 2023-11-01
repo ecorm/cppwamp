@@ -15,6 +15,7 @@
 #include <string>
 #include <system_error>
 #include "../api.hpp"
+#include "../transportlimits.hpp"
 #include "socketendpoint.hpp"
 #include "tcpprotocol.hpp"
 #include "websocketprotocol.hpp"
@@ -189,20 +190,53 @@ private:
 
 
 //------------------------------------------------------------------------------
+/** Contains size limits for HTTP server transports. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API HttpServerLimits : public WebsocketServerLimits
+{
+public:
+    HttpServerLimits& withHeaderSize(std::size_t n);
+
+    HttpServerLimits& withBodySize(std::size_t n);
+
+    HttpServerLimits& withHeaderTimeout(Timeout t);
+
+    HttpServerLimits& withBodyTimeout(ProgressiveTimeout t);
+
+    HttpServerLimits& withResponseTimeout(ProgressiveTimeout t);
+
+    std::size_t headerSize() const;
+
+    std::size_t bodySize() const;
+
+    Timeout headerTimeout() const;
+
+    const ProgressiveTimeout& bodyTimeout() const;
+
+    const ProgressiveTimeout& responseTimeout() const;
+
+    WebsocketServerLimits toWebsocket() const;
+
+private:
+    using Base = WebsocketServerLimits;
+
+    ProgressiveTimeout bodyTimeout_;
+    ProgressiveTimeout responseTimeout_;
+    Timeout headerTimeout_ = neverTimeout;
+    std::size_t bodySize_  = 1024*1024; // Default for Boost.Beast and NGINX
+};
+
+
+//------------------------------------------------------------------------------
 /** Contains HTTP host address information, as well as other socket options.
     Meets the requirements of @ref TransportSettings. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API HttpEndpoint
-    : public SocketEndpoint<HttpEndpoint, Http, TcpOptions>
+    : public SocketEndpoint<HttpEndpoint, Http, TcpOptions, HttpServerLimits>
 {
 public:
     // TODO: Custom error page generator
     // TODO: Custom charset field
-    // TODO: Keep-alive timeout
-    // TODO: Keep-alive time limit
-    // TODO: Keep-alive request limit
-    // TODO: Request read timeout
-    // TODO: Response write timeout
 
     /// URI and status code of an error page.
     struct ErrorPage
@@ -255,11 +289,8 @@ public:
     HttpEndpoint& withErrorPage(HttpStatus status, std::string uri,
                                 HttpStatus newStatus);
 
-    /** Specifies the total header size limit of HTTP requests. */
-    HttpEndpoint& withHeaderLimit(uint32_t limit);
-
-    /** Specifies the total body size limit of HTTP requests. */
-    HttpEndpoint& withBodyLimit(uint32_t limit);
+    /** Specifies transport limits. */
+    HttpEndpoint& withLimits(HttpServerLimits limits);
 
     /** Obtains the default document root path for serving files. */
     const std::string& documentRoot() const;
@@ -271,11 +302,11 @@ public:
         was specified. */
     const std::string& agent() const;
 
-    /** Obtains the total header size limit of HTTP requests. */
-    uint32_t headerLimit() const;
+    /** Obtains the transport limits. */
+    const HttpServerLimits& limits() const;
 
-    /** Obtains the total body size limit of HTTP requests. */
-    uint32_t bodyLimit() const;
+    /** Accesses the transport limits. */
+    HttpServerLimits& limits();
 
     /** Generates a human-friendly string of the HTTP address/port. */
     std::string label() const;
@@ -295,11 +326,12 @@ public:
     {
         return WebsocketEndpoint{address(), port()}
             .withAgent(agent_)
-            .withHttpHeaderLimit(headerLimit_);
+            .withLimits(limits_.toWebsocket());
     }
 
 private:
-    using Base = SocketEndpoint<HttpEndpoint, Http, TcpOptions>;
+    using Base = SocketEndpoint<HttpEndpoint, Http, TcpOptions,
+                                HttpServerLimits>;
 
     AnyHttpAction* doFindAction(const char* route);
 
@@ -315,8 +347,7 @@ private:
 #endif
     std::string indexFileName_ = "index.html";
     std::string agent_;
-    uint32_t headerLimit_ = 0;
-    uint32_t bodyLimit_ = 0;
+    HttpServerLimits limits_;
 };
 
 } // namespace wamp

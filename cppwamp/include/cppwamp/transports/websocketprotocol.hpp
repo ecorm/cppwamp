@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <system_error>
 #include "../api.hpp"
+#include "../transportlimits.hpp"
 #include "socketendpoint.hpp"
 #include "sockethost.hpp"
 #include "tcpprotocol.hpp"
@@ -93,14 +94,30 @@ CPPWAMP_API std::error_condition make_error_condition(WebsocketCloseErrc errc);
 
 
 //------------------------------------------------------------------------------
+/** Contains timeouts and size limits for Websocket client transports. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API WebsocketClientLimits
+    : public BasicClientLimits<WebsocketClientLimits>
+{
+public:
+    WebsocketClientLimits& withHeaderSize(std::size_t n);
+
+    std::size_t headerSize() const;
+
+private:
+    size_t headerSize_ = 0;
+};
+
+
+//------------------------------------------------------------------------------
 /** Contains Websocket host address information, as well as other
     socket options for a client connection.
     Meets the requirements of @ref TransportSettings.
     @see ConnectionWish */
 //------------------------------------------------------------------------------
 class CPPWAMP_API WebsocketHost
-    : public SocketHost<WebsocketHost, Websocket, TcpOptions, std::size_t,
-                        16*1024*1024>
+    : public SocketHost<WebsocketHost, Websocket, TcpOptions,
+                        WebsocketClientLimits>
 {
 public:
     /** Constructor taking an URL/IP and a service string. */
@@ -131,12 +148,28 @@ public:
     Timeout abortTimeout() const;
 
 private:
-    using Base = SocketHost<WebsocketHost, Websocket, TcpOptions, std::size_t,
-                            16*1024*1024>;
+    using Base = SocketHost<WebsocketHost, Websocket, TcpOptions,
+                            WebsocketClientLimits>;
 
     std::string target_ = "/";
     std::string agent_;
     Timeout abortTimeout_ = unspecifiedTimeout;
+};
+
+
+//------------------------------------------------------------------------------
+/** Contains timeouts and size limits for Websocket client transports. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API WebsocketServerLimits
+    : public BasicServerLimits<WebsocketServerLimits>
+{
+public:
+    WebsocketServerLimits& withHeaderSize(std::size_t n);
+
+    std::size_t headerSize() const;
+
+private:
+    size_t headerSize_ = 8192; // Default used by Boost.Beast
 };
 
 
@@ -146,7 +179,8 @@ private:
     Meets the requirements of @ref TransportSettings. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API WebsocketEndpoint
-    : public SocketEndpoint<WebsocketEndpoint, Websocket, TcpOptions>
+    : public SocketEndpoint<WebsocketEndpoint, Websocket, TcpOptions,
+                            WebsocketServerLimits>
 {
 public:
     /** Constructor taking a port number. */
@@ -159,24 +193,18 @@ public:
         Version::agentString). */
     WebsocketEndpoint& withAgent(std::string agent);
 
-    /** Specifies the total header size limit of HTTP upgrade requests. */
-    WebsocketEndpoint& withHttpHeaderLimit(uint32_t limit);
-
     /** Obtains the custom agent string. */
     const std::string& agent() const;
 
     /** Generates a human-friendly string of the Websocket address/port. */
     std::string label() const;
 
-    /** Obtains the total header size limit of HTTP upgrade requests. */
-    uint32_t httpHeaderLimit() const;
-
 private:
-    using Base = SocketEndpoint<WebsocketEndpoint, Websocket, TcpOptions>;
+    using Base = SocketEndpoint<WebsocketEndpoint, Websocket, TcpOptions,
+                                WebsocketServerLimits>;
 
     // Maintenance note: Keep HttpEndpoint::toWebsocket in sync with changes.
     std::string agent_;
-    uint32_t httpHeaderLimit_ = 0;
 };
 
 } // namespace wamp

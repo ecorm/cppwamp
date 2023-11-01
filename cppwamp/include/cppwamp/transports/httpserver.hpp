@@ -105,11 +105,11 @@ public:
     const std::string& route() const;
 
     /** Obtains the specified maximum incoming message length. */
-    std::size_t maxRxLength() const;
+    std::size_t receiveLimit() const;
 
 private:
     std::string route_;
-    std::size_t maxRxLength_ = 16*1024*1024;
+    std::size_t receiveLimit_ = 16*1024*1024;
 };
 
 

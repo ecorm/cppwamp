@@ -13,7 +13,7 @@
 //------------------------------------------------------------------------------
 
 #include "../api.hpp"
-#include "../rawsockoptions.hpp"
+#include "rawsocklimits.hpp"
 #include "socketendpoint.hpp"
 #include "sockethost.hpp"
 #include "../internal/socketoptions.hpp"
@@ -113,8 +113,7 @@ private:
     @see ConnectionWish */
 //------------------------------------------------------------------------------
 class CPPWAMP_API TcpHost
-    : public SocketHost<TcpHost, Tcp, TcpOptions, RawsockMaxLength,
-                        RawsockMaxLength::MB_16>
+    : public SocketHost<TcpHost, Tcp, TcpOptions, RawsockClientLimits>
 {
 public:
     /** Constructor taking an URL/IP and a service string. */
@@ -124,8 +123,7 @@ public:
     TcpHost(std::string address, Port port);
 
 private:
-    using Base = SocketHost<TcpHost, Tcp, TcpOptions, RawsockMaxLength,
-                            RawsockMaxLength::MB_16>;
+    using Base = SocketHost<TcpHost, Tcp, TcpOptions, RawsockClientLimits>;
 };
 
 
@@ -134,7 +132,7 @@ private:
     Meets the requirements of @ref TransportSettings. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API TcpEndpoint
-    : public SocketEndpoint<TcpEndpoint, Tcp, TcpOptions>
+    : public SocketEndpoint<TcpEndpoint, Tcp, TcpOptions, RawsockServerLimits>
 {
 public:
     /** Constructor taking a port number. */
@@ -147,7 +145,8 @@ public:
     std::string label() const;
 
 private:
-    using Base = SocketEndpoint<TcpEndpoint, Tcp, TcpOptions>;
+    using Base = SocketEndpoint<TcpEndpoint, Tcp, TcpOptions,
+                                RawsockServerLimits>;
 };
 
 } // namespace wamp

@@ -156,16 +156,16 @@ CPPWAMP_INLINE HttpWebsocketUpgrade::HttpWebsocketUpgrade(std::string route)
 CPPWAMP_INLINE HttpWebsocketUpgrade&
 HttpWebsocketUpgrade::withMaxRxLength(std::size_t length)
 {
-    maxRxLength_ = length;
+    receiveLimit_ = length;
     return *this;
 }
 
 CPPWAMP_INLINE const std::string& HttpWebsocketUpgrade::route() const
 {return route_;}
 
-CPPWAMP_INLINE std::size_t HttpWebsocketUpgrade::maxRxLength() const
+CPPWAMP_INLINE std::size_t HttpWebsocketUpgrade::receiveLimit() const
 {
-    return maxRxLength_;
+    return receiveLimit_;
 }
 
 //******************************************************************************

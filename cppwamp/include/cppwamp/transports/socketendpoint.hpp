@@ -16,7 +16,6 @@
 #include <cstdint>
 #include <string>
 #include <utility>
-#include "../transport.hpp"
 
 namespace wamp
 {
@@ -24,7 +23,8 @@ namespace wamp
 //------------------------------------------------------------------------------
 /** Contains server address information, as well as other socket options. */
 //------------------------------------------------------------------------------
-template <typename TDerived, typename TProcotol, typename TSocketOptions>
+template <typename TDerived, typename TProcotol, typename TSocketOptions,
+          typename TLimits>
 class SocketEndpoint
 {
 public:
@@ -33,6 +33,9 @@ public:
 
     /// Socket options type
     using SocketOptions = TSocketOptions;
+
+    /// Transport limits type
+    using Limits = TLimits;
 
     /// Numeric port type
     using Port = uint_least16_t;
@@ -52,7 +55,7 @@ public:
     }
 
     /** Specifies the transport size limits and timeouts. */
-    TDerived& withLimits(ServerLimits limits)
+    TDerived& withLimits(Limits limits)
     {
         limits_ = limits;
         return derived();
@@ -71,10 +74,10 @@ public:
     const SocketOptions& acceptorOptions() const {return acceptorOptions_;}
 
     /** Obtains the transport size limits and timeouts. */
-    const ServerLimits& limits() const {return limits_;}
+    const Limits& limits() const {return limits_;}
 
     /** Accesses the transport limits. */
-    ServerLimits& limits() {return limits_;}
+    Limits& limits() {return limits_;}
 
 protected:
     SocketEndpoint(std::string address, unsigned short port)
@@ -90,7 +93,7 @@ private:
     std::string address_;
     SocketOptions socketOptions_;
     SocketOptions acceptorOptions_;
-    ServerLimits limits_;
+    Limits limits_;
     Port port_ = 0;
 };
 

@@ -59,8 +59,12 @@ public:
           timer_(socket.get_executor()),
           settings_(std::move(settings))
     {
-        if (internal::timeoutIsDefinite(Base::info().heartbeatInterval()))
-            pinger_ = std::make_shared<Pinger>(Base::strand(), Base::info());
+        auto interval = settings_->heartbeatInterval();
+        if (internal::timeoutIsDefinite(interval))
+        {
+            pinger_ = std::make_shared<Pinger>(
+                Base::strand(), Base::info().transportId(), interval);
+        }
     }
 
     const Settings& settings() const {return *settings_;}
@@ -96,7 +100,7 @@ private:
         if (!stream_.isOpen())
             return;
         auto frame = enframe(std::move(message));
-        assert((frame.payload().size() <= info().maxTxLength()) &&
+        assert((frame.payload().size() <= info().sendLimit()) &&
                "Outgoing message is longer than allowed by peer");
         frame.poison();
         txQueue_.push_front(std::move(frame));
@@ -225,7 +229,7 @@ private:
 
     void enqueueFrame(Frame&& frame)
     {
-        assert((frame.payload().size() <= info().maxTxLength()) &&
+        assert((frame.payload().size() <= info().sendLimit()) &&
                "Outgoing message is longer than allowed by peer");
         txQueue_.emplace_back(std::move(frame));
         transmit();
@@ -576,7 +580,7 @@ protected:
         if (!stream_.isOpen())
             return;
         auto frame = enframe(std::move(message));
-        assert((frame.payload().size() <= info().maxTxLength()) &&
+        assert((frame.payload().size() <= info().sendLimit()) &&
                "Outgoing message is longer than allowed by peer");
         frame.poison();
         txQueue_.push_front(std::move(frame));
@@ -700,7 +704,7 @@ private:
 
     void enqueueFrame(Frame&& frame)
     {
-        assert((frame.payload().size() <= info().maxTxLength()) &&
+        assert((frame.payload().size() <= info().sendLimit()) &&
                "Outgoing message is longer than allowed by peer");
         txQueue_.emplace_back(std::move(frame));
         transmit();
@@ -902,8 +906,6 @@ private:
     ShutdownHandler shutdownHandler_;
     std::size_t txBytesRemaining_ = 0;
     bool isTransmitting_ = false;
-
-    friend class internal::HttpServerTransport;
 };
 
 } // namespace wamp

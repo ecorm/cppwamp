@@ -47,6 +47,7 @@ inline std::error_code rawsockErrorCodeToStandard(
 }
 
 //------------------------------------------------------------------------------
+// TODO: Rename Control -> Heartbeat
 template <typename TTraits>
 class RawsockStream
 {
@@ -68,8 +69,8 @@ public:
     template <typename S>
     explicit RawsockStream(Socket&& socket, const std::shared_ptr<S>& settings)
         : socket_(std::move(socket)),
-          wampFrameLimit_(settings->limits().bodySize()),
-          controlFrameLimit_(settings->limits().controlSize())
+          wampFrameLimit_(settings->limits().rxMsgSize()),
+        heartbeatFrameLimit_(settings->limits().heartbeatSize())
     {}
 
     AnyIoExecutor executor() {return socket_.get_executor();}
@@ -251,7 +252,7 @@ private:
         auto kind = header.msgKind();
         auto length = header.length();
         auto limit = kind == TransportFrameKind::wamp ? wampFrameLimit_
-                                                      : controlFrameLimit_;
+                                                      : heartbeatFrameLimit_;
         if (limit != 0 && length > limit)
             return failRead(TransportErrc::inboundTooLong, callback);
 
@@ -339,7 +340,7 @@ private:
             }
         };
 
-        if (controlFrameLimit_ != 0 && length > controlFrameLimit_)
+        if (heartbeatFrameLimit_ != 0 && length > heartbeatFrameLimit_)
             return failRead(TransportErrc::inboundTooLong, callback);
 
         try
@@ -396,7 +397,7 @@ private:
     MessageBuffer controlFramePayload_;
     ControlFrameHandler controlFrameHandler_;
     std::size_t wampFrameLimit_ = std::numeric_limits<std::size_t>::max();
-    std::size_t controlFrameLimit_ = std::numeric_limits<std::size_t>::max();
+    std::size_t heartbeatFrameLimit_ = std::numeric_limits<std::size_t>::max();
     std::size_t wampRxBytesRemaining_ = 0;
     Header txHeader_ = 0;
     Header rxHeader_ = 0;
@@ -478,8 +479,8 @@ private:
         }
         else if (codecIds_.count(peerCodec) != 0)
         {
-            maxTxLength_ = hs.maxLength();
-            auto rxLimit = settings_->limits().bodySize();
+            peerSizeLimit_ = hs.maxLengthInBytes();
+            const auto rxLimit = settings_->limits().rxMsgSize();
             sendHandshake(Handshake().setCodecId(peerCodec)
                                      .setMaxLength(rxLimit));
         }
@@ -527,11 +528,13 @@ private:
 
     void complete(Handshake hs)
     {
-        auto codecId = hs.codecId();
-        transportInfo_ =
-            TransportInfo{codecId,
-                          Handshake::byteLengthOf(maxTxLength_),
-                          settings_->limits().bodySize()};
+        // Clamp send limit to smallest between settings limit and peer limit
+        const auto codecId = hs.codecId();
+        auto txLimit = settings_->limits().txMsgSize();
+        txLimit = txLimit < peerSizeLimit_ ? txLimit : peerSizeLimit_;
+        const auto rxLimit = settings_->limits().rxMsgSize();
+        transportInfo_ = TransportInfo{codecId, txLimit, rxLimit};
+
         finish(AdmitResult::wamp(codecId));
     }
 
@@ -572,8 +575,8 @@ private:
     TransportInfo transportInfo_;
     Handler handler_;
     SettingsPtr settings_;
+    std::size_t peerSizeLimit_ = 0;
     uint32_t handshake_ = 0;
-    RawsockMaxLength maxTxLength_ = {};
     bool isShedding_ = false;
 };
 
