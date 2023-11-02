@@ -44,7 +44,6 @@ struct LoopbackFixture
     using ClientSettings = WebsocketHost;
     using Listener       = WebsocketListener;
     using ServerSettings = WebsocketEndpoint;
-    using Transport      = WebsocketTransport;
 
     LoopbackFixture(ClientSettings clientSettings,
                     int clientCodec,
@@ -65,13 +64,16 @@ struct LoopbackFixture
     LoopbackFixture(bool connected = true,
                     int clientCodec = jsonId,
                     CodecIdSet serverCodecs = {jsonId},
-                    std::size_t clientMaxRxLength = 64*1024,
-                    std::size_t serverMaxRxLength = 64*1024)
-        : LoopbackFixture(wsHost.withMaxRxLength(clientMaxRxLength),
-                          clientCodec,
-                          wsEndpoint.withMaxRxLength(serverMaxRxLength),
-                          serverCodecs,
-                          connected)
+                    std::size_t clientLimit = 64*1024,
+                    std::size_t serverLimit = 64*1024)
+        : LoopbackFixture(
+            wsHost.withLimits(
+                WebsocketClientLimits{}.withRxMsgSize(clientLimit)),
+            clientCodec,
+            wsEndpoint.withLimits(
+                WebsocketServerLimits{}.withRxMsgSize(serverLimit)),
+            serverCodecs,
+            connected)
     {}
 
     void connect()
@@ -103,8 +105,8 @@ struct LoopbackFixture
 
     void disconnect()
     {
-        server->kill();
-        client->kill();
+        server->close();
+        client->close();
     }
 
     void run()
@@ -272,7 +274,7 @@ void checkConsecutiveSendReceive(LoopbackFixture& f, Transporting::Ptr& sender,
                 REQUIRE( messages.at(count) == *buf );
                 if (++count == messages.size())
                 {
-                    sender->kill();
+                    sender->close();
                 }
             }
             else
@@ -476,8 +478,8 @@ TEST_CASE( "Normal websocket communications", "[Transport][Websocket]" )
             {
                 receivedReply2 = true;
                 CHECK( reply2 == *buf );
-                sender2->kill();
-                receiver2->kill();
+                sender2->close();
+                receiver2->close();
             }
             else
             {
@@ -661,7 +663,7 @@ TEST_CASE( "Cancel websocket receive", "[Transport][Websocket]" )
 
     // Close the transport while the receive operation is in progress,
     // and check the client handler is not invoked.
-    f.client->kill();
+    f.client->close();
     REQUIRE_NOTHROW( f.run() );
     CHECK_FALSE( clientHandlerInvoked );
     CHECK_FALSE( !serverError );
@@ -706,7 +708,7 @@ TEST_CASE( "Cancel websocket send", "[Transport][Websocket]" )
     f.cctx.reset();
 
     // Close the transport and check that the client handler was not invoked.
-    f.client->kill();
+    f.client->close();
     f.run();
     CHECK_FALSE( handlerInvoked );
 }
@@ -785,8 +787,10 @@ TEST_CASE( "Websocket server transport handshake timeout",
     auto strand = boost::asio::make_strand(exec);
     std::error_code serverError;
 
-    auto lstn = std::make_shared<WebsocketListener>(exec, strand, wsEndpoint,
-                                                    CodecIdSet{jsonId});
+    auto limits = WebsocketServerLimits{}
+                      .withHandshakeTimeout(std::chrono::milliseconds(50));
+    auto lstn = std::make_shared<WebsocketListener>(
+        exec, strand, wsEndpoint.withLimits(limits), CodecIdSet{jsonId});
     Transporting::Ptr server;
     lstn->observe(
         [&](ListenResult result)
@@ -794,7 +798,6 @@ TEST_CASE( "Websocket server transport handshake timeout",
             REQUIRE( result.ok() );
             server = result.transport();
             server->admit(
-                std::chrono::milliseconds(50),
                 [&serverError](AdmitResult r) {serverError = r.error();});
         });
     lstn->establish();

@@ -49,9 +49,7 @@ std::vector<Incident> IncidentListener::list;
 //------------------------------------------------------------------------------
 TEST_CASE("WAMP Client Connection Timeouts", "[WAMP][Basic]")
 {
-    using Transport =
-        RawsockServerTransport<BasicRawsockTransportConfig<TcpTraits>>;
-    using ListenerType = RawsockListener<BasicTcpListenerConfig<Transport>>;
+    using ListenerType = TcpListener;
     using SS = SessionState;
 
     IoContext ioctx;

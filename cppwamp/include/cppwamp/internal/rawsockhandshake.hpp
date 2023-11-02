@@ -107,13 +107,19 @@ private:
     static constexpr int codecPos_  = 16;
     static constexpr int limitPos_  = 20;
     static constexpr int errorPos_  = 20;
-    static constexpr int limitBase_ = 9; // 512 bytes minimum limit
+    static constexpr int limitBase_ = 9; // 2^9=512 bytes minimum limit
 
     static unsigned sizeLimitToBits(std::size_t size)
     {
+        // The WAMP raw sockets message limit starts at 512 bytes and
+        // increases by powers of two up to 16MiB.
+
+        // If desired limit exceeds 16MiB, clamp the handshake limit to 16MiB.
         if (size > 8*1024*1024)
             return 0x0F;
 
+        // Compute the handshake limit bits that match or exceed the
+        // desired limit.
         uint_fast32_t limit = 512;
         unsigned n = 0;
         while (n < 0x0F)
