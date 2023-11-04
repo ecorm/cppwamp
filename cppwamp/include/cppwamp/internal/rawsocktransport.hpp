@@ -64,7 +64,7 @@ public:
         return Traits::connectionInfo(s);
     }
 
-    explicit RawsockStream() : socket_(AnyIoExecutor{}) {}
+    explicit RawsockStream(AnyIoExecutor e) : socket_(std::move(e)) {}
 
     template <typename S>
     explicit RawsockStream(Socket&& socket, const std::shared_ptr<S>& settings)
@@ -160,7 +160,8 @@ private:
     }
 
     template <typename F>
-    void writeWampHeader(const uint8_t* data, std::size_t size, F&& callback)
+    void writeWampHeader(const uint8_t* payloadData, std::size_t payloadSize,
+                         F&& callback)
     {
         struct Written
         {
@@ -177,15 +178,16 @@ private:
                     return;
                 }
 
+                self->headerSent_ = true;
                 self->writeMoreWampPayload(data, size, callback);
             }
         };
 
-        txHeader_ = computeHeader(TransportFrameKind::wamp, size);
+        txHeader_ = computeHeader(TransportFrameKind::wamp, payloadSize);
         boost::asio::async_write(
             socket_,
             boost::asio::const_buffer{&txHeader_, sizeof(txHeader_)},
-            Written{std::move(callback)});
+            Written{std::move(callback), payloadData, payloadSize, this});
     }
 
     template <typename F>
@@ -221,12 +223,13 @@ private:
             MessageBuffer* payload;
             RawsockStream* self;
 
-            void operator()(boost::system::error_code netEc, std::size_t)
+            void operator()(boost::system::error_code netEc, std::size_t n)
             {
                 self->onHeaderRead(netEc, *payload, callback);
             }
         };
 
+        rxHeader_ = 0;
         boost::asio::async_read(
             socket_,
             boost::asio::buffer(&rxHeader_, sizeof(rxHeader_)),
@@ -257,7 +260,7 @@ private:
             return failRead(TransportErrc::inboundTooLong, callback);
 
         if (kind == TransportFrameKind::wamp)
-            readWampPayload(length, wampPayload, callback);
+            return readWampPayload(length, wampPayload, callback);
 
         readControlPayload(kind, length, wampPayload, callback);
     }
@@ -305,7 +308,7 @@ private:
             }
         };
 
-        assert(payload.size() > wampRxBytesRemaining_);
+        assert(payload.size() >= wampRxBytesRemaining_);
         auto bytesRead = payload.size() - wampRxBytesRemaining_;
         auto ptr = payload.data() + bytesRead;
         socket_.async_read_some(
@@ -410,15 +413,14 @@ class RawsockAdmitter
     : public std::enable_shared_from_this<RawsockAdmitter<TTraits>>
 {
 public:
-    using Traits          = TTraits;
-    using Ptr             = std::shared_ptr<RawsockAdmitter>;
-    using Stream          = RawsockStream<Traits>;
-    using ListenerSocket  = typename Traits::NetProtocol::socket;
-    using Socket          = ListenerSocket;
-    using Settings        = typename Traits::ServerSettings;
-    using SettingsPtr     = std::shared_ptr<Settings>;
-    using Handler         = AnyCompletionHandler<void (AdmitResult)>;
-    using ShutdownHandler = std::function<void (std::error_code)>;
+    using Traits         = TTraits;
+    using Ptr            = std::shared_ptr<RawsockAdmitter>;
+    using Stream         = RawsockStream<Traits>;
+    using ListenerSocket = typename Traits::NetProtocol::socket;
+    using Socket         = ListenerSocket;
+    using Settings       = typename Traits::ServerSettings;
+    using SettingsPtr    = std::shared_ptr<Settings>;
+    using Handler        = AnyCompletionHandler<void (AdmitResult)>;
 
     explicit RawsockAdmitter(ListenerSocket&& s, SettingsPtr p,
                              const CodecIdSet& c)

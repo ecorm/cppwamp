@@ -190,7 +190,8 @@ CPPWAMP_INLINE void Transporting::shutdown(std::error_code reason,
                     make_error_code(MiscErrc::invalidState));
     }
 
-    return onShutdown(reason, std::move(handler));
+    onShutdown(reason, std::move(handler));
+    state_ = State::shutdown;
 }
 
 CPPWAMP_INLINE void Transporting::close()

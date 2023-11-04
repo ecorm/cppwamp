@@ -185,7 +185,7 @@ public:
     using TxErrorHandler = std::function<void (std::error_code)>;
 
     /// Handler type used for server handshake completion.
-    using AdmitHandler = std::function<void (AdmitResult)>;
+    using AdmitHandler = AnyCompletionHandler<void (AdmitResult)>;
 
     /// Handler type used for transport shutdown completion.
     using ShutdownHandler = AnyCompletionHandler<void (std::error_code)>;
@@ -246,7 +246,7 @@ public:
     void shutdown(std::error_code reason, ShutdownHandler handler);
 
     /** Stops I/O operations and abrubtly closes the underlying socket.
-        @post `this->state() == TransportState::stopped` */
+        @post `this->state() == TransportState::closed` */
     void close();
 
 protected:

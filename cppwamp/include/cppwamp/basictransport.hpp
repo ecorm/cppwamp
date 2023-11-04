@@ -268,7 +268,7 @@ private:
     {
         auto self = this->shared_from_this();
         isTransmitting_ = true;
-        txBytesRemaining_ = 0;
+        txBytesRemaining_ = txFrame_.payload().size();
         sendMoreWamp();
     }
 
@@ -385,6 +385,8 @@ private:
 
         if (rxHandler_)
             post(rxHandler_, std::move(rxBuffer_));
+
+        receive();
     }
 
     bool checkRxError(std::error_code ec)
@@ -463,6 +465,7 @@ public:
                          CodecIdSet codecIds, RouterLogger::Ptr)
         : Base(boost::asio::make_strand(socket.get_executor()),
                Stream::makeConnectionInfo(socket)),
+          stream_(socket.get_executor()),
           timer_(socket.get_executor()),
           txTimer_(socket.get_executor()),
           settings_(std::move(settings)),
@@ -474,22 +477,11 @@ public:
     void upgrade(const TRequest& request, AdmitHandler handler)
     {
         assert((admitter_ != nullptr) && "Admit already performed");
-
-        struct Admitted
-        {
-            AdmitHandler handler;
-            Ptr self;
-
-            void operator()(AdmitResult result)
-            {
-                self->onAdmissionCompletion(result, handler);
-            }
-        };
-
-        auto self = std::dynamic_pointer_cast<BasicServerTransport>(
-            this->shared_from_this());
-        admitter_->upgrade(request,
-                           Admitted{std::move(handler), std::move(self)});
+        admitHandler_ = std::move(handler);
+        auto self = shared_from_this();
+        admitter_->upgrade(
+            request,
+            [this, self](AdmitResult result) {onAdmissionCompletion(result);});
     }
 
     const Settings& settings() const {return *settings_;}
@@ -501,11 +493,9 @@ protected:
         assert(admitHandler_ == nullptr && "Admit already in progress");
 
         admitHandler_ = std::move(handler);
-
-        auto self =
-            std::dynamic_pointer_cast<BasicServerTransport>(shared_from_this());
-
+        auto self = shared_from_this();
         auto timeout = settings_->limits().handshakeTimeout();
+
         if (internal::timeoutIsDefinite(timeout))
         {
             timer_.expires_from_now(timeout);
@@ -517,34 +507,10 @@ protected:
                 });
         }
 
-        struct Admitted
-        {
-            AdmitHandler handler;
-            Ptr self;
-
-            void operator()(AdmitResult result)
-            {
-                self->onAdmissionCompletion(result, handler);
-            }
-        };
-
         bool isShedding = Base::state() == TransportState::shedding;
-        admitter_->admit(isShedding,
-                         Admitted{std::move(handler), std::move(self)});
-    }
-
-    void onAdmitTimeout(boost::system::error_code ec)
-    {
-        if (admitter_)
-            admitter_->close();
-
-        if (!admitHandler_)
-            return;
-
-        if (ec)
-            return admitHandler_(AdmitResult::failed(ec, "timer wait"));
-
-        admitHandler_(AdmitResult::rejected(TransportErrc::timeout));
+        admitter_->admit(
+            isShedding,
+            [this, self](AdmitResult result) {onAdmissionCompletion(result);});
     }
 
     void onStart(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
@@ -612,12 +578,28 @@ private:
     using Pinger = internal::Pinger;
     using PingBytes = internal::PingBytes;
 
-    void onAdmissionCompletion(AdmitResult result, AdmitHandler& handler)
+    void onAdmitTimeout(boost::system::error_code ec)
+    {
+        if (admitter_)
+            admitter_->close();
+
+        if (!admitHandler_)
+            return;
+
+        if (ec)
+            return admitHandler_(AdmitResult::failed(ec, "timer wait"));
+
+        admitHandler_(AdmitResult::rejected(TransportErrc::timeout));
+        admitHandler_ = nullptr;
+    }
+
+    void onAdmissionCompletion(AdmitResult result)
     {
         timer_.cancel();
         stream_ = Stream{admitter_->releaseSocket(), settings_};
         Base::setReady(admitter_->transportInfo());
-        Base::post(std::move(handler), result);
+        Base::post(std::move(admitHandler_), result);
+        admitHandler_ = nullptr;
         admitter_.reset();
     }
 
@@ -824,18 +806,8 @@ private:
 
     void receive()
     {
-        if (!stream_.isOpen())
-            return;
-
         rxBuffer_.clear();
-        auto self = this->shared_from_this();
-        stream_.readSome(
-            rxBuffer_,
-            [this, self](std::error_code ec, std::size_t n, bool done)
-            {
-                if (checkRxError(ec))
-                    onRead(n, done);
-            });
+        receiveMore();
     }
 
     void receiveMore()
@@ -860,6 +832,8 @@ private:
 
         if (rxHandler_)
             post(rxHandler_, std::move(rxBuffer_));
+
+        receive();
     }
 
     bool checkRxError(std::error_code ec)

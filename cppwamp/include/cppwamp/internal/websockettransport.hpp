@@ -76,7 +76,7 @@ public:
         return TcpTraits::connectionInfo(s, "WS");
     }
 
-    WebsocketStream() : websocket_(AnyIoExecutor{}) {}
+    WebsocketStream(AnyIoExecutor e) : websocket_(std::move(e)) {}
 
     template <typename S>
     explicit WebsocketStream(Socket&& ws, const std::shared_ptr<S>& settings)
@@ -331,7 +331,7 @@ public:
     using Socket          = boost::beast::websocket::stream<ListenerSocket>;
     using Settings        = WebsocketEndpoint;
     using SettingsPtr     = std::shared_ptr<Settings>;
-    using Handler         = std::function<void (AdmitResult)>;
+    using Handler         = AnyCompletionHandler<void (AdmitResult)>;
     using UpgradeRequest =
         boost::beast::http::request<boost::beast::http::string_body>;
 

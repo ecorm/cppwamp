@@ -871,11 +871,12 @@ TEMPLATE_TEST_CASE( "Cancel receive", "[Transport][Rawsock]",
                     TcpLoopbackFixture, UdsLoopbackFixture )
 {
     TestType f;
-    bool clientHandlerInvoked = false;
+    std::error_code clientError;
     f.client->start(
         [&](ErrorOr<MessageBuffer> buf)
         {
-            clientHandlerInvoked = true;
+            if (!buf.has_value())
+                clientError = buf.error();
         },
         nullptr);
 
@@ -892,10 +893,10 @@ TEMPLATE_TEST_CASE( "Cancel receive", "[Transport][Rawsock]",
     f.cctx.reset();
 
     // Close the transport while the receive operation is in progress,
-    // and check the client handler is not invoked.
+    // and check the client handler received an TransportErrc::aborted error.
     f.client->close();
     REQUIRE_NOTHROW( f.run() );
-    CHECK_FALSE( clientHandlerInvoked );
+    CHECK( clientError == TransportErrc::aborted );
     CHECK_FALSE( !serverError );
 }
 
@@ -923,11 +924,12 @@ TEMPLATE_TEST_CASE( "Cancel send", "[Transport][Rawsock]",
     f.run();
 
     // Start a send operation
-    bool handlerInvoked = false;
+    std::error_code clientError;
     f.client->start(
         [&](ErrorOr<MessageBuffer> buf)
         {
-            handlerInvoked = true;
+            if (!buf.has_value())
+                clientError = buf.error();
         },
         nullptr);
     MessageBuffer message(f.client->info().sendLimit(), 'a');
@@ -935,10 +937,11 @@ TEMPLATE_TEST_CASE( "Cancel send", "[Transport][Rawsock]",
     REQUIRE_NOTHROW( f.cctx.poll() );
     f.cctx.reset();
 
-    // Close the transport and check that the client handler was not invoked.
+    // Close the transport and check that the client handler received an
+    // TransportErrc::aborted error.
     f.client->close();
     f.run();
-    CHECK_FALSE( handlerInvoked );
+    CHECK( clientError == TransportErrc::aborted );
 }
 
 //------------------------------------------------------------------------------
