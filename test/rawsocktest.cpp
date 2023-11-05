@@ -17,6 +17,7 @@
 #include <cppwamp/internal/tcplistener.hpp>
 #include <cppwamp/internal/udsconnector.hpp>
 #include <cppwamp/internal/udslistener.hpp>
+#include "mockrawsockpeer.hpp"
 #include "silentclient.hpp"
 
 using namespace wamp;
@@ -476,10 +477,11 @@ void checkCannedServerHandshake(
     CHECK( serverEc == expectedServerErrc );
 }
 
+#endif
+
 //------------------------------------------------------------------------------
 void checkCannedClientHandshake(uint32_t cannedHandshake,
-                                TransportErrc expectedServerCode,
-                                TransportErrc expectedClientCode)
+                                TransportErrc expectedServerCode)
 {
     IoContext ioctx;
     auto exec = ioctx.get_executor();
@@ -488,7 +490,6 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
                                               CodecIdSet{jsonId});
     Transporting::Ptr server;
     std::error_code serverEc;
-    std::error_code clientEc;
 
     lstn->observe(
         [&](ListenResult result)
@@ -496,25 +497,24 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
             REQUIRE( result.ok() );
             server = result.transport();
             server->admit(
-                [&serverEc](AdmitResult result) {serverEc = result.error();});
+                [&serverEc, &server](AdmitResult result)
+                {
+                    serverEc = result.error();
+                    server->close();
+                });
         });
     lstn->establish();
 
-    auto cnct = std::make_shared<CannedHandshakeConnector>(
-        strand, tcpHost, jsonId);
-    CannedHandshakeConnectorConfig::cannedHostBytes() = cannedHandshake;
-    cnct->establish(
-        [&clientEc](ErrorOr<Transporting::Ptr> transport)
-        {
-            if (!transport.has_value())
-                clientEc = transport.error();
-        });
+    auto client = test::MockRawsockClient::create(ioctx, tcpTestPort,
+                                                  cannedHandshake);
+    client->connect();
+    CHECK_NOTHROW( ioctx.run() );
+    ioctx.restart();
 
+    client->start();
     CHECK_NOTHROW( ioctx.run() );
     CHECK( serverEc == expectedServerCode );
-    CHECK( clientEc == expectedClientCode );
 }
-#endif
 
 } // anonymous namespace
 
@@ -1020,23 +1020,22 @@ GIVEN( "a server that uses reserved bits" )
 }
 }
 
+#endif
+
 //------------------------------------------------------------------------------
 SCENARIO( "Invalid client handshake", "[Transport][Rawsock]" )
 {
 GIVEN( "a client that uses invalid magic octet" )
 {
-    checkCannedClientHandshake(0xff710000, TransportErrc::badHandshake,
-                               TransportErrc::failed);
+    checkCannedClientHandshake(0xff710000, TransportErrc::badHandshake);
 }
 GIVEN( "a client that uses a zeroed magic octet" )
 {
-    checkCannedClientHandshake(0x00710000, TransportErrc::badHandshake,
-                               TransportErrc::failed);
+    checkCannedClientHandshake(0x00710000, TransportErrc::badHandshake);
 }
 GIVEN( "a client that uses reserved bits" )
 {
-    checkCannedClientHandshake(0x7f710001, TransportErrc::badFeature,
-                               TransportErrc::badFeature);
+    checkCannedClientHandshake(0x7f710001, TransportErrc::badFeature);
 }
 }
 
@@ -1044,7 +1043,7 @@ GIVEN( "a client that uses reserved bits" )
 SCENARIO( "Client sending a message longer than maximum",
           "[Transport][Rawsock]" )
 {
-GIVEN ( "a mock server under-reporting its maximum receive length" )
+GIVEN ( "mock client sending a message exceeding the server's maximum length" )
 {
     IoContext ioctx;
     auto exec = ioctx.get_executor();
@@ -1052,9 +1051,8 @@ GIVEN ( "a mock server under-reporting its maximum receive length" )
     MessageBuffer tooLong(64*1024 + 1, 'A');
 
     Transporting::Ptr server;
-    auto lstn = std::make_shared<CannedHandshakeListener>(
-        exec, strand, tcpEndpoint, CodecIdSet{jsonId});
-    CannedHandshakeServerTransportConfig::cannedHostBytes() = 0x7F810000;
+    auto lstn = std::make_shared<TcpListener>(exec, strand, tcpEndpoint,
+                                              CodecIdSet{jsonId});
     lstn->observe(
         [&](ListenResult result)
         {
@@ -1065,53 +1063,39 @@ GIVEN ( "a mock server under-reporting its maximum receive length" )
         });
     lstn->establish();
 
-    Transporting::Ptr client;
-    auto cnct = std::make_shared<TcpConnector>(strand, tcpHost, jsonId);
-    cnct->establish(
-        [&](ErrorOr<Transporting::Ptr> transport)
-        {
-            REQUIRE( transport.has_value() );
-            client = std::move(*transport);
-        });
+    auto client = test::MockRawsockClient::create(ioctx, tcpTestPort);
+    client->load({{tooLong}});
+    client->connect();
 
     CHECK_NOTHROW( ioctx.run() );
     ioctx.restart();
     REQUIRE( server );
-    REQUIRE( client );
 
     WHEN( "the client sends a message that exceeds the server's maximum" )
     {
-        std::error_code clientError;
-        std::error_code serverError;
-        client->start(
-            [&](ErrorOr<MessageBuffer> message)
-            {
-                REQUIRE( !message );
-                clientError = message.error();
-            },
-            nullptr);
+        client->start();
 
+        std::error_code serverError;
         server->start(
             [&](ErrorOr<MessageBuffer> message)
             {
                 REQUIRE( !message );
                 serverError = message.error();
+                server->close();
             },
             nullptr);
-
-        client->send(std::move(tooLong));
 
         THEN( "the server obtains an error while receiving" )
         {
             CHECK_NOTHROW( ioctx.run() );
-            UNSCOPED_INFO("client error message:" << clientError.message());
             UNSCOPED_INFO("server error message:" << serverError.message());
-            CHECK( clientError == TransportErrc::disconnected );
             CHECK( serverError == TransportErrc::inboundTooLong );
         }
     }
 }
 }
+
+#if 0
 
 //------------------------------------------------------------------------------
 SCENARIO( "Server sending a message longer than maximum",
@@ -1187,6 +1171,8 @@ GIVEN ( "a mock client under-reporting its maximum receive length" )
 }
 }
 
+#endif
+
 //------------------------------------------------------------------------------
 SCENARIO( "Client sending an invalid message type", "[Transport][Rawsock]" )
 {
@@ -1209,57 +1195,44 @@ GIVEN ( "A mock client that sends an invalid message type" )
         });
     lstn->establish();
 
-    using MockConnector =
-        RawsockConnector<
-            BasicTcpConnectorConfig<RawsockClientTransport<BadMsgKindConfig>>>;
-
-    auto cnct = std::make_shared<MockConnector>(strand, tcpHost, jsonId);
-    Transporting::Ptr client;
-    cnct->establish(
-        [&](ErrorOr<Transporting::Ptr> transport)
-        {
-            REQUIRE( transport.has_value() );
-            client = *transport;
-        });
+    auto client = test::MockRawsockClient::create(ioctx, tcpTestPort);
+    MessageBuffer payload{'H', 'e', 'l', 'l', 'o'};
+    auto badFrameKind =
+        static_cast<TransportFrameKind>(
+            static_cast<int>(TransportFrameKind::pong) + 1);
+    auto badHeader = RawsockHeader{}.setFrameKind(badFrameKind)
+                                    .setLength(payload.size()).toHostOrder();
+    client->load({{payload, badHeader}});
+    client->connect();
 
     CHECK_NOTHROW( ioctx.run() );
     ioctx.restart();
     REQUIRE( server );
-    REQUIRE( client );
 
     WHEN( "the client sends an invalid message to the server" )
     {
-        bool clientFailed = false;
-        bool serverFailed = false;
-        client->start(
-            [&](ErrorOr<MessageBuffer> message)
-            {
-                REQUIRE( !message );
-                clientFailed = true;
-            },
-            nullptr);
+        std::error_code serverError;
+        client->start();
 
         server->start(
             [&](ErrorOr<MessageBuffer> message)
             {
-                REQUIRE( !message );
-                CHECK( message.error() == TransportErrc::badCommand );
-                serverFailed = true;
+                if (!message.has_value())
+                    serverError = message.error();
+                server->close();
             },
             nullptr);
-
-        auto msg = makeMessageBuffer("Hello");
-        client->send(std::move(msg));
 
         THEN( "the server obtains an error while receiving" )
         {
             CHECK_NOTHROW( ioctx.run() );
-            CHECK( clientFailed );
-            CHECK( serverFailed );
+            CHECK( serverError == TransportErrc::badCommand );
         }
     }
 }
 }
+
+#if 0
 
 //------------------------------------------------------------------------------
 SCENARIO( "Server sending an invalid message type", "[Transport][Rawsock]" )
@@ -1333,6 +1306,7 @@ GIVEN ( "A mock server that sends an invalid message type" )
     }
 }
 }
+#endif
 
 //------------------------------------------------------------------------------
 TEST_CASE( "TCP server transport handshake timeout", "[Transport][Rawsock]" )
@@ -1342,7 +1316,10 @@ TEST_CASE( "TCP server transport handshake timeout", "[Transport][Rawsock]" )
     auto strand = boost::asio::make_strand(exec);
     std::error_code serverError;
 
-    auto lstn = std::make_shared<TcpListener>(exec, strand, tcpEndpoint,
+    auto tcp = tcpEndpoint;
+    std::chrono::milliseconds timeout{50};
+    tcp.withLimits(RawsockServerLimits{}.withHandshakeTimeout(timeout));
+    auto lstn = std::make_shared<TcpListener>(exec, strand, tcp,
                                               CodecIdSet{jsonId});
     Transporting::Ptr server;
     lstn->observe(
@@ -1351,8 +1328,11 @@ TEST_CASE( "TCP server transport handshake timeout", "[Transport][Rawsock]" )
             REQUIRE( result.ok() );
             server = result.transport();
             server->admit(
-                std::chrono::milliseconds(50),
-                [&serverError](AdmitResult r) {serverError = r.error();});
+                [&serverError, &server](AdmitResult r)
+                {
+                    serverError = r.error();
+                    server->close();
+                });
         });
     lstn->establish();
 
@@ -1366,6 +1346,7 @@ TEST_CASE( "TCP server transport handshake timeout", "[Transport][Rawsock]" )
     CHECK(serverError == TransportErrc::timeout);
 }
 
+#if 0
 //------------------------------------------------------------------------------
 TEST_CASE( "TCP rawsocket heartbeat", "[Transport][Rawsock]" )
 {

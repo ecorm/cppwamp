@@ -135,7 +135,7 @@ private:
 
     static Header computeHeader(TransportFrameKind kind, std::size_t size)
     {
-        return RawsockHeader().setMsgKind(kind).setLength(size).toBigEndian();
+        return RawsockHeader().setFrameKind(kind).setLength(size).toBigEndian();
     }
 
     template <typename F>
@@ -249,10 +249,10 @@ private:
             return;
 
         const auto header = RawsockHeader::fromBigEndian(rxHeader_);
-        if (!header.msgTypeIsValid())
+        if (!header.frameKindIsValid())
             return failRead(TransportErrc::badCommand, callback);
 
-        auto kind = header.msgKind();
+        auto kind = header.frameKind();
         auto length = header.length();
         auto limit = kind == TransportFrameKind::wamp ? wampFrameLimit_
                                                       : heartbeatFrameLimit_;

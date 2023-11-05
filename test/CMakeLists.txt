@@ -6,8 +6,9 @@
 
 set(HEADERS
     clienttesting.hpp
-    mockclient.hpp
-    mockserver.hpp
+    mockrawsockpeer.hpp
+    mockwampclient.hpp
+    mockwampserver.hpp
     routerfixture.hpp
     silentclient.hpp
     valuemodels.hpp

@@ -187,6 +187,6 @@ private:
 
 } // namespace internal
 
-} // namespace wamp}
+} // namespace wamp
 
 #endif // CPPWAMP_TEST_MOCKROUTER_HPP

@@ -587,19 +587,22 @@ private:
             return;
 
         if (ec)
-            return admitHandler_(AdmitResult::failed(ec, "timer wait"));
-
-        admitHandler_(AdmitResult::rejected(TransportErrc::timeout));
+            admitHandler_(AdmitResult::failed(ec, "timer wait"));
+        else
+            admitHandler_(AdmitResult::rejected(TransportErrc::timeout));
         admitHandler_ = nullptr;
     }
 
     void onAdmissionCompletion(AdmitResult result)
     {
         timer_.cancel();
-        stream_ = Stream{admitter_->releaseSocket(), settings_};
-        Base::setReady(admitter_->transportInfo());
-        Base::post(std::move(admitHandler_), result);
-        admitHandler_ = nullptr;
+        if (admitHandler_ != nullptr)
+        {
+            stream_ = Stream{admitter_->releaseSocket(), settings_};
+            Base::setReady(admitter_->transportInfo());
+            Base::post(std::move(admitHandler_), result);
+            admitHandler_ = nullptr;
+        }
         admitter_.reset();
     }
 

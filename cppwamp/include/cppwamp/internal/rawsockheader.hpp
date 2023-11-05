@@ -29,17 +29,17 @@ public:
 
     explicit RawsockHeader(uint32_t hostOrder) : hdr_(hostOrder) {}
 
-    bool msgTypeIsValid() const
+    bool frameKindIsValid() const
     {
-        auto kind = msgKind();
+        auto kind = frameKind();
         return kind == TransportFrameKind::wamp ||
                kind == TransportFrameKind::ping ||
                kind == TransportFrameKind::pong;
     }
 
-    TransportFrameKind msgKind() const
+    TransportFrameKind frameKind() const
     {
-        return get<TransportFrameKind>(msgKindMask_, msgKindPos_);
+        return get<TransportFrameKind>(msgKindMask_, frameKindPos_);
     }
 
     std::size_t length() const {return get<std::size_t>(lengthMask_);}
@@ -48,9 +48,9 @@ public:
 
     uint32_t toHostOrder() const {return hdr_;}
 
-    RawsockHeader& setMsgKind(TransportFrameKind kind)
+    RawsockHeader& setFrameKind(TransportFrameKind kind)
     {
-        return put(kind, msgKindPos_);
+        return put(kind, frameKindPos_);
     }
 
     RawsockHeader& setLength(std::size_t length)
@@ -61,7 +61,7 @@ public:
 private:
     static constexpr uint32_t msgKindMask_ = 0xff000000;
     static constexpr uint32_t lengthMask_  = 0x00ffffff;
-    static constexpr int msgKindPos_       = 24;
+    static constexpr int frameKindPos_       = 24;
     static constexpr int lengthPos_        = 0;
 
     template <typename T = uint32_t>

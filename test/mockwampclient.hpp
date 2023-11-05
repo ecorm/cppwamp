@@ -141,6 +141,6 @@ private:
 
 } // namespace internal
 
-} // namespace wamp}
+} // namespace wamp
 
 #endif // CPPWAMP_TEST_MOCKCLIENT_HPP
