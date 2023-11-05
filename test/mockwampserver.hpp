@@ -21,25 +21,26 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-class MockServerSession : public std::enable_shared_from_this<MockServerSession>
+class MockWampServerSession
+    : public std::enable_shared_from_this<MockWampServerSession>
 {
 public:
-    using Ptr = std::shared_ptr<MockServerSession>;
+    using Ptr = std::shared_ptr<MockWampServerSession>;
     using ResponseBatch = std::vector<std::string>;
     using Responses = std::deque<ResponseBatch>;
     using MessageList = std::vector<Message>;
 
     static Ptr create(Transporting::Ptr t, Responses cannedResponses)
     {
-        return Ptr(new MockServerSession(std::move(t),
-                                         std::move(cannedResponses)));
+        return Ptr(new MockWampServerSession(std::move(t),
+                                             std::move(cannedResponses)));
     }
 
     void open()
     {
         assert(!alreadyStarted_);
         alreadyStarted_ = true;
-        std::weak_ptr<MockServerSession> self = shared_from_this();
+        std::weak_ptr<MockWampServerSession> self = shared_from_this();
         transport_->admit(
             [self](AdmitResult result)
             {
@@ -54,7 +55,7 @@ public:
     const MessageList& messages() const {return messages_;}
 
 private:
-    MockServerSession(Transporting::Ptr&& t, Responses cannedResponses)
+    MockWampServerSession(Transporting::Ptr&& t, Responses cannedResponses)
         : responses_(std::move(cannedResponses)),
           transport_(std::move(t))
     {}
@@ -63,7 +64,7 @@ private:
     {
         if (result.status() != AdmitStatus::wamp)
             return;
-        std::weak_ptr<MockServerSession> self = shared_from_this();
+        std::weak_ptr<MockWampServerSession> self = shared_from_this();
         transport_->start(
             [self](ErrorOr<MessageBuffer> b)
             {
@@ -105,16 +106,16 @@ private:
 
 
 //------------------------------------------------------------------------------
-class MockServer : public std::enable_shared_from_this<MockServer>
+class MockWampServer : public std::enable_shared_from_this<MockWampServer>
 {
 public:
-    using Ptr = std::shared_ptr<MockServer>;
-    using Responses = MockServerSession::Responses;
+    using Ptr = std::shared_ptr<MockWampServer>;
+    using Responses = MockWampServerSession::Responses;
     using MessageList = std::vector<Message>;
 
     static Ptr create(AnyIoExecutor exec, uint16_t port)
     {
-        return Ptr(new MockServer(std::move(exec), port));
+        return Ptr(new MockWampServer(std::move(exec), port));
     }
 
     void load(Responses cannedResponses)
@@ -124,7 +125,7 @@ public:
 
     void start()
     {
-        std::weak_ptr<MockServer> self{shared_from_this()};
+        std::weak_ptr<MockWampServer> self{shared_from_this()};
         listener_.observe(
             [self](ListenResult result)
             {
@@ -159,7 +160,7 @@ public:
     static C toCommand(Message&& m) {return C{PassKey{}, std::move(m)};}
 
 private:
-    MockServer(AnyIoExecutor exec, uint16_t port)
+    MockWampServer(AnyIoExecutor exec, uint16_t port)
         : listener_(exec, boost::asio::make_strand(exec), TcpEndpoint{port},
                     {Json::id()})
     {}
@@ -170,15 +171,15 @@ private:
     {
         if (session_)
             session_->close();
-        session_ = MockServerSession::create(std::move(transport),
-                                             std::move(responses_));
+        session_ = MockWampServerSession::create(std::move(transport),
+                                                 std::move(responses_));
         session_->open();
         listen();
     }
 
     Responses responses_;
     AnyIoExecutor executor_;
-    MockServerSession::Ptr session_;
+    MockWampServerSession::Ptr session_;
     Listener<Tcp> listener_;
 
     friend class ServerContext;

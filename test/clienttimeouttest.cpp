@@ -8,12 +8,12 @@
 
 #include <cppwamp/internal/rawsocklistener.hpp>
 #include "clienttesting.hpp"
-#include "mockserver.hpp"
+#include "mockwampserver.hpp"
 
 using namespace test;
 using namespace wamp::internal;
 using namespace Catch::Matchers;
-using internal::MockServer;
+using internal::MockWampServer;
 
 namespace
 {
@@ -22,7 +22,7 @@ namespace
 template <typename C>
 C toCommand(wamp::internal::Message&& m)
 {
-    return MockServer::toCommand<C>(std::move(m));
+    return MockWampServer::toCommand<C>(std::move(m));
 }
 
 //------------------------------------------------------------------------------
@@ -155,7 +155,7 @@ TEST_CASE("WAMP Client Command Timeouts", "[WAMP][Basic]")
     using SS = SessionState;
     IoContext ioctx;
     Session s{ioctx};
-    auto server = MockServer::create(ioctx.get_executor(), invalidPort);
+    auto server = MockWampServer::create(ioctx.get_executor(), invalidPort);
     server->start();
 
     auto check = [&](Timeout timeout)

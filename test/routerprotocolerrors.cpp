@@ -10,11 +10,11 @@
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/codecs/json.hpp>
-#include "mockclient.hpp"
+#include "mockwampclient.hpp"
 #include "routerfixture.hpp"
 
 using namespace wamp;
-using internal::MockClient;
+using internal::MockWampClient;
 using internal::MessageKind;
 
 namespace
@@ -26,11 +26,11 @@ const unsigned short testPort = 12345;
 template <typename C>
 C toCommand(wamp::internal::Message&& m)
 {
-    return MockClient::toCommand<C>(std::move(m));
+    return MockWampClient::toCommand<C>(std::move(m));
 }
 
 //------------------------------------------------------------------------------
-void checkProtocolViolation(MockClient::Ptr client,
+void checkProtocolViolation(MockWampClient::Ptr client,
                             const std::string& hintKeyword, YieldContext yield)
 {
     while (client->lastMessageKind() != MessageKind::abort)
@@ -51,7 +51,7 @@ void checkProtocolViolation(MockClient::Ptr client,
 }
 
 //------------------------------------------------------------------------------
-void checkNormalOperation(MockClient::Ptr client,
+void checkNormalOperation(MockWampClient::Ptr client,
                           MessageKind lastExpectedMessageKind,
                           YieldContext yield)
 {
@@ -66,7 +66,7 @@ void checkNormalOperation(MockClient::Ptr client,
 
 //------------------------------------------------------------------------------
 template <typename TErrc>
-void checkErrorResponse(MockClient::Ptr client, TErrc expectedErrorCode,
+void checkErrorResponse(MockWampClient::Ptr client, TErrc expectedErrorCode,
                         YieldContext yield)
 {
     while (client->lastMessageKind() != MessageKind::error)
@@ -91,8 +91,8 @@ TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
 
     IoContext ioctx;
     Session session{ioctx};
-    auto client = internal::MockClient::create(ioctx, testPort);
-    auto client2 = internal::MockClient::create(ioctx, testPort);
+    auto client = internal::MockWampClient::create(ioctx, testPort);
+    auto client2 = internal::MockWampClient::create(ioctx, testPort);
     AccessActionInfo lastAction;
     auto guard = test::RouterFixture::instance().snoopAccessLog(
         ioctx.get_executor(),

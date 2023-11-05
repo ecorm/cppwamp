@@ -12,10 +12,10 @@
 #include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcpclient.hpp>
 #include "clienttesting.hpp"
-#include "mockserver.hpp"
+#include "mockwampserver.hpp"
 
 using namespace wamp;
-using internal::MockServer;
+using internal::MockWampServer;
 using internal::MessageKind;
 
 namespace
@@ -29,11 +29,11 @@ const auto withTcp = TcpHost("localhost", testPort).withFormat(json);
 template <typename C>
 C toCommand(wamp::internal::Message&& m)
 {
-    return MockServer::toCommand<C>(std::move(m));
+    return MockWampServer::toCommand<C>(std::move(m));
 }
 
 //------------------------------------------------------------------------------
-void checkProtocolViolation(const Session& session, MockServer& server,
+void checkProtocolViolation(const Session& session, MockWampServer& server,
                             const std::string& hintKeyword, YieldContext yield)
 {
     while (server.lastMessageKind() != MessageKind::abort)
@@ -56,7 +56,7 @@ void checkProtocolViolation(const Session& session, MockServer& server,
 }
 
 //------------------------------------------------------------------------------
-void checkInvocationError(const Session& session, MockServer& server,
+void checkInvocationError(const Session& session, MockWampServer& server,
                           const std::string& hintKeyword, YieldContext yield)
 {
     while (server.lastMessageKind() != MessageKind::error)
@@ -80,8 +80,9 @@ void checkInvocationError(const Session& session, MockServer& server,
 }
 
 //------------------------------------------------------------------------------
-void testMalformed(IoContext& ioctx, Session& session, MockServer::Ptr server,
-                   std::string badWelcome, const std::string& hintKeyword)
+void testMalformed(IoContext& ioctx, Session& session,
+                   MockWampServer::Ptr server, std::string badWelcome,
+                   const std::string& hintKeyword)
 {
     server->load({{std::move(badWelcome)}});
     spawn([&ioctx, &session, server, hintKeyword](YieldContext yield)
@@ -107,7 +108,8 @@ TEST_CASE( "WAMP protocol violation detection by client", "[WAMP][Advanced]" )
 {
     IoContext ioctx;
     Session session{ioctx};
-    auto server = internal::MockServer::create(ioctx.get_executor(), testPort);
+    auto server = internal::MockWampServer::create(ioctx.get_executor(),
+                                                   testPort);
     server->start();
 
     {

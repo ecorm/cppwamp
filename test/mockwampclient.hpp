@@ -22,10 +22,10 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-class MockClient : public std::enable_shared_from_this<MockClient>
+class MockWampClient : public std::enable_shared_from_this<MockWampClient>
 {
 public:
-    using Ptr = std::shared_ptr<MockClient>;
+    using Ptr = std::shared_ptr<MockWampClient>;
     using StringList = std::vector<std::string>;
     using Requests = std::deque<StringList>;
     using MessageList = std::vector<Message>;
@@ -33,7 +33,7 @@ public:
     template <typename E>
     static Ptr create(E&& exec, uint16_t port)
     {
-        return Ptr(new MockClient(std::forward<E>(exec), port));
+        return Ptr(new MockWampClient(std::forward<E>(exec), port));
     }
 
     void load(Requests cannedRequests)
@@ -44,7 +44,7 @@ public:
 
     void connect(YieldContext yield)
     {
-        std::weak_ptr<MockClient> self{shared_from_this()};
+        std::weak_ptr<MockWampClient> self{shared_from_this()};
         connector_.establish(
             [self](ErrorOr<Transporting::Ptr> transport)
             {
@@ -80,7 +80,7 @@ public:
 
 private:
     template <typename E>
-    MockClient(E&& exec, uint16_t port)
+    MockWampClient(E&& exec, uint16_t port)
         : connector_(boost::asio::make_strand(exec),
                      {"localhost", port},
                      {Json::id()})
@@ -89,7 +89,7 @@ private:
     void onEstablished(Transporting::Ptr transport)
     {
         transport_ = std::move(transport);
-        auto self = std::weak_ptr<MockClient>(shared_from_this());
+        auto self = std::weak_ptr<MockWampClient>(shared_from_this());
         transport_->start(
             [self](ErrorOr<MessageBuffer> b)
             {

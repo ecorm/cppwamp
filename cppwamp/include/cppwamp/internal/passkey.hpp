@@ -48,8 +48,8 @@ namespace internal
         friend class DirectRouterSession;
         friend class MatchUri;
         template <typename> friend class RealmMetaProcedures;
-        friend class MockClient;
-        friend class MockServer;
+        friend class MockWampClient;
+        friend class MockWampServer;
         friend class NetworkPeer;
         friend class Peer;
         friend class ProcedureRegistry;
