@@ -4,6 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
+#include <algorithm>
+#include <cstring>
 #include <set>
 #include <thread>
 #include <vector>
@@ -168,103 +170,6 @@ struct UdsLoopbackFixture : public LoopbackFixture<UdsConnector, UdsListener>
               connected )
     {}
 };
-
-#if 0
-//------------------------------------------------------------------------------
-struct CannedHandshakeServerTransportConfig
-    : BasicRawsockTransportConfig<TcpTraits>
-{
-    static uint32_t hostOrderHandshakeBytes(int, RawsockMaxLength)
-    {
-        return cannedHostBytes();
-    }
-
-    static uint32_t& cannedHostBytes()
-    {
-        static uint32_t bytes = 0;
-        return bytes;
-    }
-};
-
-using CannedHandshakeListener =
-    RawsockListener<
-        BasicTcpListenerConfig<
-            RawsockServerTransport<CannedHandshakeServerTransportConfig>>>;
-
-//------------------------------------------------------------------------------
-struct CannedHandshakeConnectorConfig : TcpConnectorConfig
-{
-    static uint32_t hostOrderHandshakeBytes(int, RawsockMaxLength)
-    {
-        return cannedHostBytes();
-    }
-
-    static uint32_t& cannedHostBytes()
-    {
-        static uint32_t bytes = 0;
-        return bytes;
-    }
-};
-
-using CannedHandshakeConnector =
-    RawsockConnector<CannedHandshakeConnectorConfig>;
-
-//------------------------------------------------------------------------------
-struct BadMsgKindConfig : BasicRawsockTransportConfig<TcpTraits>
-{
-    static void preProcess(TransportFrameKind& kind, MessageBuffer&)
-    {
-        auto badKind = TransportFrameKind((int)TransportFrameKind::pong + 1);
-        kind = badKind;
-    }
-};
-
-//------------------------------------------------------------------------------
-struct MonitorPingPongConfig : BasicRawsockTransportConfig<TcpTraits>
-{
-    static void preProcess(TransportFrameKind& kind, MessageBuffer& buf)
-    {
-        if (kind == TransportFrameKind::ping)
-        {
-            pings().push_back(buf);
-        }
-        else if (kind == TransportFrameKind::pong)
-        {
-            if (!cannedPong().empty())
-                buf = cannedPong();
-            pongs().push_back(buf);
-        }
-    }
-
-    using BufferList = std::vector<MessageBuffer>;
-
-    static void clear()
-    {
-        pings().clear();
-        pongs().clear();
-        cannedPong().clear();
-    }
-
-    static BufferList& pings()
-    {
-        static BufferList pingList;
-        return pingList;
-    }
-
-    static BufferList& pongs()
-    {
-        static BufferList pongList;
-        return pongList;
-    }
-
-    static MessageBuffer& cannedPong()
-    {
-        static MessageBuffer cannedPongBuffer;
-        return cannedPongBuffer;
-    }
-};
-
-#endif
 
 //------------------------------------------------------------------------------
 MessageBuffer makeMessageBuffer(const std::string& str)
@@ -439,45 +344,31 @@ void checkUnsupportedSerializer(TFixture& f)
     CHECK( clientEc == TransportErrc::badSerializer );
 }
 
-#if 0
 //------------------------------------------------------------------------------
 void checkCannedServerHandshake(
-    uint32_t cannedHandshake, TransportErrc expectedClientErrc,
-    TransportErrc expectedServerErrc = TransportErrc::success)
+    uint32_t cannedHandshake, TransportErrc expectedClientErrc)
 {
     IoContext ioctx;
     auto exec = ioctx.get_executor();
     auto strand = boost::asio::make_strand(exec);
-    auto lstn = std::make_shared<CannedHandshakeListener>(
-        exec, strand, tcpEndpoint, CodecIdSet{jsonId});
-    Transporting::Ptr server;
-    CannedHandshakeServerTransportConfig::cannedHostBytes() = cannedHandshake;
-    std::error_code serverEc;
+
+    auto server = test::MockRawsockServer::create(exec, tcpTestPort,
+                                                  cannedHandshake);
+    server->start();
+
     std::error_code clientEc;
-
-    lstn->observe( [&](ListenResult result)
-    {
-        REQUIRE( result.ok() );
-        server = result.transport();
-        server->admit(
-            [&serverEc](AdmitResult result) {serverEc = result.error();});
-    });
-    lstn->establish();
-
     auto cnct = std::make_shared<TcpConnector>(strand, tcpHost, jsonId);
     cnct->establish(
-        [&clientEc](ErrorOr<Transporting::Ptr> transport)
+        [&clientEc, &server](ErrorOr<Transporting::Ptr> transport)
         {
             if (!transport.has_value())
                 clientEc = transport.error();
+            server->close();
         });
 
     CHECK_NOTHROW( ioctx.run() );
     CHECK( clientEc == expectedClientErrc );
-    CHECK( serverEc == expectedServerErrc );
 }
-
-#endif
 
 //------------------------------------------------------------------------------
 void checkCannedClientHandshake(uint32_t cannedHandshake,
@@ -969,29 +860,24 @@ GIVEN( "a UDS Msgpack client and a UDS JSON server" )
 }
 }
 
-#if 0
 //------------------------------------------------------------------------------
 SCENARIO( "Connection denied by server", "[Transport][Rawsock]" )
 {
 GIVEN( "max length is unacceptable" )
 {
-    checkCannedServerHandshake(0x7f200000, TransportErrc::badLengthLimit,
-                               TransportErrc::badLengthLimit);
+    checkCannedServerHandshake(0x7f200000, TransportErrc::badLengthLimit);
 }
 GIVEN( "use of reserved bits" )
 {
-    checkCannedServerHandshake(0x7f300000, TransportErrc::badFeature,
-                               TransportErrc::badFeature);
+    checkCannedServerHandshake(0x7f300000, TransportErrc::badFeature);
 }
 GIVEN( "maximum connections reached" )
 {
-    checkCannedServerHandshake(0x7f400000, TransportErrc::overloaded,
-                               TransportErrc::overloaded);
+    checkCannedServerHandshake(0x7f400000, TransportErrc::overloaded);
 }
 GIVEN( "future error code" )
 {
-    checkCannedServerHandshake(0x7f500000, TransportErrc::failed,
-                               TransportErrc::failed);
+    checkCannedServerHandshake(0x7f500000, TransportErrc::failed);
 }
 }
 
@@ -1019,8 +905,6 @@ GIVEN( "a server that uses reserved bits" )
     checkCannedServerHandshake(0x7f710001, TransportErrc::badFeature);
 }
 }
-
-#endif
 
 //------------------------------------------------------------------------------
 SCENARIO( "Invalid client handshake", "[Transport][Rawsock]" )
@@ -1095,83 +979,60 @@ GIVEN ( "mock client sending a message exceeding the server's maximum length" )
 }
 }
 
-#if 0
-
 //------------------------------------------------------------------------------
 SCENARIO( "Server sending a message longer than maximum",
           "[Transport][Rawsock]" )
 {
-GIVEN ( "a mock client under-reporting its maximum receive length" )
+GIVEN ( "a mock server sending a message exceeding the client's limit" )
 {
     IoContext ioctx;
     auto exec = ioctx.get_executor();
     auto strand = boost::asio::make_strand(exec);
     MessageBuffer tooLong(64*1024 + 1, 'A');
 
-    Transporting::Ptr server;
-    auto lstn = std::make_shared<TcpListener>(exec, strand, tcpEndpoint,
-                                              CodecIdSet{jsonId});
-    lstn->observe(
-        [&](ListenResult result)
-        {
-            REQUIRE( result.ok() );
-            server = result.transport();
-            server->admit(
-                [](AdmitResult r) {REQUIRE(r.status() == AdmitStatus::wamp);});
-        });
-    lstn->establish();
+    auto server = test::MockRawsockServer::create(exec, tcpTestPort);
+    server->load({{{tooLong}}});
+    server->start();
 
-    auto cnct = std::make_shared<CannedHandshakeConnector>(
-        strand, tcpHost, jsonId);
-    CannedHandshakeConnectorConfig::cannedHostBytes() = 0x7F810000;
+    auto limits = RawsockClientLimits{}.withRxMsgSize(tooLong.size() - 1);
+    auto host = tcpHost;
+    host.withLimits(limits);
+    auto cnct = std::make_shared<TcpConnector>(strand, host, jsonId);
     Transporting::Ptr client;
     cnct->establish(
         [&](ErrorOr<Transporting::Ptr> transport)
         {
             REQUIRE( transport.has_value() );
             client = std::move(*transport);
+            ioctx.stop();
         });
 
     CHECK_NOTHROW( ioctx.run() );
     ioctx.restart();
-    REQUIRE( server );
     REQUIRE( client );
 
     WHEN( "the server sends a message that exceeds the client's maximum" )
     {
         std::error_code clientError;
-        std::error_code serverError;
         client->start(
             [&](ErrorOr<MessageBuffer> message)
             {
-                REQUIRE( !message );
-                clientError = message.error();
+                if (!message.has_value() && !clientError)
+                    clientError = message.error();
+                server->close();
             },
             nullptr);
-
-        server->start(
-            [&](ErrorOr<MessageBuffer> message)
-            {
-                REQUIRE( !message );
-                serverError = message.error();
-            },
-            nullptr);
-
-        server->send(tooLong);
+        client->send(makeMessageBuffer("Hello"));
 
         THEN( "the client obtains an error while receiving" )
         {
             CHECK_NOTHROW( ioctx.run() );
             UNSCOPED_INFO("client error message:" << clientError.message());
-            UNSCOPED_INFO("server error message:" << serverError.message());
             CHECK( clientError == TransportErrc::inboundTooLong );
-            CHECK( serverError == TransportErrc::disconnected );
         }
     }
 }
 }
-
-#endif
 
 //------------------------------------------------------------------------------
 SCENARIO( "Client sending an invalid message type", "[Transport][Rawsock]" )
@@ -1196,7 +1057,7 @@ GIVEN ( "A mock client that sends an invalid message type" )
     lstn->establish();
 
     auto client = test::MockRawsockClient::create(ioctx, tcpTestPort);
-    MessageBuffer payload{'H', 'e', 'l', 'l', 'o'};
+    auto payload = makeMessageBuffer("Hello");
     auto badFrameKind =
         static_cast<TransportFrameKind>(
             static_cast<int>(TransportFrameKind::pong) + 1);
@@ -1232,32 +1093,20 @@ GIVEN ( "A mock client that sends an invalid message type" )
 }
 }
 
-#if 0
-
 //------------------------------------------------------------------------------
 SCENARIO( "Server sending an invalid message type", "[Transport][Rawsock]" )
 {
 GIVEN ( "A mock server that sends an invalid message type" )
 {
-    using MockListener =
-        RawsockListener<
-            BasicTcpListenerConfig<RawsockServerTransport<BadMsgKindConfig>>>;
-
     IoContext ioctx;
     auto exec = ioctx.get_executor();
     auto strand = boost::asio::make_strand(exec);
-    auto lstn = std::make_shared<MockListener>(exec, strand, tcpEndpoint,
-                                               CodecIdSet{jsonId});
-    Transporting::Ptr server;
-    lstn->observe(
-        [&](ListenResult result)
-        {
-            REQUIRE( result.ok() );
-            server = result.transport();
-            server->admit(
-                [](AdmitResult r) {REQUIRE(r.status() == AdmitStatus::wamp);});
-        });
-    lstn->establish();
+
+    auto server = test::MockRawsockServer::create(exec, tcpTestPort);
+    auto badKind = static_cast<TransportFrameKind>(
+        static_cast<int>(TransportFrameKind::pong) + 1);
+    server->load({{makeMessageBuffer("World"), badKind}});
+    server->start();
 
     auto cnct = std::make_shared<TcpConnector>(strand, tcpHost, jsonId);
     Transporting::Ptr client;
@@ -1266,6 +1115,7 @@ GIVEN ( "A mock server that sends an invalid message type" )
         {
             REQUIRE( transport.has_value() );
             client = std::move(*transport);
+            ioctx.stop();
         });
 
     CHECK_NOTHROW( ioctx.run() );
@@ -1275,38 +1125,28 @@ GIVEN ( "A mock server that sends an invalid message type" )
 
     WHEN( "the server sends an invalid message to the client" )
     {
-        bool clientFailed = false;
-        bool serverFailed = false;
+        std::error_code clientError;
         client->start(
             [&](ErrorOr<MessageBuffer> message)
             {
-                REQUIRE( !message );
-                CHECK( message.error() == TransportErrc::badCommand );
-                clientFailed = true;
+                if (!message.has_value())
+                    clientError = message.error();
+                server->close();
             },
             nullptr);
 
-        server->start(
-            [&](ErrorOr<MessageBuffer> message)
-            {
-                REQUIRE( !message );
-                serverFailed = true;
-            },
-            nullptr);
 
-        auto msg = makeMessageBuffer("Hello");;
-        server->send(msg);
+        auto msg = makeMessageBuffer("Hello");
+        client->send(msg);
 
         THEN( "the client obtains an error while receiving" )
         {
             CHECK_NOTHROW( ioctx.run() );
-            CHECK( clientFailed );
-            CHECK( serverFailed );
+            CHECK( clientError == TransportErrc::badCommand );
         }
     }
 }
 }
-#endif
 
 //------------------------------------------------------------------------------
 TEST_CASE( "TCP server transport handshake timeout", "[Transport][Rawsock]" )
@@ -1346,51 +1186,28 @@ TEST_CASE( "TCP server transport handshake timeout", "[Transport][Rawsock]" )
     CHECK(serverError == TransportErrc::timeout);
 }
 
-#if 0
 //------------------------------------------------------------------------------
-TEST_CASE( "TCP rawsocket heartbeat", "[Transport][Rawsock]" )
+TEST_CASE( "TCP rawsocket client pings", "[Transport][Rawsock]" )
 {
     IoContext ioctx;
     auto exec = ioctx.get_executor();
     auto strand = boost::asio::make_strand(exec);
     boost::asio::steady_timer timer{ioctx};
 
-    using MockListener =
-        RawsockListener<
-            BasicTcpListenerConfig<
-                RawsockServerTransport<MonitorPingPongConfig>>>;
-
-    auto lstn = std::make_shared<MockListener>(exec, strand, tcpEndpoint,
-                                               CodecIdSet{jsonId});
-    Transporting::Ptr server;
-    lstn->observe(
-        [&](ListenResult result)
-        {
-            REQUIRE( result.ok() );
-            server = result.transport();
-            server->admit(
-                [](AdmitResult r) {REQUIRE(r.status() == AdmitStatus::wamp);});
-        });
-    lstn->establish();
-
-    using MockConnector =
-        RawsockConnector<
-            BasicTcpConnectorConfig<
-                RawsockClientTransport<MonitorPingPongConfig>>>;
+    auto server = test::MockRawsockServer::create(exec, tcpTestPort);
+    server->start();
 
     const std::chrono::milliseconds interval{50};
     const auto where = TcpHost{tcpLoopbackAddr, tcpTestPort}
                            .withHearbeatInterval(interval);
-
-    MonitorPingPongConfig::clear();
-
-    auto cnct = std::make_shared<MockConnector>(strand, where, jsonId);
+    auto cnct = std::make_shared<TcpConnector>(strand, where, jsonId);
     Transporting::Ptr client;
     cnct->establish(
         [&](ErrorOr<Transporting::Ptr> transport)
         {
             REQUIRE( transport.has_value() );
             client = *transport;
+            ioctx.stop();
         });
 
     CHECK_NOTHROW( ioctx.run() );
@@ -1410,18 +1227,6 @@ TEST_CASE( "TCP rawsocket heartbeat", "[Transport][Rawsock]" )
         },
         nullptr);
 
-    std::error_code serverError;
-    server->start(
-        [&serverError](ErrorOr<MessageBuffer> m)
-        {
-            if (!m)
-            {
-                serverError = m.error();
-                UNSCOPED_INFO("server error code: " << m.error());
-            }
-        },
-        nullptr);
-
     // Wait the expected time for 3 ping/pong exchanges and check that
     // they actually occurred.
     timer.expires_after(3*interval + interval/2);
@@ -1430,19 +1235,99 @@ TEST_CASE( "TCP rawsocket heartbeat", "[Transport][Rawsock]" )
     ioctx.restart();
 
     CHECK(!clientError);
-    CHECK(!serverError);
-    CHECK(MonitorPingPongConfig::pings().size() == 3);
-    CHECK(MonitorPingPongConfig::pongs().size() == 3);
-    CHECK_THAT(MonitorPingPongConfig::pings(),
-               Catch::Matchers::Equals(MonitorPingPongConfig::pongs()));
+    auto serverSessions = server->sessions();
+    REQUIRE(!serverSessions.empty());
+    auto session = serverSessions.front().lock();
+    REQUIRE_FALSE(!session);
+
+    const auto& pings = session->pings();
+    REQUIRE(pings.size() == 3);
+    const auto& firstPing = pings.front();
+    REQUIRE(firstPing.size() == 16);
+    std::vector<uint8_t> transportId{firstPing.begin(), firstPing.begin() + 8};
+    for (unsigned i=1; i<=pings.size(); ++i)
+    {
+        INFO("For ping #" << i);
+        const auto& ping = pings.at(i-1);
+        REQUIRE(ping.size() == 16);
+        CHECK(std::equal(ping.begin(), ping.begin()+8,
+                         transportId.begin(), transportId.end()));
+        uint64_t sequenceNumber = 0;
+        std::memcpy(&sequenceNumber, ping.data() + 8, 8);
+        sequenceNumber = wamp::internal::endian::bigToNative64(sequenceNumber);
+        CHECK(sequenceNumber == i);
+    }
 
     // Make the server stop echoing the correct pong and check that the client
     // fails due to heartbeat timeout.
-    MonitorPingPongConfig::cannedPong() = MessageBuffer{0x12, 0x34, 0x56};
+    session->setPong(MessageBuffer{0x12, 0x34, 0x56});
     timer.expires_after(2*interval);
     timer.async_wait([&ioctx](boost::system::error_code) {ioctx.stop();});
     ioctx.run();
     CHECK(clientError == TransportErrc::unresponsive);
-    CHECK(serverError == TransportErrc::disconnected);
 }
-#endif
+
+//------------------------------------------------------------------------------
+TEST_CASE( "TCP rawsocket server pongs", "[Transport][Rawsock]" )
+{
+    IoContext ioctx;
+    auto exec = ioctx.get_executor();
+    auto strand = boost::asio::make_strand(exec);
+    boost::asio::steady_timer timer{ioctx};
+
+    auto lstn = std::make_shared<TcpListener>(exec, strand, tcpEndpoint,
+                                              CodecIdSet{jsonId});
+    Transporting::Ptr server;
+    lstn->observe(
+        [&](ListenResult result)
+        {
+            REQUIRE( result.ok() );
+            server = result.transport();
+            server->admit(
+                [](AdmitResult r) {REQUIRE(r.status() == AdmitStatus::wamp);});
+        });
+    lstn->establish();
+
+    auto client = test::MockRawsockClient::create(ioctx, tcpTestPort);
+    std::vector<test::MockRawsockClientFrame> pings =
+    {
+        {{0x12},             TransportFrameKind::ping},
+        {{0x34, 0x56},       TransportFrameKind::ping},
+        {{0x78, 0x90, 0xAB}, TransportFrameKind::ping},
+    };
+    client->load(pings);
+    client->connect();
+
+    CHECK_NOTHROW( ioctx.run() );
+    ioctx.restart();
+    REQUIRE( server );
+
+    std::error_code serverError;
+    server->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (!buf.has_value())
+                serverError = buf.error();
+        },
+        nullptr);
+
+    client->start();
+
+    while (client->inFrames().size() < pings.size())
+        ioctx.poll();
+
+    CHECK(!serverError);
+
+    for (unsigned i=0; i<pings.size(); ++i)
+    {
+        INFO("For ping #" << i+1);
+        const auto& ping = pings.at(i);
+        const auto& frame = client->inFrames().at(i);
+        auto header = RawsockHeader::fromBigEndian(frame.header);
+        CHECK(header.frameKind() == TransportFrameKind::pong);
+        CHECK(frame.payload == ping.payload);
+    }
+
+    server->close();
+    ioctx.run();
+}
