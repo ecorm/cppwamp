@@ -171,7 +171,8 @@ void checkConnection(LoopbackFixture& f, int expectedCodec,
                 CHECK( result.codecId() == expectedCodec );
                 CHECK( transport->info().codecId() == expectedCodec );
                 CHECK( transport->info().receiveLimit() == serverMaxRxLength );
-                CHECK( transport->info().sendLimit() == maxSize );
+                CHECK( transport->info().sendLimit() ==
+                       WebsocketServerLimits{}.txMsgSize() );
             });
     });
     f.lstn->establish();
@@ -183,7 +184,8 @@ void checkConnection(LoopbackFixture& f, int expectedCodec,
         REQUIRE( transport );
         CHECK( transport->info().codecId() == expectedCodec );
         CHECK( transport->info().receiveLimit() == clientMaxRxLength );
-        CHECK( transport->info().sendLimit() == maxSize );
+        CHECK( transport->info().sendLimit() ==
+               WebsocketClientLimits{}.txMsgSize() );
         f.client = transport;
     });
 
@@ -428,7 +430,8 @@ TEST_CASE( "Normal websocket communications", "[Transport][Websocket]" )
                     CHECK( result.codecId() == KnownCodecIds::json() );
                     CHECK( transport->info().codecId() == KnownCodecIds::json() );
                     CHECK( transport->info().receiveLimit() == 64*1024 );
-                    CHECK( transport->info().sendLimit() == maxSize );
+                    CHECK( transport->info().sendLimit() ==
+                           WebsocketServerLimits{}.txMsgSize() );
                     f.sctx.stop();
                 });
         });
@@ -442,7 +445,8 @@ TEST_CASE( "Normal websocket communications", "[Transport][Websocket]" )
             REQUIRE( transport );
             CHECK( transport->info().codecId() == KnownCodecIds::json() );
             CHECK( transport->info().receiveLimit() == 64*1024 );
-            CHECK( transport->info().sendLimit() == maxSize );
+            CHECK( transport->info().sendLimit() ==
+                   WebsocketClientLimits{}.txMsgSize() );
             client2 = transport;
             f.cctx.stop();
         });
@@ -641,11 +645,12 @@ TEST_CASE( "Cancel websocket connect", "[Transport][Websocket]" )
 TEST_CASE( "Cancel websocket receive", "[Transport][Websocket]" )
 {
     LoopbackFixture f;
-    bool clientHandlerInvoked = false;
+    std::error_code clientError;
     f.client->start(
         [&](ErrorOr<MessageBuffer> buf)
         {
-            clientHandlerInvoked = true;
+            if (!buf.has_value())
+                clientError = buf.error();
         },
         nullptr);
 
@@ -653,8 +658,8 @@ TEST_CASE( "Cancel websocket receive", "[Transport][Websocket]" )
     f.server->start(
         [&](ErrorOr<MessageBuffer> buf)
         {
-            REQUIRE( !buf );
-            serverError = buf.error();
+            if (!buf.has_value())
+                serverError = buf.error();
         },
         nullptr);
 
@@ -662,11 +667,11 @@ TEST_CASE( "Cancel websocket receive", "[Transport][Websocket]" )
     f.cctx.reset();
 
     // Close the transport while the receive operation is in progress,
-    // and check the client handler is not invoked.
+    // and check the client handler emits an 'aborted' error.
     f.client->close();
     REQUIRE_NOTHROW( f.run() );
-    CHECK_FALSE( clientHandlerInvoked );
-    CHECK_FALSE( !serverError );
+    CHECK( clientError == TransportErrc::aborted );
+    CHECK( serverError == TransportErrc::disconnected );
 }
 
 //------------------------------------------------------------------------------
@@ -687,7 +692,6 @@ TEST_CASE( "Cancel websocket send", "[Transport][Websocket]" )
     {
         REQUIRE(transport.has_value());
         f.client = *transport;
-        CHECK( f.client->info().sendLimit() == maxSize );
     });
     f.run();
     f.server->start(
@@ -695,22 +699,28 @@ TEST_CASE( "Cancel websocket send", "[Transport][Websocket]" )
         nullptr);
 
     // Start a send operation
-    bool handlerInvoked = false;
+    std::error_code clientRxError;
+    std::error_code clientTxError;
     f.client->start(
         [&](ErrorOr<MessageBuffer> buf)
         {
-            handlerInvoked = true;
+            if (!buf.has_value())
+                clientRxError = buf.error();
         },
-        nullptr);
+        [&](std::error_code ec) {clientTxError = ec;});
     MessageBuffer message(f.server->info().receiveLimit(), 'a');
     f.client->send(message);
     REQUIRE_NOTHROW( f.cctx.poll() );
     f.cctx.reset();
 
-    // Close the transport and check that the client handler was not invoked.
+    // Close the transport and check that either of the client handlers emit an
+    // 'aborted' error.
     f.client->close();
     f.run();
-    CHECK_FALSE( handlerInvoked );
+    if (clientRxError)
+        CHECK( clientRxError == TransportErrc::aborted );
+    else
+        CHECK( clientTxError == TransportErrc::aborted );
 }
 
 //------------------------------------------------------------------------------

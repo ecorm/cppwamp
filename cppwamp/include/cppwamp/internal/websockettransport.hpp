@@ -90,6 +90,7 @@ public:
     WebsocketStream& operator=(WebsocketStream&& rhs)
     {
         websocket_.emplace(std::move(rhs.websocket_).value());
+        rhs.websocket_.reset();
         return *this;
     }
 
@@ -199,8 +200,6 @@ public:
     template <typename F>
     void shutdown(std::error_code reason, F&& callback)
     {
-        assert(websocket_.has_value());
-
         if (!websocket_->is_open())
         {
             boost::system::error_code netEc;
@@ -246,10 +245,7 @@ public:
 
     void close()
     {
-        if (!websocket_.has_value())
-            return;
         websocket_->next_layer().close();
-        websocket_.reset();
     }
 
 private:
@@ -278,8 +274,6 @@ private:
     void onRead(boost::beast::error_code netEc, std::size_t bytesRead,
                 F& callback)
     {
-        assert(websocket_.has_value());
-
         rxBuffer_.reset();
 
         std::error_code ec = websocketErrorCodeToStandard(netEc);
@@ -311,7 +305,6 @@ private:
             }
         };
 
-        assert(websocket_.has_value());
         websocket_->control_callback();
         websocket_->async_close(reason, Closed{std::forward<F>(callback)});
     }

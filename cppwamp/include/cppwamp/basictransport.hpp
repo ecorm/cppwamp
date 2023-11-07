@@ -55,8 +55,8 @@ public:
         : Base(boost::asio::make_strand(socket.get_executor()),
                Stream::makeConnectionInfo(socket),
                ti),
-          stream_(std::move(socket), settings),
           timer_(socket.get_executor()),
+          stream_(std::move(socket), settings),
           settings_(std::move(settings))
     {
         auto interval = settings_->heartbeatInterval();
@@ -419,8 +419,8 @@ private:
         shutdownHandler_ = nullptr;
     }
 
-    Stream stream_;
     boost::asio::steady_timer timer_;
+    Stream stream_;
     std::deque<Frame> txQueue_;
     Frame txFrame_;
     MessageBuffer rxBuffer_;
@@ -598,8 +598,15 @@ private:
         timer_.cancel();
         if (admitHandler_ != nullptr)
         {
-            stream_ = Stream{admitter_->releaseSocket(), settings_};
-            Base::setReady(admitter_->transportInfo());
+            if (result.status() == AdmitStatus::wamp)
+            {
+                stream_ = Stream{admitter_->releaseSocket(), settings_};
+                Base::setReady(admitter_->transportInfo());
+            }
+            else
+            {
+                admitter_->close();
+            }
             Base::post(std::move(admitHandler_), result);
             admitHandler_ = nullptr;
         }
