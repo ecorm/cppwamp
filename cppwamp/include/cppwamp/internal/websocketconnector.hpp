@@ -138,6 +138,8 @@ private:
         websocket_->set_option(boost::beast::websocket::stream_base::decorator(
             Decorator{settings_->agent(), subprotocol}));
 
+        setPermessageDeflateOptions();
+
         // Perform the handshake
         auto self = shared_from_this();
         websocket_->async_handshake(
@@ -154,6 +156,24 @@ private:
                     complete();
             });
     }
+
+    void setPermessageDeflateOptions()
+    {
+        const auto& opts = settings_->permessageDeflate();
+        if (!opts.enabled())
+            return;
+
+        boost::beast::websocket::permessage_deflate pd;
+        pd.client_enable = true;
+        pd.client_max_window_bits = opts.maxWindowBits();
+        pd.client_no_context_takeover = opts.noContextTakeover();
+        pd.compLevel = opts.compressionLevel();
+        pd.memLevel = opts.memoryLevel();
+        pd.msg_size_threshold = opts.threshold();
+
+        websocket_->set_option(pd);
+    }
+
 
     void complete()
     {

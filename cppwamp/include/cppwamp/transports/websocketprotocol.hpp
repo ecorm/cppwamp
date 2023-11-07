@@ -94,6 +94,47 @@ CPPWAMP_API std::error_condition make_error_condition(WebsocketCloseErrc errc);
 
 
 //------------------------------------------------------------------------------
+/** Contains options for the Websocket permessage-deflate extension. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API WebsocketPermessageDeflate
+{
+public:
+    explicit WebsocketPermessageDeflate(bool enabled = true);
+
+    WebsocketPermessageDeflate& withMaxWindowBits(int bits);
+
+    WebsocketPermessageDeflate& withoutContextTakeover(bool without = true);
+
+    WebsocketPermessageDeflate& withCompressionLevel(int level);
+
+    WebsocketPermessageDeflate& withMemoryLevel(int level);
+
+    WebsocketPermessageDeflate& withThreshold(std::size_t threshold);
+
+    bool enabled() const;
+
+    int maxWindowBits() const;
+
+    bool noContextTakeover() const;
+
+    int compressionLevel() const;
+
+    int memoryLevel() const;
+
+    std::size_t threshold() const;
+
+private:
+    struct Defaults;
+
+    std::size_t threshold_ = 0;
+    int maxWindowBits_ = 0;
+    int compressionLevel_ = 0;
+    int memoryLevel_ = 0;
+    bool enabled_ = false;
+    bool noContextTakeover_ = false;
+};
+
+//------------------------------------------------------------------------------
 /** Contains timeouts and size limits for Websocket client transports. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API WebsocketClientLimits
@@ -133,9 +174,8 @@ public:
         Version::agentString). */
     WebsocketHost& withAgent(std::string agent);
 
-    /** Specifies the maximum duration to wait for the router to complete
-        the closing Websocket handshake after an ABORT message is sent. */
-    WebsocketHost& withAbortTimeout(Timeout timeout);
+    /** Specifies the permessage-deflate extension options. */
+    WebsocketHost& withPermessageDeflate(WebsocketPermessageDeflate options);
 
     /** Obtains the request-target. */
     const std::string& target() const;
@@ -143,9 +183,8 @@ public:
     /** Obtains the custom agent string to use. */
     const std::string& agent() const;
 
-    /** Obtains the Websocket close handshake completion timeout period after
-        an ABORT message is sent. */
-    Timeout abortTimeout() const;
+    /** Obtains the permessage-deflate extension options. */
+    const WebsocketPermessageDeflate& permessageDeflate() const;
 
 private:
     using Base = SocketHost<WebsocketHost, Websocket, TcpOptions,
@@ -153,7 +192,7 @@ private:
 
     std::string target_ = "/";
     std::string agent_;
-    Timeout abortTimeout_ = unspecifiedTimeout;
+    WebsocketPermessageDeflate permessageDeflate_;
 };
 
 
@@ -193,8 +232,14 @@ public:
         Version::agentString). */
     WebsocketEndpoint& withAgent(std::string agent);
 
+    /** Specifies the permessage-deflate extension options. */
+    WebsocketEndpoint& withPermessageDeflate(WebsocketPermessageDeflate opts);
+
     /** Obtains the custom agent string. */
     const std::string& agent() const;
+
+    /** Obtains the permessage-deflate extension options. */
+    const WebsocketPermessageDeflate& permessageDeflate() const;
 
     /** Generates a human-friendly string of the Websocket address/port. */
     std::string label() const;
@@ -205,6 +250,7 @@ private:
 
     // Maintenance note: Keep HttpEndpoint::toWebsocket in sync with changes.
     std::string agent_;
+    WebsocketPermessageDeflate permessageDeflate_;
 };
 
 } // namespace wamp

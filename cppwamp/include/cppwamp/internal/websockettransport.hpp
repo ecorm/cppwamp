@@ -17,6 +17,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/beast/core/flat_buffer.hpp>
 #include <boost/beast/http/parser.hpp>
+#include <boost/beast/websocket/option.hpp>
 #include <boost/beast/websocket/rfc6455.hpp>
 #include <boost/beast/websocket/stream.hpp>
 #include <boost/optional/optional.hpp>
@@ -480,6 +481,8 @@ private:
         websocket_->set_option(boost::beast::websocket::stream_base::decorator(
             Decorator{settings_->agent(), subprotocol}));
 
+        setPermessageDeflateOptions();
+
         // Complete the handshake
         auto self = shared_from_this();
         websocket_->async_accept(
@@ -489,6 +492,23 @@ private:
                 if (check(netEc, "handshake accepted write"))
                     complete();
             });
+    }
+
+    void setPermessageDeflateOptions()
+    {
+        const auto& opts = settings_->permessageDeflate();
+        if (!opts.enabled())
+            return;
+
+        boost::beast::websocket::permessage_deflate pd;
+        pd.server_enable = true;
+        pd.server_max_window_bits = opts.maxWindowBits();
+        pd.server_no_context_takeover = opts.noContextTakeover();
+        pd.compLevel = opts.compressionLevel();
+        pd.memLevel = opts.memoryLevel();
+        pd.msg_size_threshold = opts.threshold();
+
+        websocket_->set_option(pd);
     }
 
     void reject(std::string msg, HttpStatus status, AdmitResult result)

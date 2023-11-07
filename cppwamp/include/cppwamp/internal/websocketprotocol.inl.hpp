@@ -6,6 +6,7 @@
 
 #include "../transports/websocketprotocol.hpp"
 #include <array>
+#include <boost/beast/websocket/option.hpp>
 #include "../api.hpp"
 #include "../version.hpp"
 
@@ -77,6 +78,93 @@ make_error_condition(WebsocketCloseErrc errc)
 
 
 //******************************************************************************
+// WebsocketPermessageDeflate
+//******************************************************************************
+
+struct WebsocketPermessageDeflate::Defaults
+{
+    static const boost::beast::websocket::permessage_deflate& get()
+    {
+        static const boost::beast::websocket::permessage_deflate instance;
+        return instance;
+    }
+};
+
+CPPWAMP_INLINE
+WebsocketPermessageDeflate::WebsocketPermessageDeflate(bool enabled)
+    : threshold_(Defaults::get().msg_size_threshold),
+      maxWindowBits_(Defaults::get().client_max_window_bits),
+      compressionLevel_(Defaults::get().compLevel),
+      memoryLevel_(Defaults::get().memLevel)
+{}
+
+CPPWAMP_INLINE WebsocketPermessageDeflate&
+WebsocketPermessageDeflate::withMaxWindowBits(int bits)
+{
+    maxWindowBits_ = bits;
+    return *this;
+}
+
+CPPWAMP_INLINE WebsocketPermessageDeflate&
+WebsocketPermessageDeflate::withoutContextTakeover(bool without)
+{
+    noContextTakeover_ = without;
+    return *this;
+}
+
+CPPWAMP_INLINE WebsocketPermessageDeflate&
+WebsocketPermessageDeflate::withCompressionLevel(int level)
+{
+    compressionLevel_ = level;
+    return *this;
+}
+
+CPPWAMP_INLINE WebsocketPermessageDeflate&
+WebsocketPermessageDeflate::withMemoryLevel(int level)
+{
+    memoryLevel_ = level;
+    return *this;
+}
+
+CPPWAMP_INLINE WebsocketPermessageDeflate&
+WebsocketPermessageDeflate::withThreshold(std::size_t threshold)
+{
+    threshold_ = threshold;
+    return *this;
+}
+
+CPPWAMP_INLINE bool WebsocketPermessageDeflate::enabled() const
+{
+    return enabled_;
+}
+
+CPPWAMP_INLINE int WebsocketPermessageDeflate::maxWindowBits() const
+{
+    return maxWindowBits_;
+}
+
+CPPWAMP_INLINE bool WebsocketPermessageDeflate::noContextTakeover() const
+{
+    return noContextTakeover_;
+}
+
+CPPWAMP_INLINE int WebsocketPermessageDeflate::compressionLevel() const
+{
+    return compressionLevel_;
+}
+
+CPPWAMP_INLINE int WebsocketPermessageDeflate::memoryLevel() const
+{
+    return memoryLevel_;
+}
+
+CPPWAMP_INLINE std::size_t WebsocketPermessageDeflate::threshold() const
+{
+    return threshold_;
+}
+
+
+//******************************************************************************
 // WebsocketClientLimits
 //******************************************************************************
 
@@ -118,9 +206,10 @@ CPPWAMP_INLINE WebsocketHost& WebsocketHost::withAgent(std::string agent)
     return *this;
 }
 
-CPPWAMP_INLINE WebsocketHost& WebsocketHost::withAbortTimeout(Timeout timeout)
+CPPWAMP_INLINE WebsocketHost&
+WebsocketHost::withPermessageDeflate(WebsocketPermessageDeflate options)
 {
-    abortTimeout_ = timeout;
+    permessageDeflate_ = options;
     return *this;
 }
 
@@ -129,14 +218,12 @@ CPPWAMP_INLINE const std::string& WebsocketHost::target() const
     return target_;
 }
 
-CPPWAMP_INLINE const std::string& WebsocketHost::agent() const
-{
-    return agent_;
-}
+CPPWAMP_INLINE const std::string& WebsocketHost::agent() const {return agent_;}
 
-CPPWAMP_INLINE Timeout WebsocketHost::abortTimeout() const
+CPPWAMP_INLINE const WebsocketPermessageDeflate&
+WebsocketHost::permessageDeflate() const
 {
-    return abortTimeout_;
+    return permessageDeflate_;
 }
 
 
@@ -174,15 +261,28 @@ CPPWAMP_INLINE WebsocketEndpoint::WebsocketEndpoint(std::string address,
     mutableAcceptorOptions().withReuseAddress(true);
 }
 
-CPPWAMP_INLINE WebsocketEndpoint& WebsocketEndpoint::withAgent(std::string agent)
+CPPWAMP_INLINE WebsocketEndpoint& WebsocketEndpoint::withAgent(std::string a)
 {
-    agent_ = std::move(agent);
+    agent_ = std::move(a);
+    return *this;
+}
+
+CPPWAMP_INLINE WebsocketEndpoint&
+WebsocketEndpoint::withPermessageDeflate(WebsocketPermessageDeflate opts)
+{
+    permessageDeflate_ = opts;
     return *this;
 }
 
 CPPWAMP_INLINE const std::string& WebsocketEndpoint::agent() const
 {
     return agent_.empty() ? Version::agentString() : agent_;
+}
+
+CPPWAMP_INLINE const WebsocketPermessageDeflate&
+WebsocketEndpoint::permessageDeflate() const
+{
+    return permessageDeflate_;
 }
 
 CPPWAMP_INLINE std::string WebsocketEndpoint::label() const

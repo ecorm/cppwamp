@@ -88,6 +88,7 @@ public:
     void websocketUpgrade()
     {
         auto self = shared_from_this();
+        // TODO: Add permessageDeflate options from action
         auto wsEndpoint =
             std::make_shared<WebsocketEndpoint>(settings_->toWebsocket());
         auto t = std::make_shared<WebsocketServerTransport>(
