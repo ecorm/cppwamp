@@ -185,6 +185,12 @@ private:
                     return;
                 }
 
+                if (size == 0)
+                {
+                    callback(std::error_code{}, 0);
+                    return;
+                }
+
                 self->headerSent_ = true;
                 self->writeMoreWampPayload(data, size, callback);
             }
@@ -365,6 +371,9 @@ private:
         {
             return failRead(std::errc::not_enough_memory, callback);
         }
+
+        if (length == 0)
+            onControlPayloadRead({}, kind, wampPayload, callback);
 
         boost::asio::async_read(
             socket_,

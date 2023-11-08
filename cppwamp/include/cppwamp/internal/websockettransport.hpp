@@ -625,9 +625,9 @@ public:
         Base::onSend(std::move(message));
     }
 
-    void httpAbort(PassKey, MessageBuffer message)
+    void httpAbort(PassKey, MessageBuffer message, ShutdownHandler handler)
     {
-        Base::onAbort(std::move(message));
+        Base::onAbort(std::move(message), std::move(handler));
     }
 
     void httpShutdown(PassKey, std::error_code reason, ShutdownHandler handler)

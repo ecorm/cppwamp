@@ -267,7 +267,7 @@ protected:
 
     /** Must be overriden to send the given serialized ABORT message ASAP and
         then close gracefully. */
-    virtual void onAbort(MessageBuffer abortMessage) = 0;
+    virtual void onAbort(MessageBuffer abortMessage, ShutdownHandler f) = 0;
 
     /** Must be overriden to stop I/O operations and gracefully close. */
     virtual void onShutdown(std::error_code reason, ShutdownHandler f) = 0;

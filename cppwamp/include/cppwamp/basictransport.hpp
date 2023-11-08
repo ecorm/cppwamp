@@ -95,7 +95,7 @@ private:
         enqueueFrame(std::move(buf));
     }
 
-    void onAbort(MessageBuffer message) override
+    void onAbort(MessageBuffer message, ShutdownHandler handler) override
     {
         if (!stream_.isOpen())
             return;
@@ -103,6 +103,7 @@ private:
         assert((frame.payload().size() <= info().sendLimit()) &&
                "Outgoing message is longer than allowed by peer");
         frame.poison();
+        shutdownHandler_ = std::move(handler);
         txQueue_.push_front(std::move(frame));
         transmit();
     }
@@ -533,14 +534,18 @@ protected:
         enqueueFrame(std::move(buf));
     }
 
-    void onAbort(MessageBuffer message) override
+    void onAbort(MessageBuffer message, ShutdownHandler handler) override
     {
         if (!stream_.isOpen())
-            return;
+        {
+            return Base::post(std::move(handler),
+                              make_error_code(MiscErrc::invalidState));
+        }
         auto frame = enframe(std::move(message));
         assert((frame.payload().size() <= info().sendLimit()) &&
                "Outgoing message is longer than allowed by peer");
         frame.poison();
+        shutdownHandler_ = std::move(handler);
         txQueue_.push_front(std::move(frame));
         transmit();
     }

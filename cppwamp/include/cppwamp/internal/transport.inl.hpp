@@ -176,7 +176,7 @@ CPPWAMP_INLINE void Transporting::abort(MessageBuffer abortMessage,
                     make_error_code(MiscErrc::invalidState));
     }
 
-    onAbort(std::move(abortMessage));
+    onAbort(std::move(abortMessage), std::move(handler));
     state_ = State::aborting;
 }
 

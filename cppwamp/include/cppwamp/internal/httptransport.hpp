@@ -496,10 +496,10 @@ private:
         transport_->httpSend({}, std::move(m));
     }
 
-    void onAbort(MessageBuffer m) override
+    void onAbort(MessageBuffer m, ShutdownHandler f) override
     {
         assert(transport_ != nullptr);
-        transport_->httpAbort({}, std::move(m));
+        transport_->httpAbort({}, std::move(m), std::move(f));
     }
 
     void onShutdown(std::error_code reason, ShutdownHandler f) override
