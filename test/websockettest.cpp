@@ -978,6 +978,7 @@ TEST_CASE( "Router websocket connection limit option", "[WAMP][Router]" )
         w = s3.connect(where, yield);
         CHECK(w.has_value());
         s1.disconnect();
+        s3.disconnect();
     });
     ioctx.run();
 }

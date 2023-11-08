@@ -1344,6 +1344,7 @@ GIVEN( "a caller and a callee" )
             if (!chunk.has_value())
             {
                 CHECK(chunk.error() == MiscErrc::abandoned);
+                // TODO: Fix intermittent failure
                 CHECK(output.size() == input.size());
                 if (calleeLeaveArmed)
                     CHECK(channel.state() == ChannelState::abandoned);
