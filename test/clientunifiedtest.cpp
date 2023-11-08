@@ -137,6 +137,7 @@ GIVEN( "an IO service and a TCP connector" )
             checkInvalidJoin(session, yield);
             checkInvalidLeave(session, yield);
             checkInvalidOps(session, yield);
+            session.disconnect();
         });
 
         ioctx.run();
@@ -167,6 +168,7 @@ GIVEN( "an IO service and a TCP connector" )
             checkInvalidConnect(session, yield);
             checkInvalidLeave(session, yield);
             checkInvalidOps(session, yield);
+            session.disconnect();
         });
 
         ioctx.run();
@@ -223,6 +225,7 @@ GIVEN( "an IO service and a TCP connector" )
             REQUIRE( session.state() == SessionState::established );
             checkInvalidConnect(session, yield);
             checkInvalidJoin(session, yield);
+            session.disconnect();
         });
 
         ioctx.run();
