@@ -410,6 +410,220 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
 } // anonymous namespace
 
 //------------------------------------------------------------------------------
+TEST_CASE( "RawsockHandshake Parsing", "[Transport][Rawsock]" )
+{
+    struct TestVector
+    {
+        uint32_t bits;
+        size_t sizeLimit;
+        int codecId;
+        uint16_t reserved;
+        TransportErrc errorCode;
+        bool hasMagicOctet;
+        bool hasError;
+    };
+
+    using E = TransportErrc;
+    constexpr bool y = true;
+    constexpr bool n = false;
+    constexpr auto json = KnownCodecIds::json();
+    constexpr auto msgp = KnownCodecIds::msgpack();
+    constexpr auto cbor = KnownCodecIds::cbor();
+
+    // Bitfield:
+    // Client: 7fLSRRRR
+    // Server: 7fE0RRRR
+
+    // Errors:
+    // 0: illegal (must not be used)
+    // 1: serializer unsupported
+    // 2: maximum message length unacceptable
+    // 3: use of reserved bits (unsupported feature)
+    // 4: maximum connection count reached
+
+    std::vector<TestVector> testVectors
+    {
+        // bits         size  codec reserved  error        magic?  error?
+        //             limit                  code
+        {0x00000000,      512,  0x0, 0x0000, E::success,        n, y},
+        {0x7EFFFFFF, 16777215,  0xF, 0xFFFF, E::failed,         n, n},
+        {0x7F000000,      512,  0x0, 0x0000, E::success,        y, y},
+        {0x7F000001,      512,  0x0, 0x0001, E::success,        y, y},
+        {0x7F00FFFF,      512,  0x0, 0xFFFF, E::success,        y, y},
+        {0x7F010000,      512, json, 0x0000, E::success,        y, n},
+        {0x7F010001,      512, json, 0x0001, E::success,        y, n},
+        {0x7F01FFFF,      512, json, 0xFFFF, E::success,        y, n},
+        {0x7F020000,      512, msgp, 0x0000, E::success,        y, n},
+        {0x7F020001,      512, msgp, 0x0001, E::success,        y, n},
+        {0x7F02FFFF,      512, msgp, 0xFFFF, E::success,        y, n},
+        {0x7F030000,      512, cbor, 0x0000, E::success,        y, n},
+        {0x7F030001,      512, cbor, 0x0001, E::success,        y, n},
+        {0x7F03FFFF,      512, cbor, 0xFFFF, E::success,        y, n},
+        {0x7F0F0000,      512,  0xF, 0x0000, E::success,        y, n},
+        {0x7F0F0001,      512,  0xF, 0x0001, E::success,        y, n},
+        {0x7F0FFFFF,      512,  0xF, 0xFFFF, E::success,        y, n},
+        {0x7F100000,     1024,  0x0, 0x0000, E::badSerializer,  y, y},
+        {0x7F200000,     2048,  0x0, 0x0000, E::badLengthLimit, y, y},
+        {0x7F300000,     4096,  0x0, 0x0000, E::badFeature,     y, y},
+        {0x7F400000,     8192,  0x0, 0x0000, E::overloaded,     y, y},
+        {0x7F500000,    16384,  0x0, 0x0000, E::failed,         y, y},
+        {0x7FE00000,  8388608,  0x0, 0x0000, E::failed,         y, y},
+        {0x7FF00000, 16777215,  0x0, 0x0000, E::failed,         y, y},
+        {0x7FFFFFFF, 16777215,  0xF, 0xFFFF, E::failed,         y, n},
+        {0x80000000,      512,  0x0, 0x0000, E::success,        n, y},
+        {0xFFFFFFFF, 16777215,  0xF, 0xFFFF, E::failed,         n, n},
+    };
+
+    for (const auto& vec: testVectors)
+    {
+        INFO("For bits=0x" << std::setfill('0') << std::setw(8) << std::right
+                           << std::hex << vec.bits);
+        RawsockHandshake hs{vec.bits};
+        CHECK( hs.sizeLimit() == vec.sizeLimit );
+        CHECK( hs.codecId() == vec.codecId );
+        CHECK( hs.reserved() == vec.reserved );
+        CHECK( hs.errorCode() == vec.errorCode );
+        CHECK( hs.hasMagicOctet() == vec.hasMagicOctet );
+        CHECK( hs.hasError() == vec.hasError );
+    }
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "RawsockHandshake Generation", "[Transport][Rawsock]" )
+{
+    struct TestVector
+    {
+        int codecId;
+        size_t sizeLimit;
+        uint32_t bits;
+    };
+
+    constexpr auto json = KnownCodecIds::json();
+    constexpr auto msgp = KnownCodecIds::msgpack();
+    constexpr auto cbor = KnownCodecIds::cbor();
+    constexpr auto maxSize = std::numeric_limits<size_t>::max();
+
+    // Bitfield:
+    // Client: 7fLSRRRR
+
+    std::vector<TestVector> testVectors
+    {
+        { 0x0,  0x000000, 0x7F000000},
+        { 0x0,  0xFFFFFF, 0x7FF00000},
+        {json,  0x000000, 0x7F010000},
+        {json,  0x000001, 0x7F010000},
+        {json,  0x0001FF, 0x7F010000},
+        {json,  0x000200, 0x7F010000},
+        {json,  0x000201, 0x7F110000},
+        {json,  0x0003FF, 0x7F110000},
+        {json,  0x000400, 0x7F110000},
+        {json,  0x000401, 0x7F210000},
+        {json,  0x0007FF, 0x7F210000},
+        {json,  0x000800, 0x7F210000},
+        {json,  0x200001, 0x7FD10000},
+        {json,  0x3FFFFF, 0x7FD10000},
+        {json,  0x400000, 0x7FD10000},
+        {json,  0x400001, 0x7FE10000},
+        {json,  0x7FFFFF, 0x7FE10000},
+        {json,  0x800000, 0x7FE10000},
+        {json,  0x800001, 0x7FF10000},
+        {json,  0xFFFFFF, 0x7FF10000},
+        {json, 0x1000000, 0x7FF10000},
+        {json,   maxSize, 0x7FF10000},
+        {msgp,  0x000000, 0x7F020000},
+        {msgp,  0xFFFFFF, 0x7FF20000},
+        {cbor,  0x000000, 0x7F030000},
+        {cbor,  0xFFFFFF, 0x7FF30000},
+        { 0x4,  0x000000, 0x7F040000},
+        { 0x4,  0xFFFFFF, 0x7FF40000},
+        { 0xF,  0x000000, 0x7F0F0000},
+        { 0xF,  0xFFFFFF, 0x7FFF0000}
+    };
+
+    for (const auto& vec: testVectors)
+    {
+        INFO("For codec=" << vec.codecId <<
+             ", sizeLimit=0x" << std::setfill('0') << std::setw(8) << std::right
+                              << std::hex << vec.sizeLimit);
+        auto hs = RawsockHandshake{}.setCodecId(vec.codecId)
+                                    .setSizeLimit(vec.sizeLimit);
+        CHECK( hs.toHostOrder() == vec.bits );
+    }
+
+    // Bitfield:
+    // Server: 7fE0RRRR
+
+    // Errors:
+    // 0: illegal (must not be used)
+    // 1: serializer unsupported
+    // 2: maximum message length unacceptable
+    // 3: use of reserved bits (unsupported feature)
+    // 4: maximum connection count reached
+
+    CHECK( RawsockHandshake::eUnsupportedFormat().toHostOrder() == 0x7F100000 );
+    CHECK( RawsockHandshake::eUnacceptableLimit().toHostOrder() == 0x7F200000 );
+    CHECK( RawsockHandshake::eReservedBitsUsed().toHostOrder()  == 0x7F300000 );
+    CHECK( RawsockHandshake::eMaxConnections().toHostOrder()    == 0x7F400000 );
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "RawsockHeader", "[Transport][Rawsock]" )
+{
+    struct TestVector
+    {
+        TestVector(TransportFrameKind frameKind, size_t length, uint32_t bits)
+            : frameKind(frameKind), length(length), bits(bits)
+        {}
+
+        TestVector(int frameKind, size_t length, uint32_t bits)
+            : TestVector(static_cast<TransportFrameKind>(frameKind), length,
+                         bits)
+        {}
+
+        TransportFrameKind frameKind;
+        size_t length;
+        uint32_t bits;
+    };
+
+    static auto wampFrame = TransportFrameKind::wamp;
+    static auto pingFrame = TransportFrameKind::ping;
+    static auto pongFrame = TransportFrameKind::pong;
+
+    std::vector<TestVector> testVectors
+    {
+        {wampFrame, 0x000000, 0x00000000},
+        {wampFrame, 0x000001, 0x00000001},
+        {wampFrame, 0xFFFFFF, 0x00FFFFFF},
+        {pingFrame, 0x000000, 0x01000000},
+        {pingFrame, 0x000001, 0x01000001},
+        {pingFrame, 0xFFFFFF, 0x01FFFFFF},
+        {pongFrame, 0x000000, 0x02000000},
+        {pongFrame, 0x000001, 0x02000001},
+        {pongFrame, 0xFFFFFF, 0x02FFFFFF},
+        {0x03,      0x000000, 0x03000000},
+        {0x03,      0x000001, 0x03000001},
+        {0x03,      0xFFFFFF, 0x03FFFFFF},
+        {0xFF,      0x000000, 0xFF000000},
+        {0xFF,      0x000001, 0xFF000001},
+        {0xFF,      0xFFFFFF, 0xFFFFFFFF}
+    };
+
+    for (const auto& vec: testVectors)
+    {
+        auto hdr = RawsockHeader{}.setFrameKind(vec.frameKind)
+                                  .setLength(vec.length);
+        CHECK( hdr.frameKind() == vec.frameKind );
+        CHECK( hdr.length() == vec.length );
+        CHECK( hdr.toHostOrder() == vec.bits );
+
+        RawsockHeader hdr2{vec.bits};
+        CHECK( hdr2.frameKind() == vec.frameKind );
+        CHECK( hdr2.length() == vec.length );
+        CHECK( hdr2.toHostOrder() == vec.bits );
+    }
+}
+
+//------------------------------------------------------------------------------
 SCENARIO( "Normal connection", "[Transport][Rawsock]" )
 {
 GIVEN( "an unconnected TCP connector/listener pair" )
@@ -660,6 +874,112 @@ TEMPLATE_TEST_CASE( "Zero length messages", "[Transport][Rawsock]",
 }
 
 //------------------------------------------------------------------------------
+TEMPLATE_TEST_CASE( "Graceful raw socket shutdown", "[Transport][Rawsock]",
+                    TcpLoopbackFixture, UdsLoopbackFixture )
+{
+    TestType f;
+    std::error_code clientError;
+    std::error_code serverError;
+    std::error_code shutdownError;
+    bool shutdownHandlerInvoked = false;
+
+    f.client->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (buf.has_value())
+            {
+                f.client->shutdown(
+                    {},
+                    [&](std::error_code ec)
+                    {
+                        shutdownHandlerInvoked = true;
+                        shutdownError = ec;
+                        f.client->close();
+                    });
+            }
+            else
+            {
+                clientError = buf.error();
+            }
+        },
+        nullptr);
+
+    f.server->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (!buf.has_value())
+            {
+                serverError = buf.error();
+                f.server->close();
+            }
+        },
+        nullptr);
+
+    f.server->send(makeMessageBuffer("Hello"));
+
+    REQUIRE_NOTHROW( f.run() );
+
+    CHECK( clientError == TransportErrc::ended );
+    CHECK( serverError == TransportErrc::ended );
+    CHECK( shutdownHandlerInvoked );
+    CHECK_FALSE( shutdownError );
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Raw socket shutdown during send", "[Transport][Rawsock]" )
+{
+    constexpr unsigned bigLength = 16*1024*1024-1;
+    TcpLoopbackFixture f(true, jsonId, {jsonId}, bigLength, bigLength);
+    MessageBuffer bigMessage(bigLength, 'A');
+    std::error_code clientError;
+    std::error_code serverError;
+    std::error_code shutdownError;
+    bool shutdownHandlerInvoked = false;
+
+    f.client->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (buf.has_value())
+            {
+                f.client->shutdown(
+                    {},
+                    [&](std::error_code ec)
+                    {
+                        shutdownHandlerInvoked = true;
+                        shutdownError = ec;
+                        f.client->close();
+                    });
+            }
+            else
+            {
+                clientError = buf.error();
+            }
+        },
+        nullptr);
+
+    f.server->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (!buf.has_value())
+            {
+                serverError = buf.error();
+                f.server->close();
+            }
+        },
+        nullptr);
+
+    f.server->send(makeMessageBuffer("Hello"));
+    f.server->send(bigMessage);
+
+    f.run();
+
+    CHECK( clientError == TransportErrc::ended );
+    CHECK( serverError == TransportErrc::ended );
+    CHECK( shutdownHandlerInvoked );
+    CHECK_FALSE( shutdownError );
+}
+
+//------------------------------------------------------------------------------
 TEMPLATE_TEST_CASE( "Cancel listen", "[Transport][Rawsock]",
                     TcpLoopbackFixture, UdsLoopbackFixture )
 {
@@ -797,20 +1117,25 @@ TEMPLATE_TEST_CASE( "Cancel send", "[Transport][Rawsock]",
 {
     // The size of transmission is set to maximum to increase the likelyhood
     // of the operation being aborted, rather than completed.
-    TestType f(false, jsonId, {jsonId}, 16*1024*1024, 16*1024*1024);
+    constexpr unsigned bigLength = 16*1024*1024-1;
+    TestType f(false, jsonId, {jsonId}, bigLength, bigLength);
     f.lstn->observe([&](ListenResult result)
     {
         REQUIRE(result.ok());
         f.server = result.transport();
         f.server->admit(
-            [](AdmitResult r) {REQUIRE(r.status() == AdmitStatus::wamp);});
+            [&](AdmitResult r)
+            {
+                REQUIRE(r.status() == AdmitStatus::wamp);
+                CHECK( f.server->info().sendLimit() == bigLength );
+            });
     });
     f.lstn->establish();
     f.cnct->establish([&](ErrorOr<Transporting::Ptr> transport)
     {
         REQUIRE(transport.has_value());
         f.client = *transport;
-        CHECK( f.client->info().sendLimit() == 16*1024*1024 );
+        CHECK( f.client->info().sendLimit() == bigLength );
     });
     f.run();
 
@@ -823,7 +1148,7 @@ TEMPLATE_TEST_CASE( "Cancel send", "[Transport][Rawsock]",
                 clientError = buf.error();
         },
         nullptr);
-    MessageBuffer message(f.client->info().sendLimit(), 'a');
+    MessageBuffer message(bigLength, 'a');
     f.client->send(message);
     REQUIRE_NOTHROW( f.cctx.poll() );
     f.cctx.reset();

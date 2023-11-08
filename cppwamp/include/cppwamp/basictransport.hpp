@@ -394,11 +394,13 @@ private:
         if (!ec)
             return true;
 
-        bool isShuttingDown = shutdownHandler_ != nullptr;
-        if (isShuttingDown && (ec == TransportErrc::ended))
+        if (ec == TransportErrc::ended)
         {
-            notifyShutdown({});
-            return true;
+            bool isShuttingDown = shutdownHandler_ != nullptr;
+            if (isShuttingDown)
+                notifyShutdown({});
+            else
+                stream_.shutdown();
         }
 
         fail(ec);
@@ -851,11 +853,13 @@ private:
         if (!ec)
             return true;
 
-        bool isShuttingDown = shutdownHandler_ != nullptr;
-        if (isShuttingDown && (ec == TransportErrc::ended))
+        if (ec == TransportErrc::ended)
         {
-            notifyShutdown({});
-            return true;
+            bool isShuttingDown = shutdownHandler_ != nullptr;
+            if (isShuttingDown)
+                notifyShutdown({});
+            else
+                stream_.shutdown();
         }
 
         fail(ec);

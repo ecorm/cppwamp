@@ -482,7 +482,7 @@ CPPWAMP_INLINE bool TransportCategory::equivalent(const std::error_code& code,
         if (condition == static_cast<int>(TransportErrc::failed))
             return code.value() > static_cast<int>(TransportErrc::failed);
         if (condition == static_cast<int>(TransportErrc::disconnected))
-            return code.value() > static_cast<int>(TransportErrc::ended);
+            return code.value() == static_cast<int>(TransportErrc::ended);
         return false;
     }
 

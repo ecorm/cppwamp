@@ -191,7 +191,7 @@ private:
 
     void onDisconnectGracefully(State, DisconnectHandler handler) override
     {
-        struct Closed
+        struct ShutDown
         {
             DisconnectHandler handler;
             Ptr self;
@@ -218,8 +218,8 @@ private:
         {
             auto self =
                 std::dynamic_pointer_cast<NetworkPeer>(shared_from_this());
-            transport_->shutdown({}, Closed{std::move(handler),
-                                            std::move(self)});
+            transport_->shutdown({}, ShutDown{std::move(handler),
+                                              std::move(self)});
         }
         else
         {

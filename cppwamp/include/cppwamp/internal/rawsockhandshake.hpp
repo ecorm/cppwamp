@@ -60,7 +60,10 @@ public:
     size_t sizeLimit() const
     {
         auto bits = get<unsigned>(limitMask_, limitPos_);
-        return 1u << (bits + limitBase_);
+        auto limit = 1u << (bits + limitBase_);
+        if (bits == maxLimitBits)
+            --limit;
+        return limit;
     }
 
     bool hasError() const {return get<>(codecMask_) == 0;}
@@ -108,13 +111,15 @@ private:
     static constexpr int limitPos_  = 20;
     static constexpr int errorPos_  = 20;
     static constexpr int limitBase_ = 9; // 2^9=512 bytes minimum limit
+    static constexpr unsigned maxLimitBits = 0x0F;
 
     static unsigned sizeLimitToBits(std::size_t size)
     {
         // The WAMP raw sockets message limit starts at 512 bytes and
-        // increases by powers of two up to 16MiB.
+        // increases by powers of two up to 16MiB - 1B.
 
-        // If desired limit exceeds 16MiB, clamp the handshake limit to 16MiB.
+        // If desired limit exceeds 16MiB - 1B, clamp the handshake limit to
+        // 16MiB - 1B.
         if (size > 8*1024*1024)
             return 0x0F;
 

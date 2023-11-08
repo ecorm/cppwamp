@@ -126,6 +126,13 @@ public:
         postAny(socket_.get_executor(), std::forward<F>(callback), ec);
     }
 
+    std::error_code shutdown()
+    {
+        boost::system::error_code netEc;
+        socket_.shutdown(Socket::shutdown_send, netEc);
+        return static_cast<std::error_code>(netEc);
+    }
+
     void close() {socket_.close();}
 
 

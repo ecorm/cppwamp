@@ -244,6 +244,14 @@ public:
         closeWebsocket(closeCode, std::forward<F>(callback));
     }
 
+    std::error_code shutdown()
+    {
+        boost::system::error_code netEc;
+        websocket_->next_layer().shutdown(
+            boost::asio::ip::tcp::socket::shutdown_send, netEc);
+        return static_cast<std::error_code>(netEc);
+    }
+
     void close()
     {
         websocket_->next_layer().close();
