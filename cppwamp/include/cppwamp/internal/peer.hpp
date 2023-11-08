@@ -77,7 +77,6 @@ public:
     {
         if (!compareAndSetState(State::closed, State::establishing))
             return false;
-        onEstablish();
         return true;
     }
 
@@ -174,8 +173,6 @@ protected:
     virtual void onConnect(Transporting::Ptr, AnyBufferCodec) = 0;
 
     virtual void onDirectConnect(IoStrand, any) = 0;
-
-    virtual void onEstablish() = 0;
 
     virtual void onClose() = 0;
 

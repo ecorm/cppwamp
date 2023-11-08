@@ -349,18 +349,8 @@ private:
 
     void receive()
     {
-        if (!stream_.isOpen())
-            return;
-
         rxBuffer_.clear();
-        auto self = this->shared_from_this();
-        stream_.readSome(
-            rxBuffer_,
-            [this, self](std::error_code ec, std::size_t n, bool done)
-            {
-                if (checkRxError(ec))
-                    onRead(n, done);
-            });
+        receiveMore();
     }
 
     void receiveMore()

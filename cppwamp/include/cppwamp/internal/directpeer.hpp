@@ -104,8 +104,6 @@ private:
                             " a wamp::Session base class reference/pointer");
     }
 
-    void onEstablish() override {/* Nothing to do*/}
-
     void onClose() override {session_->close();}
 
     void onDisconnect(State previousState) override

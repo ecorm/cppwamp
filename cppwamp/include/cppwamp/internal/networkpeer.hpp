@@ -153,10 +153,7 @@ private:
         ++transportId_;
         codec_ = std::move(c);
         sendLimit_ = transport_->info().sendLimit();
-    }
 
-    void onEstablish() override
-    {
         if (transport_->state() == TransportState::ready)
         {
             auto id = transportId_;
