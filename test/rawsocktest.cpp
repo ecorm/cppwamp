@@ -22,6 +22,9 @@
 #include "mockrawsockpeer.hpp"
 #include "silentclient.hpp"
 
+// TODO: Transporting::shed test
+// TODO: Transporting::abort test
+
 using namespace wamp;
 using namespace wamp::internal;
 

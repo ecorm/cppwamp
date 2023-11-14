@@ -1162,20 +1162,24 @@ GIVEN( "a caller and a callee" )
     {
         INFO("for output.size()=" << output.size());
         bool isFinal = output.size() == (input.size() - 1);
-        if (!isFinal)
+
+        if (chunk.has_value())
         {
-            REQUIRE(chunk.has_value());
-            auto n = chunk->args().at(0).to<int>();
-            output.push_back(n);
-        }
-        else if (chunk.has_value())
-        {
-            f.caller.leave([](ErrorOr<Reason>) {});
+            if (isFinal)
+            {
+                f.caller.leave([](ErrorOr<Reason>) {});
+            }
+            else
+            {
+                auto n = chunk->args().at(0).to<int>();
+                output.push_back(n);
+            }
         }
         else
         {
             CHECK(chunk.error() == MiscErrc::abandoned);
             CHECK(channel.error().errorCode() == WampErrc::unknown);
+            CHECK_FALSE(errorReceived);
             errorReceived = true;
         }
     };
@@ -1334,9 +1338,12 @@ GIVEN( "a caller and a callee" )
     std::vector<int> output;
     CalleeChannel calleeChannel;
     bool callerFinalChunkReceived = false;
+    bool calleeFinalChunkReceived = false;
     bool calleeLeaveArmed = false;
     bool destroyEarlyArmed = false;
     bool calleeThrowArmed = false;
+    bool calleeWillInterrupt = calleeLeaveArmed || destroyEarlyArmed ||
+                               calleeThrowArmed;
 
     auto onChunkReceivedByCallee =
         [&](CalleeChannel channel, ErrorOr<CalleeInputChunk> chunk)
@@ -1344,13 +1351,16 @@ GIVEN( "a caller and a callee" )
             if (!chunk.has_value())
             {
                 CHECK(chunk.error() == MiscErrc::abandoned);
-                // TODO: Fix intermittent failure
                 CHECK(output.size() == input.size());
                 if (calleeLeaveArmed)
                     CHECK(channel.state() == ChannelState::abandoned);
                 calleeChannel.detach();
+                calleeFinalChunkReceived = true;
                 return;
             }
+
+            if (!calleeLeaveArmed)
+                calleeFinalChunkReceived = true;
 
             output.push_back(chunk->args().at(0).to<int>());
             if (output.size() == input.size())
@@ -1453,16 +1463,18 @@ GIVEN( "a caller and a callee" )
                     timer.expires_after(std::chrono::milliseconds(25));
                     timer.async_wait(yield);
 
-                    bool isFinal = (i == input.size() - 1);
+                    bool isFinal = (i == input.size() - 1) &&
+                                   !calleeWillInterrupt;
                     channel.send(CallerOutputChunk(isFinal)
                                   .withArgs(input.at(i))).value();
                 }
 
-                while (!callerFinalChunkReceived)
+                while (!callerFinalChunkReceived || !calleeFinalChunkReceived)
                     suspendCoro(yield);
                 CHECK( input == output );
                 output.clear();
                 callerFinalChunkReceived = false;
+                calleeFinalChunkReceived = false;
 
                 if (calleeLeaveArmed)
                 {
