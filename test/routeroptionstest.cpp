@@ -442,7 +442,7 @@ TEST_CASE( "Router connection limit option", "[WAMP][Router]" )
         s2.connect(where, yield).value();
         auto w = s3.connect(where, yield);
         REQUIRE_FALSE(w.has_value());
-        CHECK(w.error() == TransportErrc::overloaded);
+        CHECK(w.error() == TransportErrc::shedded);
         s3.disconnect();
         while (logEntries.empty())
             test::suspendCoro(yield);

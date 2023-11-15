@@ -74,7 +74,7 @@ public:
         static const std::array<TransportErrc, 16> table{
         {
             TE::success, TE::badSerializer, TE::badLengthLimit, TE::badFeature,
-            TE::overloaded, TE::failed, TE::failed, TE::failed,
+            TE::shedded, TE::failed, TE::failed, TE::failed,
             TE::failed, TE::failed, TE::failed, TE::failed,
             TE::failed, TE::failed, TE::failed, TE::failed
         }};

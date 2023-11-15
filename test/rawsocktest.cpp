@@ -22,9 +22,6 @@
 #include "mockrawsockpeer.hpp"
 #include "silentclient.hpp"
 
-// TODO: Transporting::shed test
-// TODO: Transporting::abort test
-
 using namespace wamp;
 using namespace wamp::internal;
 
@@ -468,7 +465,7 @@ TEST_CASE( "RawsockHandshake Parsing", "[Transport][Rawsock]" )
         {0x7F100000,     1024,  0x0, 0x0000, E::badSerializer,  y, y},
         {0x7F200000,     2048,  0x0, 0x0000, E::badLengthLimit, y, y},
         {0x7F300000,     4096,  0x0, 0x0000, E::badFeature,     y, y},
-        {0x7F400000,     8192,  0x0, 0x0000, E::overloaded,     y, y},
+        {0x7F400000,     8192,  0x0, 0x0000, E::shedded,        y, y},
         {0x7F500000,    16384,  0x0, 0x0000, E::failed,         y, y},
         {0x7FE00000,  8388608,  0x0, 0x0000, E::failed,         y, y},
         {0x7FF00000, 16777215,  0x0, 0x0000, E::failed,         y, y},
@@ -877,6 +874,163 @@ TEMPLATE_TEST_CASE( "Zero length messages", "[Transport][Rawsock]",
 }
 
 //------------------------------------------------------------------------------
+TEST_CASE( "Raw socket shedding", "[Transport][Rawsock]" )
+{
+    IoContext ioctx;
+    auto exec = ioctx.get_executor();
+    auto strand = boost::asio::make_strand(exec);
+
+    Transporting::Ptr server;
+    auto lstn = std::make_shared<TcpListener>(exec, strand, tcpEndpoint,
+                                              CodecIdSet{jsonId});
+    AdmitResult admitResult;
+    lstn->observe(
+        [&](ListenResult result)
+        {
+            REQUIRE( result.ok() );
+            server = result.transport();
+            server->shed( [&](AdmitResult r) {admitResult = r;} );
+        });
+    lstn->establish();
+
+    auto cnct = std::make_shared<TcpConnector>(strand, tcpHost, jsonId);
+    Transporting::Ptr client;
+    std::error_code clientError;
+    cnct->establish(
+        [&](ErrorOr<Transporting::Ptr> transport)
+        {
+            if (!transport.has_value())
+                clientError = transport.error();
+        });
+
+    ioctx.run();
+    CHECK( admitResult.status() == AdmitStatus::shedded );
+    CHECK( clientError == TransportErrc::shedded );
+}
+
+//------------------------------------------------------------------------------
+TEMPLATE_TEST_CASE( "Raw socket client aborting", "[Transport][Rawsock]",
+                    TcpLoopbackFixture, UdsLoopbackFixture )
+{
+    TestType f;
+    auto abortMessage = makeMessageBuffer("abort");
+    std::error_code clientError;
+    std::error_code serverError;
+    std::error_code abortError;
+    bool abortHandlerInvoked = false;
+
+    f.client->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (buf.has_value())
+            {
+                f.client->abort(
+                    abortMessage,
+                    [&](std::error_code ec)
+                    {
+                        abortHandlerInvoked = true;
+                        abortError = ec;
+                        f.client->close();
+                    });
+            }
+            else
+            {
+                clientError = buf.error();
+            }
+        },
+        nullptr);
+
+    MessageBuffer rxMessage;
+    f.server->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (buf.has_value())
+            {
+                rxMessage = buf.value();
+                f.server->shutdown({}, [](std::error_code ec) {});
+            }
+            else
+            {
+                serverError = buf.error();
+                f.server->close();
+            }
+        },
+        nullptr);
+
+    f.server->send(makeMessageBuffer("Hello"));
+
+    REQUIRE_NOTHROW( f.run() );
+
+    CHECK( clientError == TransportErrc::ended );
+    CHECK( serverError == TransportErrc::ended );
+    CHECK_FALSE( abortError );
+    CHECK( rxMessage == abortMessage );
+    CHECK( abortHandlerInvoked );
+    CHECK_FALSE( abortError );
+}
+
+//------------------------------------------------------------------------------
+TEMPLATE_TEST_CASE( "Raw socket server aborting", "[Transport][Rawsock]",
+                    TcpLoopbackFixture, UdsLoopbackFixture )
+{
+    TestType f;
+    auto abortMessage = makeMessageBuffer("abort");
+    std::error_code clientError;
+    std::error_code serverError;
+    std::error_code abortError;
+    bool abortHandlerInvoked = false;
+
+    MessageBuffer rxMessage;
+    f.client->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (buf.has_value())
+            {
+                rxMessage = buf.value();
+                f.client->shutdown({}, [](std::error_code ec) {});
+            }
+            else
+            {
+                clientError = buf.error();
+                f.client->close();
+            }
+        },
+        nullptr);
+
+    f.server->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (buf.has_value())
+            {
+                f.server->abort(
+                    abortMessage,
+                    [&](std::error_code ec)
+                    {
+                        abortHandlerInvoked = true;
+                        abortError = ec;
+                        f.server->close();
+                    });
+            }
+            else
+            {
+                serverError = buf.error();
+            }
+        },
+        nullptr);
+
+    f.client->send(makeMessageBuffer("Hello"));
+
+    REQUIRE_NOTHROW( f.run() );
+
+    CHECK( clientError == TransportErrc::ended );
+    CHECK( serverError == TransportErrc::ended );
+    CHECK_FALSE( abortError );
+    CHECK( rxMessage == abortMessage );
+    CHECK( abortHandlerInvoked );
+    CHECK_FALSE( abortError );
+}
+
+//------------------------------------------------------------------------------
 TEMPLATE_TEST_CASE( "Graceful raw socket shutdown", "[Transport][Rawsock]",
                     TcpLoopbackFixture, UdsLoopbackFixture )
 {
@@ -1201,7 +1355,7 @@ GIVEN( "use of reserved bits" )
 }
 GIVEN( "maximum connections reached" )
 {
-    checkCannedServerHandshake(0x7f400000, TransportErrc::overloaded);
+    checkCannedServerHandshake(0x7f400000, TransportErrc::shedded);
 }
 GIVEN( "future error code" )
 {
