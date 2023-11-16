@@ -61,6 +61,40 @@ inline std::error_code websocketErrorCodeToStandard(
 }
 
 //------------------------------------------------------------------------------
+inline boost::beast::websocket::close_code
+errorCodeToWebsocketCloseCode(std::error_code ec)
+{
+    using boost::beast::websocket::close_code;
+    using boost::beast::websocket::condition;
+    using boost::beast::websocket::error;
+
+    if (!ec)
+        return close_code::normal;
+
+    if (ec.category() == transportCategory())
+    {
+        switch (static_cast<TransportErrc>(ec.value()))
+        {
+        case TransportErrc::ended:          return close_code::going_away;
+        case TransportErrc::inboundTooLong: return close_code::too_big;
+        case TransportErrc::expectedBinary: return close_code::bad_payload;
+        case TransportErrc::expectedText:   return close_code::bad_payload;
+        case TransportErrc::shedded:        return close_code::try_again_later;
+        case TransportErrc::overloaded:     return close_code::try_again_later;
+        default: break;
+        }
+    }
+    else
+    {
+        auto netEc = static_cast<boost::system::error_code>(ec);
+        if (netEc == condition::protocol_violation)
+            return close_code::protocol_error;
+    }
+
+    return close_code::internal_error;
+}
+
+//------------------------------------------------------------------------------
 class WebsocketStream
 {
 public:
@@ -208,48 +242,24 @@ public:
                 boost::asio::ip::tcp::socket::shutdown_send, netEc);
             postAny(websocket_->get_executor(),
                     std::forward<F>(callback),
-                    static_cast<std::error_code>(netEc));
+                    static_cast<std::error_code>(netEc),
+                    true);
             return;
         }
 
-        using boost::beast::websocket::close_code;
-        using boost::beast::websocket::condition;
-        using boost::beast::websocket::error;
-
-        if (!reason)
-            return closeWebsocket(close_code::normal, std::forward<F>(callback));
-
-        auto closeCode = close_code::internal_error;
-
-        if (reason == TransportErrc::ended)
+        struct Closed
         {
-            closeCode = close_code::going_away;
-        }
-        else if (reason == TransportErrc::inboundTooLong)
-        {
-            closeCode = close_code::too_big;
-        }
-        else if (reason == TransportErrc::expectedBinary ||
-                 reason == TransportErrc::expectedText)
-        {
-            closeCode = close_code::bad_payload;
-        }
-        else
-        {
-            auto netEc = static_cast<boost::system::error_code>(reason);
-            if (netEc == condition::protocol_violation)
-                closeCode = close_code::protocol_error;
-        }
+            Decay<F> callback;
 
-        closeWebsocket(closeCode, std::forward<F>(callback));
-    }
+            void operator()(boost::beast::error_code netEc)
+            {
+                callback(static_cast<std::error_code>(netEc), false);
+            }
+        };
 
-    std::error_code shutdown()
-    {
-        boost::system::error_code netEc;
-        websocket_->next_layer().shutdown(
-            boost::asio::ip::tcp::socket::shutdown_send, netEc);
-        return static_cast<std::error_code>(netEc);
+        websocket_->control_callback();
+        websocket_->async_close(errorCodeToWebsocketCloseCode(reason),
+                                Closed{std::forward<F>(callback)});
     }
 
     void close()
@@ -310,7 +320,7 @@ private:
 
             void operator()(boost::beast::error_code netEc)
             {
-                callback(static_cast<std::error_code>(netEc));
+                callback(static_cast<std::error_code>(netEc), false);
             }
         };
 
@@ -368,14 +378,36 @@ public:
     }
 
     template <typename F>
-    void shutdown(std::error_code /*reason*/, F&& callback)
+    void shutdown(std::error_code reason, F&& callback)
     {
-        TcpSocket* socket = websocket_.has_value() ? &websocket_->next_layer()
-                                                   : &tcpSocket_;
-        boost::system::error_code netEc;
-        socket->shutdown(TcpSocket::shutdown_send, netEc);
-        auto ec = static_cast<std::error_code>(netEc);
-        postAny(socket->get_executor(), std::forward<F>(callback), ec);
+        if (!websocket_.has_value() || !websocket_->is_open())
+        {
+            TcpSocket* tcpSocket =
+                websocket_.has_value() ? &websocket_->next_layer()
+                                       : &tcpSocket_;
+            boost::system::error_code netEc;
+            tcpSocket->shutdown(
+                boost::asio::ip::tcp::socket::shutdown_send, netEc);
+            postAny(tcpSocket->get_executor(),
+                    std::forward<F>(callback),
+                    static_cast<std::error_code>(netEc),
+                    true);
+            return;
+        }
+
+        struct Closed
+        {
+            Decay<F> callback;
+
+            void operator()(boost::beast::error_code netEc)
+            {
+                callback(static_cast<std::error_code>(netEc), false);
+            }
+        };
+
+        websocket_->control_callback();
+        websocket_->async_close(errorCodeToWebsocketCloseCode(reason),
+                                Closed{std::forward<F>(callback)});
     }
 
     void close()
@@ -559,10 +591,7 @@ private:
 
     void fail(std::error_code ec, const char* operation)
     {
-        if (!handler_)
-            return;
-        handler_(AdmitResult::failed(ec, operation));
-        handler_ = nullptr;
+        finish(AdmitResult::failed(ec, operation));
     }
 
     template <typename TErrc>

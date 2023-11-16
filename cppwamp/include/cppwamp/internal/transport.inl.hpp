@@ -62,7 +62,8 @@ CPPWAMP_INLINE AdmitResult AdmitResult::wamp(int codecId)
 
 CPPWAMP_INLINE AdmitResult AdmitResult::shedded()
 {
-    return AdmitResult{Status::shedded, 0};
+    return AdmitResult{Status::shedded, make_error_code(TransportErrc::shedded),
+                       nullptr};
 }
 
 CPPWAMP_INLINE AdmitResult AdmitResult::rejected(std::error_code e)

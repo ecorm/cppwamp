@@ -157,15 +157,6 @@ private:
         }
     }
 
-    void halt()
-    {
-        txErrorHandler_ = nullptr;
-        txQueue_.clear();
-        if (pinger_)
-            pinger_->stop();
-        stream_.unobserveControlFrames();
-    }
-
     void stop(std::error_code reason, ShutdownHandler handler)
     {
         if (shutdownHandler_ != nullptr || !stream_.isOpen())
@@ -177,9 +168,23 @@ private:
 
         shutdownHandler_ = std::move(handler);
         halt();
-        auto self = this->shared_from_this();
+        shutdownTransport(reason);
+    }
 
+    void halt()
+    {
+        txErrorHandler_ = nullptr;
+        txQueue_.clear();
+        if (pinger_)
+            pinger_->stop();
+        stream_.unobserveControlFrames();
+    }
+
+    void shutdownTransport(std::error_code reason)
+    {
+        auto self = this->shared_from_this();
         auto lingerTimeout = settings_->limits().lingerTimeout();
+
         if (internal::timeoutIsDefinite(lingerTimeout))
         {
             timer_.expires_after(lingerTimeout);
@@ -194,11 +199,11 @@ private:
 
         stream_.shutdown(
             reason,
-            [this, self](std::error_code ec)
+            [this, self](std::error_code ec, bool flush)
             {
-                // Successful shutdown is signalled by stream_.readSome
-                // emitting TransportErrc::ended
-                if (ec)
+                // When 'flush' is true, successful shutdown is signalled by
+                // stream_.readSome emitting TransportErrc::ended
+                if (ec || !flush)
                     notifyShutdown(ec);
             });
     }
@@ -297,16 +302,10 @@ private:
 
         isTransmitting_ = false;
 
-        if (txFrame_.isPoisoned())
-        {
-            if (shutdownHandler_ == nullptr)
-                return;
-            auto self = shared_from_this();
-            stop(make_error_code(TransportErrc::ended),
-                 [self](std::error_code) {});
-        }
-        else
+        if (!txFrame_.isPoisoned())
             transmit();
+        else if (shutdownHandler_ != nullptr)
+            shutdownTransport({});
     }
 
     void sendPing()
@@ -390,8 +389,6 @@ private:
             bool isShuttingDown = shutdownHandler_ != nullptr;
             if (isShuttingDown)
                 notifyShutdown({});
-            else
-                stream_.shutdown();
         }
 
         fail(ec);
@@ -552,8 +549,18 @@ protected:
 
     void onShutdown(std::error_code reason, ShutdownHandler handler) override
     {
+        struct AdmitShutdown
+        {
+            ShutdownHandler handler;
+
+            void operator()(std::error_code ec, bool /*flush*/)
+            {
+                handler(ec);
+            }
+        };
+
         if (admitter_ != nullptr)
-            admitter_->shutdown(reason, std::move(handler));
+            admitter_->shutdown(reason, AdmitShutdown{std::move(handler)});
         else
             stop(reason, std::move(handler));
     }
@@ -592,22 +599,35 @@ private:
 
     void onAdmissionCompletion(AdmitResult result)
     {
-        timer_.cancel();
         if (admitHandler_ != nullptr)
         {
             if (result.status() == AdmitStatus::wamp)
             {
+                timer_.cancel();
                 stream_ = Stream{admitter_->releaseSocket(), settings_};
                 Base::setReady(admitter_->transportInfo());
+                admitter_.reset();
+            }
+            else if (result.status() == AdmitStatus::failed)
+            {
+                timer_.cancel();
+                admitter_->close();
+                admitter_.reset();
             }
             else
             {
-                admitter_->close();
+                auto self = shared_from_this();
+                admitter_->shutdown(
+                    result.error(),
+                    [this, self](std::error_code, bool)
+                    {
+                        admitter_->close();
+                        admitter_.reset();
+                    });
             }
             Base::post(std::move(admitHandler_), result);
             admitHandler_ = nullptr;
         }
-        admitter_.reset();
     }
 
     void onControlFrame(TransportFrameKind kind, const Byte* data,
@@ -621,13 +641,6 @@ private:
         }
     }
 
-    void halt()
-    {
-        txErrorHandler_ = nullptr;
-        txQueue_.clear();
-        stream_.unobserveControlFrames();
-    }
-
     void stop(std::error_code reason, ShutdownHandler handler)
     {
         if (shutdownHandler_ != nullptr || !stream_.isOpen())
@@ -639,9 +652,21 @@ private:
 
         shutdownHandler_ = std::move(handler);
         halt();
-        auto self = this->shared_from_this();
+        shutdownTransport(reason);
+    }
 
+    void halt()
+    {
+        txErrorHandler_ = nullptr;
+        txQueue_.clear();
+        stream_.unobserveControlFrames();
+    }
+
+    void shutdownTransport(std::error_code reason)
+    {
+        auto self = this->shared_from_this();
         auto lingerTimeout = settings_->limits().lingerTimeout();
+
         if (internal::timeoutIsDefinite(lingerTimeout))
         {
             timer_.expires_after(lingerTimeout);
@@ -656,11 +681,11 @@ private:
 
         stream_.shutdown(
             reason,
-            [this, self](std::error_code ec)
+            [this, self](std::error_code ec, bool flush)
             {
-                // Successful shutdown is signalled by stream_.readSome
-                // emitting TransportErrc::ended
-                if (ec)
+                // When 'flush' is true, successful shutdown is signalled by
+                // stream_.readSome emitting TransportErrc::ended
+                if (ec || !flush)
                     notifyShutdown(ec);
             });
     }
@@ -760,16 +785,10 @@ private:
 
         isTransmitting_ = false;
 
-        if (txFrame_.isPoisoned())
-        {
-            if (shutdownHandler_ == nullptr)
-                return;
-            auto self = shared_from_this();
-            stop(make_error_code(TransportErrc::ended),
-                 [self](std::error_code) {});
-        }
-        else
+        if (!txFrame_.isPoisoned())
             transmit();
+        else if (shutdownHandler_ != nullptr)
+            shutdownTransport({});
     }
 
     void sendPing()
@@ -853,8 +872,6 @@ private:
             bool isShuttingDown = shutdownHandler_ != nullptr;
             if (isShuttingDown)
                 notifyShutdown({});
-            else
-                stream_.shutdown();
         }
 
         fail(ec);

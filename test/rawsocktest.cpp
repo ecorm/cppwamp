@@ -930,12 +930,12 @@ TEMPLATE_TEST_CASE( "Raw socket client aborting", "[Transport][Rawsock]",
                     {
                         abortHandlerInvoked = true;
                         abortError = ec;
-                        f.client->close();
                     });
             }
             else
             {
                 clientError = buf.error();
+                f.client->close();
             }
         },
         nullptr);
@@ -1008,12 +1008,12 @@ TEMPLATE_TEST_CASE( "Raw socket server aborting", "[Transport][Rawsock]",
                     {
                         abortHandlerInvoked = true;
                         abortError = ec;
-                        f.server->close();
                     });
             }
             else
             {
                 serverError = buf.error();
+                f.server->close();
             }
         },
         nullptr);
@@ -1051,12 +1051,12 @@ TEMPLATE_TEST_CASE( "Graceful raw socket shutdown", "[Transport][Rawsock]",
                     {
                         shutdownHandlerInvoked = true;
                         shutdownError = ec;
-                        f.client->close();
                     });
             }
             else
             {
                 clientError = buf.error();
+                f.client->close();
             }
         },
         nullptr);
@@ -1104,12 +1104,12 @@ TEST_CASE( "Raw socket shutdown during send", "[Transport][Rawsock]" )
                     {
                         shutdownHandlerInvoked = true;
                         shutdownError = ec;
-                        f.client->close();
                     });
             }
             else
             {
                 clientError = buf.error();
+                f.client->close();
             }
         },
         nullptr);

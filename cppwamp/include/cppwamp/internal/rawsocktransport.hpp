@@ -123,14 +123,7 @@ public:
         boost::system::error_code netEc;
         socket_.shutdown(Socket::shutdown_send, netEc);
         auto ec = static_cast<std::error_code>(netEc);
-        postAny(socket_.get_executor(), std::forward<F>(callback), ec);
-    }
-
-    std::error_code shutdown()
-    {
-        boost::system::error_code netEc;
-        socket_.shutdown(Socket::shutdown_send, netEc);
-        return static_cast<std::error_code>(netEc);
+        postAny(socket_.get_executor(), std::forward<F>(callback), ec, true);
     }
 
     void close() {socket_.close();}
@@ -467,7 +460,7 @@ public:
         boost::system::error_code netEc;
         socket_.shutdown(Socket::shutdown_send, netEc);
         auto ec = static_cast<std::error_code>(netEc);
-        postAny(socket_.get_executor(), std::forward<F>(callback), ec);
+        postAny(socket_.get_executor(), std::forward<F>(callback), ec, true);
     }
 
     void close() {socket_.close();}
@@ -577,15 +570,6 @@ private:
         if (handler_)
             handler_(std::move(result));
         handler_ = nullptr;
-        if (result.status() != AdmitStatus::wamp)
-        {
-            if (result.status() != AdmitStatus::failed)
-            {
-                boost::system::error_code ec;
-                socket_.shutdown(Socket::shutdown_send, ec);
-            }
-            socket_.close();
-        }
     }
 
     Socket socket_;
