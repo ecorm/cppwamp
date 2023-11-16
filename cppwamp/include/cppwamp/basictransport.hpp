@@ -129,7 +129,7 @@ private:
             {
                 auto me = self.lock();
                 if (me)
-                    onControlFrame(kind, data, size);
+                    onHeartbeat(kind, data, size);
             });
 
         pinger_->start(
@@ -141,8 +141,8 @@ private:
             });
     }
 
-    void onControlFrame(TransportFrameKind kind, const Byte* data,
-                        std::size_t size)
+    void onHeartbeat(TransportFrameKind kind, const Byte* data,
+                     std::size_t size)
     {
         if (kind == TransportFrameKind::pong)
         {
@@ -517,7 +517,7 @@ protected:
             {
                 auto me = self.lock();
                 if (me)
-                    onControlFrame(kind, data, size);
+                    onHeartbeat(kind, data, size);
             });
 
         receive();
@@ -630,8 +630,8 @@ private:
         }
     }
 
-    void onControlFrame(TransportFrameKind kind, const Byte* data,
-                        std::size_t size)
+    void onHeartbeat(TransportFrameKind kind, const Byte* data,
+                     std::size_t size)
     {
         if (kind == TransportFrameKind::ping)
         {

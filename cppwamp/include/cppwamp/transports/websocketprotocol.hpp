@@ -7,6 +7,9 @@
 #ifndef CPPWAMP_TRANSPORTS_WEBSOCKETPROTOCOL_HPP
 #define CPPWAMP_TRANSPORTS_WEBSOCKETPROTOCOL_HPP
 
+// TODO: auto_fragment
+// TODO: write_buffer_bytes
+
 //------------------------------------------------------------------------------
 /** @file
     @brief Contains basic Websocket protocol facilities. */

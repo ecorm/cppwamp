@@ -68,8 +68,8 @@ public:
     template <typename S>
     explicit RawsockStream(Socket&& socket, const std::shared_ptr<S>& settings)
         : socket_(std::move(socket)),
-          wampFrameLimit_(settings->limits().rxMsgSize()),
-          heartbeatFrameLimit_(settings->limits().heartbeatSize())
+          wampPayloadLimit_(settings->limits().rxMsgSize()),
+          heartbeatPayloadLimit_(settings->limits().heartbeatSize())
     {}
 
     AnyIoExecutor executor() {return socket_.get_executor();}
@@ -124,7 +124,6 @@ public:
 
     void close() {socket_.close();}
 
-
 private:
     using Header     = uint32_t;
     using GatherBufs = std::array<boost::asio::const_buffer, 2>;
@@ -166,7 +165,7 @@ private:
             std::size_t size;
             RawsockStream* self;
 
-            void operator()(boost::system::error_code netEc, std::size_t n)
+            void operator()(boost::system::error_code netEc, std::size_t)
             {
                 if (netEc)
                 {
@@ -256,8 +255,8 @@ private:
 
         auto kind = header.frameKind();
         auto length = header.length();
-        auto limit = kind == TransportFrameKind::wamp ? wampFrameLimit_
-                                                      : heartbeatFrameLimit_;
+        auto limit = kind == TransportFrameKind::wamp ? wampPayloadLimit_
+                                                      : heartbeatPayloadLimit_;
         if (limit != 0 && length > limit)
             return failRead(TransportErrc::inboundTooLong, callback);
 
@@ -270,7 +269,7 @@ private:
     template <typename F>
     void readWampPayload(size_t length, MessageBuffer& payload, F& callback)
     {
-        if (wampFrameLimit_ != 0 && length > wampFrameLimit_)
+        if (wampPayloadLimit_ != 0 && length > wampPayloadLimit_)
             return failRead(TransportErrc::inboundTooLong, callback);
 
         if (length == 0)
@@ -345,12 +344,12 @@ private:
             }
         };
 
-        if (heartbeatFrameLimit_ != 0 && length > heartbeatFrameLimit_)
+        if (heartbeatPayloadLimit_ != 0 && length > heartbeatPayloadLimit_)
             return failRead(TransportErrc::inboundTooLong, callback);
 
         try
         {
-            heartbeatFramePayload_.resize(length);
+            heartbeatPayload_.resize(length);
         }
         catch (const std::bad_alloc&)
         {
@@ -366,7 +365,7 @@ private:
 
         boost::asio::async_read(
             socket_,
-            boost::asio::buffer(heartbeatFramePayload_.data(), length),
+            boost::asio::buffer(heartbeatPayload_.data(), length),
             Read{std::move(callback), &wampPayload, this, kind});
     }
 
@@ -380,10 +379,8 @@ private:
 
         if (heartbeatHandler_ != nullptr)
         {
-            postAny(socket_.get_executor(),
-                    heartbeatHandler_, kind,
-                    heartbeatFramePayload_.data(),
-                    heartbeatFramePayload_.size());
+            postAny(socket_.get_executor(), heartbeatHandler_, kind,
+                    heartbeatPayload_.data(), heartbeatPayload_.size());
         }
 
         readSome(wampPayload, callback);
@@ -403,14 +400,16 @@ private:
         callback(make_error_code(errc), 0, false);
     }
 
+    static constexpr auto unlimited_ = std::numeric_limits<std::size_t>::max();
+
     Socket socket_;
-    MessageBuffer heartbeatFramePayload_;
+    MessageBuffer heartbeatPayload_;
     HeartbeatHandler heartbeatHandler_;
-    std::size_t wampFrameLimit_ = std::numeric_limits<std::size_t>::max();
-    std::size_t heartbeatFrameLimit_ = std::numeric_limits<std::size_t>::max();
+    std::size_t wampPayloadLimit_ = unlimited_;
+    std::size_t heartbeatPayloadLimit_ = unlimited_;
     std::size_t wampRxBytesRemaining_ = 0;
-    Header txHeader_ = 0;
     Header rxHeader_ = 0;
+    Header txHeader_ = 0;
     bool headerSent_ = false;
 };
 
