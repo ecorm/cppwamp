@@ -29,7 +29,6 @@ namespace
 {
 
 //------------------------------------------------------------------------------
-constexpr auto maxSize = std::numeric_limits<std::size_t>::max();
 constexpr auto jsonId = KnownCodecIds::json();
 constexpr auto msgpackId = KnownCodecIds::msgpack();
 constexpr unsigned short tcpTestPort = 9090;
@@ -544,6 +543,270 @@ TEST_CASE( "Zero length websocket messages", "[Transport][Websocket]" )
 
     LoopbackFixture f;
     checkSendReply(f, message, reply);
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Websocket shedding", "[Transport][Websocket]" )
+{
+    IoContext ioctx;
+    auto exec = ioctx.get_executor();
+    auto strand = boost::asio::make_strand(exec);
+
+    Transporting::Ptr server;
+    auto lstn = std::make_shared<WebsocketListener>(exec, strand, wsEndpoint,
+                                                    CodecIdSet{jsonId});
+    AdmitResult admitResult;
+    lstn->observe(
+        [&](ListenResult result)
+        {
+            REQUIRE( result.ok() );
+            server = result.transport();
+            server->shed( [&](AdmitResult r) {admitResult = r;} );
+        });
+    lstn->establish();
+
+    auto cnct = std::make_shared<WebsocketConnector>(strand, wsHost, jsonId);
+    Transporting::Ptr client;
+    std::error_code clientError;
+    cnct->establish(
+        [&](ErrorOr<Transporting::Ptr> transport)
+        {
+            if (!transport.has_value())
+                clientError = transport.error();
+        });
+
+    ioctx.run();
+    CHECK( admitResult.status() == AdmitStatus::shedded );
+    CHECK( clientError == HttpStatus::serviceUnavailable );
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Websocket client aborting", "[Transport][Websocket]" )
+{
+    LoopbackFixture f;
+    auto abortMessage = makeMessageBuffer("abort");
+    std::error_code clientError;
+    std::error_code serverError;
+    std::error_code abortError;
+    bool abortHandlerInvoked = false;
+
+    f.client->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (buf.has_value())
+            {
+                f.client->abort(
+                    abortMessage,
+                    [&](std::error_code ec)
+                    {
+                        abortHandlerInvoked = true;
+                        abortError = ec;
+                    });
+            }
+            else
+            {
+                clientError = buf.error();
+                f.client->close();
+            }
+        },
+        nullptr);
+
+    MessageBuffer rxMessage;
+    f.server->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (buf.has_value())
+            {
+                rxMessage = buf.value();
+            }
+            else
+            {
+                serverError = buf.error();
+                f.server->close();
+            }
+        },
+        nullptr);
+
+    f.server->send(makeMessageBuffer("Hello"));
+
+    REQUIRE_NOTHROW( f.run() );
+
+    CHECK( serverError == TransportErrc::ended );
+    CHECK_FALSE( abortError );
+    CHECK( rxMessage == abortMessage );
+    CHECK( abortHandlerInvoked );
+    CHECK_FALSE( abortError );
+    if (clientError)
+        CHECK( clientError == TransportErrc::aborted );}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Websocket server aborting", "[Transport][Websocket]" )
+{
+    LoopbackFixture f;
+    auto abortMessage = makeMessageBuffer("abort");
+    std::error_code clientError;
+    std::error_code serverError;
+    std::error_code abortError;
+    bool abortHandlerInvoked = false;
+
+    MessageBuffer rxMessage;
+    f.client->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (buf.has_value())
+            {
+                rxMessage = buf.value();
+            }
+            else
+            {
+                clientError = buf.error();
+                f.client->close();
+            }
+        },
+        nullptr);
+
+    f.server->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (buf.has_value())
+            {
+                f.server->abort(
+                    abortMessage,
+                    [&](std::error_code ec)
+                    {
+                        abortHandlerInvoked = true;
+                        abortError = ec;
+                    });
+            }
+            else
+            {
+                serverError = buf.error();
+                f.server->close();
+            }
+        },
+        nullptr);
+
+    f.client->send(makeMessageBuffer("Hello"));
+
+    REQUIRE_NOTHROW( f.run() );
+
+    CHECK( clientError == TransportErrc::ended );
+    CHECK_FALSE( abortError );
+    CHECK( rxMessage == abortMessage );
+    CHECK( abortHandlerInvoked );
+    CHECK_FALSE( abortError );
+    if (serverError)
+        CHECK( serverError == TransportErrc::aborted );}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Graceful Websocket shutdown", "[Transport][Websocket]" )
+{
+    LoopbackFixture f;
+    std::error_code clientError;
+    std::error_code serverError;
+    std::error_code shutdownError;
+    bool shutdownHandlerInvoked = false;
+
+    f.client->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (buf.has_value())
+            {
+                f.client->shutdown(
+                    {},
+                    [&](std::error_code ec)
+                    {
+                        shutdownHandlerInvoked = true;
+                        shutdownError = ec;
+                    });
+            }
+            else
+            {
+                clientError = buf.error();
+                f.client->close();
+            }
+        },
+        nullptr);
+
+    f.server->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (!buf.has_value())
+            {
+                serverError = buf.error();
+                f.server->close();
+            }
+        },
+        nullptr);
+
+    f.server->send(makeMessageBuffer("Hello"));
+
+    REQUIRE_NOTHROW( f.run() );
+
+    CHECK( serverError == TransportErrc::ended );
+    CHECK( shutdownHandlerInvoked );
+    CHECK_FALSE( shutdownError );
+    if (clientError)
+        CHECK( clientError == TransportErrc::aborted );}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Websocket shutdown during send", "[Transport][Websocket]" )
+{
+    constexpr unsigned bigLength = 16*1024*1024-1;
+    LoopbackFixture f(true, jsonId, {jsonId}, bigLength, bigLength);
+    MessageBuffer bigMessage(bigLength, 'A');
+    std::error_code clientError;
+    std::error_code serverRxError;
+    std::error_code serverTxError;
+    std::error_code shutdownError;
+    unsigned messageCount = 0;
+    bool shutdownHandlerInvoked = false;
+
+    f.client->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (buf.has_value())
+            {
+                ++messageCount;
+                f.client->shutdown(
+                    {},
+                    [&](std::error_code ec)
+                    {
+                        shutdownHandlerInvoked = true;
+                        shutdownError = ec;
+                    });
+            }
+            else
+            {
+                clientError = buf.error();
+                f.client->close();
+            }
+        },
+        nullptr);
+
+    f.server->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (!buf.has_value())
+            {
+                serverRxError = buf.error();
+                f.server->close();
+            }
+        },
+        [&](std::error_code ec) {serverTxError = ec;});
+
+    f.server->send(makeMessageBuffer("Hello"));
+    f.server->send(bigMessage);
+
+    f.run();
+
+    CHECK( messageCount == 1 );
+    CHECK( serverRxError == TransportErrc::ended );
+    CHECK( shutdownHandlerInvoked );
+    CHECK_FALSE( serverTxError );
+    CHECK_FALSE( shutdownError );
+    if (clientError)
+        CHECK( clientError == TransportErrc::aborted );
 }
 
 //------------------------------------------------------------------------------
