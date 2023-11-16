@@ -138,7 +138,7 @@ public:
     }
 
     template <typename F>
-    void observeControlFrames(F&& callback)
+    void observeHeartbeats(F&& callback)
     {
         struct Handler
         {
@@ -159,7 +159,7 @@ public:
         websocket_->control_callback(Handler{std::forward<F>(callback)});
     }
 
-    void unobserveControlFrames()
+    void unobserveHeartbeats()
     {
         websocket_->control_callback();
     }

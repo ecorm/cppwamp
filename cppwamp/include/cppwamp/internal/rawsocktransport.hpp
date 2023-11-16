@@ -47,7 +47,6 @@ inline std::error_code rawsockErrorCodeToStandard(
 }
 
 //------------------------------------------------------------------------------
-// TODO: Rename Control -> Heartbeat
 template <typename TTraits>
 class RawsockStream
 {
@@ -55,7 +54,7 @@ public:
     using Traits      = TTraits;
     using NetProtocol = typename Traits::NetProtocol;
     using Socket      = typename NetProtocol::socket;
-    using ControlFrameHandler =
+    using HeartbeatHandler =
         std::function<void (TransportFrameKind, const uint8_t* data,
                             std::size_t size)>;
 
@@ -70,35 +69,32 @@ public:
     explicit RawsockStream(Socket&& socket, const std::shared_ptr<S>& settings)
         : socket_(std::move(socket)),
           wampFrameLimit_(settings->limits().rxMsgSize()),
-        heartbeatFrameLimit_(settings->limits().heartbeatSize())
+          heartbeatFrameLimit_(settings->limits().heartbeatSize())
     {}
 
     AnyIoExecutor executor() {return socket_.get_executor();}
 
     bool isOpen() const {return socket_.is_open();}
 
-    void observeControlFrames(ControlFrameHandler handler)
+    void observeHeartbeats(HeartbeatHandler handler)
     {
-        controlFrameHandler_ = std::move(handler);
+        heartbeatHandler_ = std::move(handler);
     }
 
-    void unobserveControlFrames()
-    {
-        controlFrameHandler_ = nullptr;
-    }
+    void unobserveHeartbeats() {heartbeatHandler_ = nullptr;}
 
     template <typename F>
     void ping(const uint8_t* data, std::size_t size, F&& callback)
     {
-        sendControlFrame(TransportFrameKind::ping, data, size,
-                         std::forward<F>(callback));
+        sendHeartbeatFrame(TransportFrameKind::ping, data, size,
+                           std::forward<F>(callback));
     }
 
     template <typename F>
     void pong(const uint8_t* data, std::size_t size, F&& callback)
     {
-        sendControlFrame(TransportFrameKind::pong, data, size,
-                         std::forward<F>(callback));
+        sendHeartbeatFrame(TransportFrameKind::pong, data, size,
+                           std::forward<F>(callback));
     }
 
     template <typename F>
@@ -139,8 +135,8 @@ private:
     }
 
     template <typename F>
-    void sendControlFrame(TransportFrameKind kind, const uint8_t* data,
-                          std::size_t size, F&& callback)
+    void sendHeartbeatFrame(TransportFrameKind kind, const uint8_t* data,
+                            std::size_t size, F&& callback)
     {
         struct Written
         {
@@ -268,7 +264,7 @@ private:
         if (kind == TransportFrameKind::wamp)
             return readWampPayload(length, wampPayload, callback);
 
-        readControlPayload(kind, length, wampPayload, callback);
+        readHeartbeatPayload(kind, length, wampPayload, callback);
     }
 
     template <typename F>
@@ -333,8 +329,8 @@ private:
     }
 
     template <typename F>
-    void readControlPayload(TransportFrameKind kind, size_t length,
-                            MessageBuffer& wampPayload, F& callback)
+    void readHeartbeatPayload(TransportFrameKind kind, size_t length,
+                              MessageBuffer& wampPayload, F& callback)
     {
         struct Read
         {
@@ -345,7 +341,7 @@ private:
 
             void operator()(boost::system::error_code netEc, std::size_t)
             {
-                self->onControlPayloadRead(netEc, kind, *wampPayload, callback);
+                self->onHeartbeatPayloadRead(netEc, kind, *wampPayload, callback);
             }
         };
 
@@ -354,7 +350,7 @@ private:
 
         try
         {
-            controlFramePayload_.resize(length);
+            heartbeatFramePayload_.resize(length);
         }
         catch (const std::bad_alloc&)
         {
@@ -366,26 +362,28 @@ private:
         }
 
         if (length == 0)
-            onControlPayloadRead({}, kind, wampPayload, callback);
+            onHeartbeatPayloadRead({}, kind, wampPayload, callback);
 
         boost::asio::async_read(
             socket_,
-            boost::asio::buffer(controlFramePayload_.data(), length),
+            boost::asio::buffer(heartbeatFramePayload_.data(), length),
             Read{std::move(callback), &wampPayload, this, kind});
     }
 
     template <typename F>
-    void onControlPayloadRead(boost::system::error_code netEc,
-                              TransportFrameKind kind,
-                              MessageBuffer& wampPayload, F& callback)
+    void onHeartbeatPayloadRead(boost::system::error_code netEc,
+                                TransportFrameKind kind,
+                                MessageBuffer& wampPayload, F& callback)
     {
         if (!checkRead(netEc, callback))
             return;
 
-        if (controlFrameHandler_ != nullptr)
+        if (heartbeatHandler_ != nullptr)
         {
-            postAny(socket_.get_executor(), controlFrameHandler_, kind,
-                    controlFramePayload_.data(), controlFramePayload_.size());
+            postAny(socket_.get_executor(),
+                    heartbeatHandler_, kind,
+                    heartbeatFramePayload_.data(),
+                    heartbeatFramePayload_.size());
         }
 
         readSome(wampPayload, callback);
@@ -406,8 +404,8 @@ private:
     }
 
     Socket socket_;
-    MessageBuffer controlFramePayload_;
-    ControlFrameHandler controlFrameHandler_;
+    MessageBuffer heartbeatFramePayload_;
+    HeartbeatHandler heartbeatHandler_;
     std::size_t wampFrameLimit_ = std::numeric_limits<std::size_t>::max();
     std::size_t heartbeatFrameLimit_ = std::numeric_limits<std::size_t>::max();
     std::size_t wampRxBytesRemaining_ = 0;

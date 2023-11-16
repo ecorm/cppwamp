@@ -31,8 +31,8 @@ namespace wamp
                     functions:
     - `AnyIoExecutor executor()`
     - `bool isOpen() const`
-    - `void observeControlFrames(F&& callback)`
-    - `void unobserveControlFrames()`
+    - `void observeHeartbeats(F&& callback)`
+    - `void unobserveHeartbeats()`
     - `void ping(const uint8_t* data, std::size_t size, F&& callback)`
     - `void pong(const uint8_t* data, std::size_t size, F&& callback)`
     - `void write(bool fin, const uint8_t* data, std::size_t size, F&& callback)`
@@ -123,7 +123,7 @@ private:
     {
         std::weak_ptr<Transporting> self = shared_from_this();
 
-        stream_.observeControlFrames(
+        stream_.observeHeartbeats(
             [self, this](TransportFrameKind kind, const Byte* data,
                          std::size_t size)
             {
@@ -177,7 +177,7 @@ private:
         txQueue_.clear();
         if (pinger_)
             pinger_->stop();
-        stream_.unobserveControlFrames();
+        stream_.unobserveHeartbeats();
     }
 
     void shutdownTransport(std::error_code reason)
@@ -432,8 +432,8 @@ private:
                     functions:
     - `AnyIoExecutor executor()`
     - `bool isOpen() const`
-    - `void observeControlFrames(F&& callback)`
-    - `void unobserveControlFrames()`
+    - `void observeHeartbeats(F&& callback)`
+    - `void unobserveHeartbeats()`
     - `void ping(const uint8_t* data, std::size_t size, F&& callback)`
     - `void pong(const uint8_t* data, std::size_t size, F&& callback)`
     - `void write(bool fin, const uint8_t* data, std::size_t size, F&& callback)`
@@ -511,7 +511,7 @@ protected:
         std::weak_ptr<BasicServerTransport> self =
             std::dynamic_pointer_cast<BasicServerTransport>(shared_from_this());
 
-        stream_.observeControlFrames(
+        stream_.observeHeartbeats(
             [self, this](TransportFrameKind kind, const Byte* data,
                          std::size_t size)
             {
@@ -659,7 +659,7 @@ private:
     {
         txErrorHandler_ = nullptr;
         txQueue_.clear();
-        stream_.unobserveControlFrames();
+        stream_.unobserveHeartbeats();
     }
 
     void shutdownTransport(std::error_code reason)
