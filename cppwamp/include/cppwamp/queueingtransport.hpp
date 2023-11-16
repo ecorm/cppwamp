@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_BASICTRANSPORT_HPP
-#define CPPWAMP_BASICTRANSPORT_HPP
+#ifndef CPPWAMP_QUEUEINGTRANSPORT_HPP
+#define CPPWAMP_QUEUEINGTRANSPORT_HPP
 
 #include <deque>
 #include <memory>
@@ -41,17 +41,17 @@ namespace wamp
     - `void close()` */
 //------------------------------------------------------------------------------
 template <typename TSettings, typename TStream>
-class BasicClientTransport : public Transporting
+class QueueingClientTransport : public Transporting
 {
 public:
     using Settings    = TSettings;
     using Stream      = TStream;
-    using Ptr         = std::shared_ptr<BasicClientTransport>;
+    using Ptr         = std::shared_ptr<QueueingClientTransport>;
     using Socket      = typename Stream::Socket;
     using SettingsPtr = std::shared_ptr<Settings>;
 
-    BasicClientTransport(Socket&& socket, SettingsPtr settings,
-                         TransportInfo ti)
+    QueueingClientTransport(Socket&& socket, SettingsPtr settings,
+                            TransportInfo ti)
         : Base(boost::asio::make_strand(socket.get_executor()),
                Stream::makeConnectionInfo(socket),
                ti),
@@ -98,7 +98,10 @@ private:
     void onAbort(MessageBuffer message, ShutdownHandler handler) override
     {
         if (!stream_.isOpen())
-            return;
+        {
+            return Base::post(std::move(handler),
+                              make_error_code(MiscErrc::invalidState));
+        }
         auto frame = enframe(std::move(message));
         assert((frame.payload().size() <= info().sendLimit()) &&
                "Outgoing message is longer than allowed by peer");
@@ -442,17 +445,17 @@ private:
     - `void close()` */
 //------------------------------------------------------------------------------
 template <typename TSettings, typename TAdmitter>
-class BasicServerTransport : public Transporting
+class QueueingServerTransport : public Transporting
 {
 public:
     using Settings       = TSettings;
     using Admitter       = TAdmitter;
-    using Ptr            = std::shared_ptr<BasicServerTransport>;
+    using Ptr            = std::shared_ptr<QueueingServerTransport>;
     using ListenerSocket = typename Admitter::ListenerSocket;
     using SettingsPtr    = std::shared_ptr<Settings>;
 
-    BasicServerTransport(ListenerSocket&& socket, SettingsPtr settings,
-                         CodecIdSet codecIds, RouterLogger::Ptr)
+    QueueingServerTransport(ListenerSocket&& socket, SettingsPtr settings,
+                            CodecIdSet codecIds, RouterLogger::Ptr)
         : Base(boost::asio::make_strand(socket.get_executor()),
                Stream::makeConnectionInfo(socket)),
           stream_(socket.get_executor()),
@@ -508,8 +511,9 @@ protected:
         rxHandler_ = rxHandler;
         txErrorHandler_ = txErrorHandler;
 
-        std::weak_ptr<BasicServerTransport> self =
-            std::dynamic_pointer_cast<BasicServerTransport>(shared_from_this());
+        using Self = QueueingServerTransport;
+        std::weak_ptr<Self> self =
+            std::dynamic_pointer_cast<Self>(shared_from_this());
 
         stream_.observeHeartbeats(
             [self, this](TransportFrameKind kind, const Byte* data,
@@ -910,4 +914,4 @@ private:
 
 } // namespace wamp
 
-#endif // CPPWAMP_BASICTRANSPORT_HPP
+#endif // CPPWAMP_QUEUEINGTRANSPORT_HPP

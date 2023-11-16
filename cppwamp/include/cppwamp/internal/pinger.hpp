@@ -60,6 +60,7 @@ private:
 class Pinger : public std::enable_shared_from_this<Pinger>
 {
 public:
+    using Ptr = std::shared_ptr<Pinger>;
     using Handler = std::function<void (ErrorOr<PingBytes>)>;
     using Byte = MessageBuffer::value_type;
 

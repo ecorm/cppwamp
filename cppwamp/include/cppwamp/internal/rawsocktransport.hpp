@@ -17,9 +17,9 @@
 #include <boost/asio/read.hpp>
 #include <boost/asio/write.hpp>
 #include "../anyhandler.hpp"
-#include "../basictransport.hpp"
 #include "../codec.hpp"
 #include "../errorcodes.hpp"
+#include "../queueingtransport.hpp"
 #include "../traits.hpp"
 #include "rawsockheader.hpp"
 #include "rawsockhandshake.hpp"
@@ -582,14 +582,14 @@ private:
 //------------------------------------------------------------------------------
 template <typename TTraits>
 using RawsockClientTransport =
-    BasicClientTransport<typename TTraits::ClientSettings,
-                         RawsockStream<TTraits>>;
+    QueueingClientTransport<typename TTraits::ClientSettings,
+                            RawsockStream<TTraits>>;
 
 //------------------------------------------------------------------------------
 template <typename TTraits>
 using RawsockServerTransport =
-    BasicServerTransport<typename TTraits::ServerSettings,
-                         RawsockAdmitter<TTraits>>;
+    QueueingServerTransport<typename TTraits::ServerSettings,
+                            RawsockAdmitter<TTraits>>;
 
 } // namespace internal
 

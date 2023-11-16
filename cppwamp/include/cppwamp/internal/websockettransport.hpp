@@ -22,9 +22,9 @@
 #include <boost/beast/websocket/stream.hpp>
 #include <boost/optional/optional.hpp>
 #include "../anyhandler.hpp"
-#include "../basictransport.hpp"
 #include "../codec.hpp"
 #include "../errorcodes.hpp"
+#include "../queueingtransport.hpp"
 #include "../traits.hpp"
 #include "../transports/websocketprotocol.hpp"
 #include "../wampdefs.hpp"
@@ -622,13 +622,13 @@ private:
 
 //------------------------------------------------------------------------------
 using WebsocketClientTransport =
-    BasicClientTransport<WebsocketHost, WebsocketStream>;
+    QueueingClientTransport<WebsocketHost, WebsocketStream>;
 
 //------------------------------------------------------------------------------
 class WebsocketServerTransport
-    : public BasicServerTransport<WebsocketEndpoint, WebsocketAdmitter>
+    : public QueueingServerTransport<WebsocketEndpoint, WebsocketAdmitter>
 {
-    using Base = BasicServerTransport<WebsocketEndpoint, WebsocketAdmitter>;
+    using Base = QueueingServerTransport<WebsocketEndpoint, WebsocketAdmitter>;
 
 public:
     using Ptr = std::shared_ptr<WebsocketServerTransport>;

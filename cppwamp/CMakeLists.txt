@@ -13,7 +13,6 @@ set(HEADERS
     include/cppwamp/authinfo.hpp
     include/cppwamp/authorizer.hpp
     include/cppwamp/authenticator.hpp
-    include/cppwamp/basictransport.hpp
     include/cppwamp/blob.hpp
     include/cppwamp/cachingauthorizer.hpp
     include/cppwamp/calleestreaming.hpp
@@ -41,6 +40,7 @@ set(HEADERS
     include/cppwamp/options.hpp
     include/cppwamp/payload.hpp
     include/cppwamp/pubsubinfo.hpp
+    include/cppwamp/queueingtransport.hpp
     include/cppwamp/realm.hpp
     include/cppwamp/realmobserver.hpp
     include/cppwamp/registration.hpp
@@ -100,6 +100,7 @@ set(HEADERS
     include/cppwamp/internal/pinger.hpp
     include/cppwamp/internal/polymorphichttpaction.hpp
     include/cppwamp/internal/procedureregistry.hpp
+    include/cppwamp/internal/queueingstream.hpp
     include/cppwamp/internal/random.hpp
     include/cppwamp/internal/rawsockconnector.hpp
     include/cppwamp/internal/rawsockhandshake.hpp
