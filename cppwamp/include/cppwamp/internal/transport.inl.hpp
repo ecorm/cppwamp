@@ -152,6 +152,12 @@ CPPWAMP_INLINE void Transporting::shed(AdmitHandler handler)
                                               std::move(handler)});
 }
 
+CPPWAMP_INLINE std::error_code Transporting::monitor()
+{
+    return onMonitor();
+}
+
+
 CPPWAMP_INLINE void Transporting::start(RxHandler rxHandler,
                                         TxErrorHandler txHandler)
 {
@@ -223,6 +229,8 @@ CPPWAMP_INLINE void Transporting::onShed(AdmitHandler handler)
     // state_ will be State::shedding when the following is called.
     onAdmit(std::move(handler));
 }
+
+CPPWAMP_INLINE std::error_code Transporting::onMonitor() {return {};}
 
 CPPWAMP_INLINE void Transporting::setReady(TransportInfo ti)
 {

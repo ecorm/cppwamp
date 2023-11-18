@@ -114,6 +114,7 @@ set(HEADERS
     include/cppwamp/internal/routerrealm.hpp
     include/cppwamp/internal/routerserver.hpp
     include/cppwamp/internal/routersession.hpp
+    include/cppwamp/internal/servertimeoutmonitor.hpp
     include/cppwamp/internal/sessioninfoimpl.hpp
     include/cppwamp/internal/socketoptions.hpp
     include/cppwamp/internal/slotlink.hpp

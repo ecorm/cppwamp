@@ -16,8 +16,9 @@
 #include "messagebuffer.hpp"
 #include "routerlogger.hpp"
 #include "transport.hpp"
-#include "internal/transportframe.hpp"
 #include "internal/pinger.hpp"
+#include "internal/servertimeoutmonitor.hpp"
+#include "internal/transportframe.hpp"
 
 namespace wamp
 {
@@ -56,7 +57,7 @@ public:
                Stream::makeConnectionInfo(socket)),
           stream_(socket.get_executor()),
           timer_(socket.get_executor()),
-          txTimer_(socket.get_executor()),
+          monitor_(settings),
           settings_(std::move(settings)),
           admitter_(std::make_shared<Admitter>(std::move(socket),
                                                settings_, std::move(codecIds)))
@@ -102,6 +103,8 @@ protected:
             [this, self](AdmitResult result) {onAdmissionCompletion(result);});
     }
 
+    std::error_code onMonitor() override {return monitor_.check();}
+
     void onStart(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
     {
         rxHandler_ = rxHandler;
@@ -120,6 +123,7 @@ protected:
                     onHeartbeat(kind, data, size);
             });
 
+        monitor_.start();
         receive();
     }
 
@@ -193,7 +197,7 @@ private:
         if (ec)
             admitHandler_(AdmitResult::failed(ec, "timer wait"));
         else
-            admitHandler_(AdmitResult::rejected(TransportErrc::timeout));
+            admitHandler_(AdmitResult::rejected(TransportErrc::handshakeTimeout));
         admitHandler_ = nullptr;
     }
 
@@ -294,7 +298,7 @@ private:
     {
         stream_.close();
         if (shutdownHandler_)
-            notifyShutdown(make_error_code(TransportErrc::timeout));
+            notifyShutdown(make_error_code(TransportErrc::lingerTimeout));
     }
 
     void onPingGeneratedOrTimedOut(ErrorOr<PingBytes> pingBytes)
@@ -331,6 +335,8 @@ private:
 
         txFrame_ = std::move(txQueue_.front());
         txQueue_.pop_front();
+        monitor_.startWrite();
+
         switch (txFrame_.kind())
         {
         case TransportFrameKind::wamp:
@@ -378,6 +384,8 @@ private:
 
     void onWampMessageBytesWritten(std::size_t bytesWritten)
     {
+        monitor_.updateWrite(bytesWritten);
+
         assert(bytesWritten <= txBytesRemaining_);
         txBytesRemaining_ -= bytesWritten;
         if (txBytesRemaining_ > 0)
@@ -399,6 +407,7 @@ private:
             txFrame_.payload().data(), txFrame_.payload().size(),
             [this, self](std::error_code ec)
             {
+                monitor_.endWrite();
                 isTransmitting_ = false;
                 if (checkTxError(ec))
                     transmit();
@@ -413,6 +422,7 @@ private:
             txFrame_.payload().data(), txFrame_.payload().size(),
             [this, self](std::error_code ec)
             {
+                monitor_.endWrite();
                 isTransmitting_ = false;
                 if (checkTxError(ec))
                     transmit();
@@ -423,6 +433,7 @@ private:
     {
         if (!ec)
             return true;
+        monitor_.endWrite();
         isTransmitting_ = false;
         if (txErrorHandler_)
             post(txErrorHandler_, ec);
@@ -433,6 +444,7 @@ private:
     void receive()
     {
         rxBuffer_.clear();
+        monitor_.startRead();
         receiveMore();
     }
 
@@ -453,6 +465,8 @@ private:
 
     void onRead(std::size_t bytesReceived, bool done)
     {
+        monitor_.updateRead(bytesReceived);
+
         if (!done)
             return receiveMore();
 
@@ -466,6 +480,8 @@ private:
     {
         if (!ec)
             return true;
+
+        monitor_.endRead();
 
         if (ec == TransportErrc::ended)
         {
@@ -494,10 +510,10 @@ private:
 
     Stream stream_; // TODO: Use std::optional<Stream>
     boost::asio::steady_timer timer_;
-    boost::asio::steady_timer txTimer_;
     std::deque<Frame> txQueue_;
     Frame txFrame_;
     MessageBuffer rxBuffer_;
+    internal::ServerTimeoutMonitor<Settings> monitor_;
     SettingsPtr settings_;
     std::shared_ptr<Admitter> admitter_;
     AdmitHandler admitHandler_;

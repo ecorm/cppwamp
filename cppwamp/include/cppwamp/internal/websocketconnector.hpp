@@ -185,8 +185,8 @@ private:
             websocket_->binary(true);
 
         const TransportInfo i{codecId_,
-                              settings_->limits().txMsgSize(),
-                              settings_->limits().rxMsgSize()};
+                              settings_->limits().writeMsgSize(),
+                              settings_->limits().readMsgSize()};
         Transporting::Ptr transport =
             std::make_shared<Transport>(std::move(*websocket_), settings_, i);
         websocket_.reset();

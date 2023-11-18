@@ -226,6 +226,9 @@ public:
         @post this->state() == TransportState::shedding */
     void shed(AdmitHandler handler);
 
+    /** Called periodically on server transports to monitor their health. */
+    std::error_code monitor();
+
     /** Starts the transport's I/O operations.
         @pre this->state() == TransportState::initial
         @post this->state() == TransportState::running */
@@ -258,6 +261,9 @@ protected:
     /** May be overridden by server transports to shed the connection
         due to overload. */
     virtual void onShed(AdmitHandler handler);
+
+    /** May be overridden by server transports to report on their health. */
+    virtual std::error_code onMonitor();
 
     /** Must be overridden to start the transport's I/O operations. */
     virtual void onStart(RxHandler rxHandler, TxErrorHandler txHandler) = 0;

@@ -22,23 +22,23 @@ public:
 
     ProgressiveTimeout(Timeout max) : max_(internal::checkTimeout(max)) {}
 
-    ProgressiveTimeout(Timeout min, std::size_t minRate,
+    ProgressiveTimeout(Timeout min, std::size_t rate,
                        Timeout max = unspecifiedTimeout)
         : min_(internal::checkTimeout(min)),
           max_(internal::checkTimeout(max)),
-          minRate_(minRate)
+          rate_(rate)
     {}
 
     Timeout min() const {return min_;}
 
     Timeout max() const {return max_;}
 
-    std::size_t minRate() const {return minRate_;}
+    std::size_t rate() const {return rate_;}
 
 private:
     Timeout min_ = unspecifiedTimeout;
     Timeout max_ = unspecifiedTimeout;
-    std::size_t minRate_ = 0;
+    std::size_t rate_ = 0;
 };
 
 //------------------------------------------------------------------------------
@@ -48,13 +48,13 @@ template <typename TDerived>
 class BasicClientLimits
 {
 public:
-    TDerived& withRxMsgSize(std::size_t n) {return set(rxMsgSize_, n);}
+    TDerived& withRxMsgSize(std::size_t n) {return set(readMsgSize_, n);}
 
-    TDerived& withTxMsgSize(std::size_t n) {return set(txMsgSize_, n);}
+    TDerived& withTxMsgSize(std::size_t n) {return set(writeMsgSize_, n);}
 
-    std::size_t rxMsgSize() const {return rxMsgSize_;}
+    std::size_t readMsgSize() const {return readMsgSize_;}
 
-    std::size_t txMsgSize() const {return txMsgSize_;}
+    std::size_t writeMsgSize() const {return writeMsgSize_;}
 
     Timeout lingerTimeout() const {return lingerTimeout_;}
 
@@ -75,8 +75,8 @@ private:
     TDerived& derived() {return static_cast<TDerived&>(*this);}
 
     Timeout lingerTimeout_    = neverTimeout;
-    std::size_t rxMsgSize_    = 16*1024*1024;
-    std::size_t txMsgSize_    = 16*1024*1024;
+    std::size_t readMsgSize_    = 16*1024*1024;
+    std::size_t writeMsgSize_    = 16*1024*1024;
 };
 
 //------------------------------------------------------------------------------
@@ -86,15 +86,15 @@ template <typename TDerived>
 class BasicServerLimits
 {
 public:
-    TDerived& withRxMsgSize(std::size_t n) {return set(rxMsgSize_, n);}
+    TDerived& withReadMsgSize(std::size_t n) {return set(readMsgSize_, n);}
 
-    TDerived& withTxMsgSize(std::size_t n) {return set(txMsgSize_, n);}
+    TDerived& withWriteMsgSize(std::size_t n) {return set(writeMsgSize_, n);}
 
     TDerived& withHandshakeTimeout(Timeout t) {return set(handshakeTimeout_, t);}
 
-    TDerived& withRxMsgTimeout(ProgressiveTimeout t) {return set(rxMsgTimeout_, t);}
+    TDerived& withReadTimeout(ProgressiveTimeout t) {return set(readTimeout_, t);}
 
-    TDerived& withTxMsgTimeout(ProgressiveTimeout t) {return set(txMsgTimeout_, t);}
+    TDerived& withWriteTimeout(ProgressiveTimeout t) {return set(writeTimeout_, t);}
 
     TDerived& withIdleTimeout(Timeout t) {return set(idleTimeout_, t);}
 
@@ -107,15 +107,15 @@ public:
         return derived();
     }
 
-    std::size_t rxMsgSize() const {return rxMsgSize_;}
+    std::size_t readMsgSize() const {return readMsgSize_;}
 
-    std::size_t txMsgSize() const {return txMsgSize_;}
+    std::size_t writeMsgSize() const {return writeMsgSize_;}
 
     Timeout handshakeTimeout() const {return handshakeTimeout_;}
 
-    const ProgressiveTimeout& rxMsgTimeout() const {return rxMsgTimeout_;}
+    const ProgressiveTimeout& readTimeout() const {return readTimeout_;}
 
-    const ProgressiveTimeout& sendTimeout() const {return txMsgTimeout_;}
+    const ProgressiveTimeout& writeTimeout() const {return writeTimeout_;}
 
     Timeout idleTimeout() const {return idleTimeout_;}
 
@@ -139,13 +139,13 @@ private:
 
     TDerived& derived() {return static_cast<TDerived&>(*this);}
 
-    ProgressiveTimeout rxMsgTimeout_;
-    ProgressiveTimeout txMsgTimeout_;
+    ProgressiveTimeout readTimeout_;
+    ProgressiveTimeout writeTimeout_;
     Timeout handshakeTimeout_ = neverTimeout;
     Timeout idleTimeout_      = neverTimeout;
     Timeout lingerTimeout_    = neverTimeout;
-    std::size_t rxMsgSize_    = 16*1024*1024;
-    std::size_t txMsgSize_    = 16*1024*1024;
+    std::size_t readMsgSize_  = 16*1024*1024;
+    std::size_t writeMsgSize_ = 16*1024*1024;
     int backlogCapacity_      = 0;
 };
 

@@ -450,6 +450,11 @@ CPPWAMP_INLINE std::string TransportCategory::message(int ev) const
         /* ended             */ "Transport ended by other peer",
         /* disconnected      */ "Transport disconnected by other peer",
         /* timeout           */ "Transport operation timed out",
+        /* handshakeTimeout  */ "Transport handshake timed out",
+        /* readTimeout       */ "Transport read operation timed out",
+        /* writeTimeout      */ "Transport write operation timed out",
+        /* idleTimeout       */ "Transport timed out due to inactivity",
+        /* lingerTimeout     */ "Peer transport close timed out",
         /* failed            */ "Transport operation failed",
         /* exhausted         */ "All transports failed during connection",
         /* overloaded        */ "Excessive resource usage",
@@ -479,10 +484,19 @@ CPPWAMP_INLINE bool TransportCategory::equivalent(const std::error_code& code,
     {
         if (code.value() == condition)
             return true;
+
+        if (condition == static_cast<int>(TransportErrc::timeout))
+        {
+            return code.value() > static_cast<int>(TransportErrc::timeout) &&
+                   code.value() < static_cast<int>(TransportErrc::failed);
+        }
+
         if (condition == static_cast<int>(TransportErrc::failed))
             return code.value() > static_cast<int>(TransportErrc::failed);
+
         if (condition == static_cast<int>(TransportErrc::disconnected))
             return code.value() == static_cast<int>(TransportErrc::ended);
+
         return false;
     }
 

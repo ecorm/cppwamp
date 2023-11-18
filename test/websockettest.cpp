@@ -70,7 +70,7 @@ struct LoopbackFixture
                 WebsocketClientLimits{}.withRxMsgSize(clientLimit)),
             clientCodec,
             wsEndpoint.withLimits(
-                WebsocketServerLimits{}.withRxMsgSize(serverLimit)),
+                WebsocketServerLimits{}.withReadMsgSize(serverLimit)),
             serverCodecs,
             connected)
     {}
@@ -171,7 +171,7 @@ void checkConnection(LoopbackFixture& f, int expectedCodec,
                 CHECK( transport->info().codecId() == expectedCodec );
                 CHECK( transport->info().receiveLimit() == serverMaxRxLength );
                 CHECK( transport->info().sendLimit() ==
-                       WebsocketServerLimits{}.txMsgSize() );
+                      WebsocketServerLimits{}.writeMsgSize() );
             });
     });
     f.lstn->establish();
@@ -184,7 +184,7 @@ void checkConnection(LoopbackFixture& f, int expectedCodec,
         CHECK( transport->info().codecId() == expectedCodec );
         CHECK( transport->info().receiveLimit() == clientMaxRxLength );
         CHECK( transport->info().sendLimit() ==
-               WebsocketClientLimits{}.txMsgSize() );
+               WebsocketClientLimits{}.writeMsgSize() );
         f.client = transport;
     });
 
@@ -430,7 +430,7 @@ TEST_CASE( "Normal websocket communications", "[Transport][Websocket]" )
                     CHECK( transport->info().codecId() == KnownCodecIds::json() );
                     CHECK( transport->info().receiveLimit() == 64*1024 );
                     CHECK( transport->info().sendLimit() ==
-                           WebsocketServerLimits{}.txMsgSize() );
+                          WebsocketServerLimits{}.writeMsgSize() );
                     f.sctx.stop();
                 });
         });
@@ -445,7 +445,7 @@ TEST_CASE( "Normal websocket communications", "[Transport][Websocket]" )
             CHECK( transport->info().codecId() == KnownCodecIds::json() );
             CHECK( transport->info().receiveLimit() == 64*1024 );
             CHECK( transport->info().sendLimit() ==
-                   WebsocketClientLimits{}.txMsgSize() );
+                   WebsocketClientLimits{}.writeMsgSize() );
             client2 = transport;
             f.cctx.stop();
         });

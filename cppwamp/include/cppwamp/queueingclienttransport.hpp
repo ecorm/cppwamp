@@ -214,7 +214,7 @@ private:
     void onLingerTimeout()
     {
         stream_.close();
-        notifyShutdown(make_error_code(TransportErrc::timeout));
+        notifyShutdown(make_error_code(TransportErrc::lingerTimeout));
     }
 
     void onPingGeneratedOrTimedOut(ErrorOr<PingBytes> pingBytes)

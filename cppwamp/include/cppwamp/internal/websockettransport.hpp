@@ -118,7 +118,7 @@ public:
     explicit WebsocketStream(Socket&& ws, const std::shared_ptr<S>& settings)
         : websocket_(std::move(ws))
     {
-        auto n = settings->limits().rxMsgSize();
+        auto n = settings->limits().readMsgSize();
         if (n != 0)
             websocket_->read_message_max(n);
     }
@@ -576,8 +576,8 @@ private:
         else
             websocket_->binary(true);
 
-        const auto txLimit = settings_->limits().txMsgSize();
-        const auto rxLimit = settings_->limits().rxMsgSize();
+        const auto txLimit = settings_->limits().writeMsgSize();
+        const auto rxLimit = settings_->limits().readMsgSize();
         transportInfo_ = TransportInfo{codecId_, txLimit, rxLimit};
 
         finish(AdmitResult::wamp(codecId_));

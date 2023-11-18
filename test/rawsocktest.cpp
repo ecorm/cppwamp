@@ -41,7 +41,7 @@ const auto tcpHost =
 
 const auto tcpEndpoint =
     TcpEndpoint{tcpTestPort}.withLimits(
-        RawsockServerLimits{}.withRxMsgSize(64*1024));
+    RawsockServerLimits{}.withReadMsgSize(64*1024));
 
 //------------------------------------------------------------------------------
 template <typename TConnector, typename TListener>
@@ -145,7 +145,7 @@ struct TcpLoopbackFixture : public LoopbackFixture<TcpConnector, TcpListener>
                 .withLimits(RawsockClientLimits{}.withRxMsgSize(clientLimit)),
               clientCodec,
               TcpEndpoint{tcpTestPort}
-                .withLimits(RawsockServerLimits{}.withRxMsgSize(serverLimit)),
+                .withLimits(RawsockServerLimits{}.withReadMsgSize(serverLimit)),
               serverCodecs,
               connected )
     {}
@@ -165,7 +165,7 @@ struct UdsLoopbackFixture : public LoopbackFixture<UdsConnector, UdsListener>
                 .withLimits(RawsockClientLimits{}.withRxMsgSize(clientLimit)),
               clientCodec,
               UdsEndpoint{udsTestPath}
-                .withLimits(RawsockServerLimits{}.withRxMsgSize(serverLimit)),
+                .withLimits(RawsockServerLimits{}.withReadMsgSize(serverLimit)),
               serverCodecs,
               connected )
     {}
