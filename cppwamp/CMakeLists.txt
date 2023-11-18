@@ -40,7 +40,8 @@ set(HEADERS
     include/cppwamp/options.hpp
     include/cppwamp/payload.hpp
     include/cppwamp/pubsubinfo.hpp
-    include/cppwamp/queueingtransport.hpp
+    include/cppwamp/queueingclienttransport.hpp
+    include/cppwamp/queueingservertransport.hpp
     include/cppwamp/realm.hpp
     include/cppwamp/realmobserver.hpp
     include/cppwamp/registration.hpp

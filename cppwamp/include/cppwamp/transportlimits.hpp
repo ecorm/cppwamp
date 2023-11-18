@@ -52,13 +52,9 @@ public:
 
     TDerived& withTxMsgSize(std::size_t n) {return set(txMsgSize_, n);}
 
-    TDerived& withHandshakeTimeout(Timeout t) {return set(handshakeTimeout_, t);}
-
     std::size_t rxMsgSize() const {return rxMsgSize_;}
 
     std::size_t txMsgSize() const {return txMsgSize_;}
-
-    Timeout handshakeTimeout() const {return handshakeTimeout_;}
 
     Timeout lingerTimeout() const {return lingerTimeout_;}
 
@@ -78,7 +74,6 @@ private:
 
     TDerived& derived() {return static_cast<TDerived&>(*this);}
 
-    Timeout handshakeTimeout_ = neverTimeout;
     Timeout lingerTimeout_    = neverTimeout;
     std::size_t rxMsgSize_    = 16*1024*1024;
     std::size_t txMsgSize_    = 16*1024*1024;
