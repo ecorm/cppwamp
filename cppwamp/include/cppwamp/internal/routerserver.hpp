@@ -730,6 +730,11 @@ private:
         }
     }
 
+    // Suspends the socket accept loop for the given delay period.
+    // Called when resource exhaustion or network outage occurs to avoid
+    // flooding the log.
+    // *Not* called when the connection limit is reached (those connections
+    // are shedded instead).
     void cooldown(Timeout delay, const ListenResult& result, std::string why)
     {
         alert(why + result.operation(), result.error());

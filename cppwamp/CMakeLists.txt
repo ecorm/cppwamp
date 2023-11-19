@@ -120,7 +120,6 @@ set(HEADERS
     include/cppwamp/internal/slotlink.hpp
     include/cppwamp/internal/streamchannel.hpp
     include/cppwamp/internal/surrogateany.hpp
-    include/cppwamp/internal/tcpacceptor.hpp
     include/cppwamp/internal/tcpconnector.hpp
     include/cppwamp/internal/tcplistener.hpp
     include/cppwamp/internal/tcptraits.hpp
