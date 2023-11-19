@@ -117,6 +117,10 @@ class CPPWAMP_API BinaryExponentialBackoff
 public:
     constexpr BinaryExponentialBackoff();
 
+    constexpr BinaryExponentialBackoff(Timeout fixedDelay)
+        : min_(fixedDelay), max_(fixedDelay)
+    {}
+
     constexpr BinaryExponentialBackoff(Timeout min, Timeout max)
         : min_(min), max_(max)
     {}

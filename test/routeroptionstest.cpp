@@ -466,72 +466,124 @@ TEST_CASE( "BinaryExponentialBackoffTimer", "[WAMP][Router]" )
     namespace chrono = std::chrono;
 
     IoContext ioctx;
-    BinaryExponentialBackoff backoff{std::chrono::milliseconds{50},
-                                     std::chrono::milliseconds{200}};
-    internal::BinaryExponentialBackoffTimer timer{ioctx, backoff};
-
     chrono::steady_clock::time_point start;
 
     auto measureElapsed =
         [&start]() -> int
-        {
-            auto now = chrono::steady_clock::now();
-            auto duration = chrono::steady_clock::now() - start;
-            auto ms = chrono::duration_cast<chrono::milliseconds>(duration);
-            start = now;
-            return ms.count();
-        };
-
-    spawn(ioctx, [&](YieldContext yield)
     {
-        start = std::chrono::steady_clock::now();
+        auto now = chrono::steady_clock::now();
+        auto duration = chrono::steady_clock::now() - start;
+        auto ms = chrono::duration_cast<chrono::milliseconds>(duration);
+        start = now;
+        return ms.count();
+    };
 
-        timer.wait(yield);
-        auto elapsed = measureElapsed();
-        CHECK(std::abs(elapsed - 50) < 10);
+    SECTION("with minimum and maximum")
+    {
+        BinaryExponentialBackoff backoff{std::chrono::milliseconds{50},
+                                         std::chrono::milliseconds{200}};
+        internal::BinaryExponentialBackoffTimer timer{ioctx, backoff};
 
-        timer.wait(yield);
-        elapsed = measureElapsed();
-        CHECK(std::abs(elapsed - 100) < 10);
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            start = std::chrono::steady_clock::now();
 
-        timer.reset();
-        timer.wait(yield);
-        elapsed = measureElapsed();
-        CHECK(std::abs(elapsed - 50) < 10);
+            timer.wait(yield);
+            auto elapsed = measureElapsed();
+            CHECK(std::abs(elapsed - 50) < 10);
 
-        boost::system::error_code error;
-        bool done = false;
-        timer.wait(
-            [&](boost::system::error_code ec)
-            {
-                error = ec;
-                done = true;
-            });
-        timer.cancel();
-        while (!done)
-            test::suspendCoro(yield);
-        elapsed = measureElapsed();
-        CHECK(elapsed < 10);
-        CHECK(error == boost::asio::error::operation_aborted);
+            timer.wait(yield);
+            elapsed = measureElapsed();
+            CHECK(std::abs(elapsed - 100) < 10);
 
-        timer.wait(yield);
-        elapsed = measureElapsed();
-        CHECK(std::abs(elapsed - 50) < 10);
+            timer.reset();
+            timer.wait(yield);
+            elapsed = measureElapsed();
+            CHECK(std::abs(elapsed - 50) < 10);
 
-        timer.wait(yield);
-        elapsed = measureElapsed();
-        CHECK(std::abs(elapsed - 100) < 10);
+            boost::system::error_code error;
+            bool done = false;
+            timer.wait(
+                [&](boost::system::error_code ec)
+                {
+                    error = ec;
+                    done = true;
+                });
+            timer.cancel();
+            while (!done)
+                test::suspendCoro(yield);
+            elapsed = measureElapsed();
+            CHECK(elapsed < 10);
+            CHECK(error == boost::asio::error::operation_aborted);
 
-        timer.wait(yield);
-        elapsed = measureElapsed();
-        CHECK(std::abs(elapsed - 200) < 10);
+            timer.wait(yield);
+            elapsed = measureElapsed();
+            CHECK(std::abs(elapsed - 50) < 10);
 
-        timer.wait(yield);
-        elapsed = measureElapsed();
-        CHECK(std::abs(elapsed - 200) < 10);
-    });
+            timer.wait(yield);
+            elapsed = measureElapsed();
+            CHECK(std::abs(elapsed - 100) < 10);
 
-    ioctx.run();
+            timer.wait(yield);
+            elapsed = measureElapsed();
+            CHECK(std::abs(elapsed - 200) < 10);
+
+            timer.wait(yield);
+            elapsed = measureElapsed();
+            CHECK(std::abs(elapsed - 200) < 10);
+        });
+
+        ioctx.run();
+    }
+
+    SECTION("with single delay")
+    {
+        BinaryExponentialBackoff backoff{std::chrono::milliseconds{50}};
+        internal::BinaryExponentialBackoffTimer timer{ioctx, backoff};
+
+        spawn(ioctx, [&](YieldContext yield)
+              {
+                  start = std::chrono::steady_clock::now();
+
+                  timer.wait(yield);
+                  auto elapsed = measureElapsed();
+                  CHECK(std::abs(elapsed - 50) < 10);
+
+                  timer.wait(yield);
+                  elapsed = measureElapsed();
+                  CHECK(std::abs(elapsed - 50) < 10);
+
+                  timer.reset();
+                  timer.wait(yield);
+                  elapsed = measureElapsed();
+                  CHECK(std::abs(elapsed - 50) < 10);
+
+                  boost::system::error_code error;
+                  bool done = false;
+                  timer.wait(
+                      [&](boost::system::error_code ec)
+                      {
+                          error = ec;
+                          done = true;
+                      });
+                  timer.cancel();
+                  while (!done)
+                      test::suspendCoro(yield);
+                  elapsed = measureElapsed();
+                  CHECK(elapsed < 10);
+                  CHECK(error == boost::asio::error::operation_aborted);
+
+                  timer.wait(yield);
+                  elapsed = measureElapsed();
+                  CHECK(std::abs(elapsed - 50) < 10);
+
+                  timer.wait(yield);
+                  elapsed = measureElapsed();
+                  CHECK(std::abs(elapsed - 50) < 10);
+              });
+
+        ioctx.run();
+    }
 }
 
 #endif // defined(CPPWAMP_TEST_HAS_CORO)
