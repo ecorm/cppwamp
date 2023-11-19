@@ -123,7 +123,6 @@ public:
     std::error_code check() const
     {
         auto now = steadyTime();
-        const auto& s = *settings_;
 
         if (now > activityDeadline_)
             return make_error_code(TransportErrc::idleTimeout);

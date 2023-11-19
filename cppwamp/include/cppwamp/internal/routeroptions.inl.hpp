@@ -130,6 +130,14 @@ ServerOptions::withConnectionLimit(std::size_t limit)
     return *this;
 }
 
+/** @throws error::Logic if the given interval is negative. */
+CPPWAMP_INLINE ServerOptions&
+ServerOptions::withMonitoringInterval(Timeout interval)
+{
+    monitoringInterval_ = internal::checkTimeout(interval);
+    return *this;
+}
+
 /** @throws error::Logic if the given timeout duration is negative. */
 CPPWAMP_INLINE ServerOptions&
 ServerOptions::withChallengeTimeout(Timeout timeout)
@@ -138,17 +146,19 @@ ServerOptions::withChallengeTimeout(Timeout timeout)
     return *this;
 }
 
+/** @throws error::Logic if the given timeout duration is negative. */
 CPPWAMP_INLINE ServerOptions&
 ServerOptions::withOverloadCooldown(Timeout cooldown)
 {
-    overloadCooldown_ = cooldown;
+    overloadCooldown_ = internal::checkTimeout(cooldown);
     return *this;
 }
 
+/** @throws error::Logic if the given timeout duration is negative. */
 CPPWAMP_INLINE ServerOptions&
 ServerOptions::withOutageCooldown(Timeout cooldown)
 {
-    outageCooldown_ = cooldown;
+    outageCooldown_ = internal::checkTimeout(cooldown);
     return *this;
 }
 
@@ -164,6 +174,11 @@ CPPWAMP_INLINE const String& ServerOptions::agent() const {return agent_;}
 CPPWAMP_INLINE std::size_t ServerOptions::connectionLimit() const
 {
     return connectionLimit_;
+}
+
+CPPWAMP_INLINE Timeout ServerOptions::monitoringInterval() const
+{
+    return monitoringInterval_;
 }
 
 CPPWAMP_INLINE Timeout ServerOptions::challengeTimeout() const

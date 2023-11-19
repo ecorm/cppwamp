@@ -88,10 +88,14 @@ protected:
 
         if (internal::timeoutIsDefinite(timeout))
         {
+            std::weak_ptr<Transporting> weakSelf{self};
             timer_.expires_from_now(timeout);
             timer_.async_wait(
-                [this, self](boost::system::error_code ec)
+                [this, weakSelf](boost::system::error_code ec)
                 {
+                    auto self = weakSelf.lock();
+                    if (!self)
+                        return;
                     if (ec != boost::asio::error::operation_aborted)
                         onAdmitTimeout(static_cast<std::error_code>(ec));
                 });
@@ -225,6 +229,7 @@ private:
                     result.error(),
                     [this, self](std::error_code, bool)
                     {
+                        timer_.cancel();
                         admitter_->close();
                         admitter_.reset();
                     });
@@ -273,10 +278,14 @@ private:
 
         if (internal::timeoutIsDefinite(lingerTimeout))
         {
+            std::weak_ptr<Transporting> weakSelf{self};
             timer_.expires_after(lingerTimeout);
             timer_.async_wait(
-                [this, self](boost::system::error_code ec)
+                [this, weakSelf](boost::system::error_code ec)
                 {
+                    auto self = weakSelf.lock();
+                    if (!self)
+                        return;
                     if (ec == boost::asio::error::operation_aborted)
                         return;
                     onLingerTimeout();
@@ -290,15 +299,17 @@ private:
                 // When 'flush' is true, successful shutdown is signalled by
                 // stream_.readSome emitting TransportErrc::ended
                 if (ec || !flush)
+                {
+                    timer_.cancel();
                     notifyShutdown(ec);
+                }
             });
     }
 
     void onLingerTimeout()
     {
         stream_.close();
-        if (shutdownHandler_)
-            notifyShutdown(make_error_code(TransportErrc::lingerTimeout));
+        notifyShutdown(make_error_code(TransportErrc::lingerTimeout));
     }
 
     void onPingGeneratedOrTimedOut(ErrorOr<PingBytes> pingBytes)
@@ -483,10 +494,10 @@ private:
 
         monitor_.endRead();
 
-        if (ec == TransportErrc::ended)
+        if (shutdownHandler_ != nullptr)
         {
-            bool isShuttingDown = shutdownHandler_ != nullptr;
-            if (isShuttingDown)
+            timer_.cancel();
+            if (ec == TransportErrc::ended)
                 notifyShutdown({});
         }
 
@@ -504,6 +515,8 @@ private:
 
     void notifyShutdown(std::error_code ec)
     {
+        if (!shutdownHandler_)
+            return;
         Base::post(std::move(shutdownHandler_), ec);
         shutdownHandler_ = nullptr;
     }

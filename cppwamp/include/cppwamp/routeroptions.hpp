@@ -134,6 +134,8 @@ public:
 
     ServerOptions& withConnectionLimit(std::size_t limit);
 
+    ServerOptions& withMonitoringInterval(Timeout timeout);
+
     ServerOptions& withChallengeTimeout(Timeout timeout);
 
     ServerOptions& withOverloadCooldown(Timeout cooldown);
@@ -148,6 +150,8 @@ public:
 
     std::size_t connectionLimit() const;
 
+    Timeout monitoringInterval() const;
+
     Timeout challengeTimeout() const;
 
     Timeout overloadCooldown() const;
@@ -155,13 +159,24 @@ public:
     Timeout outageCooldown() const;
 
 private:
+    // Using Nginx's worker_connections
+    static constexpr std::size_t defaultConnectionLimit_ = 512;
+
+    static constexpr Timeout defaultMonitoringInterval_ =
+        std::chrono::seconds{1};
+
+    // Using ejabberd's negotiation_timeout
+    static constexpr Timeout defaultChallengeTimeout_ =
+        std::chrono::seconds{30};
+
     String name_;
     String agent_;
     ListenerBuilder listenerBuilder_;
     BufferCodecFactory codecFactory_;
     Authenticator::Ptr authenticator_;
-    std::size_t connectionLimit_ = std::numeric_limits<std::size_t>::max();
-    Timeout challengeTimeout_ = unspecifiedTimeout;
+    std::size_t connectionLimit_ = defaultConnectionLimit_;
+    Timeout monitoringInterval_ = defaultMonitoringInterval_;
+    Timeout challengeTimeout_ = defaultChallengeTimeout_;
     Timeout overloadCooldown_ = unspecifiedTimeout;
     Timeout outageCooldown_ = unspecifiedTimeout;
 

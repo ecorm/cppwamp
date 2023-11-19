@@ -11,10 +11,8 @@
 #include <memory>
 #include <utility>
 #include <boost/asio/steady_timer.hpp>
-#include "codec.hpp"
 #include "errorcodes.hpp"
 #include "messagebuffer.hpp"
-#include "routerlogger.hpp"
 #include "transport.hpp"
 #include "internal/transportframe.hpp"
 #include "internal/pinger.hpp"
@@ -190,10 +188,14 @@ private:
 
         if (internal::timeoutIsDefinite(lingerTimeout))
         {
+            std::weak_ptr<Transporting> weakSelf{self};
             timer_.expires_after(lingerTimeout);
             timer_.async_wait(
-                [this, self](boost::system::error_code ec)
+                [this, weakSelf](boost::system::error_code ec)
                 {
+                    auto self = weakSelf.lock();
+                    if (!self)
+                        return;
                     if (ec == boost::asio::error::operation_aborted)
                         return;
                     onLingerTimeout();
@@ -387,10 +389,10 @@ private:
         if (!ec)
             return true;
 
-        if (ec == TransportErrc::ended)
+        if (shutdownHandler_ != nullptr)
         {
-            bool isShuttingDown = shutdownHandler_ != nullptr;
-            if (isShuttingDown)
+            timer_.cancel();
+            if (ec == TransportErrc::ended)
                 notifyShutdown({});
         }
 
@@ -408,6 +410,8 @@ private:
 
     void notifyShutdown(std::error_code ec)
     {
+        if (!shutdownHandler_)
+            return;
         Base::post(std::move(shutdownHandler_), ec);
         shutdownHandler_ = nullptr;
     }

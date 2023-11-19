@@ -154,6 +154,8 @@ CPPWAMP_INLINE void Transporting::shed(AdmitHandler handler)
 
 CPPWAMP_INLINE std::error_code Transporting::monitor()
 {
+    if (state_ != State::running)
+        return {};
     return onMonitor();
 }
 

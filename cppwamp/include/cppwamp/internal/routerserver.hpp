@@ -166,6 +166,12 @@ public:
         dispatch([this, self]() {startSession();});
     }
 
+    void monitor()
+    {
+        auto self = shared_from_this();
+        dispatch([this, self]() {monitorTransport();});
+    }
+
     void onChallengeTimeout()
     {
         struct Dispatched
@@ -379,6 +385,20 @@ private:
         report({AccessAction::clientConnect});
     }
 
+    void monitorTransport()
+    {
+        if (!transport_)
+            return;
+
+        auto ec = transport_->monitor();
+        if (!ec)
+            return;
+
+        auto hint = detailedErrorCodeString(ec);
+        abortSession(Reason{WampErrc::timeout}.withHint(std::move(hint)),
+                     {AccessAction::serverAbort, {}, {}, ec});
+    }
+
     void onAdmitError(std::error_code ec, const char* operation)
     {
         report({AccessAction::serverReject, {}, {}, ec});
@@ -387,8 +407,14 @@ private:
 
     void abortSession(Reason r)
     {
-        report({AccessAction::serverAbort, {}, r.options(), r.uri()});
-        peer_->abort(r);
+        AccessActionInfo a{AccessAction::serverAbort, {}, r.options(), r.uri()};
+        abortSession(std::move(r), std::move(a));
+    }
+
+    void abortSession(Reason r, AccessActionInfo a)
+    {
+        report(std::move(a));
+        peer_->abort(std::move(r));
         leaveRealm();
     }
 
@@ -588,12 +614,16 @@ public:
 
 private:
     using SessionTimeoutScheduler = TimeoutScheduler<ServerSession::Key>;
+    using Timepoint = std::chrono::steady_clock::time_point;
+
+    static Timepoint steadyTime() {return std::chrono::steady_clock::now();}
 
     RouterServer(AnyIoExecutor e, ServerOptions&& c, RouterContext&& r)
         : executor_(std::move(e)),
           strand_(boost::asio::make_strand(executor_)),
           challengeTimeouts_(SessionTimeoutScheduler::create(strand_)),
           cooldownTimer_(strand_),
+          monitoringTimer_(strand_),
           logSuffix_(" [Server " + c.name() + ']'),
           router_(std::move(r)),
           options_(std::make_shared<ServerOptions>(std::move(c))),
@@ -611,22 +641,50 @@ private:
 
         const std::weak_ptr<RouterServer> self{shared_from_this()};
         challengeTimeouts_->listen(
-            [self](ServerSession::Key n)
+            [this, self](ServerSession::Key n)
             {
                 auto me = self.lock();
                 if (me)
-                    me->onChallengeTimeout(n);
+                    onChallengeTimeout(n);
             });
 
         listener_->observe(
             [this, self](ListenResult result)
             {
                 auto me = self.lock();
-                if (me && me->listener_)
+                if (me && listener_)
                     onListenerResult(std::move(result));
             });
 
+        monitoringDeadline_ = steadyTime();
+        monitor();
         listen();
+    }
+
+    void monitor()
+    {
+        monitoringDeadline_ += options_->monitoringInterval();
+        const auto now = steadyTime();
+        if (monitoringDeadline_ <= now)
+            monitoringDeadline_ = now + options_->monitoringInterval();
+
+        const std::weak_ptr<RouterServer> self{shared_from_this()};
+        monitoringTimer_.expires_at(monitoringDeadline_);
+        monitoringTimer_.async_wait(
+            [this, self](boost::system::error_code ec)
+            {
+                auto me = self.lock();
+                if (me)
+                    onMonitoringTick(ec);
+            });
+    }
+
+    void onChallengeTimeout(ServerSession::Key key)
+    {
+        auto found = sessions_.find(key);
+        if (found == sessions_.end())
+            return;
+        found->second->onChallengeTimeout();
     }
 
     void onListenerResult(ListenResult result)
@@ -679,8 +737,8 @@ private:
             return listen();
 
         // Check if there's already a cooldown in progress that will outlast
-        // this this one.
-        auto deadline = std::chrono::steady_clock::now() + delay;
+        // this one.
+        auto deadline = steadyTime() + delay;
         if (deadline <= cooldownDeadline_)
             return;
 
@@ -705,7 +763,22 @@ private:
 
         if (ec)
             panic("Cooldown timer failure", ec);
+
         listen();
+    }
+
+    void onMonitoringTick(boost::system::error_code ec)
+    {
+        if (ec == boost::asio::error::operation_aborted)
+            return;
+
+        if (ec)
+            panic("Monitoring timer failure", ec);
+
+        for (const auto& kv: sessions_)
+            kv.second->monitor();
+
+        monitor();
     }
 
     void listen()
@@ -771,14 +844,6 @@ private:
         listener_.reset();
         for (const auto& kv: sessions_)
             kv.second->abort(r);
-    }
-
-    void onChallengeTimeout(ServerSession::Key key)
-    {
-        auto found = sessions_.find(key);
-        if (found == sessions_.end())
-            return;
-        found->second->onChallengeTimeout();
     }
 
     void removeSession(ServerSession::Key key)
@@ -859,13 +924,15 @@ private:
     std::unordered_map<ServerSession::Key, ServerSession::Ptr> sessions_;
     SessionTimeoutScheduler::Ptr challengeTimeouts_;
     boost::asio::steady_timer cooldownTimer_;
+    boost::asio::steady_timer monitoringTimer_;
     std::string logSuffix_;
     RouterContext router_;
     ServerOptions::Ptr options_;
     Listening::Ptr listener_;
     RouterLogger::Ptr logger_;
     ServerSession::Key nextSessionIndex_ = 0;
-    std::chrono::steady_clock::time_point cooldownDeadline_;
+    Timepoint cooldownDeadline_;
+    Timepoint monitoringDeadline_;
 
     friend class ServerContext;
 };
