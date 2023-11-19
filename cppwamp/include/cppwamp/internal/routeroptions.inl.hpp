@@ -107,6 +107,24 @@ CPPWAMP_INLINE bool RealmOptions::metaTopicPublicationAllowed() const
 
 
 //******************************************************************************
+// BinaryExponentialBackoff
+//******************************************************************************
+
+/** @throws error::Logic if either or both of the backoff delays are
+                negative, or if the max delay is shorter than the min delay. */
+CPPWAMP_INLINE BinaryExponentialBackoff& BinaryExponentialBackoff::validate()
+{
+    CPPWAMP_LOGIC_CHECK(min_.count() >= 0,
+                        "Delay must not be negative");
+    CPPWAMP_LOGIC_CHECK(max_.count() >= 0,
+                        "Delay must not be negative");
+    CPPWAMP_LOGIC_CHECK(max_ >= min_,
+                        "Max delay must not be shorter than min delay");
+    return *this;
+}
+
+
+//******************************************************************************
 // ServerOptions
 //******************************************************************************
 
@@ -124,9 +142,9 @@ CPPWAMP_INLINE ServerOptions& ServerOptions::withAgent(String agent)
 }
 
 CPPWAMP_INLINE ServerOptions&
-ServerOptions::withConnectionLimit(std::size_t limit)
+ServerOptions::withConnectionSoftLimit(std::size_t limit)
 {
-    connectionLimit_ = limit;
+    connectionSoftLimit_ = limit;
     return *this;
 }
 
@@ -146,19 +164,12 @@ ServerOptions::withChallengeTimeout(Timeout timeout)
     return *this;
 }
 
-/** @throws error::Logic if the given timeout duration is negative. */
+/** @throws error::Logic if either or both of the backoff delays are negative,
+            or if the max delay is shorter than the min delay. */
 CPPWAMP_INLINE ServerOptions&
-ServerOptions::withOverloadCooldown(Timeout cooldown)
+ServerOptions::withAcceptBackoff(Backoff backoff)
 {
-    overloadCooldown_ = internal::checkTimeout(cooldown);
-    return *this;
-}
-
-/** @throws error::Logic if the given timeout duration is negative. */
-CPPWAMP_INLINE ServerOptions&
-ServerOptions::withOutageCooldown(Timeout cooldown)
-{
-    outageCooldown_ = internal::checkTimeout(cooldown);
+    acceptBackoff_ = backoff.validate();
     return *this;
 }
 
@@ -171,9 +182,9 @@ CPPWAMP_INLINE Authenticator::Ptr ServerOptions::authenticator() const
 
 CPPWAMP_INLINE const String& ServerOptions::agent() const {return agent_;}
 
-CPPWAMP_INLINE std::size_t ServerOptions::connectionLimit() const
+CPPWAMP_INLINE std::size_t ServerOptions::connectionSoftLimit() const
 {
-    return connectionLimit_;
+    return connectionSoftLimit_;
 }
 
 CPPWAMP_INLINE Timeout ServerOptions::monitoringInterval() const
@@ -186,14 +197,9 @@ CPPWAMP_INLINE Timeout ServerOptions::challengeTimeout() const
     return challengeTimeout_;
 }
 
-CPPWAMP_INLINE Timeout ServerOptions::overloadCooldown() const
+CPPWAMP_INLINE ServerOptions::Backoff ServerOptions::acceptBackoff() const
 {
-    return overloadCooldown_;
-}
-
-CPPWAMP_INLINE Timeout ServerOptions::outageCooldown() const
-{
-    return outageCooldown_;
+    return acceptBackoff_;
 }
 
 CPPWAMP_INLINE Listening::Ptr ServerOptions::makeListener(

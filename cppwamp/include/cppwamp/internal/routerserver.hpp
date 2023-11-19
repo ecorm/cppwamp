@@ -581,6 +581,65 @@ private:
 };
 
 //------------------------------------------------------------------------------
+class BinaryExponentialBackoffTimer
+{
+public:
+    using Backoff = BinaryExponentialBackoff;
+
+    template <typename E>
+    BinaryExponentialBackoffTimer(E&& executor, Backoff b)
+        : backoffTimer_(std::forward<E>(executor)),
+          backoff_(b)
+    {}
+
+    const Backoff& backoff() const {return backoff_;}
+
+    void cancel()
+    {
+        backoffTimer_.cancel();
+        reset();
+    }
+
+    void reset() {backoffDelay_ = unspecifiedTimeout;}
+
+    template <typename F>
+    void wait(F&& callback)
+    {
+        struct Waited
+        {
+            Decay<F> callback;
+            void operator()(boost::system::error_code ec) {callback(ec);}
+        };
+
+        const bool backoffInProgress = backoffDelay_ != unspecifiedTimeout;
+
+        if (backoffInProgress)
+        {
+            if (backoffDelay_ > (backoff_.max() / 2))
+                backoffDelay_ = backoff_.max();
+            else
+                backoffDelay_ *= 2;
+            backoffDeadline_ += backoffDelay_;
+        }
+        else
+        {
+            backoffDelay_ = backoff_.min();
+        }
+
+        backoffTimer_.expires_at(backoffDeadline_);
+        backoffTimer_.async_wait(Waited{std::forward<F>(callback)});
+    }
+
+private:
+    using Timepoint = std::chrono::steady_clock::time_point;
+
+    boost::asio::steady_timer backoffTimer_;
+    Backoff backoff_;
+    Timeout backoffDelay_ = unspecifiedTimeout;
+    Timepoint backoffDeadline_;
+};
+
+//------------------------------------------------------------------------------
 class RouterServer : public std::enable_shared_from_this<RouterServer>
 {
 public:
@@ -615,6 +674,7 @@ public:
 private:
     using SessionTimeoutScheduler = TimeoutScheduler<ServerSession::Key>;
     using Timepoint = std::chrono::steady_clock::time_point;
+    using Backoff = BinaryExponentialBackoff;
 
     static Timepoint steadyTime() {return std::chrono::steady_clock::now();}
 
@@ -622,7 +682,7 @@ private:
         : executor_(std::move(e)),
           strand_(boost::asio::make_strand(executor_)),
           challengeTimeouts_(SessionTimeoutScheduler::create(strand_)),
-          cooldownTimer_(strand_),
+          backoffTimer_(strand_, c.acceptBackoff()),
           monitoringTimer_(strand_),
           logSuffix_(" [Server " + c.name() + ']'),
           router_(std::move(r)),
@@ -694,6 +754,7 @@ private:
         switch (result.status())
         {
         case S::success:
+            backoffTimer_.reset();
             onAccepted(result.transport());
             listen();
             break;
@@ -705,17 +766,16 @@ private:
             alert(std::string("Error establishing connection with "
                               "remote peer during ") + result.operation(),
                   result.error());
+            backoffTimer_.reset();
             listen();
             break;
 
         case S::overload:
-            cooldown(options_->overloadCooldown(), result,
-                     "Resource exhaustion detected during ");
+            backOffAccept(result, "Resource exhaustion detected during ");
             break;
 
         case S::outage:
-            cooldown(options_->outageCooldown(), result,
-                     "Network outage detected during  ");
+            backOffAccept(result, "Network outage detected during  ");
             break;
 
         case S::fatal:
@@ -730,44 +790,32 @@ private:
         }
     }
 
-    // Suspends the socket accept loop for the given delay period.
-    // Called when resource exhaustion or network outage occurs to avoid
-    // flooding the log.
-    // *Not* called when the connection limit is reached (those connections
-    // are shedded instead).
-    void cooldown(Timeout delay, const ListenResult& result, std::string why)
+    /*  Backs off socket accept operations when resource exhaustion or
+        network outage occurs to avoid flooding the log. *Not* called when the
+        connection limit is reached (those connections are shedded instead). */
+    void backOffAccept(const ListenResult& result, std::string why)
     {
         alert(why + result.operation(), result.error());
-        if (!timeoutIsDefinite(delay))
+        if (backoffTimer_.backoff().isUnspecified())
             return listen();
 
-        // Check if there's already a cooldown in progress that will outlast
-        // this one.
-        auto deadline = steadyTime() + delay;
-        if (deadline <= cooldownDeadline_)
-            return;
-
-        cooldownDeadline_ = deadline;
-        cooldownTimer_.expires_at(deadline);
         std::weak_ptr<RouterServer> self{shared_from_this()};
-        cooldownTimer_.async_wait(
+        backoffTimer_.wait(
             [self](boost::system::error_code ec)
             {
                 auto me = self.lock();
                 if (me)
-                    me->onCooldownExpired(ec);
+                    me->onBackoffExpired(ec);
             });
     }
 
-    void onCooldownExpired(boost::system::error_code ec)
+    void onBackoffExpired(boost::system::error_code ec)
     {
-        // Bumping the cooldown deadline while a cooldown is already in
-        // progress will trigger a cancellation.
         if (ec == boost::asio::error::operation_aborted)
             return;
 
         if (ec)
-            panic("Cooldown timer failure", ec);
+            panic("Accept backoff timer failure", ec);
 
         listen();
     }
@@ -796,7 +844,7 @@ private:
     {
         auto self = shared_from_this();
 
-        if (sessions_.size() >= options_->connectionLimit())
+        if (sessions_.size() >= options_->connectionSoftLimit())
         {
             transport->shed(
                 [this, self, transport](AdmitResult result)
@@ -842,6 +890,7 @@ private:
         inform(std::move(msg));
 
         challengeTimeouts_->unlisten();
+        backoffTimer_.cancel();
 
         if (!listener_)
             return;
@@ -928,7 +977,7 @@ private:
     IoStrand strand_;
     std::unordered_map<ServerSession::Key, ServerSession::Ptr> sessions_;
     SessionTimeoutScheduler::Ptr challengeTimeouts_;
-    boost::asio::steady_timer cooldownTimer_;
+    BinaryExponentialBackoffTimer backoffTimer_;
     boost::asio::steady_timer monitoringTimer_;
     std::string logSuffix_;
     RouterContext router_;
@@ -936,7 +985,6 @@ private:
     Listening::Ptr listener_;
     RouterLogger::Ptr logger_;
     ServerSession::Key nextSessionIndex_ = 0;
-    Timepoint cooldownDeadline_;
     Timepoint monitoringDeadline_;
 
     friend class ServerContext;

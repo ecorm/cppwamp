@@ -112,10 +112,34 @@ private:
 namespace internal { class Challenger; } // Forward declaration
 
 //------------------------------------------------------------------------------
+class CPPWAMP_API BinaryExponentialBackoff
+{
+public:
+    constexpr BinaryExponentialBackoff();
+
+    constexpr BinaryExponentialBackoff(Timeout min, Timeout max)
+        : min_(min), max_(max)
+    {}
+
+    constexpr Timeout min() const {return min_;}
+
+    constexpr Timeout max() const {return max_;}
+
+    constexpr bool isUnspecified() const {return min_ == unspecifiedTimeout;}
+
+    BinaryExponentialBackoff& validate();
+
+private:
+    Timeout min_ = unspecifiedTimeout;
+    Timeout max_ = unspecifiedTimeout;
+};
+
+//------------------------------------------------------------------------------
 class CPPWAMP_API ServerOptions
 {
 public:
     using Ptr = std::shared_ptr<ServerOptions>;
+    using Backoff = BinaryExponentialBackoff;
 
     template <typename S, typename F, typename... Fs>
     explicit ServerOptions(String name, S&& transportSettings, F&& format,
@@ -132,15 +156,13 @@ public:
 
     ServerOptions& withAgent(String agent);
 
-    ServerOptions& withConnectionLimit(std::size_t limit);
+    ServerOptions& withConnectionSoftLimit(std::size_t limit);
 
     ServerOptions& withMonitoringInterval(Timeout timeout);
 
     ServerOptions& withChallengeTimeout(Timeout timeout);
 
-    ServerOptions& withOverloadCooldown(Timeout cooldown);
-
-    ServerOptions& withOutageCooldown(Timeout cooldown);
+    ServerOptions& withAcceptBackoff(Backoff backoff);
 
     const String& name() const;
 
@@ -148,20 +170,21 @@ public:
 
     const String& agent() const;
 
-    std::size_t connectionLimit() const;
+    std::size_t connectionSoftLimit() const;
 
     Timeout monitoringInterval() const;
 
     Timeout challengeTimeout() const;
 
-    Timeout overloadCooldown() const;
+    Backoff acceptBackoff() const;
 
-    Timeout outageCooldown() const;
+    Backoff outageBackoff() const;
 
 private:
     // Using Nginx's worker_connections
-    static constexpr std::size_t defaultConnectionLimit_ = 512;
+    static constexpr std::size_t defaultConnectionSoftLimit_ = 512;
 
+    // Apache httpd RequestReadTimeout has a 1-second granularity
     static constexpr Timeout defaultMonitoringInterval_ =
         std::chrono::seconds{1};
 
@@ -169,16 +192,20 @@ private:
     static constexpr Timeout defaultChallengeTimeout_ =
         std::chrono::seconds{30};
 
+    // Starts from approximately Nginx's accept_mutex_delay and ends with
+    // an arbitrarily chosen max delay.
+    static constexpr Backoff defaultBackoff_{std::chrono::milliseconds{625},
+                                             std::chrono::seconds{10}};
+
     String name_;
     String agent_;
     ListenerBuilder listenerBuilder_;
     BufferCodecFactory codecFactory_;
     Authenticator::Ptr authenticator_;
-    std::size_t connectionLimit_ = defaultConnectionLimit_;
+    std::size_t connectionSoftLimit_ = defaultConnectionSoftLimit_;
     Timeout monitoringInterval_ = defaultMonitoringInterval_;
     Timeout challengeTimeout_ = defaultChallengeTimeout_;
-    Timeout overloadCooldown_ = unspecifiedTimeout;
-    Timeout outageCooldown_ = unspecifiedTimeout;
+    Backoff acceptBackoff_ = defaultBackoff_;
 
 public: // Internal use only
     Listening::Ptr makeListener(internal::PassKey, AnyIoExecutor e,

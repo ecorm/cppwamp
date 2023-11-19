@@ -145,14 +145,14 @@ CPPWAMP_INLINE HttpServerLimits& HttpServerLimits::withHeaderTimeout(Timeout t)
 CPPWAMP_INLINE HttpServerLimits&
 HttpServerLimits::withBodyTimeout(ProgressiveTimeout t)
 {
-    bodyTimeout_ = t;
+    bodyTimeout_ = t.validate();
     return *this;
 }
 
 CPPWAMP_INLINE HttpServerLimits&
 HttpServerLimits::withResponseTimeout(ProgressiveTimeout t)
 {
-    responseTimeout_ = t;
+    responseTimeout_ = t.validate();
     return *this;
 }
 

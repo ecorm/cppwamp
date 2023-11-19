@@ -18,24 +18,31 @@ namespace wamp
 class CPPWAMP_API ProgressiveTimeout
 {
 public:
-    ProgressiveTimeout() = default;
+    constexpr ProgressiveTimeout() = default;
 
-    ProgressiveTimeout(Timeout max) : max_(internal::checkTimeout(max)) {}
+    constexpr ProgressiveTimeout(Timeout max) : max_(max) {}
 
-    ProgressiveTimeout(Timeout min, std::size_t rate,
-                       Timeout max = unspecifiedTimeout)
-        : min_(internal::checkTimeout(min)),
-          max_(internal::checkTimeout(max)),
-          rate_(rate)
+    constexpr ProgressiveTimeout(Timeout min, std::size_t rate,
+                                 Timeout max = unspecifiedTimeout)
+        : min_(min), max_(max), rate_(rate)
     {}
 
-    Timeout min() const {return min_;}
+    constexpr Timeout min() const {return min_;}
 
-    Timeout max() const {return max_;}
+    constexpr Timeout max() const {return max_;}
 
     /** Obtains the number of transferred bytes needed per additional second
         added to the mininum timeout. */
-    std::size_t rate() const {return rate_;}
+    constexpr std::size_t rate() const {return rate_;}
+
+    ProgressiveTimeout& validate()
+    {
+        internal::checkTimeout(min_);
+        internal::checkTimeout(max_);
+        CPPWAMP_LOGIC_CHECK(min_ == unspecifiedTimeout || rate_ != 0,
+                            "Rate cannot be zero when min timeout is specified");
+        return *this;
+    }
 
 private:
     // Using ejabber's send_timeout
@@ -159,6 +166,12 @@ private:
     TDerived& set(Timeout& member, Timeout t)
     {
         member = internal::checkTimeout(t);
+        return derived();
+    }
+
+    TDerived& set(ProgressiveTimeout& member, ProgressiveTimeout t)
+    {
+        member = t.validate();
         return derived();
     }
 

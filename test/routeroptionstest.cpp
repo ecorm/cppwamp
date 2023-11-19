@@ -420,7 +420,7 @@ TEST_CASE( "Router connection limit option", "[WAMP][Router]" )
     auto& router = routerFixture.router();
     ServerCloseGuard serverGuard{"tcp45678"};
     router.openServer(ServerOptions("tcp45678", wamp::TcpEndpoint{45678},
-                                    wamp::json).withConnectionLimit(2));
+                                    wamp::json).withConnectionSoftLimit(2));
 
     IoContext ioctx;
     std::vector<LogEntry> logEntries;

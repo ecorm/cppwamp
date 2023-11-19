@@ -1207,7 +1207,7 @@ TEST_CASE( "Router websocket connection limit option", "[WAMP][Router]" )
     auto& router = routerFixture.router();
     ServerCloseGuard serverGuard{"ws45678"};
     router.openServer(ServerOptions("ws45678", wamp::WebsocketEndpoint{45678},
-                                    wamp::cbor).withConnectionLimit(2));
+                                    wamp::cbor).withConnectionSoftLimit(2));
 
     IoContext ioctx;
     std::vector<LogEntry> logEntries;
