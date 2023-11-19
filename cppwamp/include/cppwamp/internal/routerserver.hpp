@@ -605,12 +605,6 @@ public:
     template <typename F>
     void wait(F&& callback)
     {
-        struct Waited
-        {
-            Decay<F> callback;
-            void operator()(boost::system::error_code ec) {callback(ec);}
-        };
-
         const bool backoffInProgress = backoffDelay_ != unspecifiedTimeout;
 
         if (backoffInProgress)
@@ -624,14 +618,16 @@ public:
         else
         {
             backoffDelay_ = backoff_.min();
+            backoffDeadline_ = Clock::now() + backoffDelay_;
         }
 
         backoffTimer_.expires_at(backoffDeadline_);
-        backoffTimer_.async_wait(Waited{std::forward<F>(callback)});
+        backoffTimer_.async_wait(std::forward<F>(callback));
     }
 
 private:
-    using Timepoint = std::chrono::steady_clock::time_point;
+    using Clock = std::chrono::steady_clock;
+    using Timepoint = Clock::time_point;
 
     boost::asio::steady_timer backoffTimer_;
     Backoff backoff_;
