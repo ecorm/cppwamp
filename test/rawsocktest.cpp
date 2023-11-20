@@ -735,7 +735,7 @@ TEST_CASE( "RawsockHandshake Parsing", "[Transport][Rawsock]" )
         // bits         size  codec reserved  error        magic?  error?
         //             limit                  code
         {0x00000000,      512,  0x0, 0x0000, E::success,        n, y},
-        {0x7EFFFFFF, 16777215,  0xF, 0xFFFF, E::failed,         n, n},
+        {0x7EFFFFFF, 16777216,  0xF, 0xFFFF, E::failed,         n, n},
         {0x7F000000,      512,  0x0, 0x0000, E::success,        y, y},
         {0x7F000001,      512,  0x0, 0x0001, E::success,        y, y},
         {0x7F00FFFF,      512,  0x0, 0xFFFF, E::success,        y, y},
@@ -757,10 +757,10 @@ TEST_CASE( "RawsockHandshake Parsing", "[Transport][Rawsock]" )
         {0x7F400000,     8192,  0x0, 0x0000, E::shedded,        y, y},
         {0x7F500000,    16384,  0x0, 0x0000, E::failed,         y, y},
         {0x7FE00000,  8388608,  0x0, 0x0000, E::failed,         y, y},
-        {0x7FF00000, 16777215,  0x0, 0x0000, E::failed,         y, y},
-        {0x7FFFFFFF, 16777215,  0xF, 0xFFFF, E::failed,         y, n},
+        {0x7FF00000, 16777216,  0x0, 0x0000, E::failed,         y, y},
+        {0x7FFFFFFF, 16777216,  0xF, 0xFFFF, E::failed,         y, n},
         {0x80000000,      512,  0x0, 0x0000, E::success,        n, y},
-        {0xFFFFFFFF, 16777215,  0xF, 0xFFFF, E::failed,         n, n},
+        {0xFFFFFFFF, 16777216,  0xF, 0xFFFF, E::failed,         n, n},
     };
 
     for (const auto& vec: testVectors)
@@ -797,36 +797,37 @@ TEST_CASE( "RawsockHandshake Generation", "[Transport][Rawsock]" )
 
     std::vector<TestVector> testVectors
     {
-        { 0x0,  0x000000, 0x7F000000},
-        { 0x0,  0xFFFFFF, 0x7FF00000},
-        {json,  0x000000, 0x7F010000},
-        {json,  0x000001, 0x7F010000},
-        {json,  0x0001FF, 0x7F010000},
-        {json,  0x000200, 0x7F010000},
-        {json,  0x000201, 0x7F110000},
-        {json,  0x0003FF, 0x7F110000},
-        {json,  0x000400, 0x7F110000},
-        {json,  0x000401, 0x7F210000},
-        {json,  0x0007FF, 0x7F210000},
-        {json,  0x000800, 0x7F210000},
-        {json,  0x200001, 0x7FD10000},
-        {json,  0x3FFFFF, 0x7FD10000},
-        {json,  0x400000, 0x7FD10000},
-        {json,  0x400001, 0x7FE10000},
-        {json,  0x7FFFFF, 0x7FE10000},
-        {json,  0x800000, 0x7FE10000},
-        {json,  0x800001, 0x7FF10000},
-        {json,  0xFFFFFF, 0x7FF10000},
-        {json, 0x1000000, 0x7FF10000},
-        {json,   maxSize, 0x7FF10000},
-        {msgp,  0x000000, 0x7F020000},
-        {msgp,  0xFFFFFF, 0x7FF20000},
-        {cbor,  0x000000, 0x7F030000},
-        {cbor,  0xFFFFFF, 0x7FF30000},
-        { 0x4,  0x000000, 0x7F040000},
-        { 0x4,  0xFFFFFF, 0x7FF40000},
-        { 0xF,  0x000000, 0x7F0F0000},
-        { 0xF,  0xFFFFFF, 0x7FFF0000}
+        { 0x0,  0x00000000, 0x7F000000},
+        { 0x0,  0x00FFFFFF, 0x7FF00000},
+        { 0x0,  0x01000000, 0x7FF00000},
+        {json,  0x00000000, 0x7F010000},
+        {json,  0x00000001, 0x7F010000},
+        {json,  0x000001FF, 0x7F010000},
+        {json,  0x00000200, 0x7F010000},
+        {json,  0x00000201, 0x7F110000},
+        {json,  0x000003FF, 0x7F110000},
+        {json,  0x00000400, 0x7F110000},
+        {json,  0x00000401, 0x7F210000},
+        {json,  0x000007FF, 0x7F210000},
+        {json,  0x00000800, 0x7F210000},
+        {json,  0x00200001, 0x7FD10000},
+        {json,  0x003FFFFF, 0x7FD10000},
+        {json,  0x00400000, 0x7FD10000},
+        {json,  0x00400001, 0x7FE10000},
+        {json,  0x007FFFFF, 0x7FE10000},
+        {json,  0x00800000, 0x7FE10000},
+        {json,  0x00800001, 0x7FF10000},
+        {json,  0x00FFFFFF, 0x7FF10000},
+        {json,  0x01000000, 0x7FF10000},
+        {json,     maxSize, 0x7FF10000},
+        {msgp,  0x00000000, 0x7F020000},
+        {msgp,  0x00FFFFFF, 0x7FF20000},
+        {cbor,  0x00000000, 0x7F030000},
+        {cbor,  0x00FFFFFF, 0x7FF30000},
+        { 0x4,  0x00000000, 0x7F040000},
+        { 0x4,  0x00FFFFFF, 0x7FF40000},
+        { 0x7,  0x00000000, 0x7F070000},
+        { 0x7,  0x00FFFFFF, 0x7FF70000}
     };
 
     for (const auto& vec: testVectors)
@@ -880,25 +881,32 @@ TEST_CASE( "RawsockHeader", "[Transport][Rawsock]" )
 
     std::vector<TestVector> testVectors
     {
-        {wampFrame, 0x000000, 0x00000000},
-        {wampFrame, 0x000001, 0x00000001},
-        {wampFrame, 0xFFFFFF, 0x00FFFFFF},
-        {pingFrame, 0x000000, 0x01000000},
-        {pingFrame, 0x000001, 0x01000001},
-        {pingFrame, 0xFFFFFF, 0x01FFFFFF},
-        {pongFrame, 0x000000, 0x02000000},
-        {pongFrame, 0x000001, 0x02000001},
-        {pongFrame, 0xFFFFFF, 0x02FFFFFF},
-        {0x03,      0x000000, 0x03000000},
-        {0x03,      0x000001, 0x03000001},
-        {0x03,      0xFFFFFF, 0x03FFFFFF},
-        {0xFF,      0x000000, 0xFF000000},
-        {0xFF,      0x000001, 0xFF000001},
-        {0xFF,      0xFFFFFF, 0xFFFFFFFF}
+        {wampFrame, 0x00000000, 0x00000000},
+        {wampFrame, 0x00000001, 0x00000001},
+        {wampFrame, 0x00FFFFFF, 0x00FFFFFF},
+        {wampFrame, 0x01000000, 0x08000000},
+        {pingFrame, 0x00000000, 0x01000000},
+        {pingFrame, 0x00000001, 0x01000001},
+        {pingFrame, 0x00FFFFFF, 0x01FFFFFF},
+        {pingFrame, 0x01000000, 0x09000000},
+        {pongFrame, 0x00000000, 0x02000000},
+        {pongFrame, 0x00000001, 0x02000001},
+        {pongFrame, 0x00FFFFFF, 0x02FFFFFF},
+        {pongFrame, 0x01000000, 0x0A000000},
+        {0x03,      0x00000000, 0x03000000},
+        {0x03,      0x00000001, 0x03000001},
+        {0x03,      0x00FFFFFF, 0x03FFFFFF},
+        {0x03,      0x01000000, 0x0B000000},
+        {0x07,      0x00000000, 0x07000000},
+        {0x07,      0x00000001, 0x07000001},
+        {0x07,      0x00FFFFFF, 0x07FFFFFF},
+        {0x07,      0x01000000, 0x0F000000},
     };
 
-    for (const auto& vec: testVectors)
+    for (unsigned i=0; i<testVectors.size(); ++i)
     {
+        INFO("For test vector index " << i);
+        const auto& vec = testVectors[i];
         auto hdr = RawsockHeader{}.setFrameKind(vec.frameKind)
                                   .setLength(vec.length);
         CHECK( hdr.frameKind() == vec.frameKind );
@@ -1374,7 +1382,7 @@ TEMPLATE_TEST_CASE( "Graceful raw socket shutdown", "[Transport][Rawsock]",
 //------------------------------------------------------------------------------
 TEST_CASE( "Raw socket shutdown during send", "[Transport][Rawsock]" )
 {
-    constexpr unsigned bigLength = 16*1024*1024-1;
+    constexpr unsigned bigLength = 16*1024*1024;
     TcpLoopbackFixture f(true, jsonId, {jsonId}, bigLength, bigLength);
     MessageBuffer bigMessage(bigLength, 'A');
     std::error_code clientError;
@@ -1563,7 +1571,7 @@ TEMPLATE_TEST_CASE( "Cancel send", "[Transport][Rawsock]",
 {
     // The size of transmission is set to maximum to increase the likelyhood
     // of the operation being aborted, rather than completed.
-    constexpr unsigned bigLength = 16*1024*1024-1;
+    constexpr unsigned bigLength = 16*1024*1024;
     TestType f(false, jsonId, {jsonId}, bigLength, bigLength);
     f.lstn->observe([&](ListenResult result)
     {

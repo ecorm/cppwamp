@@ -752,7 +752,7 @@ TEST_CASE( "Graceful Websocket shutdown", "[Transport][Websocket]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "Websocket shutdown during send", "[Transport][Websocket]" )
 {
-    constexpr unsigned bigLength = 16*1024*1024-1;
+    constexpr unsigned bigLength = 16*1024*1024;
     LoopbackFixture f(true, jsonId, {jsonId}, bigLength, bigLength);
     MessageBuffer bigMessage(bigLength, 'A');
     std::error_code clientError;

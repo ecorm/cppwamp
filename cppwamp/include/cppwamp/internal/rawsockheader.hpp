@@ -7,6 +7,7 @@
 #ifndef CPPWAMP_INTERNAL_RAWSOCKHEADER_HPP
 #define CPPWAMP_INTERNAL_RAWSOCKHEADER_HPP
 
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include "endian.hpp"
@@ -39,10 +40,16 @@ public:
 
     TransportFrameKind frameKind() const
     {
-        return get<TransportFrameKind>(msgKindMask_, frameKindPos_);
+        return get<TransportFrameKind>(frameKindMask_, frameKindPos_);
     }
 
-    std::size_t length() const {return get<std::size_t>(lengthMask_);}
+    std::size_t length() const
+    {
+        std::size_t n = get<std::size_t>(lengthMask_);
+        if ((hdr_ & extraLengthBit_) != 0)
+            n += extraLength_;
+        return n;
+    }
 
     uint32_t toBigEndian() const {return endian::nativeToBig32(hdr_);}
 
@@ -50,27 +57,45 @@ public:
 
     RawsockHeader& setFrameKind(TransportFrameKind kind)
     {
-        return put(kind, frameKindPos_);
+        put(kind, frameKindPos_);
+        return *this;
     }
 
     RawsockHeader& setLength(std::size_t length)
     {
-        return put(length, lengthPos_);
+        assert(length <= lengthHardLimit_);
+        if (length >= extraLength_)
+        {
+            put(length % extraLength_, lengthPos_);
+            hdr_ |= extraLengthBit_;
+        }
+        else
+        {
+            put(length, lengthPos_);
+        }
+        return *this;
     }
 
 private:
-    static constexpr uint32_t msgKindMask_ = 0xff000000;
-    static constexpr uint32_t lengthMask_  = 0x00ffffff;
-    static constexpr int frameKindPos_       = 24;
-    static constexpr int lengthPos_        = 0;
+    static constexpr std::size_t lengthHardLimit_ = 32*1024*1024 - 1;
+    static constexpr std::size_t extraLength_ = 16*1024*1024;
+    static constexpr uint32_t extraLengthBit_ = 0x08000000;
+    static constexpr uint32_t frameKindMask_  = 0x07000000;
+    static constexpr uint32_t lengthMask_     = 0x00ffffff;
+    static constexpr int frameKindPos_ = 24;
+    static constexpr int lengthPos_ = 0;
 
     template <typename T = uint32_t>
     T get(uint32_t mask, int pos = 0) const
-        {return static_cast<T>((hdr_ & mask) >> pos);}
+    {
+        return static_cast<T>((hdr_ & mask) >> pos);
+    }
 
     template <typename T>
-    RawsockHeader& put(T value, int pos = 0)
-        {hdr_ |= (static_cast<uint32_t>(value) << pos); return *this;}
+    void put(T value, int pos = 0)
+    {
+        hdr_ |= (static_cast<uint32_t>(value) << pos);
+    }
 
     uint32_t hdr_;
 };
