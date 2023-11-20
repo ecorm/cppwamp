@@ -73,7 +73,8 @@ struct LoopbackFixture
         lstn->observe(
             [&](ListenResult result)
             {
-                auto transport = result.transport();
+                REQUIRE(result.ok());
+                auto transport = lstn->take();
                 server = std::move(transport);
                 server->admit(
                     [this](AdmitResult result)
@@ -87,6 +88,7 @@ struct LoopbackFixture
         cnct->establish(
             [&](ErrorOr<Transporting::Ptr> transportOrError)
             {
+                REQUIRE(transportOrError.has_value());
                 auto transport = transportOrError.value();
                 clientCodec = transport->info().codecId();
                 client = std::move(transport);
@@ -269,7 +271,7 @@ void checkConnection(TFixture& f, int expectedCodec,
     f.lstn->observe([&](ListenResult result)
     {
         REQUIRE( result.ok() );
-        auto transport = result.transport();
+        auto transport = f.lstn->take();
         REQUIRE( transport != nullptr );
         f.server = transport;
         f.server->admit(
@@ -408,7 +410,7 @@ void checkUnsupportedSerializer(TFixture& f)
     f.lstn->observe([&](ListenResult result)
     {
         REQUIRE( result.ok() );
-        f.server = result.transport();
+        f.server = f.lstn->take();
         f.server->admit(
             [&serverEc](AdmitResult result) {serverEc = result.error();});
     });
@@ -467,7 +469,7 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
         [&](ListenResult result)
         {
             REQUIRE( result.ok() );
-            server = result.transport();
+            server = lstn->take();
             server->admit(
                 [&serverEc, &server](AdmitResult result)
                 {
@@ -1036,7 +1038,7 @@ TEMPLATE_TEST_CASE( "Normal communications", "[Transport][Rawsock]",
         [&](ListenResult result)
         {
             REQUIRE( result.ok() );
-            auto transport = result.transport();
+            auto transport = f.lstn->take();
             REQUIRE( transport != nullptr );
             server2 = transport;
             server2->admit(
@@ -1175,7 +1177,7 @@ TEST_CASE( "Raw socket shedding", "[Transport][Rawsock]" )
         [&](ListenResult result)
         {
             REQUIRE( result.ok() );
-            server = result.transport();
+            server = lstn->take();
             server->shed( [&](AdmitResult r) {admitResult = r;} );
         });
     lstn->establish();
@@ -1456,7 +1458,7 @@ TEMPLATE_TEST_CASE( "Cancel connect", "[Transport][Rawsock]",
     {
         if (result.ok())
         {
-            f.server = result.transport();
+            f.server = f.lstn->take();
             f.server->admit(
                 [&](AdmitResult result)
                 {
@@ -1566,7 +1568,7 @@ TEMPLATE_TEST_CASE( "Cancel send", "[Transport][Rawsock]",
     f.lstn->observe([&](ListenResult result)
     {
         REQUIRE(result.ok());
-        f.server = result.transport();
+        f.server = f.lstn->take();
         f.server->admit(
             [&](AdmitResult r)
             {
@@ -1710,7 +1712,7 @@ GIVEN ( "mock client sending a message exceeding the server's maximum length" )
         [&](ListenResult result)
         {
             REQUIRE( result.ok() );
-            server = result.transport();
+            server = lstn->take();
             server->admit(
                 [](AdmitResult r) {REQUIRE(r.status() == AdmitStatus::wamp);});
         });
@@ -1819,7 +1821,7 @@ GIVEN ( "A mock client that sends an invalid message type" )
         [&](ListenResult result)
         {
             REQUIRE( result.ok() );
-            server = result.transport();
+            server = lstn->take();
             server->admit(
                 [](AdmitResult r) {REQUIRE(r.status() == AdmitStatus::wamp);});
         });
@@ -1921,6 +1923,7 @@ GIVEN ( "A mock server that sends an invalid message type" )
 TEST_CASE( "TCP server transport handshake timeout", "[Transport][Rawsock]" )
 {
     IoContext ioctx;
+    test::SilentClient client{ioctx};
     auto exec = ioctx.get_executor();
     auto strand = boost::asio::make_strand(exec);
     std::error_code serverError;
@@ -1935,9 +1938,9 @@ TEST_CASE( "TCP server transport handshake timeout", "[Transport][Rawsock]" )
         [&](ListenResult result)
         {
             REQUIRE( result.ok() );
-            server = result.transport();
+            server = lstn->take();
             server->admit(
-                [&serverError, &server](AdmitResult r)
+                [&](AdmitResult r)
                 {
                     serverError = r.error();
                     server->close();
@@ -1947,7 +1950,6 @@ TEST_CASE( "TCP server transport handshake timeout", "[Transport][Rawsock]" )
 
     using boost::asio::ip::tcp;
 
-    test::SilentClient client{ioctx};
     client.run(tcpEndpoint.port());
 
     ioctx.run();
@@ -2051,7 +2053,7 @@ TEST_CASE( "TCP rawsocket server pongs", "[Transport][Rawsock]" )
         [&](ListenResult result)
         {
             REQUIRE( result.ok() );
-            server = result.transport();
+            server = lstn->take();
             server->admit(
                 [](AdmitResult r) {REQUIRE(r.status() == AdmitStatus::wamp);});
         });

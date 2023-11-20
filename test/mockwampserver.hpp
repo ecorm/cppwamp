@@ -131,7 +131,7 @@ public:
             {
                 auto me = self.lock();
                 if (me && result.ok())
-                    me->onEstablished(result.transport());
+                    me->onEstablished(me->listener_.take());
             });
 
         listen();

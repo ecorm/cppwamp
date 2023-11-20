@@ -751,7 +751,7 @@ private:
         {
         case S::success:
             backoffTimer_.reset();
-            onAccepted(result.transport());
+            onAccepted();
             listen();
             break;
 
@@ -832,16 +832,28 @@ private:
 
     void listen()
     {
-        if (listener_)
-            listener_->establish();
+        if (!listener_)
+            return;
+        listener_->establish();
     }
 
-    void onAccepted(Transporting::Ptr transport)
+    void onAccepted()
     {
         auto self = shared_from_this();
+        const auto sessionCount = sessions_.size() + sheddingTransportsCount_;
 
-        if (sessions_.size() >= options_->connectionSoftLimit())
+        if (sessionCount >= options_->hardConnectionLimit())
         {
+            alert("Client connection dropped due to hard connection limit");
+            listener_->drop();
+            return;
+        }
+
+        auto transport = listener_->take();
+
+        if (sessionCount >= options_->softConnectionLimit())
+        {
+            ++sheddingTransportsCount_;
             transport->shed(
                 [this, self, transport](AdmitResult result)
                 {
@@ -862,17 +874,25 @@ private:
 
     void onRefusalCompleted(AdmitResult result)
     {
-        if (result.status() == AdmitStatus::shedded)
+        if (sheddingTransportsCount_ > 0)
+            --sheddingTransportsCount_;
+
+        switch (result.status())
         {
-            alert("Client connection refused due to connection limit");
-        }
-        else if (result.status() == AdmitStatus::failed)
-        {
-            alert("Error establishing connection with "
-                  "remote peer during transport handshake", result.error());
-        }
-        else
-        {
+        case AdmitStatus::shedded:
+            alert("Client connection refused due to soft connection limit");
+            break;
+
+        case AdmitStatus::rejected:
+            warn("Client handshake rejected or timed out", result.error());
+            break;
+
+        case AdmitStatus::failed:
+            alert("Error establishing connection with remote peer "
+                  "during transport handshake", result.error());
+            break;
+
+        default:
             assert(false && "Unexpected AdmitResult status");
         }
     }
@@ -982,6 +1002,7 @@ private:
     RouterLogger::Ptr logger_;
     ServerSession::Key nextSessionIndex_ = 0;
     TimePoint monitoringDeadline_;
+    std::size_t sheddingTransportsCount_ = 0;
 
     friend class ServerContext;
 };

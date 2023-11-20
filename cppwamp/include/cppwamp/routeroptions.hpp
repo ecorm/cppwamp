@@ -160,7 +160,9 @@ public:
 
     ServerOptions& withAgent(String agent);
 
-    ServerOptions& withConnectionSoftLimit(std::size_t limit);
+    ServerOptions& withSoftConnectionLimit(std::size_t limit);
+
+    ServerOptions& withHardConnectionLimit(std::size_t limit);
 
     ServerOptions& withMonitoringInterval(Timeout timeout);
 
@@ -174,7 +176,9 @@ public:
 
     const String& agent() const;
 
-    std::size_t connectionSoftLimit() const;
+    std::size_t softConnectionLimit() const;
+
+    std::size_t hardConnectionLimit() const;
 
     Timeout monitoringInterval() const;
 
@@ -186,7 +190,10 @@ public:
 
 private:
     // Using Nginx's worker_connections
-    static constexpr std::size_t defaultConnectionSoftLimit_ = 512;
+    static constexpr std::size_t defaultSoftConnectionLimit_ = 512;
+
+    // Using soft limit + 50%
+    static constexpr std::size_t defaultHardConnectionLimit_ = 768;
 
     // Apache httpd RequestReadTimeout has a 1-second granularity
     static constexpr Timeout defaultMonitoringInterval_ =
@@ -206,7 +213,8 @@ private:
     ListenerBuilder listenerBuilder_;
     BufferCodecFactory codecFactory_;
     Authenticator::Ptr authenticator_;
-    std::size_t connectionSoftLimit_ = defaultConnectionSoftLimit_;
+    std::size_t softConnectionLimit_ = defaultSoftConnectionLimit_;
+    std::size_t hardConnectionLimit_ = defaultHardConnectionLimit_;
     Timeout monitoringInterval_ = defaultMonitoringInterval_;
     Timeout challengeTimeout_ = defaultChallengeTimeout_;
     Backoff acceptBackoff_ = defaultBackoff_;

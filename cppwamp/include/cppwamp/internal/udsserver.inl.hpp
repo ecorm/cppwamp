@@ -36,6 +36,12 @@ CPPWAMP_INLINE void Listener<Uds>::observe(Handler handler)
 CPPWAMP_INLINE void Listener<Uds>::establish() {impl_->establish();}
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE Transporting::Ptr Listener<Uds>::take() {return impl_->take();}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Listener<Uds>::drop() {impl_->drop();}
+
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE void Listener<Uds>::cancel() {impl_->cancel();}
 
 } // namespace wamp

@@ -39,6 +39,8 @@ public:
             });
     }
 
+    void close() {socket_.close();}
+
     ErrorCode readError() const {return readError_;}
 
 private:
@@ -53,11 +55,11 @@ private:
             {
                 if (ec)
                     throw boost::system::system_error{ec};
-                onConnected();
+                read();
             });
     }
 
-    void onConnected()
+    void read()
     {
         boost::asio::async_read(
             socket_,
@@ -65,6 +67,8 @@ private:
             [this](ErrorCode ec, std::size_t)
             {
                 readError_ = ec;
+                if (!ec)
+                    read();
             });
     }
 

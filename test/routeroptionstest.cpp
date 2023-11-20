@@ -15,6 +15,7 @@
 #include <cppwamp/transports/tcpclient.hpp>
 #include <cppwamp/transports/tcpserver.hpp>
 #include "routerfixture.hpp"
+#include "silentclient.hpp"
 
 using namespace wamp;
 
@@ -402,7 +403,7 @@ TEST_CASE( "Router challenge timeout option", "[WAMP][Router]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "Router connection limit option", "[WAMP][Router]" )
+TEST_CASE( "Router connection limit options", "[WAMP][Router]" )
 {
     if (!test::RouterFixture::enabled())
         return;
@@ -420,8 +421,9 @@ TEST_CASE( "Router connection limit option", "[WAMP][Router]" )
     auto& routerFixture = test::RouterFixture::instance();
     auto& router = routerFixture.router();
     ServerCloseGuard serverGuard{"tcp45678"};
-    router.openServer(ServerOptions("tcp45678", wamp::TcpEndpoint{45678},
-                                    wamp::json).withConnectionSoftLimit(2));
+    router.openServer(
+        ServerOptions("tcp45678", wamp::TcpEndpoint{45678}, wamp::json)
+            .withSoftConnectionLimit(2).withHardConnectionLimit(3));
 
     IoContext ioctx;
     std::vector<LogEntry> logEntries;
@@ -435,29 +437,68 @@ TEST_CASE( "Router connection limit option", "[WAMP][Router]" )
     Session s3{ioctx};
     auto where = TcpHost{"localhost", 45678}.withFormat(json);
 
-    spawn(ioctx, [&](YieldContext yield)
+    SECTION("soft limit")
     {
-        timer.expires_after(std::chrono::milliseconds(100));
-        timer.async_wait(yield);
-        s1.connect(where, yield).value();
-        s2.connect(where, yield).value();
-        auto w = s3.connect(where, yield);
-        REQUIRE_FALSE(w.has_value());
-        CHECK(w.error() == TransportErrc::shedded);
-        s3.disconnect();
-        while (logEntries.empty())
-            test::suspendCoro(yield);
-        CHECK(logEntries.front().message().find("connection limit"));
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            timer.expires_after(std::chrono::milliseconds(100));
+            timer.async_wait(yield);
+            s1.connect(where, yield).value();
+            s2.connect(where, yield).value();
 
-        s2.disconnect();
-        timer.expires_after(std::chrono::milliseconds(50));
-        timer.async_wait(yield);
-        w = s3.connect(where, yield);
-        CHECK(w.has_value());
-        s1.disconnect();
-        s3.disconnect();
-    });
-    ioctx.run();
+            auto index = s3.connect(where, yield);
+            REQUIRE_FALSE(index.has_value());
+            CHECK(index.error() == TransportErrc::shedded);
+            s3.disconnect();
+
+            while (logEntries.empty())
+                test::suspendCoro(yield);
+            CHECK(logEntries.front().message().find("soft connection limit"));
+
+            s2.disconnect();
+            timer.expires_after(std::chrono::milliseconds(50));
+            timer.async_wait(yield);
+            index = s3.connect(where, yield);
+            CHECK(index.has_value());
+            s1.disconnect();
+            s3.disconnect();
+        });
+        ioctx.run();
+    }
+
+    SECTION("hard limit")
+    {
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            timer.expires_after(std::chrono::milliseconds(100));
+            timer.async_wait(yield);
+            s1.connect(where, yield).value();
+            s2.connect(where, yield).value();
+
+            test::SilentClient sc{ioctx};
+            sc.run(45678);
+
+            auto index = s3.connect(where, yield);
+            REQUIRE_FALSE(index.has_value());
+            CHECK(index.error() == TransportErrc::disconnected);
+            s3.disconnect();
+            sc.close();
+
+            while (logEntries.size() < 2)
+                test::suspendCoro(yield);
+            CHECK(logEntries.at(0).message().find("soft connection limit"));
+            CHECK(logEntries.at(1).message().find("hard connection limit"));
+
+            s2.disconnect();
+            timer.expires_after(std::chrono::milliseconds(50));
+            timer.async_wait(yield);
+            index = s3.connect(where, yield);
+            CHECK(index.has_value());
+            s1.disconnect();
+            s3.disconnect();
+        });
+        ioctx.run();
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -470,13 +511,13 @@ TEST_CASE( "BinaryExponentialBackoffTimer", "[WAMP][Router]" )
 
     auto measureElapsed =
         [&start]() -> int
-    {
-        auto now = chrono::steady_clock::now();
-        auto duration = chrono::steady_clock::now() - start;
-        auto ms = chrono::duration_cast<chrono::milliseconds>(duration);
-        start = now;
-        return ms.count();
-    };
+        {
+            auto now = chrono::steady_clock::now();
+            auto duration = chrono::steady_clock::now() - start;
+            auto ms = chrono::duration_cast<chrono::milliseconds>(duration);
+            start = now;
+            return ms.count();
+        };
 
     SECTION("with minimum and maximum")
     {
@@ -542,45 +583,45 @@ TEST_CASE( "BinaryExponentialBackoffTimer", "[WAMP][Router]" )
         internal::BinaryExponentialBackoffTimer timer{ioctx, backoff};
 
         spawn(ioctx, [&](YieldContext yield)
-              {
-                  start = std::chrono::steady_clock::now();
+        {
+            start = std::chrono::steady_clock::now();
 
-                  timer.wait(yield);
-                  auto elapsed = measureElapsed();
-                  CHECK(std::abs(elapsed - 50) < 10);
+            timer.wait(yield);
+            auto elapsed = measureElapsed();
+            CHECK(std::abs(elapsed - 50) < 10);
 
-                  timer.wait(yield);
-                  elapsed = measureElapsed();
-                  CHECK(std::abs(elapsed - 50) < 10);
+            timer.wait(yield);
+            elapsed = measureElapsed();
+            CHECK(std::abs(elapsed - 50) < 10);
 
-                  timer.reset();
-                  timer.wait(yield);
-                  elapsed = measureElapsed();
-                  CHECK(std::abs(elapsed - 50) < 10);
+            timer.reset();
+            timer.wait(yield);
+            elapsed = measureElapsed();
+            CHECK(std::abs(elapsed - 50) < 10);
 
-                  boost::system::error_code error;
-                  bool done = false;
-                  timer.wait(
-                      [&](boost::system::error_code ec)
-                      {
-                          error = ec;
-                          done = true;
-                      });
-                  timer.cancel();
-                  while (!done)
-                      test::suspendCoro(yield);
-                  elapsed = measureElapsed();
-                  CHECK(elapsed < 10);
-                  CHECK(error == boost::asio::error::operation_aborted);
+            boost::system::error_code error;
+            bool done = false;
+            timer.wait(
+                [&](boost::system::error_code ec)
+                {
+                    error = ec;
+                    done = true;
+                });
+            timer.cancel();
+            while (!done)
+                test::suspendCoro(yield);
+            elapsed = measureElapsed();
+            CHECK(elapsed < 10);
+            CHECK(error == boost::asio::error::operation_aborted);
 
-                  timer.wait(yield);
-                  elapsed = measureElapsed();
-                  CHECK(std::abs(elapsed - 50) < 10);
+            timer.wait(yield);
+            elapsed = measureElapsed();
+            CHECK(std::abs(elapsed - 50) < 10);
 
-                  timer.wait(yield);
-                  elapsed = measureElapsed();
-                  CHECK(std::abs(elapsed - 50) < 10);
-              });
+            timer.wait(yield);
+            elapsed = measureElapsed();
+            CHECK(std::abs(elapsed - 50) < 10);
+        });
 
         ioctx.run();
     }

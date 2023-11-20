@@ -22,7 +22,6 @@
 #include "api.hpp"
 #include "asiodefs.hpp"
 #include "codec.hpp"
-#include "connectioninfo.hpp"
 #include "routerlogger.hpp"
 #include "transport.hpp"
 #include "traits.hpp"
@@ -57,14 +56,8 @@ class ListenResult
 public:
     using Status = ListenStatus;
 
-    /** Default constructor. */
+    /** Default constructor indicating success. */
     ListenResult() = default;
-
-    /** Constructor taking a transport ready for use. */
-    ListenResult(Transporting::Ptr t)
-        : transport_(std::move(t)),
-          status_(ListenStatus::success)
-    {}
 
     /** Constructor taking information on a failed listen attempt. */
     ListenResult(std::error_code e, Status s, const char* operation)
@@ -74,22 +67,13 @@ public:
     {}
 
     /** Determines if the listen attempt was successful. */
-    bool ok() const {return transport_ != nullptr;}
-
-    /** Obtains the new transport instance if the listen attempt
-        was successful.
-        @pre `this->ok()` */
-    const Transporting::Ptr transport() const
-    {
-        assert(ok());
-        return transport_;
-    }
-
-    /** Obtains the error code if the listen attempt failed. */
-    std::error_code error() const {return error_;}
+    bool ok() const {return status_ == Status::success;}
 
     /** Obtains the status of the listen attempt. */
     Status status() const {return status_;}
+
+    /** Obtains the error code if the listen attempt failed. */
+    std::error_code error() const {return error_;}
 
     /** Obtains the name of the socket (or other) operation that failed,
         for logging purposes.
@@ -101,10 +85,9 @@ public:
     }
 
 private:
-    Transporting::Ptr transport_;
     std::error_code error_;
     const char* operation_ = nullptr;
-    Status status_ = Status::fatal;
+    Status status_ = Status::success;
 };
 
 //------------------------------------------------------------------------------
@@ -129,9 +112,15 @@ public:
         or fails. */
     virtual void observe(Handler handler) = 0;
 
-    /** Starts establishing the transport connection, emitting a
-        ListenResult to the observer upon success or failure. */
+    /** Starts accepting a client connection, emitting a ListenResult to the
+        observer upon success or failure. */
     virtual void establish() = 0;
+
+    /** Creates a new transport using the connected client socket. */
+    virtual Transporting::Ptr take() = 0;
+
+    /** Drops the connected client socket due to connection limits. */
+    virtual void drop() = 0;
 
     /** Cancels transport establishment in progress.
         A TransportErrc::aborted error code will be returned via the

@@ -80,7 +80,7 @@ struct LoopbackFixture
         lstn->observe(
             [&](ListenResult result)
             {
-                auto transport = result.transport();
+                auto transport = lstn->take();
                 server = std::move(transport);
                 server->admit(
                     [this](AdmitResult result)
@@ -160,7 +160,7 @@ void checkConnection(LoopbackFixture& f, int expectedCodec,
     f.lstn->observe([&](ListenResult result)
     {
         REQUIRE( result.ok() );
-        auto transport = result.transport();
+        auto transport = f.lstn->take();
         REQUIRE( transport );
         f.server = transport;
         f.server->admit(
@@ -301,7 +301,7 @@ void checkUnsupportedSerializer(LoopbackFixture& f)
     f.lstn->observe([&](ListenResult result)
     {
         REQUIRE( result.ok() );
-        f.server = result.transport();
+        f.server = f.lstn->take();
         f.server->admit(
             [&serverEc](AdmitResult result) {serverEc = result.error();});
     });
@@ -419,7 +419,7 @@ TEST_CASE( "Normal websocket communications", "[Transport][Websocket]" )
         [&](ListenResult result)
         {
             REQUIRE( result.ok() );
-            auto transport = result.transport();
+            auto transport = f.lstn->take();
             REQUIRE( transport != nullptr );
             server2 = transport;
             server2->admit(
@@ -560,7 +560,7 @@ TEST_CASE( "Websocket shedding", "[Transport][Websocket]" )
         [&](ListenResult result)
         {
             REQUIRE( result.ok() );
-            server = result.transport();
+            server = lstn->take();
             server->shed( [&](AdmitResult r) {admitResult = r;} );
         });
     lstn->establish();
@@ -840,7 +840,7 @@ TEST_CASE( "Cancel websocket connect", "[Transport][Websocket]" )
     {
         if (result.ok())
         {
-            f.server = result.transport();
+            f.server = f.lstn->take();
             f.server->admit(
                 [&](AdmitResult result)
                 {
@@ -946,7 +946,7 @@ TEST_CASE( "Cancel websocket send", "[Transport][Websocket]" )
     f.lstn->observe([&](ListenResult result)
     {
         REQUIRE(result.ok());
-        f.server = result.transport();
+        f.server = f.lstn->take();
         f.server->admit(
             [](AdmitResult r) {REQUIRE(r.status() == AdmitStatus::wamp);});
     });
@@ -1069,7 +1069,7 @@ TEST_CASE( "Websocket server transport handshake timeout",
         [&](ListenResult result)
         {
             REQUIRE( result.ok() );
-            server = result.transport();
+            server = lstn->take();
             server->admit(
                 [&serverError](AdmitResult r) {serverError = r.error();});
         });
@@ -1207,7 +1207,7 @@ TEST_CASE( "Router websocket connection limit option", "[WAMP][Router]" )
     auto& router = routerFixture.router();
     ServerCloseGuard serverGuard{"ws45678"};
     router.openServer(ServerOptions("ws45678", wamp::WebsocketEndpoint{45678},
-                                    wamp::cbor).withConnectionSoftLimit(2));
+                                    wamp::cbor).withSoftConnectionLimit(2));
 
     IoContext ioctx;
     std::vector<LogEntry> logEntries;

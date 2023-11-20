@@ -142,9 +142,16 @@ CPPWAMP_INLINE ServerOptions& ServerOptions::withAgent(String agent)
 }
 
 CPPWAMP_INLINE ServerOptions&
-ServerOptions::withConnectionSoftLimit(std::size_t limit)
+ServerOptions::withSoftConnectionLimit(std::size_t limit)
 {
-    connectionSoftLimit_ = limit;
+    softConnectionLimit_ = limit;
+    return *this;
+}
+
+CPPWAMP_INLINE ServerOptions&
+ServerOptions::withHardConnectionLimit(std::size_t limit)
+{
+    hardConnectionLimit_ = limit;
     return *this;
 }
 
@@ -182,9 +189,14 @@ CPPWAMP_INLINE Authenticator::Ptr ServerOptions::authenticator() const
 
 CPPWAMP_INLINE const String& ServerOptions::agent() const {return agent_;}
 
-CPPWAMP_INLINE std::size_t ServerOptions::connectionSoftLimit() const
+CPPWAMP_INLINE std::size_t ServerOptions::softConnectionLimit() const
 {
-    return connectionSoftLimit_;
+    return softConnectionLimit_;
+}
+
+CPPWAMP_INLINE std::size_t ServerOptions::hardConnectionLimit() const
+{
+    return hardConnectionLimit_;
 }
 
 CPPWAMP_INLINE Timeout ServerOptions::monitoringInterval() const

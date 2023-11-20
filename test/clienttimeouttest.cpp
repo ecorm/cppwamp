@@ -66,10 +66,10 @@ TEST_CASE("WAMP Client Connection Timeouts", "[WAMP][Basic]")
         exec, strand, tcpEndpoint, CodecIdSet{KnownCodecIds::json()});
     Transporting::Ptr transport;
     lstn->observe(
-        [&transport](ListenResult result)
+        [&](ListenResult result)
         {
             REQUIRE(result.ok());
-            transport = result.transport();
+            transport = lstn->take();
         });
     lstn->establish();
 

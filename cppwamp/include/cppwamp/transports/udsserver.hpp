@@ -49,6 +49,10 @@ public:
 
     void establish() override;
 
+    Transporting::Ptr take() override;
+
+    void drop() override;
+
     void cancel() override;
 
     /** @name Non-copyable and non-movable */

@@ -31,10 +31,16 @@ CPPWAMP_INLINE void Listener<Websocket>::observe(Handler handler)
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Listener<Websocket>::establish()
+CPPWAMP_INLINE void Listener<Websocket>::establish() {impl_->establish();}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Transporting::Ptr Listener<Websocket>::take()
 {
-    impl_->establish();
+    return impl_->take();
 }
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Listener<Websocket>::drop() {impl_->drop();}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Listener<Websocket>::cancel() {impl_->cancel();}

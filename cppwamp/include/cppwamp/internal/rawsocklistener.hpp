@@ -149,7 +149,8 @@ public:
           codecIds_(std::move(c)),
           settings_(std::make_shared<Settings>(std::move(s))),
           logger_(std::move(l)),
-          acceptor_(strand_)
+          acceptor_(strand_),
+          socket_(strand_)
     {}
 
     ~RawsockListener()
@@ -175,6 +176,14 @@ public:
                 self->onAccept(netEc, std::move(socket));
             });
     }
+
+    Transporting::Ptr take()
+    {
+        return std::make_shared<Transport>(std::move(socket_), settings_,
+                                           codecIds_, logger_);
+    }
+
+    void drop() {socket_.close();}
 
     void cancel() {acceptor_.cancel();}
 
@@ -248,7 +257,7 @@ private:
         return false;
     }
 
-    void onAccept(boost::system::error_code netEc, Socket socket)
+    void onAccept(boost::system::error_code netEc, Socket&& socket)
     {
         establishing_ = false;
 
@@ -258,15 +267,15 @@ private:
         auto status = TConfig::classifyAcceptError(netEc, false);
         if (status != ListenStatus::success)
         {
+            socket.close();
             auto ec = static_cast<std::error_code>(netEc);
             handler_(ListenResult{ec, status, "socket accept"});
             return;
         }
 
         settings_->socketOptions().applyTo(socket);
-        auto transport = std::make_shared<Transport>(
-            std::move(socket), settings_, codecIds_, logger_);
-        handler_(ListenResult{std::move(transport)});
+        socket_ = std::move(socket);
+        handler_(ListenResult{});
     }
 
     AnyIoExecutor executor_;
@@ -275,6 +284,7 @@ private:
     SettingsPtr settings_;
     RouterLogger::Ptr logger_;
     typename NetProtocol::acceptor acceptor_;
+    typename NetProtocol::socket socket_;
     Handler handler_;
     bool establishing_ = false;
 };
