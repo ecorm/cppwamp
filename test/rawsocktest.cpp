@@ -180,6 +180,87 @@ MessageBuffer makeMessageBuffer(const std::string& str)
 }
 
 //------------------------------------------------------------------------------
+enum class ServerTimeoutMonitorTestEvent
+{
+    start,
+    startRead,
+    updateRead,
+    endRead,
+    startWrite,
+    updateWrite,
+    endWrite,
+    check
+};
+
+//------------------------------------------------------------------------------
+struct ServerTimeoutMonitorTestVector
+{
+    using Event = ServerTimeoutMonitorTestEvent;
+
+    ServerTimeoutMonitorTestVector(unsigned ms, Event ev)
+        : milliseconds(ms), event(ev)
+    {}
+
+    ServerTimeoutMonitorTestVector(unsigned ms, Event ev, std::size_t bytes)
+        : milliseconds(ms), event(ev), bytesTransferred(bytes)
+    {}
+
+    ServerTimeoutMonitorTestVector(unsigned ms, Event ev, TransportErrc errc)
+        : milliseconds(ms), event(ev), status(errc)
+    {}
+
+    unsigned milliseconds;
+    ServerTimeoutMonitorTestEvent event;
+    std::size_t bytesTransferred = 0;
+    TransportErrc status = TransportErrc::success;
+};
+
+//------------------------------------------------------------------------------
+void checkServerTimeoutMonitor(
+    const TcpEndpoint& endpoint,
+    const std::vector<ServerTimeoutMonitorTestVector>& testVectors)
+{
+    using E = ServerTimeoutMonitorTestEvent;
+    using Monitor = ServerTimeoutMonitor<TcpEndpoint>;
+    using std::chrono::seconds;
+
+    auto sharedEndpoint = std::make_shared<TcpEndpoint>(std::move(endpoint));
+    Monitor monitor{sharedEndpoint};
+
+    auto start = std::chrono::steady_clock::now();
+    unsigned testSetNumber = 0;
+
+    for (const auto& vec: testVectors)
+    {
+        INFO("For test set number " << testSetNumber <<
+             ", time index " << vec.milliseconds);
+        auto now = start + std::chrono::milliseconds(vec.milliseconds);
+        auto bytes = vec.bytesTransferred;
+
+        switch (vec.event)
+        {
+        case E::start:
+            ++testSetNumber;
+            start = std::chrono::steady_clock::now();
+            monitor = Monitor{sharedEndpoint};
+            monitor.start(now);
+            break;;
+
+        case E::startRead:   monitor.startRead(now);          break;
+        case E::updateRead:  monitor.updateRead(now, bytes);  break;
+        case E::endRead:     monitor.endRead(now);            break;
+        case E::startWrite:  monitor.startWrite(now);         break;
+        case E::updateWrite: monitor.updateWrite(now, bytes); break;
+        case E::endWrite:    monitor.endWrite(now);           break;
+
+        case E::check:
+            CHECK(monitor.check(now) == vec.status);
+            break;
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
 template <typename TFixture>
 void checkConnection(TFixture& f, int expectedCodec,
                      size_t clientMaxRxLength = 64*1024,
@@ -408,6 +489,212 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
 }
 
 } // anonymous namespace
+
+//------------------------------------------------------------------------------
+TEST_CASE( "ServerTimeoutMonitor", "[Transport]" )
+{
+    using E = ServerTimeoutMonitorTestEvent;
+    using std::chrono::seconds;
+
+    static constexpr auto ok = TransportErrc::success;
+
+    SECTION("Idle timeouts")
+    {
+        auto endpoint = TcpEndpoint(tcpTestPort).withLimits(
+            TcpEndpoint::Limits{}
+                .withReadTimeout( {seconds{ 5}, 100, seconds{15}})
+                .withWriteTimeout({seconds{10}, 100, seconds{20}})
+                .withIdleTimeout(  seconds{300}));
+
+        std::vector<ServerTimeoutMonitorTestVector> testVectors
+        {
+            // No reads/writes
+            {     0, E::start},
+            {     1, E::check,       ok},
+            {299999, E::check,       ok},
+            {300000, E::check,       TransportErrc::idleTimeout},
+            {300001, E::check,       TransportErrc::idleTimeout},
+
+            // Delayed by read
+            {     0, E::start},
+            {  1000, E::startRead},
+            {  2000, E::updateRead,  50},
+            {  3000, E::endRead},
+            {  8000, E::check,       ok},
+            {302999, E::check,       ok},
+            {303000, E::check,       TransportErrc::idleTimeout},
+
+            // Delayed by write
+            {     0, E::start},
+            {  1000, E::startWrite},
+            {  2000, E::updateWrite, 50},
+            {  3000, E::endWrite},
+            {  8000, E::check,       ok},
+            {302999, E::check,       ok},
+            {303000, E::check,       TransportErrc::idleTimeout},
+        };
+
+        checkServerTimeoutMonitor(endpoint, testVectors);
+    }
+
+    SECTION("Non-progressive read timeouts")
+    {
+        auto endpoint = TcpEndpoint(tcpTestPort).withLimits(
+            TcpEndpoint::Limits{}.withReadTimeout({seconds{5}}));
+
+        std::vector<ServerTimeoutMonitorTestVector> testVectors
+        {
+            // No bytes transferred
+            {     0, E::start},
+            {     0, E::startRead},
+            {     1, E::check,       ok},
+            {  4999, E::check,       ok},
+            {  5000, E::check,       TransportErrc::readTimeout},
+            {  5001, E::check,       TransportErrc::readTimeout},
+
+            // Incomplete read
+            {     0, E::start},
+            {     0, E::startRead},
+            {  1000, E::updateRead,  100},
+            {  1001, E::check,       ok},
+            {  4999, E::check,       ok},
+            {  5000, E::check,       TransportErrc::readTimeout},
+
+            // Read completed
+            {     0, E::start},
+            {     0, E::startRead},
+            {  1000, E::updateRead,  100},
+            {  2000, E::endRead},
+            {  2001, E::check,       ok},
+            { 10000, E::check,       ok}
+         };
+
+        checkServerTimeoutMonitor(endpoint, testVectors);
+    }
+
+    SECTION("Progressive read timeouts")
+    {
+        auto endpoint = TcpEndpoint(tcpTestPort).withLimits(
+            TcpEndpoint::Limits{}
+                .withReadTimeout({seconds{5}, 100, seconds{15}}));
+
+        std::vector<ServerTimeoutMonitorTestVector> testVectors
+        {
+            // No bytes transferred
+            {     0, E::start},
+            {     0, E::startRead},
+            {     1, E::check,       ok},
+            {  4999, E::check,       ok},
+            {  5000, E::check,       TransportErrc::readTimeout},
+            {  5001, E::check,       TransportErrc::readTimeout},
+
+            // Not enough bytes transferred to delay
+            {     0, E::start},
+            {     0, E::startRead},
+            {  1000, E::updateRead,  99},
+            {  1001, E::check,       ok},
+            {  4999, E::check,       ok},
+            {  5000, E::check,       TransportErrc::readTimeout},
+
+            // Exact number of bytes transferred to delay by 1s
+            {     0, E::start},
+            {     0, E::startRead},
+            {  1000, E::updateRead,  100},
+            {  1001, E::check,       ok},
+            {  5999, E::check,       ok},
+            {  6000, E::check,       TransportErrc::readTimeout},
+
+            // Unused rate bytes carried over
+            {     0, E::start},
+            {     0, E::startRead},
+            {  1000, E::updateRead,   99},
+            {  2000, E::updateRead,  101},
+            {  6999, E::check,       ok},
+            {  7000, E::check,       TransportErrc::readTimeout},
+        };
+
+        checkServerTimeoutMonitor(endpoint, testVectors);
+    }
+
+    SECTION("Non-progressive write timeouts")
+    {
+        auto endpoint = TcpEndpoint(tcpTestPort).withLimits(
+            TcpEndpoint::Limits{}.withWriteTimeout({seconds{10}}));
+
+        std::vector<ServerTimeoutMonitorTestVector> testVectors
+        {
+            // No bytes transferred
+            {     0, E::start},
+            {     0, E::startWrite},
+            {     1, E::check,       ok},
+            {  9999, E::check,       ok},
+            { 10000, E::check,       TransportErrc::writeTimeout},
+            { 10001, E::check,       TransportErrc::writeTimeout},
+
+            // Incomplete write
+            {     0, E::start},
+            {     0, E::startWrite},
+            {  1000, E::updateWrite, 100},
+            {  1001, E::check,       ok},
+            {  9999, E::check,       ok},
+            { 10000, E::check,       TransportErrc::writeTimeout},
+
+            // Write completed
+            {     0, E::start},
+            {     0, E::startWrite},
+            {  1000, E::updateWrite, 100},
+            {  2000, E::endWrite},
+            {  2001, E::check,       ok},
+            { 20000, E::check,       ok}
+        };
+
+        checkServerTimeoutMonitor(endpoint, testVectors);
+    }
+
+    SECTION("Progressive write timeouts")
+    {
+        auto endpoint = TcpEndpoint(tcpTestPort).withLimits(
+            TcpEndpoint::Limits{}
+                .withWriteTimeout({seconds{10}, 100, seconds{20}}));
+
+        std::vector<ServerTimeoutMonitorTestVector> testVectors
+        {
+             // No bytes transferred
+             {     0, E::start},
+             {     0, E::startWrite},
+             {     1, E::check,       ok},
+             {  9999, E::check,       ok},
+             { 10000, E::check,       TransportErrc::writeTimeout},
+             { 10001, E::check,       TransportErrc::writeTimeout},
+
+             // Not enough bytes transferred to delay
+             {     0, E::start},
+             {     0, E::startWrite},
+             {  1000, E::updateWrite, 99},
+             {  1001, E::check,       ok},
+             {  9999, E::check,       ok},
+             { 10000, E::check,       TransportErrc::writeTimeout},
+
+             // Exact number of bytes transferred to delay by 1s
+             {     0, E::start},
+             {     0, E::startWrite},
+             {  1000, E::updateWrite, 100},
+             {  1001, E::check,       ok},
+             { 10999, E::check,       ok},
+             { 11000, E::check,       TransportErrc::writeTimeout},
+
+             // Unused rate bytes carried over
+             {     0, E::start},
+             {     0, E::startWrite},
+             {  1000, E::updateWrite,  99},
+             {  2000, E::updateWrite, 101},
+             { 11999, E::check,       ok},
+             { 12000, E::check,       TransportErrc::writeTimeout},
+         };
+
+        checkServerTimeoutMonitor(endpoint, testVectors);
+    }
+}
 
 //------------------------------------------------------------------------------
 TEST_CASE( "RawsockHandshake Parsing", "[Transport][Rawsock]" )

@@ -107,7 +107,7 @@ protected:
             [this, self](AdmitResult result) {onAdmissionCompletion(result);});
     }
 
-    std::error_code onMonitor() override {return monitor_.check();}
+    std::error_code onMonitor() override {return monitor_.check(now());}
 
     void onStart(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
     {
@@ -127,7 +127,7 @@ protected:
                     onHeartbeat(kind, data, size);
             });
 
-        monitor_.start();
+        monitor_.start(now());
         receive();
     }
 
@@ -189,6 +189,11 @@ private:
     using Byte = MessageBuffer::value_type;
     using Pinger = internal::Pinger;
     using PingBytes = internal::PingBytes;
+
+    static std::chrono::steady_clock::time_point now()
+    {
+        return std::chrono::steady_clock::now();
+    }
 
     void onAdmitTimeout(boost::system::error_code ec)
     {
@@ -346,7 +351,7 @@ private:
 
         txFrame_ = std::move(txQueue_.front());
         txQueue_.pop_front();
-        monitor_.startWrite();
+        monitor_.startWrite(now());
 
         switch (txFrame_.kind())
         {
@@ -395,7 +400,7 @@ private:
 
     void onWampMessageBytesWritten(std::size_t bytesWritten)
     {
-        monitor_.updateWrite(bytesWritten);
+        monitor_.updateWrite(now(), bytesWritten);
 
         assert(bytesWritten <= txBytesRemaining_);
         txBytesRemaining_ -= bytesWritten;
@@ -418,7 +423,7 @@ private:
             txFrame_.payload().data(), txFrame_.payload().size(),
             [this, self](std::error_code ec)
             {
-                monitor_.endWrite();
+                monitor_.endWrite(now());
                 isTransmitting_ = false;
                 if (checkTxError(ec))
                     transmit();
@@ -433,7 +438,7 @@ private:
             txFrame_.payload().data(), txFrame_.payload().size(),
             [this, self](std::error_code ec)
             {
-                monitor_.endWrite();
+                monitor_.endWrite(now());
                 isTransmitting_ = false;
                 if (checkTxError(ec))
                     transmit();
@@ -444,7 +449,7 @@ private:
     {
         if (!ec)
             return true;
-        monitor_.endWrite();
+        monitor_.endWrite(now());
         isTransmitting_ = false;
         if (txErrorHandler_)
             post(txErrorHandler_, ec);
@@ -455,7 +460,7 @@ private:
     void receive()
     {
         rxBuffer_.clear();
-        monitor_.startRead();
+        monitor_.startRead(now());
         receiveMore();
     }
 
@@ -476,7 +481,7 @@ private:
 
     void onRead(std::size_t bytesReceived, bool done)
     {
-        monitor_.updateRead(bytesReceived);
+        monitor_.updateRead(now(), bytesReceived);
 
         if (!done)
             return receiveMore();
@@ -492,7 +497,7 @@ private:
         if (!ec)
             return true;
 
-        monitor_.endRead();
+        monitor_.endRead(now());
 
         if (shutdownHandler_ != nullptr)
         {

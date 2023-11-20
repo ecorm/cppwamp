@@ -30,7 +30,7 @@ struct TimeoutRecord
     using Key = TKey;
     using Clock = std::chrono::steady_clock;
     using Duration = Clock::duration;
-    using Timepoint = Clock::time_point;
+    using TimePoint = Clock::time_point;
 
     TimeoutRecord() = default;
 
@@ -45,10 +45,10 @@ struct TimeoutRecord
     }
 
     Key key = {};
-    Timepoint deadline;
+    TimePoint deadline;
 
 private:
-    static Timepoint clampedDeadline(Duration timeout)
+    static TimePoint clampedDeadline(Duration timeout)
     {
         using Limits = std::numeric_limits<typename Duration::rep>;
         auto now = Clock::now().time_since_epoch().count();
@@ -63,7 +63,7 @@ private:
         {
             ticks = 0;
         }
-        return Timepoint{Duration{now + ticks}};
+        return TimePoint{Duration{now + ticks}};
     }
 };
 
@@ -200,7 +200,7 @@ private:
         }
     }
 
-    // std::map<Timepoint, Key> cannot be used because deadlines are
+    // std::map<TimePoint, Key> cannot be used because deadlines are
     // not guaranteed to be unique.
     RecordSet deadlines_;
     std::map<Key, typename RecordSet::iterator> byKey_;

@@ -627,12 +627,12 @@ public:
 
 private:
     using Clock = std::chrono::steady_clock;
-    using Timepoint = Clock::time_point;
+    using TimePoint = Clock::time_point;
 
     boost::asio::steady_timer backoffTimer_;
     Backoff backoff_;
     Timeout backoffDelay_ = unspecifiedTimeout;
-    Timepoint backoffDeadline_;
+    TimePoint backoffDeadline_;
 };
 
 //------------------------------------------------------------------------------
@@ -669,10 +669,10 @@ public:
 
 private:
     using SessionTimeoutScheduler = TimeoutScheduler<ServerSession::Key>;
-    using Timepoint = std::chrono::steady_clock::time_point;
+    using TimePoint = std::chrono::steady_clock::time_point;
     using Backoff = BinaryExponentialBackoff;
 
-    static Timepoint steadyTime() {return std::chrono::steady_clock::now();}
+    static TimePoint steadyTime() {return std::chrono::steady_clock::now();}
 
     RouterServer(AnyIoExecutor e, ServerOptions&& c, RouterContext&& r)
         : executor_(std::move(e)),
@@ -981,7 +981,7 @@ private:
     Listening::Ptr listener_;
     RouterLogger::Ptr logger_;
     ServerSession::Key nextSessionIndex_ = 0;
-    Timepoint monitoringDeadline_;
+    TimePoint monitoringDeadline_;
 
     friend class ServerContext;
 };

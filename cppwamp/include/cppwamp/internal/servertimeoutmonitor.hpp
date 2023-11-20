@@ -22,20 +22,20 @@ namespace internal
 class ProgressiveDeadline
 {
 public:
-    using Timepoint = std::chrono::steady_clock::time_point;
+    using TimePoint = std::chrono::steady_clock::time_point;
 
     void reset()
     {
-        deadline_ = Timepoint::max();
-        maxDeadline_ = Timepoint::max();
+        deadline_ = TimePoint::max();
+        maxDeadline_ = TimePoint::max();
         bytesBanked_ = 0;
     }
 
-    void start(const ProgressiveTimeout& timeout, Timepoint now)
+    void start(const ProgressiveTimeout& timeout, TimePoint now)
     {
         const bool minTimeoutUnspecifed = timeout.min() == unspecifiedTimeout;
         const bool maxTimeoutUnspecifed = timeout.max() == unspecifiedTimeout;
-        maxDeadline_ = maxTimeoutUnspecifed ? Timepoint::max()
+        maxDeadline_ = maxTimeoutUnspecifed ? TimePoint::max()
                                             : now + timeout.max();
         deadline_ = minTimeoutUnspecifed ? maxDeadline_ : now + timeout.min();
     }
@@ -62,11 +62,11 @@ public:
         }
     }
 
-    Timepoint due() const {return deadline_;}
+    TimePoint due() const {return deadline_;}
 
 private:
-    Timepoint deadline_ = Timepoint::max();
-    Timepoint maxDeadline_ = Timepoint::max();
+    TimePoint deadline_ = TimePoint::max();
+    TimePoint maxDeadline_ = TimePoint::max();
     std::size_t bytesBanked_ = 0;
 };
 
@@ -77,80 +77,75 @@ class ServerTimeoutMonitor
 public:
     using Settings = TSettings;
     using SettingsPtr = std::shared_ptr<Settings>;
+    using TimePoint = std::chrono::steady_clock::time_point;
 
     explicit ServerTimeoutMonitor(SettingsPtr settings)
         : settings_(std::move(settings))
     {}
 
-    void start() {bumpActivityDeadline();}
+    void start(TimePoint now) {bumpActivityDeadline(now);}
 
-    void startRead()
+    void startRead(TimePoint now)
     {
-        readDeadline_.start(settings_->limits().readTimeout(), steadyTime());
-        bumpActivityDeadline();
+        readDeadline_.start(settings_->limits().readTimeout(), now);
+        bumpActivityDeadline(now);
     }
 
-    void updateRead(std::size_t bytesRead)
+    void updateRead(TimePoint now, std::size_t bytesRead)
     {
         readDeadline_.update(settings_->limits().readTimeout(), bytesRead);
-        bumpActivityDeadline();
+        bumpActivityDeadline(now);
     }
 
-    void endRead()
+    void endRead(TimePoint now)
     {
         readDeadline_.reset();
-        bumpActivityDeadline();
+        bumpActivityDeadline(now);
     }
 
-    void startWrite()
+    void startWrite(TimePoint now)
     {
-        writeDeadline_.start(settings_->limits().writeTimeout(), steadyTime());
-        bumpActivityDeadline();
+        writeDeadline_.start(settings_->limits().writeTimeout(), now);
+        bumpActivityDeadline(now);
     }
 
-    void updateWrite(std::size_t bytesWritten)
+    void updateWrite(TimePoint now, std::size_t bytesWritten)
     {
         writeDeadline_.update(settings_->limits().writeTimeout(), bytesWritten);
-        bumpActivityDeadline();
+        bumpActivityDeadline(now);
     }
 
-    void endWrite()
+    void endWrite(TimePoint now)
     {
         writeDeadline_.reset();
-        bumpActivityDeadline();
+        bumpActivityDeadline(now);
     }
 
-    std::error_code check() const
+    std::error_code check(TimePoint now) const
     {
-        auto now = steadyTime();
-
-        if (now > activityDeadline_)
+        if (now >= activityDeadline_)
             return make_error_code(TransportErrc::idleTimeout);
 
-        if (now > readDeadline_.due())
+        if (now >= readDeadline_.due())
             return make_error_code(TransportErrc::readTimeout);
 
-        if (now > writeDeadline_.due())
+        if (now >= writeDeadline_.due())
             return make_error_code(TransportErrc::writeTimeout);
 
         return {};
     }
 
 private:
-    using Timepoint = std::chrono::steady_clock::time_point;
-
-    static Timepoint steadyTime() {return std::chrono::steady_clock::now();}
-
-    void bumpActivityDeadline()
+    void bumpActivityDeadline(TimePoint now)
     {
         auto timeout = settings_->limits().idleTimeout();
         if (internal::timeoutIsDefinite(timeout))
-            activityDeadline_ = steadyTime() + timeout;
+            activityDeadline_ = now + timeout;
     }
 
     internal::ProgressiveDeadline readDeadline_;
     internal::ProgressiveDeadline writeDeadline_;
-    Timepoint activityDeadline_ = Timepoint::max();
+    TimePoint activityDeadline_ = TimePoint::max();
     SettingsPtr settings_;
 };
 
