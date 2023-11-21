@@ -29,10 +29,13 @@
 #include <boost/asio/defer.hpp>
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/post.hpp>
-#include "traits.hpp"
 
-// TODO: Immediate executor support for Boost >= 1.82
-// https://github.com/chriskohlhoff/asio/issues/1320
+#if defined(BOOST_VERSION) && BOOST_VERSION >= 108300
+    #include <boost/asio/associated_immediate_executor.hpp>
+    #define CPPWAMP_HAS_IMMEDIATE_EXECUTORS 1
+#endif
+
+#include "traits.hpp"
 
 namespace wamp
 {
@@ -104,6 +107,9 @@ public:
     template <typename S, CPPWAMP_NEEDS(otherConstructible<S>()) = 0>
     AnyReusableHandler(const AnyReusableHandler<S>& rhs)
         : executor_(rhs.executor_),
+#ifdef CPPWAMP_HAS_IMMEDIATE_EXECUTOR
+          immediate_executor_(rhs.immediate_executor_)
+#endif
           handler_(rhs.handler_)
     {}
 
@@ -115,6 +121,9 @@ public:
     template <typename S, CPPWAMP_NEEDS(otherConstructible<S>()) = 0>
     AnyReusableHandler(AnyReusableHandler<S>&& rhs) noexcept
         : executor_(std::move(rhs.executor_)),
+#ifdef CPPWAMP_HAS_IMMEDIATE_EXECUTOR
+          immediate_executor_(std::move(rhs.immediate_executor_))
+#endif
           handler_(std::move(rhs.handler_))
     {}
 
@@ -128,6 +137,10 @@ public:
     AnyReusableHandler(F&& handler)
         : executor_(boost::asio::get_associated_executor(
                         handler, AnyCompletionExecutor{})),
+#ifdef CPPWAMP_HAS_IMMEDIATE_EXECUTOR
+          immediate_executor_(boost::asio::get_associated_immediate_executor(
+            handler, AnyCompletionExecutor{})),
+#endif
           handler_(std::forward<F>(handler))
     {}
 
@@ -140,6 +153,9 @@ public:
     AnyReusableHandler& operator=(std::nullptr_t) noexcept
     {
         executor_ = nullptr;
+#ifdef CPPWAMP_HAS_IMMEDIATE_EXECUTOR
+        immediateExecutor_ = nullptr;
+#endif
         handler_ = nullptr;
         return *this;
     }
@@ -150,6 +166,9 @@ public:
         // boost::asio::executor does not have member swap
         using std::swap;
         swap(executor_, rhs.executor_);
+#ifdef CPPWAMP_HAS_IMMEDIATE_EXECUTOR
+        swap(immediate_executor_, rhs.immediate_executor_);
+#endif
 
         handler_.swap(rhs.handler_);
     }
@@ -166,6 +185,16 @@ public:
     /** Assigns the executor to be associated with this handler. */
     void set_executor(Executor exec) {executor_ = std::move(exec);}
 
+#if defined(CPPWAMP_HAS_IMMEDIATE_EXECUTORS) || defined(CPPWAMP_FOR_DOXYGEN)
+
+    /** Obtains the executor associated with this handler. */
+    const Executor& get_immediate_executor() const {return executor_;}
+
+    /** Assigns the executor to be associated with this handler. */
+    void set_immediate_executor(Executor exec) {executor_ = std::move(exec);}
+
+#endif // CPPWAMP_HAS_IMMEDIATE_EXECUTORS
+
     /** Invokes the handler with the given arguments. */
     template <typename... Ts>
     auto operator()(Ts&&... args) const
@@ -176,6 +205,9 @@ public:
 
 private:
     Executor executor_;
+#ifdef CPPWAMP_HAS_IMMEDIATE_EXECUTORS
+    Executor immediate_executor_;
+#endif
     Function handler_;
 
     template <typename> friend class AnyReusableHandler;
@@ -235,6 +267,20 @@ struct associated_executor<wamp::AnyReusableHandler<S>, E>
         return f.get_executor() ? f.get_executor() : e;
     }
 };
+
+#ifdef CPPWAMP_HAS_IMMEDIATE_EXECUTORS
+// Enable boost::asio::get_associated_immediate_executor for AnyReusableHandler.
+template <typename S, typename E>
+struct associated_immediate_executor<wamp::AnyReusableHandler<S>, E>
+{
+    using type = typename wamp::AnyReusableHandler<S>::Executor;
+
+    static type get(const wamp::AnyReusableHandler<S>& f, const E& e = E{})
+    {
+        return f.get_immediate_executor() ? f.get_immediate_executor() : e;
+    }
+};
+#endif
 
 // Enable boost::asio::get_associated_allocator for AnyReusableHandler.
 template <typename S, typename A>
