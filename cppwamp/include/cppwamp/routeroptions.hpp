@@ -13,6 +13,7 @@
 //------------------------------------------------------------------------------
 
 /* Security options wishlist:
+    - Simultaneous connection limit per client IP
     - Pending call quota
     - Progressive calls quota
     - Publication quota
@@ -20,7 +21,7 @@
     - Registration quota
     - IP allow/block lists
     - Authentication lockout/cooldown
-    - Bandwidth throttling/limiting
+    - Message rate limiting (https://github.com/wamp-proto/wamp-proto/issues/510)
     - Unjoined time limit
 */
 
@@ -189,35 +190,21 @@ public:
     Backoff outageBackoff() const;
 
 private:
-    // Using Nginx's worker_connections
-    static constexpr std::size_t defaultSoftConnectionLimit_ = 512;
-
-    // Using soft limit + 50%
-    static constexpr std::size_t defaultHardConnectionLimit_ = 768;
-
-    // Apache httpd RequestReadTimeout has a 1-second granularity
-    static constexpr Timeout defaultMonitoringInterval_ =
-        std::chrono::seconds{1};
-
-    // Using ejabberd's negotiation_timeout
-    static constexpr Timeout defaultChallengeTimeout_ =
-        std::chrono::seconds{30};
-
-    // Starts from approximately Nginx's accept_mutex_delay and ends with
-    // an arbitrarily chosen max delay.
-    static constexpr Backoff defaultBackoff_{std::chrono::milliseconds{625},
-                                             std::chrono::seconds{10}};
-
     String name_;
     String agent_;
     ListenerBuilder listenerBuilder_;
     BufferCodecFactory codecFactory_;
     Authenticator::Ptr authenticator_;
-    std::size_t softConnectionLimit_ = defaultSoftConnectionLimit_;
-    std::size_t hardConnectionLimit_ = defaultHardConnectionLimit_;
-    Timeout monitoringInterval_ = defaultMonitoringInterval_;
-    Timeout challengeTimeout_ = defaultChallengeTimeout_;
-    Backoff acceptBackoff_ = defaultBackoff_;
+    std::size_t softConnectionLimit_ = 512; // Using Nginx's worker_connections
+    std::size_t hardConnectionLimit_ = 768; // // Using soft limit + 50%
+    Timeout monitoringInterval_ = std::chrono::seconds{1};
+        // Apache httpd RequestReadTimeout has a 1-second granularity
+    Timeout challengeTimeout_ = std::chrono::seconds{30};
+        // Using ejabberd's negotiation_timeout
+    Backoff acceptBackoff_ = {std::chrono::milliseconds{625},
+                              std::chrono::seconds{10}};
+        // Starts from approximately Nginx's accept_mutex_delay and ends with
+        // an arbitrarily chosen max delay.
 
 public: // Internal use only
     Listening::Ptr makeListener(internal::PassKey, AnyIoExecutor e,

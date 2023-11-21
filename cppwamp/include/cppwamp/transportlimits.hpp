@@ -45,11 +45,8 @@ public:
     }
 
 private:
-    // Using ejabber's send_timeout
-    static constexpr Timeout defaultMaxTimeout_ = std::chrono::seconds{15};
-
     Timeout min_ = unspecifiedTimeout;
-    Timeout max_ = defaultMaxTimeout_;
+    Timeout max_ = std::chrono::seconds{15}; // Using ejabber's send_timeout
     std::size_t rate_ = 0;
 };
 
@@ -87,15 +84,12 @@ private:
 
     TDerived& derived() {return static_cast<TDerived&>(*this);}
 
-    // Using Gecko's kLingeringCloseTimeout
-    static constexpr Timeout defaultLingerTimeout_ = std::chrono::seconds{1};
-
-    // Using WAMP's raw socket maximum payload length
-    static constexpr std::size_t defaultMaxMessageSize_ = 16*1024*1024;
-
-    Timeout lingerTimeout_    = defaultLingerTimeout_;
-    std::size_t readMsgSize_  = defaultMaxMessageSize_;
-    std::size_t writeMsgSize_ = defaultMaxMessageSize_;
+    Timeout lingerTimeout_ = std::chrono::milliseconds{1000};
+        // Using Gecko's kLingeringCloseTimeout
+    std::size_t readMsgSize_ = 16*1024*1024;
+        // Using WAMP's raw socket maximum payload length
+    std::size_t writeMsgSize_ = 16*1024*1024;
+        // Using WAMP's raw socket maximum payload length
 };
 
 //------------------------------------------------------------------------------
@@ -144,18 +138,6 @@ public:
     int backlogCapacity() const {return backlogCapacity_;}
 
 private:
-    // Using ejabberd's negotiation_timeout
-    static constexpr Timeout defaultHandshakeTimeout_{std::chrono::seconds{30}};
-
-    // Using ejabberd's websocket_timeout
-    static constexpr Timeout defaultIdleTimeout_{std::chrono::seconds{300}};
-
-    // Using Nginx's lingering_time
-    static constexpr Timeout defaultLingerTimeout_{std::chrono::seconds{30}};
-
-    // Using WAMP's raw socket maximum payload length
-    static constexpr std::size_t defaultMaxMessageSize_ = 16*1024*1024;
-
     template <typename T>
     TDerived& set(T& member, T value)
     {
@@ -179,12 +161,17 @@ private:
 
     ProgressiveTimeout readTimeout_;
     ProgressiveTimeout writeTimeout_;
-    Timeout handshakeTimeout_ = defaultHandshakeTimeout_;
-    Timeout idleTimeout_      = defaultIdleTimeout_;
-    Timeout lingerTimeout_    = defaultLingerTimeout_;
-    std::size_t readMsgSize_  = defaultMaxMessageSize_;
-    std::size_t writeMsgSize_ = defaultMaxMessageSize_;
-    int backlogCapacity_      = 0; // Use Asio's default by default
+    Timeout handshakeTimeout_ = std::chrono::seconds{30};
+        // Using ejabberd's negotiation_timeout
+    Timeout idleTimeout_ = std::chrono::seconds{300};
+        // Using ejabberd's websocket_timeout
+    Timeout lingerTimeout_ = std::chrono::seconds{30};
+        // Using Nginx's lingering_time
+    std::size_t readMsgSize_ = 16*1024*1024;
+        // Using WAMP's raw socket maximum payload length
+    std::size_t writeMsgSize_ = 16*1024*1024;
+        // Using WAMP's raw socket maximum payload length
+    int backlogCapacity_ = 0; // Use Asio's default by default
 };
 
 } // namespace wamp
