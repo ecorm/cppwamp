@@ -24,12 +24,6 @@
 namespace wamp
 {
 
-template <typename T>
-using in_place_type_t = std::in_place_type_t<T>;
-
-template <typename T>
-constexpr in_place_type_t<T> in_place_type{};
-
 using bad_any_cast = std::bad_any_cast;
 
 using any = std::any;
