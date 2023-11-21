@@ -15,11 +15,11 @@
 #include <boost/asio/detached.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/use_awaitable.hpp>
-#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
-#include <cppwamp/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/variant.hpp>
+#include <cppwamp/codecs/json.hpp>
+#include <cppwamp/transports/tcpclient.hpp>
 
 const std::string realm = "cppwamp.demo.time";
 const std::string address = "localhost";
@@ -59,7 +59,7 @@ boost::asio::awaitable<void> service(wamp::Session& session,
     using boost::asio::use_awaitable;
 
     (co_await session.connect(std::move(where), use_awaitable)).value();
-    (co_await session.join(Realm(realm), use_awaitable)).value();
+    (co_await session.join(Petition(realm), use_awaitable)).value();
     (co_await session.enroll(Procedure("get_time"),
                               simpleRpc<std::tm>(&getTime),
                               use_awaitable)).value();
