@@ -228,19 +228,19 @@ public:
 
     /** Asynchronously leaves the WAMP session. */
     template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<Reason>, C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<Goodbye>, C>
     leave(C&& completion);
 
     /** Asynchronously leaves the WAMP session with the given reason. */
     template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<Reason>, C>
-    leave(Reason reason, C&& completion);
+    CPPWAMP_NODISCARD Deduced<ErrorOr<Goodbye>, C>
+    leave(Goodbye reason, C&& completion);
 
     /** Asynchronously leaves the WAMP session with the given reason and
         timeout duration. */
     template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<Reason>, C>
-    leave(Reason reason, Timeout timeout, C&& completion);
+    CPPWAMP_NODISCARD Deduced<ErrorOr<Goodbye>, C>
+    leave(Goodbye reason, Timeout timeout, C&& completion);
 
     /** Gracefully closes the transport between the client and router. */
     template <typename C>
@@ -405,7 +405,7 @@ private:
     void doConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f);
     void doJoin(Petition&& p, ChallengeSlot&& s,
                 CompletionHandler<Welcome>&& f);
-    void doLeave(Reason&& reason, Timeout t, CompletionHandler<Reason>&& f);
+    void doLeave(Goodbye&& reason, Timeout t, CompletionHandler<Goodbye>&& f);
     void doDisconnect(Timeout t, CompletionHandler<bool>&& f);
     void doSubscribe(Topic&& t, EventSlot&& s,
                      CompletionHandler<Subscription>&& f);
@@ -452,14 +452,14 @@ struct Session::JoinOp
 //------------------------------------------------------------------------------
 struct Session::LeaveOp
 {
-    using ResultValue = Reason;
+    using ResultValue = Goodbye;
     Session* self;
-    Reason r;
+    Goodbye g;
     Timeout t;
 
     template <typename F> void operator()(F&& f)
     {
-        self->doLeave(std::move(r), t,
+        self->doLeave(std::move(g), t,
                       self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
@@ -757,7 +757,7 @@ Session::join(
 }
 
 //------------------------------------------------------------------------------
-/** @tparam C Callable handler with signature `void (ErrorOr<Reason>)`, or a
+/** @tparam C Callable handler with signature `void (ErrorOr<Goodbye>)`, or a
               compatible Boost.Asio completion token.
     @details The "wamp.close.close_realm" reason is sent as part of the
              outgoing `GOODBYE` message.
@@ -767,19 +767,19 @@ Session::join(
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<Reason>, C>
+Deduced<ErrorOr<Goodbye>, C>
 #else
-Session::template Deduced<ErrorOr<Reason>, C>
+Session::template Deduced<ErrorOr<Goodbye>, C>
 #endif
 Session::leave(
     C&& completion ///< Completion handler or token.
     )
 {
-    return leave(Reason{WampErrc::closeRealm}, std::forward<C>(completion));
+    return leave(Goodbye{WampErrc::closeRealm}, std::forward<C>(completion));
 }
 
 //------------------------------------------------------------------------------
-/** @tparam C Callable handler with signature `void (ErrorOr<Reason>)`, or a
+/** @tparam C Callable handler with signature `void (ErrorOr<Goodbye>)`, or a
               compatible Boost.Asio completion token.
     @return The _Reason_ URI and details from the `GOODBYE` response returned
             by the router.
@@ -787,12 +787,12 @@ Session::leave(
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<Reason>, C>
+Deduced<ErrorOr<Goodbye>, C>
 #else
-Session::template Deduced<ErrorOr<Reason>, C>
+Session::template Deduced<ErrorOr<Goodbye>, C>
 #endif
 Session::leave(
-    Reason reason, ///< %Reason URI and other options.
+    Goodbye reason, ///< %Goodbye URI and other options.
     C&& completion ///< Completion handler or token.
     )
 {
@@ -801,16 +801,16 @@ Session::leave(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::leave(Reason, C&&) */
+/** @copydetails Session::leave(Goodbye, C&&) */
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<Reason>, C>
+Deduced<ErrorOr<Goodbye>, C>
 #else
-Session::template Deduced<ErrorOr<Reason>, C>
+Session::template Deduced<ErrorOr<Goodbye>, C>
 #endif
 Session::leave(
-    Reason reason,   ///< %Reason URI and other options.
+    Goodbye reason,  ///< %Goodbye URI and other options.
     Timeout timeout, ///< Timeout duration.
     C&& completion   ///< Completion handler or token.
     )
@@ -831,7 +831,7 @@ Session::leave(
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<Reason>, C>
+Deduced<ErrorOr<bool>, C>
 #else
 Session::template Deduced<ErrorOr<bool>, C>
 #endif
@@ -850,7 +850,7 @@ Session::disconnect(
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<Reason>, C>
+Deduced<ErrorOr<bool>, C>
 #else
 Session::template Deduced<ErrorOr<bool>, C>
 #endif

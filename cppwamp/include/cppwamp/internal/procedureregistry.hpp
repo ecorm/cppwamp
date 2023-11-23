@@ -57,9 +57,9 @@ struct StreamRegistration
     StreamRegistration(StreamSlot&& ss, Uri uri, ClientContext ctx,
                        bool invitationExpected)
         : streamSlot(std::move(ss)),
-        uri(std::move(uri)),
-        link(RegistrationLink::create(std::move(ctx))),
-        invitationExpected(invitationExpected)
+          uri(std::move(uri)),
+          link(RegistrationLink::create(std::move(ctx))),
+          invitationExpected(invitationExpected)
     {}
 
     void setRegistrationId(RegistrationId rid) {link->setKey(rid);}

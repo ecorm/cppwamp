@@ -288,7 +288,7 @@ private:
         serverOptions_->authenticator()->authenticate(authExchange_, executor_);
     }
 
-    void onPeerGoodbye(Reason&& reason, bool wasShuttingDown) override
+    void onPeerGoodbye(Goodbye&& reason, bool wasShuttingDown) override
     {
         report(reason.info(false));
 

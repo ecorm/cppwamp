@@ -70,7 +70,6 @@ public:
 
     void abort(Reason r)
     {
-        r.setKindToAbort({});
         if (logger_)
             report(r.info(true));
         onRouterAbort(std::move(r));

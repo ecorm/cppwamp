@@ -290,7 +290,7 @@ public:
 
     Invocation makeProgressiveInvocation(Rpc&& rpc)
     {
-        // TODO: WAMP - Repeat caller ID information?
+        // TODO: WAMP - Repeat initial call options?
         // https://github.com/wamp-proto/wamp-proto/issues/479
 
         assert(isProgressiveCall_);

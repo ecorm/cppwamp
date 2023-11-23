@@ -16,6 +16,7 @@ class DirectRouterLink;
 class Error;
 class Event;
 class Outcome;
+class Reason;
 class Session;
 class Transporting;
 
@@ -31,6 +32,7 @@ namespace internal
         friend class wamp::Error;
         friend class wamp::Event;
         friend class wamp::Outcome;
+        friend class wamp::Reason;
         friend class wamp::Session;
         friend class wamp::Transporting;
         template <typename> friend class BasicCalleeChannelImpl;

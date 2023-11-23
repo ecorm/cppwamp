@@ -63,7 +63,6 @@ public:
             return makeUnexpectedError(MiscErrc::invalidState);
         }
 
-        r.setKindToAbort({});
         const auto& msg = r.message({});
         MessageBuffer buffer;
         codec_.encode(msg.fields(), buffer);
@@ -96,7 +95,7 @@ public:
         return true;
     }
 
-    ErrorOrDone send(Reason&& c) override            {return sendCommand(c);}
+    ErrorOrDone send(Goodbye&& c) override           {return sendCommand(c);}
     ErrorOrDone send(Petition&& c) override          {return sendCommand(c);}
     ErrorOrDone send(Welcome&& c) override           {return sendCommand(c);}
     ErrorOrDone send(Authentication&& c) override    {return sendCommand(c);}
@@ -353,7 +352,7 @@ private:
         auto s = state();
         const bool wasJoining = s == State::establishing ||
                                 s == State::authenticating;
-        Reason r{{}, std::move(msg)};
+        Reason r{PassKey{}, std::move(msg)};
         setState(wasJoining ? State::closed : State::failed);
         listener().onPeerAbort(std::move(r), wasJoining);
     }
@@ -373,7 +372,7 @@ private:
 
     void onGoodbye(Message& msg)
     {
-        Reason reason{{}, std::move(msg)};
+        Goodbye reason{{}, std::move(msg)};
         const bool isShuttingDown = state() == State::shuttingDown;
         listener().onPeerGoodbye(std::move(reason), isShuttingDown);
     }

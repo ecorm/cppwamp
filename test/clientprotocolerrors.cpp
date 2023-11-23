@@ -292,6 +292,35 @@ TEST_CASE( "WAMP protocol violation detection by client", "[WAMP][Advanced]" )
         ioctx.restart();
     }
 
+    {
+        INFO("ABORT with payload arguments is NOT a protocol error");
+
+        server->load(
+        {{
+            {"[3,{},\"wamp.error.authentication_denied\",[42],{\"key\":123}]"},
+        }});
+
+        spawn([&](YieldContext yield)
+        {
+            Reason reason;
+            session.connect(withTcp, yield).value();
+            auto welcome = session.join(
+                Petition{testRealm}.captureAbort(reason),
+                yield);
+            REQUIRE_FALSE(welcome.has_value());
+            CHECK(welcome.error() == WampErrc::authenticationDenied);
+            CHECK(reason.errorCode() == WampErrc::authenticationDenied);
+            REQUIRE_FALSE(reason.args().empty());
+            CHECK(reason.args().front() == 42);
+            CHECK(reason.kwargByKey("key") == 123);
+            session.disconnect();
+            ioctx.stop();
+        });
+
+        ioctx.run();
+        ioctx.restart();
+    }
+
     server->stop();
 }
 

@@ -39,30 +39,93 @@ namespace wamp
 /** Provides the _reason_ URI and other options contained within
     `GOODBYE` and `ABORT` messages.*/
 //------------------------------------------------------------------------------
-class CPPWAMP_API Reason
-    : public Options<Reason, internal::MessageKind::goodbye>
+class CPPWAMP_API Goodbye
+    : public Options<Goodbye, internal::MessageKind::goodbye>
 {
 public:
     // NOLINTBEGIN(google-explicit-constructor)
 
     /** Converting constructor taking an optional reason URI. */
-    Reason(Uri uri = {});
+    Goodbye(Uri uri = {});
 
     /** Converting constructor taking an error code, attempting to convert
         it to a URI. */
-    Reason(std::error_code ec);
+    Goodbye(std::error_code ec);
 
     /** Converting constructor taking a WampErrc, attempting to convert
         it to a reason URI. */
-    Reason(WampErrc errc);
+    Goodbye(WampErrc errc);
 
     // NOLINTEND(google-explicit-constructor)
 
-    /** Constructor taking an error::BadType exception. */
+    /** Obtains the reason URI. */
+    const Uri& uri() const &;
+
+    /** Moves the reason URI. */
+    Uri&& uri() &&;
+
+    /** Attempts to convert the reason URI to a known error code. */
+    WampErrc errorCode() const;
+
+    /** Obtains information for the access log. */
+    AccessActionInfo info(bool isServer) const;
+
+private:
+    static constexpr unsigned uriPos_ = 2;
+
+    using Base = Options<Goodbye, internal::MessageKind::goodbye>;
+
+public:
+    // Internal use only
+    Goodbye(internal::PassKey, internal::Message&& msg);
+    void setUri(internal::PassKey, Uri uri);
+};
+
+
+//------------------------------------------------------------------------------
+/** Provides the _reason_ URI, options, and payload arguments contained
+    within WAMP `ABORT` messages. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API Reason : public Payload<Reason, internal::MessageKind::abort>
+{
+public:
+    /** Default constructor. */
+    Reason();
+
+    // NOLINTBEGIN(google-explicit-constructor)
+
+    /** Converting constructor taking a reason URI and optional positional
+        payload arguments. */
+    template <typename... Ts>
+    Reason(Uri uri, Ts&&... args)
+        : Reason(in_place, std::move(uri), Array{std::forward<Ts>(args)...})
+    {}
+
+    /** Converting constructor taking an error code, attempting to convert
+        it to a reason URI, as well as optional positional payload arguments. */
+    template <typename... Ts>
+    Reason(std::error_code e, Ts&&... args)
+        : Reason(in_place, errorCodeToUri(e), Array{std::forward<Ts>(args)...})
+    {}
+
+    /** Converting constructor taking a WampErrc, attempting to convert
+        it to a reason URI, as well as optional positional payload arguments. */
+    template <typename... Ts>
+    Reason(WampErrc e, Ts&&... args)
+        : Reason(in_place, errorCodeToUri(e), Array{std::forward<Ts>(args)...})
+    {}
+
+    // NOLINTEND(google-explicit-constructor)
+
+    /** Constructor taking an error::BadType exception and
+        interpreting it as a `wamp.error.invalid_argument` reason URI. */
     explicit Reason(const error::BadType& e);
 
     /** Sets the `message` member of the details dictionary. */
     Reason& withHint(String text);
+
+    /** Conversion to bool operator, returning false if the error is empty. */
+    explicit operator bool() const;
 
     /** Obtains the reason URI. */
     const Uri& uri() const &;
@@ -85,13 +148,16 @@ public:
 private:
     static constexpr unsigned uriPos_ = 2;
 
-    using Base = Options<Reason, internal::MessageKind::goodbye>;
+    using Base = Payload<Reason, internal::MessageKind::abort>;
 
-public:
-    // Internal use only
+    explicit Reason(in_place_t, Uri uri, Array args);
+
+public: // Internal use only
     Reason(internal::PassKey, internal::Message&& msg);
-    void setUri(internal::PassKey, Uri uri);
-    void setKindToAbort(internal::PassKey);
+
+    Reason(internal::PassKey, WampErrc errc, Object opts = {});
+
+    Reason(internal::PassKey, std::error_code ec, Object opts = {});
 };
 
 
@@ -105,7 +171,7 @@ public:
     /** Converting constructor taking a realm URI. */
     Petition(Uri realm); // NOLINT(google-explicit-constructor)
 
-    /** Specifies the Reason object in which to store abort details returned
+    /** Specifies the Goodbye object in which to store abort details returned
         by the router. */
     Petition& captureAbort(Reason& reason);
 
@@ -409,6 +475,8 @@ public:
         IncidentKind kind, std::string msg = {});
 
     Incident(IncidentKind kind, std::error_code ec, std::string msg = {});
+
+    Incident(IncidentKind kind, const Goodbye& g);
 
     Incident(IncidentKind kind, const Reason& r);
 

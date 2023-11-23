@@ -41,7 +41,7 @@ public:
 
     virtual void onPeerAuthenticate(Authentication&& c) = 0;
 
-    virtual void onPeerGoodbye(Reason&&, bool wasShuttingDown) = 0;
+    virtual void onPeerGoodbye(Goodbye&&, bool wasShuttingDown) = 0;
 
     virtual void onPeerMessage(Message&& m) = 0;
 

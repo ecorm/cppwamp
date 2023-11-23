@@ -178,7 +178,7 @@ TEST_CASE("WAMP Client Command Timeouts", "[WAMP][Basic]")
                 server->load({{{"[2,1,{}]"}}} /* WELCOME */);
                 s.connect(invalidTcp, yield).value();
                 s.join(Petition{testRealm}, yield).value();
-                auto goodbye = s.leave(Reason{}, timeout, yield);
+                auto goodbye = s.leave(Goodbye{}, timeout, yield);
                 REQUIRE_FALSE(goodbye.has_value());
                 CHECK(goodbye.error() == WampErrc::timeout);
                 CHECK(s.state() == SS::failed);

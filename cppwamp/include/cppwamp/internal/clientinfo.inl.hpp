@@ -15,25 +15,64 @@ namespace wamp
 {
 
 //******************************************************************************
-// Reason
+// Goodbye
 //******************************************************************************
 
-CPPWAMP_INLINE Reason::Reason(Uri uri)
+CPPWAMP_INLINE Goodbye::Goodbye(Uri uri)
     : Base(in_place, Object{}, std::move(uri))
 {}
 
-CPPWAMP_INLINE Reason::Reason(std::error_code ec)
-    : Reason(errorCodeToUri(ec))
+CPPWAMP_INLINE Goodbye::Goodbye(std::error_code ec)
+    : Goodbye(errorCodeToUri(ec))
 {}
 
-CPPWAMP_INLINE Reason::Reason(WampErrc errc)
-    : Reason(errorCodeToUri(errc))
+CPPWAMP_INLINE Goodbye::Goodbye(WampErrc errc)
+    : Goodbye(errorCodeToUri(errc))
 {}
+
+CPPWAMP_INLINE const Uri& Goodbye::uri() const &
+{
+    return message().as<String>(uriPos_);
+}
+
+CPPWAMP_INLINE Uri&& Goodbye::uri() &&
+{
+    return std::move(message().as<String>(uriPos_));
+}
+
+/** @return WampErrc::unknown if the URI is unknown. */
+CPPWAMP_INLINE WampErrc Goodbye::errorCode() const
+{
+    return errorUriToCode(uri());
+}
+
+CPPWAMP_INLINE AccessActionInfo Goodbye::info(bool isServer) const
+{
+    AccessAction action = isServer ? AccessAction::serverGoodbye
+                                   : AccessAction::clientGoodbye;
+    return {action, uri(), options()};
+}
+
+CPPWAMP_INLINE Goodbye::Goodbye(internal::PassKey, internal::Message&& msg)
+    : Base(std::move(msg))
+{}
+
+CPPWAMP_INLINE void Goodbye::setUri(internal::PassKey, Uri uri)
+{
+    message().at(uriPos_) = std::move(uri);
+}
+
+
+//******************************************************************************
+// Reason
+//******************************************************************************
+
+CPPWAMP_INLINE Reason::Reason() : Reason(in_place, {}, {}) {}
 
 CPPWAMP_INLINE Reason::Reason(const error::BadType& e)
     : Reason(WampErrc::invalidArgument)
 {
-    withHint(e.what());
+    withArgs(String{e.what()});
 }
 
 CPPWAMP_INLINE Reason& Reason::withHint(String text)
@@ -41,6 +80,8 @@ CPPWAMP_INLINE Reason& Reason::withHint(String text)
     withOption("message", std::move(text));
     return *this;
 }
+
+CPPWAMP_INLINE Reason::operator bool() const {return !uri().empty();}
 
 CPPWAMP_INLINE const Uri& Reason::uri() const &
 {
@@ -63,41 +104,30 @@ CPPWAMP_INLINE ErrorOr<String> Reason::hint() &&
 }
 
 /** @return WampErrc::unknown if the URI is unknown. */
-CPPWAMP_INLINE WampErrc Reason::errorCode() const
-{
-    return errorUriToCode(uri());
-}
+CPPWAMP_INLINE WampErrc Reason::errorCode() const {return errorUriToCode(uri());}
 
 CPPWAMP_INLINE AccessActionInfo Reason::info(bool isServer) const
 {
-    AccessAction action = {};
-    if (message().kind() == internal::MessageKind::abort)
-    {
-        action = isServer ? AccessAction::serverAbort
-                          : AccessAction::clientAbort;
-    }
-    else
-    {
-        action = isServer ? AccessAction::serverGoodbye
-                          : AccessAction::clientGoodbye;
-    }
-
+    AccessAction action = isServer ? AccessAction::serverAbort
+                                   : AccessAction::clientAbort;
     return {action, uri(), options()};
 }
+
+CPPWAMP_INLINE Reason::Reason(in_place_t, Uri uri, Array args)
+    : Base(in_place, Object{}, std::move(uri), std::move(args), Object{})
+{}
 
 CPPWAMP_INLINE Reason::Reason(internal::PassKey, internal::Message&& msg)
     : Base(std::move(msg))
 {}
 
-CPPWAMP_INLINE void Reason::setUri(internal::PassKey, Uri uri)
-{
-    message().at(uriPos_) = std::move(uri);
-}
+CPPWAMP_INLINE Reason::Reason(internal::PassKey, WampErrc errc, Object opts)
+    : Base(in_place, std::move(opts), errorCodeToUri(errc))
+{}
 
-CPPWAMP_INLINE void Reason::setKindToAbort(internal::PassKey)
-{
-    message().setKind(internal::MessageKind::abort);
-}
+CPPWAMP_INLINE Reason::Reason(internal::PassKey, std::error_code ec, Object opts)
+    : Base(in_place, std::move(opts), errorCodeToUri(ec))
+{}
 
 
 //******************************************************************************
@@ -509,6 +539,13 @@ CPPWAMP_INLINE Incident::Incident(IncidentKind kind, std::error_code ec,
       error_(ec),
       kind_(kind)
 {}
+
+CPPWAMP_INLINE Incident::Incident(IncidentKind kind, const Goodbye& g)
+    : error_(make_error_code(g.errorCode())),
+      kind_(kind)
+{
+    message_ = "With reason URI " + g.uri();
+}
 
 CPPWAMP_INLINE Incident::Incident(IncidentKind kind, const Reason& r)
     : error_(make_error_code(r.errorCode())),

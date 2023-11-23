@@ -205,8 +205,8 @@ GIVEN( "a Session and a ConnectionWish" )
                 CHECK( welcome.features().dealer().all_of(Feature::basic) );
 
                 // Check leaving.
-                Reason reason;
-                s.leave([&reason](ErrorOr<Reason> r) {reason = r.value();});
+                Goodbye reason;
+                s.leave([&reason](ErrorOr<Goodbye> r) {reason = r.value();});
                 CHECK(s.state() == SS::shuttingDown);
 
                 while (reason.uri().empty())
@@ -232,7 +232,7 @@ GIVEN( "a Session and a ConnectionWish" )
                 CHECK( welcome.features().supports(requiredFeatures) );
 
                 // Try leaving with a reason URI this time.
-                Reason reason = s.leave(Reason("wamp.error.system_shutdown"),
+                Goodbye reason = s.leave(Goodbye("wamp.error.system_shutdown"),
                                          yield).value();
                 CHECK_FALSE( reason.uri().empty() );
                 CHECK( incidents.testIfEmptyThenClear() );
@@ -261,7 +261,7 @@ GIVEN( "a Session and a ConnectionWish" )
                 CHECK( s.state() == SS::established );
 
                 // Leave
-                Reason reason = s.leave(yield).value();
+                Goodbye reason = s.leave(yield).value();
                 CHECK_FALSE( reason.uri().empty() );
                 CHECK( s.state() == SS::closed );
 
@@ -291,7 +291,7 @@ GIVEN( "a Session and a ConnectionWish" )
                 CHECK( info.features().supports(requiredFeatures) );
 
                 // Leave
-                Reason reason = s.leave(yield).value();
+                Goodbye reason = s.leave(yield).value();
                 CHECK_FALSE( reason.uri().empty() );
                 CHECK( s.state() == SS::closed );
 
@@ -585,7 +585,7 @@ GIVEN( "a Session and an alternate ConnectionWish" )
                 CHECK( info.features().supports(requiredFeatures) );
 
                 // Check leaving.
-                Reason reason = s.leave(yield).value();
+                Goodbye reason = s.leave(yield).value();
                 CHECK_FALSE( reason.uri().empty() );
                 CHECK( s.state() == SessionState::closed );
             }
@@ -605,7 +605,7 @@ GIVEN( "a Session and an alternate ConnectionWish" )
                 CHECK( info.features().supports(requiredFeatures) );
 
                 // Try leaving with a reason URI this time.
-                Reason reason = s.leave(Reason("wamp.error.system_shutdown"),
+                Goodbye reason = s.leave(Goodbye("wamp.error.system_shutdown"),
                                          yield).value();
                 CHECK_FALSE( reason.uri().empty() );
                 CHECK( s.state() == SessionState::closed );
@@ -770,7 +770,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         checkInvalidUri(
             [](Session& session, YieldContext yield)
             {
-                return session.leave(Reason("#bad"), yield);
+                return session.leave(Goodbye("#bad"), yield);
             } );
     }
 
@@ -813,11 +813,11 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "disconnecting during async leave" )
     {
-        checkDisconnect<Reason>([](Session& session, YieldContext yield,
-                                   bool& completed, ErrorOr<Reason>& result)
+        checkDisconnect<Goodbye>([](Session& session, YieldContext yield,
+                                    bool& completed, ErrorOr<Goodbye>& result)
         {
             session.join(Petition(testRealm), yield).value();
-            session.leave([&](ErrorOr<Reason> reason)
+            session.leave([&](ErrorOr<Goodbye> reason)
             {
                 completed = true;
                 result = reason;

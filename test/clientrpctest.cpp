@@ -913,7 +913,7 @@ GIVEN( "an IO service and a ConnectionWish" )
                 Procedure("rpc"),
                 [&](Invocation) -> Outcome
                 {
-                    f.callee.leave([](ErrorOr<Reason>) {});
+                    f.callee.leave([](ErrorOr<Goodbye>) {});
                     return deferment;
                 },
                 yield).value();

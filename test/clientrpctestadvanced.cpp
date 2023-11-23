@@ -1167,7 +1167,7 @@ GIVEN( "a caller and a callee" )
         {
             if (isFinal)
             {
-                f.caller.leave([](ErrorOr<Reason>) {});
+                f.caller.leave([](ErrorOr<Goodbye>) {});
             }
             else
             {

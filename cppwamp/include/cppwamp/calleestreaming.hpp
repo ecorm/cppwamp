@@ -99,7 +99,8 @@ public:
         during stream registrtion. */
     bool invitationExpected() const;
 
-    /** Accesses the invitation. */
+    /** Accesses the invitation, which contains options and payload arguments
+        from the first invocation. */
     const InputChunk& invitation() const &;
 
     /** Moves the invitation. */

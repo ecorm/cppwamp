@@ -478,6 +478,7 @@ template <typename... Ts>
 Payload<D,K>::Payload(in_place_t, Ts&&... fields)
     : Base(in_place, std::forward<Ts>(fields)...)
 {
+    // TODO: Don't add unused payload fields to outbound messages
     normalize();
 }
 

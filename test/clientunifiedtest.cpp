@@ -238,7 +238,7 @@ GIVEN( "an IO service and a TCP connector" )
         {
             session.connect(where, yield).value();
             session.join(Petition(testRealm), yield).value();
-            session.leave([](ErrorOr<Reason>){});
+            session.leave([](ErrorOr<Goodbye>){});
             while (session.state() != SessionState::shuttingDown)
                 suspendCoro(yield);
             checkInvalidConnect(session, yield);

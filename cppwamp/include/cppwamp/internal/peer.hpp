@@ -97,7 +97,7 @@ public:
     {
         auto oldState = setState(State::closed);
         if (oldState == State::established)
-            send(Reason{WampErrc::goodbyeAndOut});
+            send(Goodbye{WampErrc::goodbyeAndOut});
         onClose();
     }
 
@@ -123,7 +123,7 @@ public:
 
     virtual ErrorOrDone send(Error&&) = 0;
 
-    virtual ErrorOrDone send(Reason&&) = 0;
+    virtual ErrorOrDone send(Goodbye&&) = 0;
     virtual ErrorOrDone send(Petition&&) = 0;
     virtual ErrorOrDone send(Welcome&&) = 0;
     virtual ErrorOrDone send(Authentication&&) = 0;

@@ -80,6 +80,7 @@ struct MessageKindTraits<MessageKind::abort>
     static constexpr unsigned requestIdPos = 0;
     static constexpr unsigned optionsPos   = 1;
     static constexpr unsigned uriPos       = 2;
+    static constexpr unsigned argsPos      = 3;
 };
 
 template <>

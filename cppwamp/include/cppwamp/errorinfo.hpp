@@ -22,7 +22,7 @@
 //------------------------------------------------------------------------------
 /** @file
     @brief Provides data structures for information exchanged via WAMP
-           error messages. */
+           ERROR/ABORT messages. */
 //------------------------------------------------------------------------------
 
 namespace wamp

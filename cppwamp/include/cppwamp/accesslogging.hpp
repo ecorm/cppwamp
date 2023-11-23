@@ -19,7 +19,6 @@
 #include <string>
 #include "api.hpp"
 #include "errorcodes.hpp"
-#include "erroror.hpp"
 #include "sessioninfo.hpp"
 #include "variant.hpp"
 #include "wampdefs.hpp"

@@ -156,18 +156,18 @@ public:
         safelyDispatch<Dispatched>(std::move(r));
     }
 
-    void leave(Reason&& r, Timeout t, CompletionHandler<Reason>&& f)
+    void leave(Goodbye&& g, Timeout t, CompletionHandler<Goodbye>&& f)
     {
         struct Dispatched
         {
             Ptr self;
-            Reason r;
+            Goodbye g;
             Timeout t;
-            CompletionHandler<Reason> f;
-            void operator()() {self->doLeave(std::move(r), t, std::move(f));}
+            CompletionHandler<Goodbye> f;
+            void operator()() {self->doLeave(std::move(g), t, std::move(f));}
         };
 
-        safelyDispatch<Dispatched>(std::move(r), t, std::move(f));
+        safelyDispatch<Dispatched>(std::move(g), t, std::move(f));
     }
 
     void disconnect(Timeout t, CompletionHandler<bool>&& f) noexcept
@@ -500,7 +500,7 @@ private:
             boost::asio::bind_executor(boundExec, std::move(dispatched)));
     }
 
-    void onPeerGoodbye(Reason&& reason, bool wasShuttingDown) override
+    void onPeerGoodbye(Goodbye&& reason, bool wasShuttingDown) override
     {
         if (wasShuttingDown)
         {
@@ -637,7 +637,7 @@ private:
     void onJoinAborted(CompletionHandler<Welcome>&& handler, Message& reply,
                        Reason* reasonPtr)
     {
-        Reason reason{{}, std::move(reply)};
+        Reason reason{PassKey{}, std::move(reply)};
         const auto& uri = reason.uri();
         const WampErrc errc = errorUriToCode(uri);
 
@@ -838,13 +838,13 @@ private:
         }
     }
 
-    void doLeave(Reason&& reason, Timeout timeout,
-                 CompletionHandler<Reason>&& handler)
+    void doLeave(Goodbye&& reason, Timeout timeout,
+                 CompletionHandler<Goodbye>&& handler)
     {
         struct Requested
         {
             Ptr self;
-            CompletionHandler<Reason> handler;
+            CompletionHandler<Goodbye> handler;
 
             void operator()(ErrorOr<Message> reply)
             {
@@ -853,7 +853,7 @@ private:
                 {
                     me.clear();
                     me.peer_->close();
-                    me.completeNow(handler, Reason({}, std::move(*reply)));
+                    me.completeNow(handler, Goodbye({}, std::move(*reply)));
                 }
             }
         };

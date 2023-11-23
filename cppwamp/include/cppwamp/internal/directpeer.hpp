@@ -179,7 +179,7 @@ private:
         return true;
     }
 
-    ErrorOrDone send(Reason&& goodbye) override
+    ErrorOrDone send(Goodbye&& goodbye) override
     {
         assert(state() == State::shuttingDown);
         traceTx(goodbye.message({}));
@@ -187,13 +187,13 @@ private:
         realm_.leave(session_);
         realm_.reset();
         close();
-        Reason reason{errorCodeToUri(WampErrc::goodbyeAndOut)};
+        Goodbye reason{errorCodeToUri(WampErrc::goodbyeAndOut)};
         session_->report(reason.info(true));
 
         struct Posted
         {
             Ptr self;
-            Reason reason;
+            Goodbye reason;
 
             void operator()()
             {

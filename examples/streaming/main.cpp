@@ -45,7 +45,7 @@ public:
     void quit(wamp::YieldContext yield)
     {
         registration_.unregister();
-        session_.leave(wamp::Reason(), yield).value();
+        session_.leave(wamp::Goodbye{}, yield).value();
         session_.disconnect();
     }
 
@@ -106,7 +106,7 @@ public:
 
     void leave(wamp::YieldContext yield)
     {
-        session_.leave(wamp::Reason(), yield).value();
+        session_.leave(wamp::Goodbye{}, yield).value();
         session_.disconnect();
     }
 

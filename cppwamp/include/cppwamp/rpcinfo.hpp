@@ -89,7 +89,7 @@ public:
 
     /** @name Caller Identification
         See [Caller Identification in the WAMP Specification]
-        (https://wamp-proto.org/wamp_latest_ietf.html#name-call-timeouts)
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-caller-identification)
         @{ */
 
     /** Requests caller identity disclosure. */
