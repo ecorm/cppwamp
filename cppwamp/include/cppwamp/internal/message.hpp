@@ -96,6 +96,17 @@ struct Message
         fields_.at(0) = static_cast<Int>(t);
     }
 
+    void trim()
+    {
+        const auto& msgTraits = traits();
+        if (fields_.size() <= msgTraits.minSize)
+            return;
+        if (fields_.back().is<Object>() && fields_.back().as<Object>().empty())
+            fields_.pop_back();
+        if (fields_.back().is<Array>() && fields_.back().as<Array>().empty())
+            fields_.pop_back();
+    }
+
     MessageKind kind() const {return kind_;}
 
     const MessageTraits& traits() const {return MessageTraits::lookup(kind_);}

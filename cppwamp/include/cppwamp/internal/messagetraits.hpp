@@ -294,16 +294,16 @@ struct CPPWAMP_API MessageTraits
     const char* nameOr(const char* fallback) const;
 
     const char* name;
-    MessageKind repliesTo    : 8;
-    size_t requestIdPosition : 8;
-    size_t minSize           : 8;
-    size_t maxSize           : 8;
-    bool isClientRx          : 1;
-    bool isRouterRx          : 1;
-    bool forEstablishing     : 1;
-    bool forAuthenticating   : 1;
-    bool forEstablished      : 1;
-    bool isRequest           : 1;
+    MessageKind repliesTo      : 8;
+    unsigned requestIdPosition : 8;
+    unsigned minSize           : 8;
+    unsigned maxSize           : 8;
+    bool isClientRx            : 1;
+    bool isRouterRx            : 1;
+    bool forEstablishing       : 1;
+    bool forAuthenticating     : 1;
+    bool forEstablished        : 1;
+    bool isRequest             : 1;
     std::array<VariantKind, maxFieldCount> fieldKinds;
 };
 

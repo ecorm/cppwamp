@@ -37,11 +37,12 @@ public:
             transport_->close();
     }
 
-    ErrorOrDone sendMessage(const Message& msg)
+    ErrorOrDone sendMessage(Message& msg)
     {
         assert(msg.kind() != MessageKind::none);
 
         MessageBuffer buffer;
+        msg.trim();
         codec_.encode(msg.fields(), buffer);
         if (buffer.size() > sendLimit_)
             return makeUnexpectedError(WampErrc::payloadSizeExceeded);
@@ -134,8 +135,7 @@ private:
         auto done = sendCommand(error);
         if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
         {
-            error.withArgs(String{"(snipped)"});
-            error.withKwargs({});
+            error.snip({});
             sendCommand(error);
         }
         return done;
@@ -252,7 +252,7 @@ private:
     }
 
     template <typename C>
-    ErrorOrDone sendCommand(const C& command)
+    ErrorOrDone sendCommand(C&& command)
     {
         return sendMessage(command.message({}));
     }

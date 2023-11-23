@@ -321,6 +321,33 @@ TEST_CASE( "WAMP protocol violation detection by client", "[WAMP][Advanced]" )
         ioctx.restart();
     }
 
+    {
+        INFO("Unused payload arguments are trimmed");
+
+        server->load(
+        {
+              {{"[2,1,{}]"}},  // WELCOME
+              {{"[50,1,{}]"}}, // RESULT
+        });
+
+        spawn([&](YieldContext yield)
+        {
+            Reason reason;
+            session.connect(withTcp, yield).value();
+            session.join(testRealm, yield).value();
+            auto result = session.call(Rpc{"rpc"}, yield);
+            CHECK(result.has_value());
+            REQUIRE(server->lastMessageKind() == MessageKind::call);
+            CHECK(server->messages().back().fields().size() ==
+                  internal::MessageTraits::lookup(MessageKind::call).minSize);
+            session.disconnect();
+            ioctx.stop();
+        });
+
+        ioctx.run();
+        ioctx.restart();
+    }
+
     server->stop();
 }
 

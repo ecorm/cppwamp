@@ -177,6 +177,7 @@ public:
     // Internal use only
     Array& args(internal::PassKey);
     Object& kwargs(internal::PassKey);
+    void snip(internal::PassKey);
 };
 
 
@@ -478,7 +479,6 @@ template <typename... Ts>
 Payload<D,K>::Payload(in_place_t, Ts&&... fields)
     : Base(in_place, std::forward<Ts>(fields)...)
 {
-    // TODO: Don't add unused payload fields to outbound messages
     normalize();
 }
 
@@ -684,6 +684,15 @@ template <typename D, internal::MessageKind K>
 Object& Payload<D,K>::kwargs(internal::PassKey)
 {
     return kwargs();
+}
+
+//------------------------------------------------------------------------------
+template <typename D, internal::MessageKind K>
+void Payload<D,K>::snip(internal::PassKey)
+{
+    normalize();
+    withArgs(String{"(snipped)"});
+    withKwargs({});
 }
 
 } // namespace wamp
