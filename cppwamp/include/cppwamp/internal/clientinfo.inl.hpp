@@ -64,68 +64,71 @@ CPPWAMP_INLINE void Goodbye::setUri(internal::PassKey, Uri uri)
 
 
 //******************************************************************************
-// Reason
+// Abort
 //******************************************************************************
 
-CPPWAMP_INLINE Reason::Reason() : Reason(in_place, {}, {}) {}
+CPPWAMP_INLINE Abort::Abort() : Abort(in_place, {}, {}) {}
 
-CPPWAMP_INLINE Reason::Reason(const error::BadType& e)
-    : Reason(WampErrc::invalidArgument)
+CPPWAMP_INLINE Abort::Abort(const error::BadType& e)
+    : Abort(WampErrc::invalidArgument)
 {
-    withArgs(String{e.what()});
+    withHint(String{e.what()});
 }
 
-CPPWAMP_INLINE Reason& Reason::withHint(String text)
+CPPWAMP_INLINE Abort& Abort::withHint(String text)
 {
+    // ABORT payload arguments were only recently added to the WAMP spec,
+    // so place the hint in the details dictionary for backward compatibility.
+    // https://github.com/wamp-proto/wamp-proto/pull/506
     withOption("message", std::move(text));
     return *this;
 }
 
-CPPWAMP_INLINE Reason::operator bool() const {return !uri().empty();}
+CPPWAMP_INLINE Abort::operator bool() const {return !uri().empty();}
 
-CPPWAMP_INLINE const Uri& Reason::uri() const &
+CPPWAMP_INLINE const Uri& Abort::uri() const &
 {
     return message().as<String>(uriPos_);
 }
 
-CPPWAMP_INLINE Uri&& Reason::uri() &&
+CPPWAMP_INLINE Uri&& Abort::uri() &&
 {
     return std::move(message().as<String>(uriPos_));
 }
 
-CPPWAMP_INLINE ErrorOr<String> Reason::hint() const &
+CPPWAMP_INLINE ErrorOr<String> Abort::hint() const &
 {
     return optionAs<String>("message");
 }
 
-CPPWAMP_INLINE ErrorOr<String> Reason::hint() &&
+CPPWAMP_INLINE ErrorOr<String> Abort::hint() &&
 {
     return std::move(*this).optionAs<String>("message");
 }
 
 /** @return WampErrc::unknown if the URI is unknown. */
-CPPWAMP_INLINE WampErrc Reason::errorCode() const {return errorUriToCode(uri());}
+CPPWAMP_INLINE WampErrc Abort::errorCode() const {return errorUriToCode(uri());}
 
-CPPWAMP_INLINE AccessActionInfo Reason::info(bool isServer) const
+CPPWAMP_INLINE AccessActionInfo Abort::info(bool isServer) const
 {
     AccessAction action = isServer ? AccessAction::serverAbort
                                    : AccessAction::clientAbort;
     return {action, uri(), options()};
 }
 
-CPPWAMP_INLINE Reason::Reason(in_place_t, Uri uri, Array args)
+CPPWAMP_INLINE Abort::Abort(in_place_t, Uri uri, Array args)
     : Base(in_place, Object{}, std::move(uri), std::move(args), Object{})
 {}
 
-CPPWAMP_INLINE Reason::Reason(internal::PassKey, internal::Message&& msg)
+CPPWAMP_INLINE Abort::Abort(internal::PassKey, internal::Message&& msg)
     : Base(std::move(msg))
 {}
 
-CPPWAMP_INLINE Reason::Reason(internal::PassKey, WampErrc errc, Object opts)
+CPPWAMP_INLINE Abort::Abort(internal::PassKey, WampErrc errc, Object opts)
     : Base(in_place, std::move(opts), errorCodeToUri(errc))
 {}
 
-CPPWAMP_INLINE Reason::Reason(internal::PassKey, std::error_code ec, Object opts)
+CPPWAMP_INLINE Abort::Abort(internal::PassKey, std::error_code ec, Object opts)
     : Base(in_place, std::move(opts), errorCodeToUri(ec))
 {}
 
@@ -138,7 +141,7 @@ CPPWAMP_INLINE Petition::Petition(Uri realm)
     : Base(in_place, std::move(realm), Object{})
 {}
 
-CPPWAMP_INLINE Petition& Petition::captureAbort(Reason& reason)
+CPPWAMP_INLINE Petition& Petition::captureAbort(Abort& reason)
 {
     abortReason_ = &reason;
     return *this;
@@ -213,7 +216,7 @@ CPPWAMP_INLINE Petition::Petition(internal::PassKey, internal::Message&& msg)
     : Base(std::move(msg))
 {}
 
-CPPWAMP_INLINE Reason* Petition::abortReason(internal::PassKey)
+CPPWAMP_INLINE Abort* Petition::abortReason(internal::PassKey)
 {
     return abortReason_;
 }
@@ -477,7 +480,7 @@ CPPWAMP_INLINE void Challenge::authenticate(Authentication auth)
     challengee_.authenticate(std::move(auth));
 }
 
-CPPWAMP_INLINE void Challenge::fail(Reason reason)
+CPPWAMP_INLINE void Challenge::fail(Abort reason)
 {
     challengee_.failAuthentication(std::move(reason));
 }
@@ -547,13 +550,13 @@ CPPWAMP_INLINE Incident::Incident(IncidentKind kind, const Goodbye& g)
     message_ = "With reason URI " + g.uri();
 }
 
-CPPWAMP_INLINE Incident::Incident(IncidentKind kind, const Reason& r)
-    : error_(make_error_code(r.errorCode())),
+CPPWAMP_INLINE Incident::Incident(IncidentKind kind, const Abort& reason)
+    : error_(make_error_code(reason.errorCode())),
       kind_(kind)
 {
-    message_ = "With reason URI " + r.uri();
-    if (!r.options().empty())
-        message_ += " and details " + toString(r.options());
+    message_ = "With reason URI " + reason.uri();
+    if (!reason.options().empty())
+        message_ += " and details " + toString(reason.options());
 }
 
 CPPWAMP_INLINE Incident::Incident(IncidentKind kind, const Error& e)

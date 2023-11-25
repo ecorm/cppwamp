@@ -56,11 +56,11 @@ CPPWAMP_INLINE void AuthExchange::welcome(AuthInfo info)
         c->safeWelcome(internal::SessionInfoImpl::create(std::move(info)));
 }
 
-CPPWAMP_INLINE void AuthExchange::reject(Reason r)
+CPPWAMP_INLINE void AuthExchange::reject(Abort reason)
 {
     auto c = challenger_.lock();
     if (c)
-        c->safeReject(std::move(r));
+        c->safeReject(std::move(reason));
 }
 
 CPPWAMP_INLINE AuthExchange::Ptr

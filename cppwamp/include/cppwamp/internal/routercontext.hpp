@@ -74,7 +74,7 @@ public:
 
     RealmContext realmAt(const String& uri) const;
 
-    bool closeRealm(const String& uri, Reason reason);
+    bool closeRealm(const String& uri, Abort reason);
 
     uint64_t nextDirectSessionIndex();
 

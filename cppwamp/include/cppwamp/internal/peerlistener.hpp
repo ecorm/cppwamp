@@ -35,7 +35,7 @@ public:
 
     virtual void onPeerHello(Petition&&) = 0;
 
-    virtual void onPeerAbort(Reason&&, bool wasJoining) = 0;
+    virtual void onPeerAbort(Abort&&, bool wasJoining) = 0;
 
     virtual void onPeerChallenge(Challenge&& c) = 0;
 

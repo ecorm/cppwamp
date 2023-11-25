@@ -15,11 +15,11 @@
 namespace wamp
 {
 
+class Abort;
 class Authentication;
 class CalleeOutputChunk;
 class CallerOutputChunk;
 class Error;
-class Reason;
 class Registration;
 class Result;
 
@@ -42,30 +42,28 @@ public:
 
     virtual ~ClientLike() = default;
 
-    virtual void removeSlot(SubscriptionTag, SubscriptionKey key) = 0;
+    virtual void removeSlot(SubscriptionTag, SubscriptionKey) = 0;
 
-    virtual void removeSlot(RegistrationTag, RegistrationKey key) = 0;
+    virtual void removeSlot(RegistrationTag, RegistrationKey) = 0;
 
-    virtual void onEventError(Error&& e, SubscriptionId s) = 0;
+    virtual void onEventError(Error&&, SubscriptionId) = 0;
 
-    virtual void yieldResult(Result&& result, RequestId reqId,
-                             RegistrationId regId) = 0;
+    virtual void yieldResult(Result&&, RequestId, RegistrationId) = 0;
 
-    virtual void yieldError(Error&& error, RequestId reqId,
-                            RegistrationId regId) = 0;
+    virtual void yieldError(Error&&, RequestId, RegistrationId) = 0;
 
-    virtual ErrorOrDone yieldChunk(CalleeOutputChunk&& chunk, RequestId reqId,
-                                   RegistrationId regId) = 0;
+    virtual ErrorOrDone yieldChunk(CalleeOutputChunk&&, RequestId,
+                                   RegistrationId) = 0;
 
-    virtual void cancelCall(RequestId r, CallCancelMode m) = 0;
+    virtual void cancelCall(RequestId, CallCancelMode) = 0;
 
-    virtual ErrorOrDone sendCallerChunk(CallerOutputChunk&& chunk) = 0;
+    virtual ErrorOrDone sendCallerChunk(CallerOutputChunk&&) = 0;
 
-    virtual void cancelStream(RequestId r) = 0;
+    virtual void cancelStream(RequestId) = 0;
 
-    virtual void authenticate(Authentication&& a) = 0;
+    virtual void authenticate(Authentication&&) = 0;
 
-    virtual void failAuthentication(Reason&& r) = 0;
+    virtual void failAuthentication(Abort&&) = 0;
 };
 
 //------------------------------------------------------------------------------
@@ -153,11 +151,11 @@ public:
             c->authenticate(std::move(a));
     }
 
-    void failAuthentication(Reason&& r)
+    void failAuthentication(Abort&& reason)
     {
         auto c = client_.lock();
         if (c)
-            c->failAuthentication(std::move(r));
+            c->failAuthentication(std::move(reason));
     }
 
     bool canRemoveSlot(const ClientLike& client) const

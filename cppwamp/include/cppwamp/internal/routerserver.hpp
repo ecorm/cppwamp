@@ -177,7 +177,7 @@ public:
         struct Dispatched
         {
             Ptr self;
-            void operator()() {self->reject(Reason{WampErrc::timeout});}
+            void operator()() {self->reject(Abort{WampErrc::timeout});}
         };
 
         safelyDispatch<Dispatched>();
@@ -191,16 +191,16 @@ public:
 private:
     using Base = RouterSession;
 
-    void onRouterAbort(Reason&& r) override
+    void onRouterAbort(Abort&& reason) override
     {
         struct Dispatched
         {
             Ptr self;
-            Reason r;
-            void operator()() {self->abortSession(std::move(r));}
+            Abort reason;
+            void operator()() {self->abortSession(std::move(reason));}
         };
 
-        safelyDispatch<Dispatched>(std::move(r));
+        safelyDispatch<Dispatched>(std::move(reason));
     }
 
     void onRouterMessage(Message&& msg) override
@@ -263,9 +263,9 @@ private:
         serverOptions_->authenticator()->authenticate(authExchange_, executor_);
     }
 
-    void onPeerAbort(Reason&& r, bool) override
+    void onPeerAbort(Abort&& reason, bool) override
     {
-        report(r.info(false));
+        report(reason.info(false));
         // ServerSession::onStateChanged will perform the retire() operation.
     }
 
@@ -279,7 +279,7 @@ private:
                                 state() == State::authenticating;
         if (!isExpected)
         {
-            return abortSession(Reason(WampErrc::protocolViolation).
+            return abortSession(Abort(WampErrc::protocolViolation).
                                 withHint("Unexpected AUTHENTICATE message"));
         }
 
@@ -293,7 +293,7 @@ private:
         report(reason.info(false));
 
         if (!uriValidator_->checkError(reason.uri()))
-            return abortSession(Reason(WampErrc::invalidUri));
+            return abortSession(Abort(WampErrc::invalidUri));
 
         if (!wasShuttingDown)
         {
@@ -395,7 +395,7 @@ private:
             return;
 
         auto hint = detailedErrorCodeString(ec);
-        abortSession(Reason{WampErrc::timeout}.withHint(std::move(hint)),
+        abortSession(Abort{WampErrc::timeout}.withHint(std::move(hint)),
                      {AccessAction::serverAbort, {}, {}, ec});
     }
 
@@ -405,16 +405,16 @@ private:
         retire();
     }
 
-    void abortSession(Reason r)
+    void abortSession(Abort reason)
     {
-        AccessActionInfo a{AccessAction::serverAbort, {}, r.options(), r.uri()};
-        abortSession(std::move(r), std::move(a));
+        AccessActionInfo a{AccessAction::serverAbort, {}, reason.options(), reason.uri()};
+        abortSession(std::move(reason), std::move(a));
     }
 
-    void abortSession(Reason r, AccessActionInfo a)
+    void abortSession(Abort reason, AccessActionInfo a)
     {
         report(std::move(a));
-        peer_->abort(std::move(r));
+        peer_->abort(std::move(reason));
         leaveRealm();
     }
 
@@ -433,7 +433,7 @@ private:
         {
             auto msg = std::string("Received ") + command.message({}).name() +
                        " message uses non-sequential request ID";
-            abortSession(Reason(WampErrc::protocolViolation)
+            abortSession(Abort(WampErrc::protocolViolation)
                              .withHint(std::move(msg)));
             return;
         }
@@ -521,7 +521,7 @@ private:
         safelyDispatch<Dispatched>(std::move(info));
     }
 
-    void reject(Reason&& r)
+    void reject(Abort&& reason)
     {
         authExchange_.reset();
         const auto s = state();
@@ -531,20 +531,21 @@ private:
             return;
 
         close();
-        report({AccessAction::serverAbort, {}, r.options(), r.errorCode()});
-        peer_->abort(std::move(r));
+        report({AccessAction::serverAbort, {},
+                reason.options(), reason.errorCode()});
+        peer_->abort(std::move(reason));
     }
 
-    void safeReject(Reason&& r) override
+    void safeReject(Abort&& reason) override
     {
         struct Dispatched
         {
             Ptr self;
-            Reason r;
-            void operator()() {self->reject(std::move(r));}
+            Abort reason;
+            void operator()() {self->reject(std::move(reason));}
         };
 
-        safelyDispatch<Dispatched>(std::move(r));
+        safelyDispatch<Dispatched>(std::move(reason));
     }
 
     template <typename F, typename... Ts>
@@ -653,16 +654,16 @@ public:
         boost::asio::dispatch(strand_, [this, self](){startListening();});
     }
 
-    void close(Reason r)
+    void close(Abort reason)
     {
         struct Dispatched
         {
             Ptr self;
-            Reason r;
-            void operator()() {self->onClose(std::move(r));}
+            Abort reason;
+            void operator()() {self->onClose(std::move(reason));}
         };
 
-        safelyDispatch<Dispatched>(std::move(r));
+        safelyDispatch<Dispatched>(std::move(reason));
     }
 
     ServerOptions::Ptr config() const {return options_;}
@@ -778,7 +779,7 @@ private:
             panic(std::string("Fatal error establishing connection with "
                               "remote peer during ") + result.operation(),
                   result.error());
-            onClose(Reason{WampErrc::systemShutdown});
+            onClose(Abort{WampErrc::systemShutdown});
             break;
 
         default:
@@ -897,12 +898,12 @@ private:
         }
     }
 
-    void onClose(Reason r)
+    void onClose(Abort reason)
     {
         std::string msg = "Shutting down server listening on " +
-                          listener_->where() + " with reason " + r.uri();
-        if (!r.options().empty())
-            msg += " " + toString(r.options());
+                          listener_->where() + " with reason " + reason.uri();
+        if (!reason.options().empty())
+            msg += " " + toString(reason.options());
         inform(std::move(msg));
 
         challengeTimeouts_->unlisten();
@@ -913,7 +914,7 @@ private:
         listener_->cancel();
         listener_.reset();
         for (const auto& kv: sessions_)
-            kv.second->abort(r);
+            kv.second->abort(reason);
     }
 
     void removeSession(ServerSession::Key key)

@@ -10,9 +10,9 @@
 namespace wamp
 {
 
-CPPWAMP_INLINE Reason Realm::defaultKillReason()
+CPPWAMP_INLINE Abort Realm::defaultKillReason()
 {
-    return Reason{WampErrc::sessionKilled};
+    return Abort{WampErrc::sessionKilled};
 }
 
 CPPWAMP_INLINE Realm::Realm() = default;
@@ -50,11 +50,11 @@ CPPWAMP_INLINE bool Realm::isOpen() const
     return isAttached() && impl_->isOpen();
 }
 
-CPPWAMP_INLINE bool Realm::close(Reason r)
+CPPWAMP_INLINE bool Realm::close(Abort reason)
 {
     if (!isAttached())
         return false;
-    const bool closed = impl_->closeViaRouter(std::move(r));
+    const bool closed = impl_->closeViaRouter(std::move(reason));
     impl_.reset();
     return closed;
 }
@@ -93,21 +93,21 @@ CPPWAMP_INLINE ErrorOr<SessionInfo> Realm::getSession(SessionId sid) const
     return s;
 }
 
-CPPWAMP_INLINE ErrorOr<bool> Realm::killSessionById(SessionId sid, Reason r)
+CPPWAMP_INLINE ErrorOr<bool> Realm::killSessionById(SessionId sid, Abort reason)
 {
-    return impl_->killSessionById(sid, std::move(r));
+    return impl_->killSessionById(sid, std::move(reason));
 }
 
 CPPWAMP_INLINE Realm::SessionIdSet
-Realm::killSessionIf(const SessionPredicate& filter, Reason r)
+Realm::killSessionIf(const SessionPredicate& filter, Abort reason)
 {
-    return impl_->killSessionIf(filter, std::move(r));
+    return impl_->killSessionIf(filter, std::move(reason));
 }
 
 CPPWAMP_INLINE Realm::SessionIdSet Realm::killSessions(SessionIdSet set,
-                                                       Reason r)
+                                                       Abort reason)
 {
-    return impl_->killSessions(std::move(set), std::move(r));
+    return impl_->killSessions(std::move(set), std::move(reason));
 }
 
 CPPWAMP_INLINE ErrorOr<RegistrationInfo>

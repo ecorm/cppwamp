@@ -12,7 +12,7 @@
 namespace wamp
 {
 
-class Reason;
+class Abort;
 
 namespace internal
 {
@@ -31,7 +31,7 @@ public:
     
     virtual void safeWelcome(std::shared_ptr<SessionInfoImpl>) = 0;
 
-    virtual void safeReject(Reason&&) = 0;
+    virtual void safeReject(Abort&&) = 0;
 };
 
 } // namespace internal

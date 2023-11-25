@@ -61,7 +61,7 @@ public:
 
     /** Rejects the authentication request by sending an ABORT message to
         the client. */
-    void reject(Reason r = {WampErrc::authenticationDenied});
+    void reject(Abort reason = {WampErrc::authenticationDenied});
 
 private:
     using ChallengerPtr = std::weak_ptr<internal::Challenger>;

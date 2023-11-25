@@ -144,7 +144,7 @@ private:
         return authRoles;
     }
 
-    static Reason parseReason(Rpc& rpc)
+    static Abort parseReason(Rpc& rpc)
     {
         auto unex = makeUnexpectedError(MiscErrc::badType);
 
@@ -160,7 +160,7 @@ private:
         String reasonUri{errorCodeToUri(WampErrc::sessionKilled)};
         if (reasonArg && !reasonArg->empty())
             reasonUri = std::move(*reasonArg);
-        Reason reason{std::move(reasonUri)};
+        Abort reason{std::move(reasonUri)};
         if (messageArg && !messageArg->empty())
             reason.withHint(std::move(*messageArg));
         return reason;

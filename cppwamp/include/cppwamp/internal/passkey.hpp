@@ -10,13 +10,13 @@
 namespace wamp
 {
 
+class Abort;
 class AuthorizationRequest;
 class CalleeInputChunk;
 class DirectRouterLink;
 class Error;
 class Event;
 class Outcome;
-class Reason;
 class Session;
 class Transporting;
 
@@ -26,13 +26,13 @@ namespace internal
     {
         constexpr PassKey() {};
 
+        friend class wamp::Abort;
         friend class wamp::AuthorizationRequest;
         friend class wamp::CalleeInputChunk;
         friend class wamp::DirectRouterLink;
         friend class wamp::Error;
         friend class wamp::Event;
         friend class wamp::Outcome;
-        friend class wamp::Reason;
         friend class wamp::Session;
         friend class wamp::Transporting;
         template <typename> friend class BasicCalleeChannelImpl;

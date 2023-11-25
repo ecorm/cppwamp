@@ -41,12 +41,12 @@ void checkProtocolViolation(MockWampClient::Ptr client,
     auto last = messages.back();
     REQUIRE(last.kind() == MessageKind::abort);
 
-    auto reason = toCommand<Reason>(std::move(last));
-    CHECK(reason.errorCode() == WampErrc::protocolViolation);
+    auto abort = toCommand<Abort>(std::move(last));
+    CHECK(abort.errorCode() == WampErrc::protocolViolation);
 
-    REQUIRE(reason.hint().has_value());
+    REQUIRE(abort.hint().has_value());
     bool hintFound =
-        reason.hint().value().find(hintKeyword) != std::string::npos;
+        abort.hint().value().find(hintKeyword) != std::string::npos;
     CHECK(hintFound);
 }
 

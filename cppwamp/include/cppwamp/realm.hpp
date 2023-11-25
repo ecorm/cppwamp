@@ -51,7 +51,7 @@ public:
     using RegistrationPredicate = std::function<bool (const RegistrationInfo&)>;
     using SubscriptionPredicate = std::function<bool (const SubscriptionInfo&)>;
 
-    static Reason defaultKillReason();
+    static Abort defaultKillReason();
 
     Realm();
 
@@ -69,7 +69,7 @@ public:
 
     bool isOpen() const;
 
-    bool close(Reason r = Reason{WampErrc::systemShutdown});
+    bool close(Abort reason = Abort{WampErrc::systemShutdown});
 
     void observe(RealmObserver::Ptr o);
 
@@ -82,12 +82,12 @@ public:
     ErrorOr<SessionInfo> getSession(SessionId sid) const;
 
     ErrorOr<bool> killSessionById(SessionId sid,
-                                  Reason r = defaultKillReason());
+                                  Abort r = defaultKillReason());
 
     SessionIdSet killSessionIf(const SessionPredicate& f,
-                               Reason r = defaultKillReason());
+                               Abort r = defaultKillReason());
 
-    SessionIdSet killSessions(SessionIdSet set, Reason r = defaultKillReason());
+    SessionIdSet killSessions(SessionIdSet set, Abort r = defaultKillReason());
 
     ErrorOr<RegistrationInfo> getRegistration(
         RegistrationId rid, bool listCallees = false) const;

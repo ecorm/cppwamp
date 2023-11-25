@@ -144,16 +144,16 @@ public:
         safelyDispatch<Dispatched>(std::move(a));
     }
 
-    void failAuthentication(Reason&& r) override
+    void failAuthentication(Abort&& reason) override
     {
         struct Dispatched
         {
             Ptr self;
-            Reason r;
-            void operator()() {self->doFailAuthentication(std::move(r));}
+            Abort reason;
+            void operator()() {self->doFailAuthentication(std::move(reason));}
         };
 
-        safelyDispatch<Dispatched>(std::move(r));
+        safelyDispatch<Dispatched>(std::move(reason));
     }
 
     void leave(Goodbye&& g, Timeout t, CompletionHandler<Goodbye>&& f)
@@ -436,7 +436,7 @@ private:
 
     void onPeerHello(Petition&&) override {assert(false);}
 
-    void onPeerAbort(Reason&& reason, bool wasJoining) override
+    void onPeerAbort(Abort&& reason, bool wasJoining) override
     {
         if (wasJoining)
             return onWampReply(reason.message({}));
@@ -456,7 +456,7 @@ private:
         }
         else
         {
-            auto r = Reason{WampErrc::authenticationFailed}
+            auto r = Abort{WampErrc::authenticationFailed}
                          .withHint("No challenge handler");
             doFailAuthentication(std::move(r));
         }
@@ -481,13 +481,13 @@ private:
                 {
                     slot(std::move(challenge));
                 }
-                catch (Reason& r)
+                catch (Abort& reason)
                 {
-                    self->failAuthentication(std::move(r));
+                    self->failAuthentication(std::move(reason));
                 }
                 catch (const error::BadType& e)
                 {
-                    self->failAuthentication(Reason{e});
+                    self->failAuthentication(Abort{e});
                 }
             }
         };
@@ -635,9 +635,9 @@ private:
     }
 
     void onJoinAborted(CompletionHandler<Welcome>&& handler, Message& reply,
-                       Reason* reasonPtr)
+                       Abort* reasonPtr)
     {
-        Reason reason{PassKey{}, std::move(reply)};
+        Abort reason{PassKey{}, std::move(reply)};
         const auto& uri = reason.uri();
         const WampErrc errc = errorUriToCode(uri);
 
@@ -775,7 +775,7 @@ private:
             Ptr self;
             CompletionHandler<Welcome> handler;
             Uri realm;
-            Reason* abortPtr;
+            Abort* reasonPtr;
 
             void operator()(ErrorOr<Message> reply)
             {
@@ -791,7 +791,7 @@ private:
                     else
                     {
                         assert(reply->kind() == MessageKind::abort);
-                        me.onJoinAborted(std::move(handler), *reply, abortPtr);
+                        me.onJoinAborted(std::move(handler), *reply, reasonPtr);
                     }
                 }
             }
@@ -820,16 +820,16 @@ private:
                     "While sending AUTHENTICATE message"});
     }
 
-    void doFailAuthentication(Reason&& r)
+    void doFailAuthentication(Abort&& reason)
     {
         if (state() != State::authenticating)
             return;
 
         if (incidentSlot_)
-            report({IncidentKind::challengeFailure, r});
+            report({IncidentKind::challengeFailure, reason});
 
-        abandonPending(r.errorCode());
-        auto done = peer_->abort(std::move(r));
+        abandonPending(reason.errorCode());
+        auto done = peer_->abort(std::move(reason));
         auto unex = makeUnexpectedError(WampErrc::payloadSizeExceeded);
         if (incidentSlot_ && (done == unex))
         {
@@ -1557,7 +1557,7 @@ private:
     {
         static constexpr auto errc = WampErrc::protocolViolation;
         abandonPending(errc);
-        peer_->abort(Reason(errc).withHint(why));
+        peer_->abort(Abort(errc).withHint(why));
         report({IncidentKind::commFailure, make_error_code(errc),
                 std::move(why)});
     }

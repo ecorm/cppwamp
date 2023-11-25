@@ -119,7 +119,7 @@ public:
         onDisconnect(oldState);
     }
 
-    virtual ErrorOrDone abort(Reason r) = 0;
+    virtual ErrorOrDone abort(Abort) = 0;
 
     virtual ErrorOrDone send(Error&&) = 0;
 

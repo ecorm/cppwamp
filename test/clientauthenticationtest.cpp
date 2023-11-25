@@ -67,9 +67,9 @@ struct TicketAuthFixture
         challenge = authChallenge;
         challengeState = session.state();
         if (failAuthenticationArmed)
-            authChallenge.fail(Reason{WampErrc::authenticationFailed});
+            authChallenge.fail(Abort{WampErrc::authenticationFailed});
         else if (throwArmed)
-            throw Reason{WampErrc::authenticationFailed};
+            throw Abort{WampErrc::authenticationFailed};
         else
             authChallenge.authenticate(Authentication(signature));
     }
@@ -81,7 +81,7 @@ struct TicketAuthFixture
     unsigned challengeCount = 0;
     Challenge challenge;
     ErrorOr<Welcome> welcome;
-    Reason abortReason;
+    Abort abortReason;
     bool failAuthenticationArmed = false;
     bool throwArmed = false;
     bool noChallengeHandlerArmed = false;

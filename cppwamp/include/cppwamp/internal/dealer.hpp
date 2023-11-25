@@ -889,7 +889,7 @@ private:
         auto& job = found->second;
         if (!job.isProgressiveCall())
         {
-            caller.abort(Reason{WampErrc::protocolViolation}.withHint(
+            caller.abort(Abort{WampErrc::protocolViolation}.withHint(
                 "Cannot reinvoke an RPC that is closed to further progress"));
             return false;
         }

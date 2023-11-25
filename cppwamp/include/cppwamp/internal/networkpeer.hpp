@@ -52,7 +52,7 @@ public:
         return true;
     }
 
-    ErrorOrDone abort(Reason r) override
+    ErrorOrDone abort(Abort reason) override
     {
         auto s = state();
         if (s == State::disconnected || s == State::failed)
@@ -64,15 +64,15 @@ public:
             return makeUnexpectedError(MiscErrc::invalidState);
         }
 
-        const auto& msg = r.message({});
+        const auto& msg = reason.message({});
         MessageBuffer buffer;
         codec_.encode(msg.fields(), buffer);
 
         const bool fits = buffer.size() <= sendLimit_;
         if (!fits)
         {
-            r.options().clear();
-            r.withHint("(snipped)");
+            reason.options().clear();
+            reason.withHint("(snipped)");
             buffer.clear();
             codec_.encode(msg.fields(), buffer);
         }
@@ -352,9 +352,9 @@ private:
         auto s = state();
         const bool wasJoining = s == State::establishing ||
                                 s == State::authenticating;
-        Reason r{PassKey{}, std::move(msg)};
+        Abort reason{PassKey{}, std::move(msg)};
         setState(wasJoining ? State::closed : State::failed);
-        listener().onPeerAbort(std::move(r), wasJoining);
+        listener().onPeerAbort(std::move(reason), wasJoining);
     }
 
     void onChallenge(Message& msg)
@@ -403,7 +403,7 @@ private:
         auto ec = make_error_code(WampErrc::protocolViolation);
         if (readyToAbort())
         {
-            auto reason = Reason(ec).withHint(why);
+            auto reason = Abort(ec).withHint(why);
             listener().onPeerFailure(ec, true, std::move(why));
             abort(std::move(reason));
         }

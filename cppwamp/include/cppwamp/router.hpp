@@ -49,7 +49,8 @@ public:
     /** Type-erased wrapper around a log event handler. */
     using LogHandler = AnyReusableHandler<void (LogEntry)>;
 
-    static const Reason& shutdownReason();
+    /** Default ABORT that is sent to clients when shutting down servers. */
+    static const Abort& shutdownReason();
 
     /** Constructor taking an executor. */
     explicit Router(Executor exec, RouterOptions options = {});
@@ -81,9 +82,9 @@ public:
 
     bool openServer(ServerOptions config);
 
-    void closeServer(const std::string& name, Reason r = shutdownReason());
+    void closeServer(const std::string& name, Abort r = shutdownReason());
 
-    void close(Reason r = shutdownReason());
+    void close(Abort reason = shutdownReason());
 
     LogLevel logLevel() const;
 

@@ -71,7 +71,7 @@ public:
         return realm;
     }
 
-    bool closeRealm(const Uri& uri, Reason r)
+    bool closeRealm(const Uri& uri, Abort reason)
     {
         RouterRealm::Ptr realm;
 
@@ -86,7 +86,7 @@ public:
         }
 
         if (realm)
-            realm->close(std::move(r));
+            realm->close(std::move(reason));
         else
             warn("Attempting to close non-existent realm named '" + uri + "'");
 
@@ -130,7 +130,7 @@ public:
         return server != nullptr;
     }
 
-    bool closeServer(const std::string& name, Reason r)
+    bool closeServer(const std::string& name, Abort reason)
     {
         RouterServer::Ptr server;
 
@@ -145,7 +145,7 @@ public:
         }
 
         if (server)
-            server->close(std::move(r));
+            server->close(std::move(reason));
         else
             warn("Attempting to close non-existent server named '" + name + "'");
 
@@ -153,7 +153,7 @@ public:
     }
 
     // NOLINTNEXTLINE(bugprone-exception-escape)
-    void close(Reason r) noexcept
+    void close(Abort reason) noexcept
     {
         ServerMap servers;
         {
@@ -172,17 +172,17 @@ public:
         if (!servers.empty() && !realms.empty())
         {
             auto msg = std::string("Shutting down router, with reason ") +
-                       r.uri();
-            if (!r.options().empty())
-                msg += " " + toString(r.options());
+                       reason.uri();
+            if (!reason.options().empty())
+                msg += " " + toString(reason.options());
             inform(std::move(msg));
         }
 
         for (auto& kv: servers)
-            kv.second->close(r);
+            kv.second->close(reason);
 
         for (auto& kv: realms)
-            kv.second->close(r);
+            kv.second->close(reason);
     }
 
     LogLevel logLevel() const {return logger_->level();}
@@ -310,7 +310,7 @@ inline RealmContext RouterContext::realmAt(const String& uri) const
     return r->realmContextAt(uri);
 }
 
-inline bool RouterContext::closeRealm(const String& uri, Reason reason)
+inline bool RouterContext::closeRealm(const String& uri, Abort reason)
 {
     auto r = router_.lock();
     if (!r)

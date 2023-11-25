@@ -68,11 +68,11 @@ public:
                                     std::move(action)});
     }
 
-    void abort(Reason r)
+    void abort(Abort reason)
     {
         if (logger_)
-            report(r.info(true));
-        onRouterAbort(std::move(r));
+            report(reason.info(true));
+        onRouterAbort(std::move(reason));
     }
 
     template <typename C, typename... Ts>
@@ -136,7 +136,7 @@ protected:
           lastInsertedCallRequestId_(0)
     {}
 
-    virtual void onRouterAbort(Reason&&) = 0;
+    virtual void onRouterAbort(Abort&&) = 0;
 
     virtual void onRouterMessage(Message&&) = 0;
 

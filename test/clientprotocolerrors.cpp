@@ -46,7 +46,7 @@ void checkProtocolViolation(const Session& session, MockWampServer& server,
     auto last = messages.back();
     REQUIRE(last.kind() == MessageKind::abort);
 
-    auto reason = toCommand<Reason>(std::move(last));
+    auto reason = toCommand<Abort>(std::move(last));
     CHECK(reason.errorCode() == WampErrc::protocolViolation);
 
     REQUIRE(reason.hint().has_value());
@@ -302,7 +302,7 @@ TEST_CASE( "WAMP protocol violation detection by client", "[WAMP][Advanced]" )
 
         spawn([&](YieldContext yield)
         {
-            Reason reason;
+            Abort reason;
             session.connect(withTcp, yield).value();
             auto welcome = session.join(
                 Petition{testRealm}.captureAbort(reason),
@@ -332,7 +332,6 @@ TEST_CASE( "WAMP protocol violation detection by client", "[WAMP][Advanced]" )
 
         spawn([&](YieldContext yield)
         {
-            Reason reason;
             session.connect(withTcp, yield).value();
             session.join(testRealm, yield).value();
             auto result = session.call(Rpc{"rpc"}, yield);

@@ -86,43 +86,58 @@ public:
 /** Provides the _reason_ URI, options, and payload arguments contained
     within WAMP `ABORT` messages. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Reason : public Payload<Reason, internal::MessageKind::abort>
+class CPPWAMP_API Abort : public Payload<Abort, internal::MessageKind::abort>
 {
 public:
     /** Default constructor. */
-    Reason();
+    Abort();
 
     // NOLINTBEGIN(google-explicit-constructor)
 
     /** Converting constructor taking a reason URI and optional positional
         payload arguments. */
     template <typename... Ts>
-    Reason(Uri uri, Ts&&... args)
-        : Reason(in_place, std::move(uri), Array{std::forward<Ts>(args)...})
+    Abort(Uri uri, Ts&&... args)
+        : Abort(in_place, std::move(uri), Array{std::forward<Ts>(args)...})
     {}
 
     /** Converting constructor taking an error code, attempting to convert
         it to a reason URI, as well as optional positional payload arguments. */
     template <typename... Ts>
-    Reason(std::error_code e, Ts&&... args)
-        : Reason(in_place, errorCodeToUri(e), Array{std::forward<Ts>(args)...})
+    Abort(std::error_code e, Ts&&... args)
+        : Abort(in_place, errorCodeToUri(e), Array{std::forward<Ts>(args)...})
     {}
 
     /** Converting constructor taking a WampErrc, attempting to convert
         it to a reason URI, as well as optional positional payload arguments. */
     template <typename... Ts>
-    Reason(WampErrc e, Ts&&... args)
-        : Reason(in_place, errorCodeToUri(e), Array{std::forward<Ts>(args)...})
+    Abort(WampErrc e, Ts&&... args)
+        : Abort(in_place, errorCodeToUri(e), Array{std::forward<Ts>(args)...})
     {}
 
     // NOLINTEND(google-explicit-constructor)
 
     /** Constructor taking an error::BadType exception and
         interpreting it as a `wamp.error.invalid_argument` reason URI. */
-    explicit Reason(const error::BadType& e);
+    explicit Abort(const error::BadType& e);
+
+    /** Copy constructor. */
+    Abort(const Abort&) = default;
+
+    /** Move constructor. */
+    Abort(Abort&&) = default;
+
+    /** Destructor. */
+    virtual ~Abort() = default;
+
+    /** Copy assignment. */
+    Abort& operator=(const Abort&) = default;
+
+    /** Move assignment. */
+    Abort& operator=(Abort&&) = default;
 
     /** Sets the `message` member of the details dictionary. */
-    Reason& withHint(String text);
+    Abort& withHint(String text);
 
     /** Conversion to bool operator, returning false if the error is empty. */
     explicit operator bool() const;
@@ -148,16 +163,16 @@ public:
 private:
     static constexpr unsigned uriPos_ = 2;
 
-    using Base = Payload<Reason, internal::MessageKind::abort>;
+    using Base = Payload<Abort, internal::MessageKind::abort>;
 
-    explicit Reason(in_place_t, Uri uri, Array args);
+    explicit Abort(in_place_t, Uri uri, Array args);
 
 public: // Internal use only
-    Reason(internal::PassKey, internal::Message&& msg);
+    Abort(internal::PassKey, internal::Message&& msg);
 
-    Reason(internal::PassKey, WampErrc errc, Object opts = {});
+    Abort(internal::PassKey, WampErrc errc, Object opts = {});
 
-    Reason(internal::PassKey, std::error_code ec, Object opts = {});
+    Abort(internal::PassKey, std::error_code ec, Object opts = {});
 };
 
 
@@ -173,7 +188,7 @@ public:
 
     /** Specifies the Goodbye object in which to store abort details returned
         by the router. */
-    Petition& captureAbort(Reason& reason);
+    Petition& captureAbort(Abort& reason);
 
     /** Specifies the duration after which the joining operation should time out
         and disconnect the session. */
@@ -223,13 +238,13 @@ private:
 
     using Base = Options<Petition, internal::MessageKind::hello>;
 
-    Reason* abortReason_ = nullptr;
+    Abort* abortReason_ = nullptr;
     Timeout timeout_ = unspecifiedTimeout;
 
 public:
     // Internal use only
     Petition(internal::PassKey, internal::Message&& msg);
-    Reason* abortReason(internal::PassKey);
+    Abort* abortReason(internal::PassKey);
     Uri& uri(internal::PassKey);
     String agentOrEmptyString(internal::PassKey);
 };
@@ -412,7 +427,7 @@ public:
     void authenticate(Authentication auth);
 
     /** Sends an `ABORT` message back in response to an invalid challenge. */
-    void fail(Reason reason);
+    void fail(Abort reason);
 
     /** Obtains information for the access log. */
     AccessActionInfo info() const;
@@ -478,7 +493,7 @@ public:
 
     Incident(IncidentKind kind, const Goodbye& g);
 
-    Incident(IncidentKind kind, const Reason& r);
+    Incident(IncidentKind kind, const Abort& reason);
 
     Incident(IncidentKind kind, const Error& e);
 

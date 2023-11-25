@@ -17,9 +17,9 @@ namespace wamp
 // Router
 //******************************************************************************
 
-CPPWAMP_INLINE const Reason& Router::shutdownReason()
+CPPWAMP_INLINE const Abort& Router::shutdownReason()
 {
-    static const Reason reason{WampErrc::systemShutdown};
+    static const Abort reason{WampErrc::systemShutdown};
     return reason;
 }
 
@@ -66,12 +66,15 @@ CPPWAMP_INLINE bool Router::openServer(ServerOptions config)
     return impl_->openServer(std::move(config));
 }
 
-CPPWAMP_INLINE void Router::closeServer(const std::string& name, Reason r)
+CPPWAMP_INLINE void Router::closeServer(const std::string& name, Abort r)
 {
     impl_->closeServer(name, std::move(r));
 }
 
-CPPWAMP_INLINE void Router::close(Reason r) {impl_->close(std::move(r));}
+CPPWAMP_INLINE void Router::close(Abort reason)
+{
+    impl_->close(std::move(reason));
+}
 
 CPPWAMP_INLINE LogLevel Router::logLevel() const {return impl_->logLevel();}
 

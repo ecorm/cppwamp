@@ -95,21 +95,23 @@ public:
         safelyDispatch<Dispatched>(std::move(session));
     }
 
-    void close(Reason r)
+    void close(Abort reason)
     {
         struct Dispatched
         {
             Ptr self;
-            Reason r;
-            void operator()() {self->closeRealm(std::move(r));}
+            Abort reason;
+            void operator()() {self->closeRealm(std::move(reason));}
         };
 
-        safelyDispatch<Dispatched>(std::move(r));
+        safelyDispatch<Dispatched>(std::move(reason));
     }
 
-    bool closeViaRouter(Reason r)
+    // Realm::close calls this instead of RouterRealm::close so that
+    // RouterImpl updates its session map.
+    bool closeViaRouter(Abort reason)
     {
-        return router_.closeRealm(uri(), std::move(r));
+        return router_.closeRealm(uri(), std::move(reason));
     }
 
     void observe(RealmObserver::Ptr o, FallbackExecutor e)
@@ -159,14 +161,14 @@ public:
                                           : found->second->sharedInfo();
     }
 
-    ErrorOr<bool> killSessionById(SessionId sid, Reason r)
+    ErrorOr<bool> killSessionById(SessionId sid, Abort reason)
     {
         struct Dispatched
         {
             Ptr self;
             SessionId sid;
-            Reason r;
-            void operator()() {self->doKillSession(sid, std::move(r));}
+            Abort reason;
+            void operator()() {self->doKillSession(sid, std::move(reason));}
         };
 
         {
@@ -176,19 +178,19 @@ public:
                 return makeUnexpectedError(WampErrc::noSuchSession);
         }
 
-        safelyDispatch<Dispatched>(sid, std::move(r));
+        safelyDispatch<Dispatched>(sid, std::move(reason));
         return true;
     }
 
     template <typename F>
-    SessionIdSet killSessionIf(F&& filter, Reason r)
+    SessionIdSet killSessionIf(F&& filter, Abort reason)
     {
         struct Dispatched
         {
             Ptr self;
             SessionIdSet set;;
-            Reason r;
-            void operator()() {self->doKillSessions(set, r);}
+            Abort reason;
+            void operator()() {self->doKillSessions(set, reason);}
         };
 
         SessionIdSet set;
@@ -204,19 +206,19 @@ public:
         }
 
         if (!set.empty())
-            safelyDispatch<Dispatched>(set, std::move(r));
+            safelyDispatch<Dispatched>(set, std::move(reason));
 
         return set;
     }
 
-    SessionIdSet killSessions(SessionIdSet set, Reason r)
+    SessionIdSet killSessions(SessionIdSet set, Abort reason)
     {
         struct Dispatched
         {
             Ptr self;
             SessionIdSet set;
-            Reason r;
-            void operator()() {self->doKillSessions(set, r);}
+            Abort reason;
+            void operator()() {self->doKillSessions(set, reason);}
         };
 
         {
@@ -234,7 +236,7 @@ public:
         }
 
         if (!set.empty())
-            safelyDispatch<Dispatched>(set, std::move(r));
+            safelyDispatch<Dispatched>(set, std::move(reason));
 
         return set;
     }
@@ -346,7 +348,7 @@ private:
         metaTopics_->clearSessionInhibitions();
     }
 
-    void closeRealm(Reason r)
+    void closeRealm(Abort reason)
     {
         SessionMap sessions;
 
@@ -356,19 +358,19 @@ private:
             sessions_.clear();
         }
 
-        std::string msg = "Shutting down realm with reason " + r.uri();
-        if (!r.options().empty())
-            msg += " " + toString(r.options());
+        std::string msg = "Shutting down realm with reason " + reason.uri();
+        if (!reason.options().empty())
+            msg += " " + toString(reason.options());
         log({LogLevel::info, std::move(msg)});
 
         for (auto& kv: sessions)
-            kv.second->abort(r);
+            kv.second->abort(reason);
         isOpen_.store(false);
         if (metaTopics_->enabled())
             metaTopics_->onRealmClosed(options_.uri());
     }
 
-    bool doKillSession(SessionId sid, Reason reason)
+    bool doKillSession(SessionId sid, Abort reason)
     {
         auto iter = sessions_.find(sid);
         if (iter == sessions_.end())
@@ -382,7 +384,7 @@ private:
         return true;
     }
 
-    void doKillSessions(const SessionIdSet& set, const Reason& reason)
+    void doKillSessions(const SessionIdSet& set, const Abort& reason)
     {
         for (auto sid: set)
         {
@@ -398,7 +400,7 @@ private:
     }
 
     template <typename F>
-    std::vector<SessionId> doKillSessionIf(F&& filter, const Reason& reason)
+    std::vector<SessionId> doKillSessionIf(F&& filter, const Abort& reason)
     {
         std::vector<SessionId> killedIds;
         std::vector<RouterSession::Ptr> killedSessions;

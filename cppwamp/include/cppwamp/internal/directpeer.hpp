@@ -49,7 +49,7 @@ public:
 private:
     using Base = RouterSession;
 
-    void onRouterAbort(Reason&& r) override;
+    void onRouterAbort(Abort&& reason) override;
     void onRouterMessage(Message&& msg) override;
     
     AuthInfo authInfo_;
@@ -125,7 +125,7 @@ private:
         handler(true);
     }
 
-    ErrorOrDone abort(Reason reason) override
+    ErrorOrDone abort(Abort reason) override
     {
         traceTx(reason.message({}));
         session_->report(reason.info(false));
@@ -257,12 +257,12 @@ private:
         return sendCommand(desired);
     }
 
-    void onAbort(Reason&& reason)
+    void onAbort(Abort&& reason)
     {
         struct Posted
         {
             Ptr self;
-            Reason reason;
+            Abort reason;
 
             void operator()()
             {
@@ -384,9 +384,9 @@ inline void DirectRouterSession::close() {Base::close();}
 
 inline void DirectRouterSession::disconnect() {Base::setRouterLogger(nullptr);}
 
-inline void DirectRouterSession::onRouterAbort(Reason&& r)
+inline void DirectRouterSession::onRouterAbort(Abort&& reason)
 {
-    peer_->onAbort(std::move(r));
+    peer_->onAbort(std::move(reason));
 }
 
 void DirectRouterSession::onRouterMessage(Message&& msg)
