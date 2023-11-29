@@ -29,10 +29,8 @@
     - Telemetry at server and realm levels
 */
 
-#include <limits>
 #include <memory>
 #include <utility>
-#include <vector>
 #include "anyhandler.hpp"
 #include "api.hpp"
 #include "authenticator.hpp"
@@ -44,6 +42,7 @@
 #include "routerlogger.hpp"
 #include "timeout.hpp"
 #include "uri.hpp"
+#include "version.hpp"
 #include "internal/passkey.hpp"
 
 namespace wamp
@@ -217,6 +216,7 @@ template <typename S, typename F, typename... Fs>
 ServerOptions::ServerOptions(String name, S&& transportSettings, F&& format,
                              Fs&&... extraFormats)
     : name_(std::move(name)),
+      agent_(Version::serverAgentString()),
       listenerBuilder_(std::forward<S>(transportSettings)),
       codecFactory_(format, extraFormats...)
 {}

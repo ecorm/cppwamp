@@ -101,7 +101,7 @@ void checkSessionDetails(const SessionInfo& s, const Welcome& w,
     CHECK(s.auth().provider() == w.authProvider());
     CHECK(s.sessionId() == w.sessionId());
     CHECK(s.features().supports(ClientFeatures::provided()));
-    CHECK(s.agent() == Version::agentString());
+    CHECK(s.agent() == Version::clientAgentString());
 
     auto c = s.connection();
     auto t = c.transport();

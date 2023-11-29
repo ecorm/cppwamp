@@ -8,11 +8,12 @@
 #define CPPWAMP_VERSION_HPP
 
 #include <string>
+
 #include "api.hpp"
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains version information on the CppWAMP library. */
+    @brief Provides version information on the CppWAMP library. */
 //------------------------------------------------------------------------------
 
 // NOLINTBEGIN(modernize-macro-to-enum)
@@ -63,10 +64,22 @@ struct CPPWAMP_API Version
     static int integer();
 
     /** Obtains the library's current version as a string. */
-    static std::string toString();
+    static const std::string& asString();
 
-    /** Obtains the agent string sent in `HELLO` messages. */
-    static const std::string& agentString();
+    /** Obtains the target platform name. */
+    static const std::string& system();
+
+    /** Obtains the target architecture name. */
+    static const std::string& architecture();
+
+    /** Obtains the platform name. */
+    static const std::string& platform();
+
+    /** Obtains the client agent string sent in `HELLO` messages. */
+    static const std::string& clientAgentString();
+
+    /** Obtains the default agent string used by servers. */
+    static const std::string& serverAgentString();
 };
 
 } // namespace wamp

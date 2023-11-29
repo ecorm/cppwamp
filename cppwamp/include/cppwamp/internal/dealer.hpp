@@ -290,9 +290,6 @@ public:
 
     Invocation makeProgressiveInvocation(Rpc&& rpc)
     {
-        // TODO: WAMP - Repeat initial call options?
-        // https://github.com/wamp-proto/wamp-proto/issues/479
-
         assert(isProgressiveCall_);
         isProgressiveCall_ = rpc.isProgress({});
         Invocation inv{{}, std::move(rpc), registrationId_};

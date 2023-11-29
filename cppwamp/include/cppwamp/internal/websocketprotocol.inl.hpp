@@ -249,14 +249,16 @@ CPPWAMP_INLINE std::size_t WebsocketServerLimits::headerSize() const
 //******************************************************************************
 
 CPPWAMP_INLINE WebsocketEndpoint::WebsocketEndpoint(Port port)
-    : Base("", port)
+    : Base("", port),
+      agent_(Version::serverAgentString())
 {
     mutableAcceptorOptions().withReuseAddress(true);
 }
 
 CPPWAMP_INLINE WebsocketEndpoint::WebsocketEndpoint(std::string address,
                                                     unsigned short port)
-    : Base(std::move(address), port)
+    : Base(std::move(address), port),
+      agent_(Version::serverAgentString())
 {
     mutableAcceptorOptions().withReuseAddress(true);
 }
@@ -276,7 +278,7 @@ WebsocketEndpoint::withPermessageDeflate(WebsocketPermessageDeflate opts)
 
 CPPWAMP_INLINE const std::string& WebsocketEndpoint::agent() const
 {
-    return agent_.empty() ? Version::agentString() : agent_;
+    return agent_;
 }
 
 CPPWAMP_INLINE const WebsocketPermessageDeflate&

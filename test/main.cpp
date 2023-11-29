@@ -7,11 +7,15 @@
 #define CATCH_CONFIG_RUNNER
 #include <catch2/catch.hpp>
 
+#include <iostream>
+#include <cppwamp/version.hpp>
 #include "routerfixture.hpp"
 
 //------------------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
+    std::cout << "Testing " << wamp::Version::clientAgentString() << std::endl;
+
     Catch::Session session;
 
     bool launchRouter = true;

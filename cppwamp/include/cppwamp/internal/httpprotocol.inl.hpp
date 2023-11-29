@@ -194,14 +194,16 @@ CPPWAMP_INLINE WebsocketServerLimits HttpServerLimits::toWebsocket() const
 //******************************************************************************
 
 CPPWAMP_INLINE HttpEndpoint::HttpEndpoint(Port port)
-    : Base("", port)
+    : Base("", port),
+      agent_(Version::serverAgentString())
 {
     mutableAcceptorOptions().withReuseAddress(true);
 }
 
 CPPWAMP_INLINE HttpEndpoint::HttpEndpoint(std::string address,
                                           unsigned short port)
-    : Base(std::move(address), port)
+    : Base(std::move(address), port),
+      agent_(Version::serverAgentString())
 {
     mutableAcceptorOptions().withReuseAddress(true);
 }
@@ -315,10 +317,7 @@ CPPWAMP_INLINE const std::string& HttpEndpoint::indexFileName() const
     return indexFileName_;
 }
 
-CPPWAMP_INLINE const std::string& HttpEndpoint::agent() const
-{
-    return agent_.empty() ? Version::agentString() : agent_;
-}
+CPPWAMP_INLINE const std::string& HttpEndpoint::agent() const {return agent_;}
 
 CPPWAMP_INLINE const HttpServerLimits& HttpEndpoint::limits() const
 {

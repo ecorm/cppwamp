@@ -271,8 +271,8 @@ public:
     /** Specifies the default index file name. */
     HttpEndpoint& withIndexFileName(std::string name);
 
-    /** Specifies the custom agent string to use (default is
-        Version::agentString). */
+    /** Specifies the agent string to use for the HTTP response 'Server' field
+        (default is Version::serverAgentString). */
     HttpEndpoint& withAgent(std::string agent);
 
     /** Specifies the error page to show for the given HTTP response
@@ -298,8 +298,7 @@ public:
     /** Obtains the default index file name. */
     const std::string& indexFileName() const;
 
-    /** Obtains the custom agent string, or Version::agentString() if none
-        was specified. */
+    /** Obtains the custom agent string. */
     const std::string& agent() const;
 
     /** Obtains the transport limits. */

@@ -154,7 +154,8 @@ CPPWAMP_INLINE Petition& Petition::withTimeout(Timeout timeout)
     return *this;
 }
 
-/** Version::agentString is used by default if no agent string is specified.
+/** Version::clientAgentString is used by default if no agent string is
+    specified.
     @note The transport's agent string, if applicable, is set independently
           via the transport's endpoint settings. */
 CPPWAMP_INLINE Petition& Petition::withAgent(String agent)
@@ -254,7 +255,7 @@ CPPWAMP_INLINE AccessActionInfo Welcome::info() const
 
 /** @returns The value of the `HELLO.Details.agent|string`
              detail, if available, or an error code. */
-CPPWAMP_INLINE ErrorOr<String> Welcome::agentString() const
+CPPWAMP_INLINE ErrorOr<String> Welcome::clientAgentString() const
 {
     return optionAs<String>("agent");
 }

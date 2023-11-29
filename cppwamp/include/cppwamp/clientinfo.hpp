@@ -275,7 +275,7 @@ public:
         @{ */
 
     /** Obtains the agent string of the WAMP router. */
-    ErrorOr<String> agentString() const;
+    ErrorOr<String> clientAgentString() const;
     /// @}
 
     /** @name Role and Feature Announcement

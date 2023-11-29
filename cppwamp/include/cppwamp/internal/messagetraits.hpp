@@ -72,7 +72,6 @@ struct MessageKindTraits<MessageKind::welcome>
     static constexpr unsigned uriPos       = 0;
 };
 
-// TODO: Allow payload
 template <>
 struct MessageKindTraits<MessageKind::abort>
 {

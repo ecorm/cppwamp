@@ -801,7 +801,8 @@ private:
             return postErrorToHandler(MiscErrc::invalidState, handler);
 
         if (!petition.hasOption("agent"))
-            petition.withOption("agent", Version::agentString());
+            petition.withOption("agent", Version::clientAgentString());
+        // TODO: Don't clobber roles dictionary already set by user
         petition.withOption("roles", ClientFeatures::providedRoles());
         challengeSlot_ = std::move(onChallenge);
         Requested requested{shared_from_this(), std::move(handler),

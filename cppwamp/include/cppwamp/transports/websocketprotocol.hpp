@@ -173,8 +173,8 @@ public:
     /** Specifies the request-target (default is "/"). */
     WebsocketHost& withTarget(std::string target);
 
-    /** Specifies the custom agent string to use (default is
-        Version::agentString). */
+    /** Specifies the agent string to use for the HTTP response 'Server' field
+        (default is Version::serverAgentString). */
     WebsocketHost& withAgent(std::string agent);
 
     /** Specifies the permessage-deflate extension options. */
@@ -232,7 +232,7 @@ public:
     WebsocketEndpoint(std::string address, unsigned short port);
 
     /** Specifies the custom agent string to use (default is
-        Version::agentString). */
+        Version::clientAgentString). */
     WebsocketEndpoint& withAgent(std::string agent);
 
     /** Specifies the permessage-deflate extension options. */
