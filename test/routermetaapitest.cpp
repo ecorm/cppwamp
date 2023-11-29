@@ -68,7 +68,7 @@ void doCheckRegisterMetaProcedure(const Uri& realmUri,
         {
             INFO( "Known meta procedure" );
             auto reg = s.enroll(
-                Procedure{"wamp.session.count"},
+                "wamp.session.count",
                 [](Invocation) -> Outcome {return Result{42};},
                 yield);
             if (expectedForKnown == WampErrc::success)
@@ -88,7 +88,7 @@ void doCheckRegisterMetaProcedure(const Uri& realmUri,
         {
             INFO( "Unknown meta procedure" );
             auto reg = s.enroll(
-                Procedure{"wamp.bogus"},
+                "wamp.bogus",
                 [](Invocation) -> Outcome {return Result{123};},
                 yield);
             if (expectedForUnknown == WampErrc::success)
@@ -145,9 +145,8 @@ void doCheckPublishMetaTopic(const Uri& realmUri, WampErrc expected)
         Session s1{ioctx};
         s1.connect(withTcp, yield).value();
         s1.join(realmUri, yield).value();
-        s1.subscribe(Topic{"wamp.session.on_join"}, onKnownEvent,
-                     yield).value();
-        s1.subscribe(Topic{"wamp.bogus"}, onUnknownEvent, yield).value();
+        s1.subscribe("wamp.session.on_join", onKnownEvent, yield).value();
+        s1.subscribe("wamp.bogus", onUnknownEvent, yield).value();
 
         Session s2{ioctx};
         s2.connect(withTcp, yield).value();
@@ -334,8 +333,8 @@ TEST_CASE( "WAMP session meta events", "[WAMP][Router][MetaAPI]" )
         s1.connect(withTcp, yield).value();
         auto w1 = s1.join(testRealm, yield).value();
         REQUIRE(w1.features().broker().test(Feature::sessionMetaApi));
-        s1.subscribe(Topic{"wamp.session.on_join"}, onJoin, yield).value();
-        s1.subscribe(Topic{"wamp.session.on_leave"}, onLeave, yield).value();
+        s1.subscribe("wamp.session.on_join", onJoin, yield).value();
+        s1.subscribe("wamp.session.on_leave", onLeave, yield).value();
 
         s2.connect(withTcp, yield).value();
         auto w2 = s2.join(testRealm, yield).value();
@@ -680,18 +679,18 @@ TEST_CASE( "WAMP registration meta events", "[WAMP][Router]" )
         s1.connect(withTcp, yield).value();
         auto w1 = s1.join(testRealm, yield).value();
         REQUIRE(w1.features().dealer().test(Feature::registrationMetaApi));
-        s1.subscribe(Topic{"wamp.registration.on_create"},
+        s1.subscribe("wamp.registration.on_create",
                      onRegistrationCreated, yield).value();
-        s1.subscribe(Topic{"wamp.registration.on_register"}, onRegister,
+        s1.subscribe("wamp.registration.on_register", onRegister,
                      yield).value();
-        s1.subscribe(Topic{"wamp.registration.on_unregister"}, onUnregister,
+        s1.subscribe("wamp.registration.on_unregister", onUnregister,
                      yield).value();
-        s1.subscribe(Topic{"wamp.registration.on_delete"},
-                     onRegistrationDeleted, yield).value();
+        s1.subscribe("wamp.registration.on_delete", onRegistrationDeleted,
+                     yield).value();
 
         s2.connect(withTcp, yield).value();
         auto w2 = s2.join(testRealm, yield).value();
-        auto reg = s2.enroll(Procedure{"rpc"}, rpc, yield).value();
+        auto reg = s2.enroll("rpc", rpc, yield).value();
         while (regInfo.id == 0 || registrationId == 0)
             test::suspendCoro(yield);
         CHECK(regCreatedSessionId == w2.sessionId());
@@ -714,7 +713,7 @@ TEST_CASE( "WAMP registration meta events", "[WAMP][Router]" )
 
         unregisteredRegId = 0;
         deletedRegistrationId = 0;
-        reg = s2.enroll(Procedure{"rpc"}, rpc, yield).value();
+        reg = s2.enroll("rpc", rpc, yield).value();
         s2.leave(yield).value();
         while (unregisteredRegId == 0 || deletedRegistrationId == 0)
             test::suspendCoro(yield);
@@ -794,18 +793,18 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
         s1.connect(withTcp, yield).value();
         auto w1 = s1.join(testRealm, yield).value();
         REQUIRE(w1.features().broker().test(Feature::subscriptionMetaApi));
-        s1.subscribe(Topic{"wamp.subscription.on_create"},
-                     onSubscriptionCreated, yield).value();
-        s1.subscribe(Topic{"wamp.subscription.on_subscribe"}, onSubscribe,
+        s1.subscribe("wamp.subscription.on_create", onSubscriptionCreated,
                      yield).value();
-        s1.subscribe(Topic{"wamp.subscription.on_unsubscribe"}, onUnsubscribe,
+        s1.subscribe("wamp.subscription.on_subscribe", onSubscribe,
                      yield).value();
-        s1.subscribe(Topic{"wamp.subscription.on_delete"},
-                     onSubDeleted, yield).value();
+        s1.subscribe("wamp.subscription.on_unsubscribe", onUnsubscribe,
+                     yield).value();
+        s1.subscribe("wamp.subscription.on_delete", onSubDeleted,
+                     yield).value();
 
         s2.connect(withTcp, yield).value();
         auto w2 = s2.join(testRealm, yield).value();
-        auto sub2 = s2.subscribe(Topic{"exact"}, [](Event) {}, yield).value();
+        auto sub2 = s2.subscribe("exact", [](Event) {}, yield).value();
 
         while (subInfo.id == 0 || subscriptionId == 0)
             test::suspendCoro(yield);
@@ -948,8 +947,8 @@ TEST_CASE( "Insecure WAMP meta events subscriptions",
         auto w1 = s1.join(testRealm, yield).value();
         REQUIRE(w1.features().broker().test(Feature::sessionMetaApi));
 
-        s1.subscribe(Topic{"wamp.registration.on_register"},
-                     onRegisterEvent, yield).value();
+        s1.subscribe("wamp.registration.on_register", onRegisterEvent,
+                     yield).value();
 
         using MP = MatchPolicy;
         s1.subscribe(Topic{"wamp."}.withMatchPolicy(MP::prefix),
@@ -974,8 +973,7 @@ TEST_CASE( "Insecure WAMP meta events subscriptions",
         auto w2 = s2.join(testRealm, yield).value();
 
         // Cause a registration meta event to stop the waiting loop below.
-        s2.enroll(Procedure{"rpc"},
-                  [](Invocation) -> Outcome {return Result{};},
+        s2.enroll("rpc", [](Invocation) -> Outcome {return Result{};},
                   yield).value();
 
         while (registerEventCount == 0)

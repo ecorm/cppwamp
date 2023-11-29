@@ -89,7 +89,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             // Reestablish the dynamic subscription.
             using namespace std::placeholders;
             f.dynamicSub = f.subscriber.subscribe(
-                    Topic("str.num"),
+                    "str.num",
                     [&f](Event ev) {f.onDynamicEvent(std::move(ev));},
                     yield).value();
 
@@ -116,7 +116,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             PubSubFixture f(ioctx, where);
             f.join(yield);
             f.staticSub = f.subscriber.subscribe(
-                Topic("str.num"),
+                "str.num",
                 simpleEvent<std::string, int>([&](std::string s, int n)
                 {
                     f.staticArgs = Array{{s, n}};
@@ -449,23 +449,23 @@ GIVEN( "an IO service and a ConnectionWish" )
             f.subscribe(yield);
 
             f.subscriber.subscribe(
-                Topic("bad_conversion"),
+                "bad_conversion",
                 simpleEvent<Variant>([](Variant v) {v.to<String>();}),
                 yield).value();
 
             f.subscriber.subscribe(
-                Topic("bad_access"),
+                "bad_access",
                 [](Event event) {event.args().front().as<String>();},
                 yield).value();
 
             f.subscriber.subscribe(
-                Topic("bad_conversion_coro"),
+                "bad_conversion_coro",
                 simpleCoroEvent<Variant>(
                     [](Variant v, YieldContext y) { v.to<String>(); }),
                 yield).value();
 
             f.subscriber.subscribe(
-                Topic("bad_access_coro"),
+                "bad_access_coro",
                 unpackedCoroEvent<Variant>(
                     [](Event ev, Variant v, YieldContext y) {v.to<String>();}),
                 yield).value();
@@ -499,7 +499,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             Session s1{ioctx};
             s1.connect(withTcp, yield).value();
             s1.join(testRealm, yield).value();
-            auto sub = s1.subscribe(Topic{"foo"}, [](Event) {}, yield).value();
+            auto sub = s1.subscribe("foo", [](Event) {}, yield).value();
 
             Session s2{ioctx};
             s2.connect(withTcp, yield).value();
@@ -526,7 +526,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         checkInvalidUri(
             [](Session& session, YieldContext yield)
             {
-                return session.subscribe(Topic("#bad"), [](Event) {}, yield);
+                return session.subscribe("#bad", [](Event) {}, yield);
             } );
     }
 
@@ -565,7 +565,9 @@ GIVEN( "an IO service and a ConnectionWish" )
                ErrorOr<Subscription>& result)
             {
                 session.join(testRealm, yield).value();
-                session.subscribe(Topic("topic"), [] (Event) {},
+                session.subscribe(
+                    "topic",
+                    [] (Event) {},
                     [&](ErrorOr<Subscription> sub)
                     {
                         completed = true;
@@ -580,8 +582,7 @@ GIVEN( "an IO service and a ConnectionWish" )
                                  bool& completed, ErrorOr<bool>& result)
         {
             session.join(testRealm, yield).value();
-            auto sub = session.subscribe(Topic("topic"), [] (Event) {},
-                                         yield).value();
+            auto sub = session.subscribe("topic", [] (Event) {}, yield).value();
             session.unsubscribe(sub, [&](ErrorOr<bool> unsubscribed)
             {
                 completed = true;
@@ -596,8 +597,7 @@ GIVEN( "an IO service and a ConnectionWish" )
                                  bool& completed, ErrorOr<bool>& result)
         {
             session.join(testRealm, yield).value();
-            auto sub = session.subscribe(Topic("topic"), [](Event) {},
-                                         yield).value();
+            auto sub = session.subscribe("topic", [](Event) {}, yield).value();
             session.unsubscribe(sub, [&](ErrorOr<bool> unsubscribed)
             {
                 completed = true;
@@ -645,7 +645,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             Session s(ioctx);
             s.connect(where, yield).value();
             s.join(testRealm, yield).value();
-            s.subscribe(Topic("topic"),
+            s.subscribe("topic",
                         [](Event) {},
                         [&](ErrorOr<Subscription> s) {sub = s;});
             s.leave(yield).value();
@@ -664,7 +664,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             Session s(ioctx);
             s.connect(where, yield).value();
             s.join(testRealm, yield).value();
-            auto sub = s.subscribe(Topic("topic"), [](Event) {}, yield).value();
+            auto sub = s.subscribe("topic", [](Event) {}, yield).value();
             s.unsubscribe(sub, [&](ErrorOr<bool> ok) {done = ok;});
             s.leave(yield).value();
             CHECK( s.state() == SessionState::closed );

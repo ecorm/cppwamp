@@ -73,9 +73,9 @@ int main()
     auto time = result[0].to<std::tm>();
     std::cout << "The current time is: " << std::asctime(&time) << "\n";
 
-    session.subscribe(wamp::Topic("time_tick"),
-                       wamp::simpleEvent<std::tm>(&onTimeTick),
-                       use_future).get().value();
+    session.subscribe("time_tick",
+                      wamp::simpleEvent<std::tm>(&onTimeTick),
+                      use_future).get().value();
 
     thread.join();
 

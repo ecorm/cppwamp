@@ -73,7 +73,7 @@ int main()
     auto welcome = session.join(realm, use_future).get().value();
     std::cout << "Joined, SessionId=" << welcome.sessionId() << std::endl;
 
-    auto reg = session.enroll(wamp::Procedure("get_time"),
+    auto reg = session.enroll("get_time",
                               wamp::simpleRpc<std::tm>(&getTime),
                               use_future).get().value();
     std::cout << "Registered 'get_time', RegistrationId=" << reg.id()

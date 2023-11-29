@@ -35,7 +35,7 @@ struct RpcFixture
     {
         using namespace std::placeholders;
         dynamicReg = callee.enroll(
-            Procedure("dynamic"),
+            "dynamic",
             [this](Invocation inv) -> Outcome
             {
                 return dynamicRpc(std::move(inv));
@@ -43,7 +43,7 @@ struct RpcFixture
             yield).value();
 
         staticReg = callee.enroll(
-            Procedure("static"),
+            "static",
             unpackedRpc<std::string, int>(
                 [this](Invocation i, std::string s, int n) -> Outcome
                 {
@@ -130,7 +130,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             // Calling should work after re-registering the slot.
             using namespace std::placeholders;
             f.dynamicReg = f.callee.enroll(
-                Procedure("dynamic"),
+                "dynamic",
                 [&f](Invocation inv) -> Outcome
                 {
                     return f.dynamicRpc(std::move(inv));
@@ -179,7 +179,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             // Calling should work after re-registering the slot.
             using namespace std::placeholders;
             f.staticReg = f.callee.enroll(
-                Procedure("static"),
+                "static",
                 unpackedRpc<std::string, int>(
                     [&f](Invocation i, std::string s, int n) -> Outcome
                     {
@@ -202,7 +202,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             f.join(yield);
 
             f.staticReg = f.callee.enroll(
-                    Procedure("static"),
+                    "static",
                     simpleRpc<int, std::string, int>([&](std::string, int n)
                     {
                         ++f.staticCount;
@@ -236,7 +236,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             // Calling should work after re-registering the slot.
             using namespace std::placeholders;
             f.staticReg = f.callee.enroll(
-                    Procedure("static"),
+                    "static",
                     simpleRpc<int, std::string, int>([&](std::string, int n)
                     {
                         ++f.staticCount;
@@ -469,14 +469,14 @@ GIVEN( "these test fixture objects" )
         {
             session1.connect(where, yield).value();
             session1.join(testRealm, yield).value();
-            session1.enroll(Procedure("upperify"),
-                             unpackedRpc<std::string>(upperify), yield).value();
+            session1.enroll("upperify",
+                            unpackedRpc<std::string>(upperify), yield).value();
 
 
             session2.connect(where, yield).value();
             session2.join(testRealm, yield).value();
             session2.enroll(
-                Procedure("uppercat"),
+                "uppercat",
                 simpleCoroRpc<std::string, std::string, std::string>(uppercat),
                 yield).value();
 
@@ -510,14 +510,14 @@ GIVEN( "these test fixture objects" )
         {
             callee.connect(where, yield).value();
             callee.join(testRealm, yield).value();
-            callee.enroll(Procedure("upperify"),
-                           unpackedRpc<std::string>(upperify), yield).value();
+            callee.enroll("upperify",
+                          unpackedRpc<std::string>(upperify), yield).value();
 
             subscriber.connect(where, yield).value();
             subscriber.join(testRealm, yield).value();
-            subscriber.subscribe(Topic("onEvent"),
-                                  simpleCoroEvent<std::string>(onEvent),
-                                  yield).value();
+            subscriber.subscribe("onEvent",
+                                 simpleCoroEvent<std::string>(onEvent),
+                                 yield).value();
 
             callee.publish(Pub("onEvent").withArgs("Hello"), yield).value();
             while (upperized.empty())
@@ -555,14 +555,14 @@ GIVEN( "these test fixture objects" )
         {
             callee.connect(where, yield).value();
             callee.join(testRealm, yield).value();
-            callee.enroll(Procedure("shout"),
-                           unpackedCoroRpc<std::string>(shout), yield).value();
+            callee.enroll("shout",
+                          unpackedCoroRpc<std::string>(shout), yield).value();
 
             subscriber.connect(where, yield).value();
             subscriber.join(testRealm, yield).value();
-            subscriber.subscribe(Topic("grapevine"),
-                                  unpackedEvent<std::string>(onEvent),
-                                  yield).value();
+            subscriber.subscribe("grapevine",
+                                 unpackedEvent<std::string>(onEvent),
+                                 yield).value();
 
             subscriber.call(Rpc("shout").withArgs("hello"), yield).value();
             while (upperized.empty())
@@ -594,8 +594,8 @@ GIVEN( "these test fixture objects" )
         {
             callee.connect(where, yield).value();
             callee.join(testRealm, yield).value();
-            reg = callee.enroll(Procedure("oneShot"),
-                                 simpleCoroRpc<void>(oneShot), yield).value();
+            reg = callee.enroll("oneShot",
+                                simpleCoroRpc<void>(oneShot), yield).value();
 
             caller.connect(where, yield).value();
             caller.join(testRealm, yield).value();
@@ -642,13 +642,13 @@ GIVEN( "these test fixture objects" )
             session1.connect(where, yield).value();
             session1.join(testRealm, yield).value();
             session1.subscribe(
-                        Topic("onTalk"),
+                        "onTalk",
                         simpleCoroEvent<std::string>(onTalk), yield).value();
 
             session2.connect(where, yield).value();
             session2.join(testRealm, yield).value();
             session2.subscribe(
-                        Topic("onShout"),
+                        "onShout",
                         unpackedEvent<std::string>(onShout), yield).value();
 
             session2.publish(Pub("onTalk").withArgs("hello"), yield).value();
@@ -684,13 +684,13 @@ GIVEN( "these test fixture objects" )
 
             subscriber.connect(where, yield).value();
             subscriber.join(testRealm, yield).value();
-            sub = subscriber.subscribe(Topic("onEvent"),
-                                        unpackedCoroEvent(onEvent),
-                                        yield).value();
+            sub = subscriber.subscribe("onEvent",
+                                       unpackedCoroEvent(onEvent),
+                                       yield).value();
 
             // Dummy RPC used to end polling
             int rpcCount = 0;
-            subscriber.enroll(Procedure("dummy"),
+            subscriber.enroll("dummy",
                 [&rpcCount](Invocation) -> Outcome
                 {
                    ++rpcCount;
@@ -737,7 +737,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
             auto handler = [](Invocation) -> Outcome {return {};};
 
-            auto reg = f.callee.enroll(Procedure("dynamic"), handler, yield);
+            auto reg = f.callee.enroll("dynamic", handler, yield);
             CHECK( reg == makeUnexpected(WampErrc::procedureAlreadyExists) );
             CHECK_THROWS_AS( reg.value(), error::Failure );
         });
@@ -754,7 +754,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             f.enroll(yield);
 
             auto reg = f.callee.enroll(
-                Procedure("rpc"),
+                "rpc",
                 [&callCount](Invocation) -> Outcome
                 {
                     ++callCount;
@@ -788,7 +788,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             f.enroll(yield);
 
             auto reg = f.callee.enroll(
-                Procedure("rpc"),
+                "rpc",
                 [&callCount](Invocation) -> Outcome
                 {
                     ++callCount;
@@ -847,7 +847,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             f.join(yield);
 
             f.callee.enroll(
-                Procedure("bad_conversion"),
+                "bad_conversion",
                 [](Invocation inv)
                 {
                     inv.args().front().to<String>();
@@ -856,18 +856,18 @@ GIVEN( "an IO service and a ConnectionWish" )
                 yield).value();
 
             f.callee.enroll(
-                Procedure("bad_conv_coro"),
+                "bad_conv_coro",
                 simpleCoroRpc<void, Variant>(
                 [](Variant v, YieldContext yield) { v.to<String>(); }),
                 yield).value();
 
             f.callee.enroll(
-                Procedure("bad_access"),
+                "bad_access",
                 simpleRpc<void, Variant>( [](Variant v){v.as<String>();} ),
                 yield).value();
 
             f.callee.enroll(
-                Procedure("bad_access_coro"),
+                "bad_access_coro",
                 unpackedCoroRpc<Variant>(
                 [](Invocation inv, Variant v, YieldContext yield)
                 {
@@ -910,7 +910,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             f.enroll(yield);
 
             auto reg = f.callee.enroll(
-                Procedure("rpc"),
+                "rpc",
                 [&](Invocation) -> Outcome
                 {
                     f.callee.leave([](ErrorOr<Goodbye>) {});
@@ -935,7 +935,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             Session s1{ioctx};
             s1.connect(withTcp, yield).value();
             s1.join(testRealm, yield).value();
-            auto reg = s1.enroll(Procedure{"foo"},
+            auto reg = s1.enroll("foo",
                                  [](Invocation) -> Outcome {return {};},
                                  yield).value();
 
@@ -963,9 +963,8 @@ GIVEN( "an IO service and a ConnectionWish" )
         checkInvalidUri(
             [](Session& session, YieldContext yield)
             {
-                return session.enroll(Procedure("#bad"),
-                                      [](Invocation)->Outcome {return {};},
-                                      yield);
+                return session.enroll(
+                    "#bad", [](Invocation)->Outcome {return {};}, yield);
             }
         );
     }
@@ -1004,7 +1003,7 @@ GIVEN( "an IO service and a ConnectionWish" )
                bool& completed, ErrorOr<Registration>& result)
             {
                 session.join(testRealm, yield).value();
-                session.enroll(Procedure("rpc"),
+                session.enroll("rpc",
                                [](Invocation)->Outcome {return {};},
                                [&](ErrorOr<Registration> reg)
                                {
@@ -1020,9 +1019,8 @@ GIVEN( "an IO service and a ConnectionWish" )
                                  bool& completed, ErrorOr<bool>& result)
         {
             session.join(testRealm, yield).value();
-            auto reg = session.enroll(Procedure("rpc"),
-                                      [](Invocation)->Outcome{return {};},
-                                      yield).value();
+            auto reg = session.enroll(
+                "rpc", [](Invocation)->Outcome{return {};}, yield).value();
             session.unregister(reg, [&](ErrorOr<bool> unregistered)
             {
                 completed = true;
@@ -1039,9 +1037,8 @@ GIVEN( "an IO service and a ConnectionWish" )
                                  ErrorOr<bool>& result)
         {
             session.join(testRealm, yield).value();
-            auto reg = session.enroll(Procedure("rpc"),
-                                      [](Invocation)->Outcome{return {};},
-                                      yield).value();
+            auto reg = session.enroll(
+                "rpc", [](Invocation)->Outcome{return {};}, yield).value();
             session.unregister(reg, [&](ErrorOr<bool> unregistered)
             {
                 completed = true;
@@ -1073,7 +1070,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             Session s(ioctx);
             s.connect(where, yield).value();
             s.join(testRealm, yield).value();
-            s.enroll(Procedure("procedure"),
+            s.enroll("procedure",
                      [&](Invocation) -> Outcome {return {};},
                      [&](ErrorOr<Registration> r) {reg = r;});
             s.leave(yield).value();
@@ -1092,7 +1089,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             Session s(ioctx);
             s.connect(where, yield).value();
             s.join(testRealm, yield).value();
-            auto reg = s.enroll(Procedure("procedure"),
+            auto reg = s.enroll("procedure",
                                 [&](Invocation) -> Outcome {return {};},
                                 yield).value();
             s.unregister(reg, [&](ErrorOr<bool> ok) {done = ok;});

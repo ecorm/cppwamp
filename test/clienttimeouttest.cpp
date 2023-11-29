@@ -267,9 +267,10 @@ TEST_CASE("WAMP Client Command Timeouts", "[WAMP][Basic]")
 
                 s.connect(invalidTcp, yield).value();
                 s.join(testRealm, yield).value();
-                auto reg = s.enroll(Procedure{"foo"},
-                                    [](Invocation) -> Outcome {return Result{};},
-                                    yield).value();
+                auto reg = s.enroll(
+                    "foo",
+                    [](Invocation) -> Outcome {return Result{};},
+                    yield).value();
                 auto done = s.unregister(reg, timeout, yield);
                 REQUIRE_FALSE(done.has_value());
                 CHECK(done.error() == WampErrc::timeout);

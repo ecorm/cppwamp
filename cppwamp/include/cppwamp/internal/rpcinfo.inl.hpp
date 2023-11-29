@@ -56,9 +56,9 @@ CPPWAMP_INLINE CallCancelMode parseCallCancelModeFromOptions(const Object& opts)
 // Procedure
 //******************************************************************************
 
-CPPWAMP_INLINE Procedure::Procedure(Uri uri)
-    : Base(std::move(uri))
-{}
+CPPWAMP_INLINE Procedure::Procedure(Uri uri) : Base(std::move(uri)) {}
+
+CPPWAMP_INLINE Procedure::Procedure(const UriChar* uri) : Procedure(Uri{uri}) {}
 
 CPPWAMP_INLINE Procedure::Procedure(internal::PassKey, internal::Message&& msg)
     : Base(std::move(msg))

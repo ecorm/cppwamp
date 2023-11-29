@@ -37,7 +37,7 @@ public:
         using namespace std::placeholders;
 
         registration_ = session_.enroll(
-            Procedure("say"),
+            "say",
             simpleRpc<void, std::string, std::string>(
                 [this](std::string user, std::string message)
                 {
@@ -87,7 +87,7 @@ public:
 
         using namespace std::placeholders;
         subscription_ = session_.subscribe(
-                Topic("said"),
+                "said",
                 simpleEvent<std::string, std::string>(
                     [this](std::string user, std::string message)
                     {

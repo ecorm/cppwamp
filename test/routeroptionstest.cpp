@@ -84,7 +84,7 @@ void checkCallerDisclosure(
         {
             INFO("With callee not requesting disclosure");
             auto rpc = Rpc{"rpc1"}.withArgs(42);
-            s.enroll(Procedure{"rpc1"}, onInvocation, yield).value();
+            s.enroll("rpc1", onInvocation, yield).value();
 
             s.call(rpc, yield).value();
             checkInvocationDisclosure("disclose_me unset", invocation, w,
@@ -180,7 +180,7 @@ void checkPublisherDisclosure(
 
         s.connect(withTcp, yield).value();
         auto w = s.join(testRealm, yield).value();
-        s.subscribe(Topic{"topic"}, onEvent, yield).value();
+        s.subscribe("topic", onEvent, yield).value();
 
         s.publish(pub, yield).value();
         checkEventDisclosure("disclose_me unset", event, w,
@@ -261,7 +261,7 @@ TEST_CASE( "Router call timeout forwarding options", "[WAMP][Router][Timeout]" )
                 CHECK(result.error() == WampErrc::cancelled);
             }
 
-            s.enroll(Procedure{"rpc2"}, onCall, yield).value();
+            s.enroll("rpc2", onCall, yield).value();
             result = s.call(Rpc{"rpc2"}.withDealerTimeout(timeout), yield);
             if (expectedForwardedWhenNotAsked)
             {

@@ -99,7 +99,7 @@ private:
     void subscribe()
     {
         session_.subscribe(
-            wamp::Topic("time_tick"),
+            "time_tick",
             wamp::simpleEvent<std::tm>(&TimeClient::onTimeTick),
             [](wamp::ErrorOr<wamp::Subscription> sub)
             {

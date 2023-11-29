@@ -83,7 +83,7 @@ GIVEN( "a publisher and a subscriber" )
                         .test(Feature::publisherIdentification));
 
             f.subscriber.subscribe(
-                Topic("onEvent"),
+                "onEvent",
                 [&disclosedId, &eventCount](Event event)
                 {
                     disclosedId = event.publisher().value_or(0);
@@ -184,12 +184,12 @@ GIVEN( "a publisher and a subscriber" )
                         .test(Feature::publisherExclusion));
 
             f.subscriber.subscribe(
-                Topic("onEvent"),
+                "onEvent",
                 [&subscriberEventCount](Event) {++subscriberEventCount;},
                 yield).value();
 
             f.publisher.subscribe(
-                Topic("onEvent"),
+                "onEvent",
                 [&publisherEventCount](Event) {++publisherEventCount;},
                 yield).value();
 
@@ -222,12 +222,12 @@ GIVEN( "a publisher and a subscriber" )
                 subscriber2.join(testRealm, yield).value().sessionId();
 
             f.subscriber.subscribe(
-                Topic("onEvent"),
+                "onEvent",
                 [&eventCount1](Event) {++eventCount1;},
                 yield).value();
 
             subscriber2.subscribe(
-                Topic("onEvent"),
+                "onEvent",
                 [&eventCount2](Event) {++eventCount2;},
                 yield).value();
 

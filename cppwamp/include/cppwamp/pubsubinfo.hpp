@@ -7,7 +7,6 @@
 #ifndef CPPWAMP_PUBSUBINFO_HPP
 #define CPPWAMP_PUBSUBINFO_HPP
 
-#include <chrono>
 #include "accesslogging.hpp"
 #include "api.hpp"
 #include "anyhandler.hpp"
@@ -37,8 +36,14 @@ class CPPWAMP_API Topic
     : public Options<Topic, internal::MessageKind::subscribe>
 {
 public:
+    /// URI character type
+    using UriChar = Uri::value_type;
+
     /** Converting constructor taking a topic URI. */
     Topic(Uri uri); // NOLINT(google-explicit-constructor)
+
+    /** Converting constructor taking a topic URI C string. */
+    Topic(const UriChar* uri); // NOLINT(google-explicit-constructor)
 
     /** Specifies the duration after which the subscription operation should
         time out. */

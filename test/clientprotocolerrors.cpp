@@ -185,7 +185,7 @@ TEST_CASE( "WAMP protocol violation detection by client", "[WAMP][Advanced]" )
         {
             session.connect(withTcp, yield).value();
             session.join(testRealm, yield).value();
-            session.enroll(Procedure{"rpc"}, onRpc, yield).value();
+            session.enroll("rpc", onRpc, yield).value();
 
             checkProtocolViolation(session, *server, "non-sequential", yield);
             session.disconnect();
@@ -215,7 +215,7 @@ TEST_CASE( "WAMP protocol violation detection by client", "[WAMP][Advanced]" )
         {
             session.connect(withTcp, yield).value();
             session.join(testRealm, yield).value();
-            session.enroll(Procedure{"rpc"}, onRpc, yield).value();
+            session.enroll("rpc", onRpc, yield).value();
 
             checkInvocationError(session, *server, "registered as a stream",
                                  yield);
@@ -246,7 +246,7 @@ TEST_CASE( "WAMP protocol violation detection by client", "[WAMP][Advanced]" )
         {
             session.connect(withTcp, yield).value();
             session.join(testRealm, yield).value();
-            session.enroll(Procedure{"rpc"}, onRpc, yield).value();
+            session.enroll("rpc", onRpc, yield).value();
 
             checkProtocolViolation(session, *server, "reinvoke", yield);
             session.disconnect();

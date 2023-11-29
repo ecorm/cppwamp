@@ -1155,9 +1155,9 @@ TEST_CASE( "WAMP session using Websocket transport",
     spawn(ioctx, [&](YieldContext yield)
     {
         s.connect(wish, yield).value();
-        s.join(Hello{"cppwamp.test"}, yield).value();
-        auto reg = s.enroll(Procedure{"rpc"}, rpc, yield).value();
-        auto sub = s.subscribe(Topic{"topic"}, onEvent, yield).value();
+        s.join("cppwamp.test", yield).value();
+        auto reg = s.enroll("rpc", rpc, yield).value();
+        auto sub = s.subscribe("topic", onEvent, yield).value();
 
         auto result = s.call(Rpc{"rpc"}.withArgs(42), yield).value();
         REQUIRE(result.args().size() == 1);

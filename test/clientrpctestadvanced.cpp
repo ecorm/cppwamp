@@ -78,7 +78,7 @@ GIVEN( "a caller and a callee" )
                         .test(Feature::callerIdentification));
 
             f.callee.enroll(
-                Procedure("rpc"),
+                "rpc",
                 [&disclosedId](Invocation inv) -> Outcome
                 {
                     disclosedId = inv.caller().value_or(0);
@@ -182,7 +182,7 @@ GIVEN( "a caller and a callee" )
             REQUIRE(f.welcome.features().dealer().test(Feature::callCanceling));
 
             f.callee.enroll(
-                Procedure("rpc"),
+                "rpc",
                 [&invocationRequestId](Invocation inv) -> Outcome
                 {
                     invocationRequestId = inv.requestId();
@@ -241,7 +241,7 @@ GIVEN( "a caller and a callee" )
             REQUIRE(f.welcome.features().dealer().test(Feature::callCanceling));
 
             f.callee.enroll(
-                Procedure("rpc"),
+                "rpc",
                 [&invocationRequestId](Invocation inv) -> Outcome
                 {
                     invocationRequestId = inv.requestId();
@@ -296,7 +296,7 @@ GIVEN( "a caller and a callee" )
             REQUIRE(f.welcome.features().dealer().test(Feature::callCanceling));
 
             f.callee.enroll(
-                Procedure("rpc"),
+                "rpc",
                 [&invocationRequestId](Invocation inv) -> Outcome
                 {
                     invocationRequestId = inv.requestId();
@@ -343,7 +343,7 @@ GIVEN( "a caller and a callee" )
             REQUIRE(f.welcome.features().dealer().test(Feature::callCanceling));
 
             f.callee.enroll(
-                Procedure("rpc"),
+                "rpc",
                 [&invocationRequestId](Invocation inv) -> Outcome
                 {
                     invocationRequestId = inv.requestId();
@@ -390,7 +390,7 @@ GIVEN( "a caller and a callee" )
             REQUIRE(f.welcome.features().dealer().test(Feature::callCanceling));
 
             f.callee.enroll(
-                Procedure("rpc"),
+                "rpc",
                 [&invocationRequestId](Invocation inv) -> Outcome
                 {
                     invocationRequestId = inv.requestId();
@@ -444,7 +444,7 @@ GIVEN( "a caller and a callee" )
             REQUIRE(f.welcome.features().dealer().test(Feature::callCanceling));
 
             f.callee.enroll(
-                Procedure("rpc"),
+                "rpc",
                 [&invocationRequestId, &invocation](Invocation inv) -> Outcome
                 {
                     invocationRequestId = inv.requestId();
@@ -498,7 +498,7 @@ GIVEN( "a caller and a callee" )
             REQUIRE(f.welcome.features().dealer().test(Feature::callCanceling));
 
             f.callee.enroll(
-                Procedure("rpc"),
+                "rpc",
                 [&invocationRequestId](Invocation inv) -> Outcome
                 {
                     invocationRequestId = inv.requestId();
@@ -568,7 +568,7 @@ GIVEN( "a caller and a callee" )
             }
 
             f.callee.enroll(
-                Procedure("com.myapp.foo"),
+                "com.myapp.foo",
                 [&](Invocation inv) -> Outcome
                 {
                     spawn(ioctx, [&, inv](YieldContext yield) mutable

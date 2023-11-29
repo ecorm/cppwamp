@@ -862,9 +862,6 @@ private:
         if (!peer_->startShuttingDown())
             return postErrorToHandler(MiscErrc::invalidState, handler);
 
-        if (reason.uri().empty())
-            reason.setUri({}, errorCodeToUri(WampErrc::closeRealm));
-
         timeout = timeoutOrFallback(timeout);
         request(std::move(reason), timeout,
                 Requested{shared_from_this(), std::move(handler)});

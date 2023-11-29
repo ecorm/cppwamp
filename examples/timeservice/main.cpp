@@ -62,7 +62,7 @@ int main()
         {
             session.connect(tcp, yield).value();
             session.join(realm, yield).value();
-            session.enroll(wamp::Procedure("get_time"),
+            session.enroll("get_time",
                            wamp::simpleRpc<std::tm>(&getTime),
                            yield).value();
 

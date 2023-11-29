@@ -232,7 +232,7 @@ GIVEN( "a Session and a ConnectionWish" )
                 CHECK( welcome.features().supports(requiredFeatures) );
 
                 // Try leaving with a reason URI this time.
-                Goodbye reason = s.leave(Goodbye("wamp.error.system_shutdown"),
+                Goodbye reason = s.leave("wamp.error.system_shutdown",
                                          yield).value();
                 CHECK_FALSE( reason.uri().empty() );
                 CHECK( incidents.testIfEmptyThenClear() );
@@ -605,7 +605,7 @@ GIVEN( "a Session and an alternate ConnectionWish" )
                 CHECK( info.features().supports(requiredFeatures) );
 
                 // Try leaving with a reason URI this time.
-                Goodbye reason = s.leave(Goodbye("wamp.error.system_shutdown"),
+                Goodbye reason = s.leave("wamp.error.system_shutdown",
                                          yield).value();
                 CHECK_FALSE( reason.uri().empty() );
                 CHECK( s.state() == SessionState::closed );
@@ -643,7 +643,7 @@ SCENARIO( "Connecting with codec options", "[WAMP][Basic]" )
     {
         s.connect(where, yield).value();
         s.join(testRealm, yield).value();
-        s.subscribe(Topic("foo"), event, yield).value();
+        s.subscribe("foo", event, yield).value();
 
         s.publish(Pub("foo").withArgs(10.14).withExcludeMe(false));
         while (value == 0)
@@ -770,7 +770,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         checkInvalidUri(
             [](Session& session, YieldContext yield)
             {
-                return session.leave(Goodbye{"#bad"}, yield);
+                return session.leave("#bad", yield);
             } );
     }
 
@@ -780,7 +780,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         {
             Session session(ioctx);
             session.connect(where, yield).value();
-            auto result = session.join(Hello{"nonexistent"}, yield);
+            auto result = session.join("nonexistent", yield);
             CHECK( result == makeUnexpected(WampErrc::noSuchRealm) );
             CHECK_THROWS_AS( result.value(), error::Failure );
         });

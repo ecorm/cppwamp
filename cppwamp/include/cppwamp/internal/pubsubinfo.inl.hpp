@@ -21,6 +21,8 @@ CPPWAMP_INLINE Topic::Topic(Uri uri)
     : Base(in_place, 0, Object{}, std::move(uri))
 {}
 
+CPPWAMP_INLINE Topic::Topic(const UriChar* uri) : Topic(Uri{uri}) {}
+
 CPPWAMP_INLINE const Uri& Topic::uri() const
 {
     return message().as<String>(uriPos_);

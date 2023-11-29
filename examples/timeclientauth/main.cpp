@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
         auto time = result[0].to<std::tm>();
         std::cout << "The current time is: " << std::asctime(&time) << "\n";
 
-        session.subscribe(wamp::Topic("time_tick"),
+        session.subscribe("time_tick",
                           wamp::simpleEvent<std::tm>(&onTimeTick),
                           yield).value();
     });

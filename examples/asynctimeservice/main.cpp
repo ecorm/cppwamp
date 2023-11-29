@@ -90,7 +90,7 @@ private:
     {
         auto self = shared_from_this();
         session_.enroll(
-            wamp::Procedure("get_time"),
+            "get_time",
             wamp::simpleRpc<std::tm>(&getTime),
             [this, self](wamp::ErrorOr<wamp::Registration> reg)
             {

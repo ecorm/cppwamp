@@ -61,7 +61,7 @@ void checkInvalidPublish(Session& session, YieldContext yield)
 void checkInvalidSubscribe(Session& session, YieldContext yield)
 {
     INFO("subscribe");
-    auto sub = session.subscribe(Topic("topic"), [](Event){}, yield);
+    auto sub = session.subscribe("topic", [](Event){}, yield);
     REQUIRE_FALSE( sub );
     CHECK( sub.error() == MiscErrc::invalidState );
     CHECK_THROWS_AS( sub.value(), error::Failure );
@@ -71,9 +71,8 @@ void checkInvalidSubscribe(Session& session, YieldContext yield)
 void checkInvalidEnroll(Session& session, YieldContext yield)
 {
     INFO("enroll");
-    auto reg = session.enroll(Procedure("rpc"),
-        [](Invocation)->Outcome {return {};},
-        yield);
+    auto reg = session.enroll("rpc", [](Invocation)->Outcome {return {};},
+                              yield);
     REQUIRE_FALSE( reg );
     CHECK( reg.error() == MiscErrc::invalidState );
     CHECK_THROWS_AS( reg.value(), error::Failure );
@@ -309,15 +308,15 @@ GIVEN( "these test fixture objects" )
         {
             caller.connect(where, yield).value();
             caller.join(testRealm, yield).value();
-            caller.subscribe(Topic("grapevine"),
+            caller.subscribe("grapevine",
                              unpackedEvent<std::string>(onEvent),
                              yield).value();
 
             callee.connect(where, yield).value();
             callee.join(testRealm, yield).value();
-            callee.enroll(Procedure("echo"), unpackedRpc<std::string>(echo),
+            callee.enroll("echo", unpackedRpc<std::string>(echo),
                           yield).value();
-            callee.enroll(Procedure("trigger"), trigger, yield).value();
+            callee.enroll("trigger", trigger, yield).value();
 
             for (int i=0; i<10; ++i)
             {
@@ -356,7 +355,7 @@ GIVEN( "these test fixture objects" )
 
             callee.connect(where, yield).value();
             callee.join(testRealm, yield).value();
-            callee.enroll(Procedure("echo"), unpackedRpc<std::string>(echo),
+            callee.enroll("echo", unpackedRpc<std::string>(echo),
                           yield).value();
 
             auto result = caller.call(Rpc("echo").withArgs(largeString), yield);
@@ -382,7 +381,7 @@ GIVEN( "these test fixture objects" )
                 [&incidents](Incident i) {incidents.push_back(i);});
             callee.connect(where, yield).value();
             callee.join(testRealm, yield).value();
-            callee.enroll(Procedure("excessive"), excessive, yield).value();
+            callee.enroll("excessive", excessive, yield).value();
 
             auto result = caller.call(Rpc("excessive"), yield);
             CHECK( result == makeUnexpectedError(WampErrc::payloadSizeExceeded) );
@@ -410,8 +409,7 @@ GIVEN( "these test fixture objects" )
                 [&incidents](Incident i) {incidents.push_back(i);});
             callee.connect(where, yield).value();
             callee.join(testRealm, yield).value();
-            callee.enroll(Procedure("excessive"), excessiveError,
-                          yield).value();
+            callee.enroll("excessive", excessiveError, yield).value();
 
             Error error;
             auto result = caller.call(Rpc("excessive").captureError(error),
@@ -519,8 +517,8 @@ GIVEN( "a thread pool execution context" )
     {
         session.connect(where, yield).value();
         session.join(testRealm, yield).value();
-        session.enroll(Procedure("rpc"), rpc, yield).value();
-        session.subscribe(Topic("topic"), onEvent, yield).value();
+        session.enroll("rpc", rpc, yield).value();
+        session.subscribe("topic", onEvent, yield).value();
         for (unsigned i=0; i<numbers.size(); ++i)
         {
             session.call(

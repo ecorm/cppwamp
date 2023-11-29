@@ -18,9 +18,16 @@ namespace wamp
 // Goodbye
 //******************************************************************************
 
+/** Uses the `wamp.close.close_realm` reason URI. */
+CPPWAMP_INLINE Goodbye::Goodbye()
+    : Goodbye(errorCodeToUri(WampErrc::closeRealm))
+{}
+
 CPPWAMP_INLINE Goodbye::Goodbye(Uri uri)
     : Base(in_place, Object{}, std::move(uri))
 {}
+
+CPPWAMP_INLINE Goodbye::Goodbye(const UriChar* uri) : Goodbye(Uri{uri}) {}
 
 CPPWAMP_INLINE Goodbye::Goodbye(std::error_code ec)
     : Goodbye(errorCodeToUri(ec))
@@ -137,11 +144,11 @@ CPPWAMP_INLINE Abort::Abort(internal::PassKey, std::error_code ec, Object opts)
 // Hello
 //******************************************************************************
 
-CPPWAMP_INLINE Hello::Hello(const UriChar* realm) : Hello(Uri{realm}) {}
-
 CPPWAMP_INLINE Hello::Hello(Uri realm)
     : Base(in_place, std::move(realm), Object{})
 {}
+
+CPPWAMP_INLINE Hello::Hello(const UriChar* realm) : Hello(Uri{realm}) {}
 
 CPPWAMP_INLINE Hello& Hello::captureAbort(Abort& reason)
 {

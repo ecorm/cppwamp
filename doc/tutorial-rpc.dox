@@ -114,7 +114,7 @@ function can be used:
 // :::
 using namespace wamp;
 Registration reg =
-    session.enroll(Procedure("name"),
+    session.enroll("name",
                    simpleRpc<ReturnType, StaticTypeList...>(slot),
                    yield).value();
 ```
@@ -152,9 +152,10 @@ int main()
         session.join("somerealm", yield).value();
 
         // Register a statically-type procedure.
-        session.enroll(Procedure("sum"),
-               simpleRpc<float, float, float>(&sum), yield).value();
-        //               ^^^^^^^^^^^^^^^^^^^
+        session.enroll(
+            "sum",
+            simpleRpc<float, float, float>(&sum), yield).value();
+        //            ^^^^^^^^^^^^^^^^^^^
         //  Note that these types match the ones in the 'sum' signature
         //  (return type, then parameter types).
     });
@@ -172,7 +173,7 @@ function can be used instead:
 #include <cppwamp/unpacker.hpp>
 // :::
 using namespace wamp;
-Registration reg = session.enroll(Procedure("name"),
+Registration reg = session.enroll("name",
                                   unpackedRpc<StaticTypeList...>(slot),
                                   yield).value();
 ```
@@ -210,7 +211,7 @@ int main()
         session.join("somerealm", yield).value();
 
         // Register a procedure needing the Outcome and Invocation.
-        session.enroll(Procedure("sum"),
+        session.enroll("sum",
                        unpackedRpc<float, float>(&sum), yield).value();
         //                         ^^^^^^^^^^^^
         //  Note that these types match the ones in the 'sum' signature
@@ -260,7 +261,7 @@ int main()
         session.join("somerealm", yield).value();
 
         // Register a procedure that needs to be run within a coroutine.
-        session.enroll(Procedure("getName"),
+        session.enroll("getName",
                        simpleCoroRpc<std::string, std::string>(getName),
                        yield).value();
     });
@@ -343,7 +344,7 @@ lifetime management of RPC registrations using [RAII][3] techniques.
 using namespace wamp;
 
 {
-    ScopedRegistration reg = session.enroll(Procedure("rpc"), &rpc, yield);
+    ScopedRegistration reg = session.enroll("rpc", &rpc, yield);
 }
 // "rpc" is automatically unregistered when the 'reg' scoped registration
 // goes out of scope here.
@@ -526,7 +527,7 @@ int main()
 
         // Note the additional InterruptSlot argument for enroll.
         auto reg = session.enroll(
-            Procedure("myapp.remind_me"),
+            "myapp.remind_me",
             simpleCoroRpc<std::string, std::string>(delayedEcho),
             cancelEcho,
             yield).value();

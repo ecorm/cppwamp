@@ -7,10 +7,9 @@
 #ifndef CPPWAMP_CLIENTINFO_HPP
 #define CPPWAMP_CLIENTINFO_HPP
 
-#include <chrono>
-#include <memory>
 #include <string>
 #include <vector>
+#include <utility>
 #include "accesslogging.hpp"
 #include "api.hpp"
 #include "errorcodes.hpp"
@@ -43,10 +42,19 @@ class CPPWAMP_API Goodbye
     : public Options<Goodbye, internal::MessageKind::goodbye>
 {
 public:
+    /// URI character type
+    using UriChar = Uri::value_type;
+
     // NOLINTBEGIN(google-explicit-constructor)
 
-    /** Converting constructor taking an optional reason URI. */
-    Goodbye(Uri uri = {});
+    /** Default constructor. */
+    Goodbye();
+
+    /** Converting constructor taking a reason URI. */
+    Goodbye(Uri uri);
+
+    /** Converting constructor taking a reason URI C string. */
+    Goodbye(const UriChar* uri);
 
     /** Converting constructor taking an error code, attempting to convert
         it to a URI. */
@@ -182,14 +190,14 @@ public: // Internal use only
 class CPPWAMP_API Hello : public Options<Hello, internal::MessageKind::hello>
 {
 public:
-    /// Character type of the realm URI
+    /// URI character type
     using UriChar = Uri::value_type;
-
-    /** Converting constructor taking a realm URI C string. */
-    Hello(const UriChar* realm); // NOLINT(google-explicit-constructor)
 
     /** Converting constructor taking a realm URI. */
     Hello(Uri realm); // NOLINT(google-explicit-constructor)
+
+    /** Converting constructor taking a realm URI C string. */
+    Hello(const UriChar* realm); // NOLINT(google-explicit-constructor)
 
     /** Specifies the Goodbye object in which to store abort details returned
         by the router. */

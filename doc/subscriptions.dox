@@ -81,11 +81,11 @@ void onPurchase(std::string item, int cost, int qty) { ... }
 
 The above slots can be registered as follows:
 ```
-session.subscribe(Topic("sensorSampled"),
+session.subscribe("sensorSampled",
                   simpleEvent<float>(&onSensorSampled),
                   handler);
 
-session.subscribe(Topic("itemPurchased"),
+session.subscribe("itemPurchased",
                   simpleEvent<std::string, int, int>(&onPurchase),
                   handler);
 ```
@@ -134,11 +134,11 @@ void onPurchase(std::string item, int cost, int qty, YieldContext yield) { ... }
 
 The above slots can be registered as follows:
 ```
-session.subscribe(Topic("sensorSampled"),
+session.subscribe("sensorSampled",
                   simpleCoroEvent<float>(&onSensorSampled),
                   handler);
 
-session.subscribe(Topic("itemPurchased"),
+session.subscribe("itemPurchased",
                   simpleCoroEvent<std::string, int, int>(&onPurchase),
                   handler);
 ```
@@ -190,11 +190,11 @@ void onPurchase(Event event, std::string item, int cost, int qty) { ... }
 
 The above slots can be registered as follows:
 ```
-session.subscribe(Topic("sensorSampled"),
+session.subscribe("sensorSampled",
                   unpackedEvent<float>(&onSensorSampled),
                   handler);
 
-session.subscribe(Topic("itemPurchased"),
+session.subscribe("itemPurchased",
                   unpackedEvent<std::string, int, int>(&onPurchase),
                   handler);
 ```
@@ -270,10 +270,8 @@ public:
     {
         // The session has already connected and joined when this is called.
 
-        auto s1 = session_.subscribe(Topic("foo"), &Observer::onFoo,
-                                     yield).value();
-        auto s2 = session_.subscribe(Topic("bar"), &Observer::onBar,
-                                     yield).value();
+        auto s1 = session_.subscribe("foo", &Observer::onFoo, yield).value();
+        auto s2 = session_.subscribe("bar", &Observer::onBar, yield).value();
 
         // Store scoped subscripions in private member
         subscriptions_.push_back(s1);

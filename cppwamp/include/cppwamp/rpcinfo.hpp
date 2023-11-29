@@ -140,8 +140,14 @@ public:
 class CPPWAMP_API Procedure : public ProcedureLike<Procedure>
 {
 public:
+    /// URI character type
+    using UriChar = Uri::value_type;
+
     /** Converting constructor taking a procedure URI. */
     Procedure(Uri uri); // NOLINT(google-explicit-constructor)
+
+    /** Converting constructor taking a procedure URI C string. */
+    Procedure(const UriChar* uri); // NOLINT(google-explicit-constructor)
 
 private:
     using Base = ProcedureLike<Procedure>;

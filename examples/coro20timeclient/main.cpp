@@ -64,7 +64,7 @@ boost::asio::awaitable<void> client(wamp::Session& session,
     auto time = result[0].to<std::tm>();
     std::cout << "The current time is: " << std::asctime(&time) << "\n";
 
-    (co_await session.subscribe(Topic("time_tick"),
+    (co_await session.subscribe("time_tick",
                                  wamp::simpleEvent<std::tm>(&onTimeTick),
                                  use_awaitable)).value();
 }

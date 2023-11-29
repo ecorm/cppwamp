@@ -828,9 +828,8 @@ TEST_CASE( "Router realm registration queries and events", "[WAMP][Router]" )
 
         {
             INFO("Registration");
-            reg = s.enroll(Procedure{"foo"},
-                                [](Invocation) -> Outcome {return {};},
-                                yield).value();
+            reg = s.enroll("foo", [](Invocation) -> Outcome {return {};},
+                           yield).value();
             when = std::chrono::system_clock::now();
 
             while (observer->registerEvents.empty())
@@ -863,9 +862,8 @@ TEST_CASE( "Router realm registration queries and events", "[WAMP][Router]" )
 
         {
             INFO("Unregistration via leaving");
-            reg = s.enroll(Procedure{"foo"},
-                       [](Invocation) -> Outcome {return {};},
-                       yield).value();
+            reg = s.enroll("foo", [](Invocation) -> Outcome {return {};},
+                           yield).value();
             observer->unregisterEvents.clear();
             s.leave(yield).value();
 
@@ -916,7 +914,7 @@ TEST_CASE( "Router realm subscription queries and events", "[WAMP][Router]" )
 
         {
             INFO("Topic creation");
-            sub1 = s1.subscribe(Topic{"foo"}, [](Event) {}, yield).value();
+            sub1 = s1.subscribe("foo", [](Event) {}, yield).value();
             when = std::chrono::system_clock::now();
 
             while (observer->subscribeEvents.empty())
@@ -937,7 +935,7 @@ TEST_CASE( "Router realm subscription queries and events", "[WAMP][Router]" )
 
         {
             INFO("Subscription");
-            sub2 = s2.subscribe(Topic{"foo"}, [](Event) {}, yield).value();
+            sub2 = s2.subscribe("foo", [](Event) {}, yield).value();
             when = std::chrono::system_clock::now();
 
             while (observer->subscribeEvents.empty())
@@ -1010,8 +1008,7 @@ TEST_CASE( "Router realm subscription matching", "[WAMP][Router]" )
         auto sid = welcome.sessionId();
         auto when = std::chrono::system_clock::now();
 
-        auto exactSub = s.subscribe(Topic{"foo.bar"}, [](Event) {},
-                                    yield).value();
+        auto exactSub = s.subscribe("foo.bar", [](Event) {}, yield).value();
 
         auto prefixSub =
             s.subscribe(Topic{"foo"}.withMatchPolicy(MatchPolicy::prefix),

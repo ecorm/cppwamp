@@ -104,7 +104,7 @@ public:
             std::cout << "The current time is: " << std::asctime(&time)
                       << std::endl;
 
-            yield session_->subscribe(wamp::Topic("time_tick"),
+            yield session_->subscribe("time_tick",
                                       wamp::simpleEvent<std::tm>(&onTimeTick),
                                       *this);
         }

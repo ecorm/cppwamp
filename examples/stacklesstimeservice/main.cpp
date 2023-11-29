@@ -104,7 +104,7 @@ public:
             std::cout << "Joined, SessionId="
                       << boost::variant2::get<2>(aftermath).value().sessionId()
                       << std::endl;
-            yield session_->enroll(wamp::Procedure("get_time"),
+            yield session_->enroll("get_time",
                                    wamp::simpleRpc<std::tm>(&getTime),
                                    *this);
             std::cout << "Registered 'get_time', RegistrationId="
