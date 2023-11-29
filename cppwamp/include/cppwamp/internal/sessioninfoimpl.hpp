@@ -55,9 +55,13 @@ public:
 
     void setConnection(ConnectionInfo c) {connection_ = std::move(c);}
 
-    void setAgent(String agent, ClientFeatures f)
+    void setAgent(String agent)
     {
         agent_ = std::move(agent);
+    }
+
+    void setFeatures(ClientFeatures f)
+    {
         features_ = f;
     }
 

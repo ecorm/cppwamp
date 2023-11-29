@@ -802,8 +802,8 @@ private:
 
         if (!petition.hasOption("agent"))
             petition.withOption("agent", Version::clientAgentString());
-        // TODO: Don't clobber roles dictionary already set by user
-        petition.withOption("roles", ClientFeatures::providedRoles());
+        if (!petition.hasOption("roles"))
+            petition.withOption("roles", ClientFeatures::providedRoles());
         challengeSlot_ = std::move(onChallenge);
         Requested requested{shared_from_this(), std::move(handler),
                             petition.uri(), petition.abortReason({})};

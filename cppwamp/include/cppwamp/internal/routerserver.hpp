@@ -497,7 +497,8 @@ private:
                                          RouterFeatures::providedRoles());
         if (!serverOptions_->agent().empty())
             welcomeDetails["agent"] = serverOptions_->agent();
-        info->setAgent(hello.agentOrEmptyString({}), hello.features());
+        info->setAgent(hello.agentOrEmptyString({}));
+        info->setFeatures(hello.features());
         authExchange_.reset();
         Base::join(std::move(info));
 

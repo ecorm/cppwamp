@@ -373,9 +373,12 @@ inline Object DirectRouterSession::open(Petition&& hello)
     else if (authInfo_.id().empty())
         authInfo_.setId({}, hello.authId().value_or(""));
 
-    // TODO: Don't clobber agent and feature options already set by user.
     auto info = internal::SessionInfoImpl::create(authInfo_);
-    info->setAgent(Version::clientAgentString(), ClientFeatures::provided());
+    auto agent = hello.optionOr<String>("agent", Version::clientAgentString());
+    auto features = hello.hasOption("roles") ? hello.features()
+                                             : ClientFeatures::provided();
+    info->setAgent(std::move(agent));
+    info->setFeatures(features);
     auto welcomeDetails = info->join(hello.uri());
     Base::join(std::move(info));
     return welcomeDetails;

@@ -178,6 +178,7 @@ public: // Internal use only
 
 //------------------------------------------------------------------------------
 /** %Realm URI and other options contained within WAMP `HELLO` messages. */
+// TODO: Rename to Hello
 //------------------------------------------------------------------------------
 class CPPWAMP_API Petition : public Options<Petition,
                                             internal::MessageKind::hello>
