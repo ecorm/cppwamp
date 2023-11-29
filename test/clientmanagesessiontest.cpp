@@ -205,7 +205,7 @@ GIVEN( "a Session and a ConnectionWish" )
                 CHECK( welcome.features().dealer().all_of(Feature::basic) );
 
                 // Check leaving.
-                Goodbye reason;
+                Goodbye reason{""};
                 s.leave([&reason](ErrorOr<Goodbye> r) {reason = r.value();});
                 CHECK(s.state() == SS::shuttingDown);
 
