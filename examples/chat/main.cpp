@@ -30,7 +30,7 @@ public:
         std::cout << "Chat service connected on transport #"
                   << (index + 1) << "\n";
 
-        auto welcome = session_.join(Petition(realm), yield).value();
+        auto welcome = session_.join(realm, yield).value();
         std::cout << "Chat service joined, session ID = "
                   << welcome.sessionId() << "\n";
 
@@ -81,7 +81,7 @@ public:
         auto index = session_.connect(std::move(where), yield).value();
         std::cout << user_ << " connected on transport #" << (index + 1) << "\n";
 
-        auto welcome = session_.join(Petition(realm), yield).value();
+        auto welcome = session_.join(realm, yield).value();
         std::cout << user_ << " joined, session ID = "
                   << welcome.sessionId() << "\n";
 

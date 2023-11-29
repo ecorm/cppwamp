@@ -95,7 +95,7 @@ TEST_CASE("WAMP Client Connection Timeouts", "[WAMP][Basic]")
                     incidents.list.clear();
 
                     // Join
-                    Welcome info = s.join(Petition(testRealm), yield).value();
+                    Welcome info = s.join(testRealm, yield).value();
                     CHECK( incidents.empty() );
                     CHECK( s.state() == SS::established );
 
@@ -165,7 +165,7 @@ TEST_CASE("WAMP Client Command Timeouts", "[WAMP][Basic]")
             INFO("join");
             {
                 s.connect(invalidTcp, yield).value();
-                auto welcome = s.join(Petition{testRealm}.withTimeout(timeout),
+                auto welcome = s.join(Hello{testRealm}.withTimeout(timeout),
                                       yield);
                 REQUIRE_FALSE(welcome.has_value());
                 CHECK(welcome.error() == WampErrc::timeout);
@@ -177,7 +177,7 @@ TEST_CASE("WAMP Client Command Timeouts", "[WAMP][Basic]")
             {
                 server->load({{{"[2,1,{}]"}}} /* WELCOME */);
                 s.connect(invalidTcp, yield).value();
-                s.join(Petition{testRealm}, yield).value();
+                s.join(testRealm, yield).value();
                 auto goodbye = s.leave(Goodbye{}, timeout, yield);
                 REQUIRE_FALSE(goodbye.has_value());
                 CHECK(goodbye.error() == WampErrc::timeout);
@@ -189,7 +189,7 @@ TEST_CASE("WAMP Client Command Timeouts", "[WAMP][Basic]")
             {
                 server->load({{{"[2,1,{}]"}}} /* WELCOME */);
                 s.connect(invalidTcp, yield).value();
-                s.join(Petition{testRealm}, yield).value();
+                s.join(testRealm, yield).value();
                 auto sub = s.subscribe(Topic{"foo"}.withTimeout(timeout),
                                        [](Event) {}, yield);
                 REQUIRE_FALSE(sub.has_value());
@@ -206,7 +206,7 @@ TEST_CASE("WAMP Client Command Timeouts", "[WAMP][Basic]")
                 });
 
                 s.connect(invalidTcp, yield).value();
-                s.join(Petition{testRealm}, yield).value();
+                s.join(testRealm, yield).value();
                 auto sub = s.subscribe(Topic{"foo"}.withTimeout(timeout),
                                        [](Event) {}, yield).value();
                 auto done = s.unsubscribe(sub, timeout, yield);
@@ -220,7 +220,7 @@ TEST_CASE("WAMP Client Command Timeouts", "[WAMP][Basic]")
             {
                 server->load({{{"[2,1,{}]"}}} /* WELCOME */);
                 s.connect(invalidTcp, yield).value();
-                s.join(Petition{testRealm}, yield).value();
+                s.join(testRealm, yield).value();
                 auto pubId = s.publish(Pub{"foo"}.withArgs(42).withTimeout(timeout),
                                        yield);
                 REQUIRE_FALSE(pubId.has_value());
@@ -233,7 +233,7 @@ TEST_CASE("WAMP Client Command Timeouts", "[WAMP][Basic]")
             {
                 server->load({{{"[2,1,{}]"}}} /* WELCOME */);
                 s.connect(invalidTcp, yield).value();
-                s.join(Petition{testRealm}, yield).value();
+                s.join(testRealm, yield).value();
                 s.publish(Pub{"foo"}.withArgs(42).withTimeout(timeout));
 
                 boost::asio::steady_timer timer{ioctx};
@@ -248,7 +248,7 @@ TEST_CASE("WAMP Client Command Timeouts", "[WAMP][Basic]")
             {
                 server->load({{{"[2,1,{}]"}}} /* WELCOME */);
                 s.connect(invalidTcp, yield).value();
-                s.join(Petition{testRealm}, yield).value();
+                s.join(testRealm, yield).value();
                 auto reg = s.enroll(Procedure{"foo"}.withTimeout(timeout),
                                     [](Invocation) -> Outcome {return Result{};},
                                     yield);
@@ -266,7 +266,7 @@ TEST_CASE("WAMP Client Command Timeouts", "[WAMP][Basic]")
                 });
 
                 s.connect(invalidTcp, yield).value();
-                s.join(Petition{testRealm}, yield).value();
+                s.join(testRealm, yield).value();
                 auto reg = s.enroll(Procedure{"foo"},
                                     [](Invocation) -> Outcome {return Result{};},
                                     yield).value();

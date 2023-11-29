@@ -44,18 +44,18 @@ struct TicketAuthFixture
         {
             welcome =
                 session.join(
-                    Petition(authTestRealm).withAuthMethods({"ticket"})
-                                           .withAuthId(std::move(authId))
-                                           .captureAbort(abortReason),
+                    Hello(authTestRealm).withAuthMethods({"ticket"})
+                                        .withAuthId(std::move(authId))
+                                        .captureAbort(abortReason),
                     yield);
         }
         else
         {
             welcome =
                 session.join(
-                    Petition(authTestRealm).withAuthMethods({"ticket"})
-                                           .withAuthId(std::move(authId))
-                                           .captureAbort(abortReason),
+                    Hello(authTestRealm).withAuthMethods({"ticket"})
+                                        .withAuthId(std::move(authId))
+                                        .captureAbort(abortReason),
                     [this](Challenge c) {onChallenge(std::move(c));},
                     yield);
         }

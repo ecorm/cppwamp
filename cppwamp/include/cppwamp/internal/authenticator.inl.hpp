@@ -16,7 +16,7 @@ namespace wamp
 // AuthExchange
 //******************************************************************************
 
-CPPWAMP_INLINE const Petition& AuthExchange::hello() const {return hello_;}
+CPPWAMP_INLINE const Hello& AuthExchange::hello() const {return hello_;}
 
 CPPWAMP_INLINE const Challenge& AuthExchange::challenge() const
 {
@@ -64,9 +64,9 @@ CPPWAMP_INLINE void AuthExchange::reject(Abort reason)
 }
 
 CPPWAMP_INLINE AuthExchange::Ptr
-AuthExchange::create(internal::PassKey, Petition&& p, ChallengerPtr c)
+AuthExchange::create(internal::PassKey, Hello&& h, ChallengerPtr c)
 {
-    return Ptr(new AuthExchange(std::move(p), std::move(c)));
+    return Ptr(new AuthExchange(std::move(h), std::move(c)));
 }
 
 CPPWAMP_INLINE void AuthExchange::setAuthentication(internal::PassKey,
@@ -75,10 +75,10 @@ CPPWAMP_INLINE void AuthExchange::setAuthentication(internal::PassKey,
     authentication_ = std::move(a);
 }
 
-CPPWAMP_INLINE Petition& AuthExchange::hello(internal::PassKey) {return hello_;}
+CPPWAMP_INLINE Hello& AuthExchange::hello(internal::PassKey) {return hello_;}
 
-CPPWAMP_INLINE AuthExchange::AuthExchange(Petition&& p, ChallengerPtr c)
-    : hello_(std::move(p)),
+CPPWAMP_INLINE AuthExchange::AuthExchange(Hello&& h, ChallengerPtr c)
+    : hello_(std::move(h)),
       challenger_(std::move(c))
 {}
 

@@ -38,10 +38,10 @@ struct PubSubFixture
     void join(YieldContext yield)
     {
         publisher.connect(where, yield).value();
-        welcome = publisher.join(Petition(testRealm), yield).value();
+        welcome = publisher.join(testRealm, yield).value();
         publisherId = welcome.sessionId();
         subscriber.connect(where, yield).value();
-        subscriber.join(Petition(testRealm), yield).value();
+        subscriber.join(testRealm, yield).value();
     }
 
     void disconnect()
@@ -219,7 +219,7 @@ GIVEN( "a publisher and a subscriber" )
 
             subscriber2.connect(withTcp, yield).value();
             auto subscriber2Id =
-                subscriber2.join(Petition(testRealm), yield).value().sessionId();
+                subscriber2.join(testRealm, yield).value().sessionId();
 
             f.subscriber.subscribe(
                 Topic("onEvent"),

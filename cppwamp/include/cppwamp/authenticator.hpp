@@ -34,7 +34,7 @@ public:
     using Ptr = std::shared_ptr<AuthExchange>;
 
     /** Accesses the HELLO information provided by the client. */
-    const Petition& hello() const;
+    const Hello& hello() const;
 
     /** Accesses the CHALLENGE information sent by the router. */
     const Challenge& challenge() const;
@@ -66,9 +66,9 @@ public:
 private:
     using ChallengerPtr = std::weak_ptr<internal::Challenger>;
 
-    AuthExchange(Petition&& p, ChallengerPtr c);
+    AuthExchange(Hello&& h, ChallengerPtr c);
 
-    Petition hello_;
+    Hello hello_;
     ChallengerPtr challenger_;
     Challenge challenge_;
     Authentication authentication_;
@@ -76,9 +76,9 @@ private:
     unsigned challengeCount_ = 0;
 
 public: // Internal use only
-    static Ptr create(internal::PassKey, Petition&& p, ChallengerPtr c);
+    static Ptr create(internal::PassKey, Hello&& h, ChallengerPtr c);
     void setAuthentication(internal::PassKey, Authentication&& a);
-    Petition& hello(internal::PassKey);
+    Hello& hello(internal::PassKey);
 };
 
 

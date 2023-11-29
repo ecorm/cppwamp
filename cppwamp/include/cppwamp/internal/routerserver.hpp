@@ -246,7 +246,7 @@ private:
         Base::routerLog({LogLevel::trace, std::move(messageDump)});
     }
 
-    void onPeerHello(Petition&& hello) override
+    void onPeerHello(Hello&& hello) override
     {
         Base::report(hello.info());
 

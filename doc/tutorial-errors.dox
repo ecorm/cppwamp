@@ -51,7 +51,7 @@ int main()
             return;
         }
 
-        auto info = session.join(Petition("somerealm"), yield);
+        auto info = session.join("somerealm", yield);
         if (!info)
         {
             std::cerr << "Join failed: " << info.error() << "\n";
@@ -86,7 +86,7 @@ int main()
         {
             auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
             session.connect(std::move(tcp), yield).value(); // Note the .value()
-            session.join(Petition("somerealm"), yield).value(); // Note the .value()
+            session.join("somerealm", yield).value(); // Note the .value()
             // etc.
         }
         catch (const error::Failure& e)

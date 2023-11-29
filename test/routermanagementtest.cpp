@@ -582,7 +582,7 @@ TEST_CASE( "Router realm session events", "[WAMP][Router]" )
         {
             INFO("Session joining");
             s.connect(withTcp, yield).value();
-            welcome = s.join(Petition(testRealm), yield).value();
+            welcome = s.join(testRealm, yield).value();
 
             while (observer1->joinEvents.empty() ||
                    observer2->joinEvents.empty() ||
@@ -653,12 +653,12 @@ TEST_CASE( "Router realm session queries", "[WAMP][Router]" )
 
         Session s1{ioctx};
         s1.connect(withTcp, yield).value();
-        Welcome w1 = s1.join(Petition(testRealm), yield).value();
+        Welcome w1 = s1.join(testRealm, yield).value();
         checkRealmSessions("s1 joined", realm, {w1});
 
         Session s2{ioctx};
         s2.connect(withTcp, yield).value();
-        Welcome w2 = s2.join(Petition(testRealm), yield).value();
+        Welcome w2 = s2.join(testRealm, yield).value();
         checkRealmSessions("s2 joined", realm, {w1, w2});
 
         auto errorOrDetails = realm.getSession(0);
@@ -712,14 +712,14 @@ TEST_CASE( "Killing router sessions", "[WAMP][Router]" )
             std::vector<Incident> i1;
             s1.observeIncidents([&i1](Incident i) {i1.push_back(i);});
             s1.connect(withTcp, yield).value();
-            w1 = s1.join(Petition(testRealm), yield).value();
+            w1 = s1.join(testRealm, yield).value();
 
             Session s2{ioctx};
             Welcome w2;
             std::vector<Incident> i2;
             s2.observeIncidents([&i2](Incident i) {i2.push_back(i);});
             s2.connect(withTcp, yield).value();
-            w2 = s2.join(Petition(testRealm), yield).value();
+            w2 = s2.join(testRealm, yield).value();
 
             {
                 INFO("Realm::killSessionById - non-existent");
@@ -739,7 +739,7 @@ TEST_CASE( "Killing router sessions", "[WAMP][Router]" )
 
                 s1.disconnect();
                 s1.connect(withTcp, yield).value();
-                w1 = s1.join(Petition(testRealm), yield).value();
+                w1 = s1.join(testRealm, yield).value();
             }
 
             {
@@ -760,10 +760,10 @@ TEST_CASE( "Killing router sessions", "[WAMP][Router]" )
 
                 s1.disconnect();
                 s1.connect(withTcp, yield).value();
-                w1 = s1.join(Petition(testRealm), yield).value();
+                w1 = s1.join(testRealm, yield).value();
                 s2.disconnect();
                 s2.connect(withTcp, yield).value();
-                w2 = s2.join(Petition(testRealm), yield).value();
+                w2 = s2.join(testRealm, yield).value();
             }
 
             {
@@ -821,7 +821,7 @@ TEST_CASE( "Router realm registration queries and events", "[WAMP][Router]" )
     spawn(ioctx, [&](YieldContext yield)
     {
         s.connect(withTcp, yield).value();
-        auto welcome = s.join(Petition(testRealm), yield).value();
+        auto welcome = s.join(testRealm, yield).value();
         auto sid = welcome.sessionId();
         std::chrono::system_clock::time_point when;
         Registration reg;
@@ -905,10 +905,10 @@ TEST_CASE( "Router realm subscription queries and events", "[WAMP][Router]" )
     spawn(ioctx, [&](YieldContext yield)
     {
         s1.connect(withTcp, yield).value();
-        auto w1 = s1.join(Petition(testRealm), yield).value();
+        auto w1 = s1.join(testRealm, yield).value();
         auto sid1 = w1.sessionId();
         s2.connect(withTcp, yield).value();
-        auto w2 = s2.join(Petition(testRealm), yield).value();
+        auto w2 = s2.join(testRealm, yield).value();
         auto sid2 = w2.sessionId();
         std::chrono::system_clock::time_point when;
         Subscription sub1;
@@ -1006,7 +1006,7 @@ TEST_CASE( "Router realm subscription matching", "[WAMP][Router]" )
     spawn(ioctx, [&](YieldContext yield)
     {
         s.connect(withTcp, yield).value();
-        auto welcome = s.join(Petition(testRealm), yield).value();
+        auto welcome = s.join(testRealm, yield).value();
         auto sid = welcome.sessionId();
         auto when = std::chrono::system_clock::now();
 

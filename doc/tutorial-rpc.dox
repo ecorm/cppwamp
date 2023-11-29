@@ -76,7 +76,7 @@ int main()
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
-        session.join(Petition("somerealm"), yield).value();
+        session.join("somerealm", yield).value();
 
         // Register the "addToCart" procedure
         auto reg = session.enroll(Procedure("addToCart").withDiscloseCaller(),
@@ -149,7 +149,7 @@ int main()
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
-        session.join(Petition("somerealm"), yield).value();
+        session.join("somerealm", yield).value();
 
         // Register a statically-type procedure.
         session.enroll(Procedure("sum"),
@@ -207,7 +207,7 @@ int main()
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
-        session.join(Petition("somerealm"), yield).value();
+        session.join("somerealm", yield).value();
 
         // Register a procedure needing the Outcome and Invocation.
         session.enroll(Procedure("sum"),
@@ -257,7 +257,7 @@ int main()
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
-        session.join(Petition("somerealm"), yield).value();
+        session.join("somerealm", yield).value();
 
         // Register a procedure that needs to be run within a coroutine.
         session.enroll(Procedure("getName"),
@@ -385,7 +385,7 @@ int main()
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
-        session.join(Petition("somerealm"), yield).value();
+        session.join("somerealm", yield).value();
 
         // Call a remote procedure that takes no arguments
         Result result = session.call(Rpc("getElapsed"), yield).value();
@@ -433,7 +433,7 @@ int main()
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
-        session.join(Petition("somerealm"), yield).value();
+        session.join("somerealm", yield).value();
 
         Error error;
         auto result = session.call(Rpc("foo").withArgs(42).captureError(error),
@@ -522,7 +522,7 @@ int main()
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
-        session.join(Petition("somerealm"), yield).value();
+        session.join("somerealm", yield).value();
 
         // Note the additional InterruptSlot argument for enroll.
         auto reg = session.enroll(
@@ -557,7 +557,7 @@ int main()
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
-        session.join(Petition("somerealm"), yield).value();
+        session.join("somerealm", yield).value();
 
         // Call a remote procedure that takes a while to respond.
         // Note that the overload taking a CallChit out parameter is used.
@@ -604,7 +604,7 @@ int main()
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
-        session.join(Petition("somerealm"), yield).value();
+        session.join("somerealm", yield).value();
 
         // Prepare a cancellation signal that will be used to generate a
         // cancellation slot as well as triggerring the cancellation.

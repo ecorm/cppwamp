@@ -61,10 +61,10 @@ int main()
         [tcp, &session, &timer](wamp::YieldContext yield)
         {
             session.connect(tcp, yield).value();
-            session.join(wamp::Petition(realm), yield).value();
+            session.join(realm, yield).value();
             session.enroll(wamp::Procedure("get_time"),
-                            wamp::simpleRpc<std::tm>(&getTime),
-                            yield).value();
+                           wamp::simpleRpc<std::tm>(&getTime),
+                           yield).value();
 
             auto deadline = std::chrono::steady_clock::now();
             while (true)

@@ -145,7 +145,7 @@ int main()
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
-        auto welcome = session.join(Petition("somerealm"), yield).value();
+        auto welcome = session.join("somerealm", yield).value();
         // etc.
     });
 
@@ -194,7 +194,7 @@ int main()
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
-        session.join(Petition("somerealm"), yield).value();
+        session.join("somerealm", yield).value();
 
         while (!finished)
         {
@@ -237,7 +237,7 @@ int main()
         Session session(ioctx);
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
-        session.join(Petition("somerealm"), yield).value();
+        session.join("somerealm", yield).value();
 
         while (!finished)
         {
@@ -317,8 +317,8 @@ Within the challenge handler, you must compute the cryptographic signature
 (or ticket string) and send it back via wamp::Challenge::authenticate.
 
 When later performing the session join operation, you must set the
-authentication ID via wamp::Petition::withAuthId, as well as the
-desired/supported authentication methods via wamp::Petition::withAuthMethods.
+authentication ID via wamp::Hello::withAuthId, as well as the
+desired/supported authentication methods via wamp::Hello::withAuthMethods.
 
 The following example shows how to perform ticket authentication.
 
@@ -355,7 +355,7 @@ int main()
         ticket = "guest";
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
-        session.join(Petition("somerealm").withAuthId("alice")
+        session.join(Hello("somerealm").withAuthId("alice")
                                        .withAuthMethods({"ticket"}),
                      onChallenge,
                      yield).value();
@@ -393,7 +393,7 @@ int main()
     {
         auto tcp = wamp::TcpHost{"localhost", 8001}.withFormat(wamp::json);
         session.connect(std::move(tcp), yield).value();
-        session.join(wamp::Petition("somerealm", yield).value();
+        session.join("somerealm", yield).value();
         // Register RPCs, subscribe to topics, etc.
     }
 

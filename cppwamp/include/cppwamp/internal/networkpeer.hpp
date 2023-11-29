@@ -97,7 +97,7 @@ public:
     }
 
     ErrorOrDone send(Goodbye&& c) override           {return sendCommand(c);}
-    ErrorOrDone send(Petition&& c) override          {return sendCommand(c);}
+    ErrorOrDone send(Hello&& c) override             {return sendCommand(c);}
     ErrorOrDone send(Welcome&& c) override           {return sendCommand(c);}
     ErrorOrDone send(Authentication&& c) override    {return sendCommand(c);}
     ErrorOrDone send(Challenge&& c) override         {return sendCommand(c);}
@@ -336,7 +336,7 @@ private:
     {
         assert(state() == State::establishing);
         setState(State::authenticating);
-        listener().onPeerHello(Petition{{}, std::move(msg)});
+        listener().onPeerHello(Hello{{}, std::move(msg)});
     }
 
     void onWelcome(Message& msg)

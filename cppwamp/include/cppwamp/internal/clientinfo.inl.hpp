@@ -134,21 +134,23 @@ CPPWAMP_INLINE Abort::Abort(internal::PassKey, std::error_code ec, Object opts)
 
 
 //******************************************************************************
-// Petition
+// Hello
 //******************************************************************************
 
-CPPWAMP_INLINE Petition::Petition(Uri realm)
+CPPWAMP_INLINE Hello::Hello(const UriChar* realm) : Hello(Uri{realm}) {}
+
+CPPWAMP_INLINE Hello::Hello(Uri realm)
     : Base(in_place, std::move(realm), Object{})
 {}
 
-CPPWAMP_INLINE Petition& Petition::captureAbort(Abort& reason)
+CPPWAMP_INLINE Hello& Hello::captureAbort(Abort& reason)
 {
     abortReason_ = &reason;
     return *this;
 }
 
 /** @throws error::Logic if the given timeout duration is negative. */
-CPPWAMP_INLINE Petition& Petition::withTimeout(Timeout timeout)
+CPPWAMP_INLINE Hello& Hello::withTimeout(Timeout timeout)
 {
     timeout_ = internal::checkTimeout(timeout);
     return *this;
@@ -158,29 +160,29 @@ CPPWAMP_INLINE Petition& Petition::withTimeout(Timeout timeout)
     specified.
     @note The transport's agent string, if applicable, is set independently
           via the transport's endpoint settings. */
-CPPWAMP_INLINE Petition& Petition::withAgent(String agent)
+CPPWAMP_INLINE Hello& Hello::withAgent(String agent)
 {
     return this->withOption("agent", std::move(agent));
 }
 
-CPPWAMP_INLINE Timeout Petition::timeout() const {return timeout_;}
+CPPWAMP_INLINE Timeout Hello::timeout() const {return timeout_;}
 
-CPPWAMP_INLINE const Uri& Petition::uri() const
+CPPWAMP_INLINE const Uri& Hello::uri() const
 {
     return message().as<String>(uriPos_);
 }
 
-CPPWAMP_INLINE ErrorOr<String> Petition::agent() const
+CPPWAMP_INLINE ErrorOr<String> Hello::agent() const
 {
     return this->optionAs<String>("agent");
 }
 
-CPPWAMP_INLINE ErrorOr<Object> Petition::roles() const
+CPPWAMP_INLINE ErrorOr<Object> Hello::roles() const
 {
     return this->optionAs<Object>("roles");
 }
 
-CPPWAMP_INLINE ClientFeatures Petition::features() const
+CPPWAMP_INLINE ClientFeatures Hello::features() const
 {
     auto found = options().find("roles");
     if (found == options().end())
@@ -188,46 +190,46 @@ CPPWAMP_INLINE ClientFeatures Petition::features() const
     return ClientFeatures{found->second.as<Object>()};
 }
 
-CPPWAMP_INLINE AccessActionInfo Petition::info() const
+CPPWAMP_INLINE AccessActionInfo Hello::info() const
 {
     return {AccessAction::clientHello, uri(), options()};
 }
 
-CPPWAMP_INLINE Petition& Petition::withAuthMethods(std::vector<String> methods)
+CPPWAMP_INLINE Hello& Hello::withAuthMethods(std::vector<String> methods)
 {
     return withOption("authmethods", std::move(methods));
 }
 
-CPPWAMP_INLINE Petition& Petition::withAuthId(String authId)
+CPPWAMP_INLINE Hello& Hello::withAuthId(String authId)
 {
     return withOption("authid", std::move(authId));
 }
 
-CPPWAMP_INLINE ErrorOr<Array> Petition::authMethods() const
+CPPWAMP_INLINE ErrorOr<Array> Hello::authMethods() const
 {
     return this->optionAs<Array>("authmethods");
 }
 
-CPPWAMP_INLINE ErrorOr<String> Petition::authId() const
+CPPWAMP_INLINE ErrorOr<String> Hello::authId() const
 {
     return this->optionAs<String>("authid");
 }
 
-CPPWAMP_INLINE Petition::Petition(internal::PassKey, internal::Message&& msg)
+CPPWAMP_INLINE Hello::Hello(internal::PassKey, internal::Message&& msg)
     : Base(std::move(msg))
 {}
 
-CPPWAMP_INLINE Abort* Petition::abortReason(internal::PassKey)
+CPPWAMP_INLINE Abort* Hello::abortReason(internal::PassKey)
 {
     return abortReason_;
 }
 
-CPPWAMP_INLINE Uri& Petition::uri(internal::PassKey)
+CPPWAMP_INLINE Uri& Hello::uri(internal::PassKey)
 {
     return message().as<String>(uriPos_);
 }
 
-CPPWAMP_INLINE String Petition::agentOrEmptyString(internal::PassKey)
+CPPWAMP_INLINE String Hello::agentOrEmptyString(internal::PassKey)
 {
     auto agentOrError = std::move(*this).optionAs<String>("agent");
     auto agent = std::move(agentOrError).value_or(String{});

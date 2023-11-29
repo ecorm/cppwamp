@@ -56,7 +56,7 @@ int main()
     wamp::spawn(ioctx, [tcp, &session](wamp::YieldContext yield)
     {
         session.connect(tcp, yield).value();
-        session.join(wamp::Petition(realm), yield).value();
+        session.join(realm, yield).value();
         auto result = session.call(wamp::Rpc("get_time"), yield).value();
         auto time = result[0].to<std::tm>();
         std::cout << "The current time is: " << std::asctime(&time) << "\n";

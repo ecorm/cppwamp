@@ -183,7 +183,7 @@ GIVEN( "a Session and a ConnectionWish" )
                 // Check joining.
                 Welcome welcome;
                 s.join(
-                    Petition(testRealm),
+                    testRealm,
                     [&welcome](ErrorOr<Welcome> w) {welcome = w.value();});
                 CHECK(s.state() == SS::establishing);
                 
@@ -217,7 +217,7 @@ GIVEN( "a Session and a ConnectionWish" )
 
             {
                 // Check that the same client can rejoin and leave.
-                Welcome welcome = s.join(Petition(testRealm), yield).value();
+                Welcome welcome = s.join(testRealm, yield).value();
                 CHECK( incidents.testIfEmptyThenClear() );
                 CHECK( s.state() == SessionState::established );
                 CHECK ( welcome.sessionId() != 0 );
@@ -257,7 +257,7 @@ GIVEN( "a Session and a ConnectionWish" )
                 CHECK( s.state() == SS::closed );
 
                 // Join
-                s.join(Petition(testRealm), yield).value();
+                s.join(testRealm, yield).value();
                 CHECK( s.state() == SS::established );
 
                 // Leave
@@ -278,7 +278,7 @@ GIVEN( "a Session and a ConnectionWish" )
                 CHECK( s.state() == SS::closed );
 
                 // Join
-                Welcome info = s.join(Petition(testRealm), yield).value();
+                Welcome info = s.join(testRealm, yield).value();
                 CHECK( s.state() == SS::established );
                 CHECK ( info.sessionId() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
@@ -432,7 +432,7 @@ GIVEN( "a Session and a ConnectionWish" )
             try
             {
                 s.connect(where, yield).value();
-                s.join(Petition(testRealm), yield).value();
+                s.join(testRealm, yield).value();
                 joined = true;
             }
             catch (const error::Failure& e)
@@ -466,7 +466,7 @@ GIVEN( "a Session and a ConnectionWish" )
             try
             {
                 s.connect(where, yield).value();
-                s.join(Petition(testRealm), yield).value();
+                s.join(testRealm, yield).value();
                 joined = true;
             }
             catch (const error::Failure& e)
@@ -517,7 +517,7 @@ GIVEN( "a Session and a ConnectionWish" )
         bool handlerWasInvoked = false;
         s.connect(where, [&](ErrorOr<size_t>)
         {
-            s.join(Petition(testRealm), [&](ErrorOr<Welcome>)
+            s.join(testRealm, [&](ErrorOr<Welcome>)
             {
                 handlerWasInvoked = true;
             });
@@ -572,7 +572,7 @@ GIVEN( "a Session and an alternate ConnectionWish" )
 
             {
                 // Check joining.
-                Welcome info = s.join(Petition(testRealm), yield).value();
+                Welcome info = s.join(testRealm, yield).value();
                 CHECK( s.state() == SessionState::established );
                 CHECK ( info.sessionId() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
@@ -592,7 +592,7 @@ GIVEN( "a Session and an alternate ConnectionWish" )
 
             {
                 // Check that the same client can rejoin and leave.
-                Welcome info = s.join(Petition(testRealm), yield).value();
+                Welcome info = s.join(testRealm, yield).value();
                 CHECK( s.state() == SessionState::established );
                 CHECK ( info.sessionId() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
@@ -642,7 +642,7 @@ SCENARIO( "Connecting with codec options", "[WAMP][Basic]" )
     spawn(ioctx, [&](YieldContext yield)
     {
         s.connect(where, yield).value();
-        s.join(Petition(testRealm), yield).value();
+        s.join(testRealm, yield).value();
         s.subscribe(Topic("foo"), event, yield).value();
 
         s.publish(Pub("foo").withArgs(10.14).withExcludeMe(false));
@@ -725,7 +725,7 @@ GIVEN( "a Session, a valid ConnectionWish, and an invalid ConnectionWish" )
                 incidents.list.clear();
 
                 // Join
-                Welcome info = s.join(Petition(testRealm), yield).value();
+                Welcome info = s.join(testRealm, yield).value();
                 CHECK( incidents.testIfEmptyThenClear() );
                 CHECK( s.state() == SS::established );
                 CHECK ( info.sessionId() <= 9007199254740992ll );
@@ -760,7 +760,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         checkInvalidUri(
             [](Session& session, YieldContext yield)
             {
-                return session.join(Petition("#bad"), yield);
+                return session.join("#bad", yield);
             },
             false );
     }
@@ -770,7 +770,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         checkInvalidUri(
             [](Session& session, YieldContext yield)
             {
-                return session.leave(Goodbye("#bad"), yield);
+                return session.leave(Goodbye{"#bad"}, yield);
             } );
     }
 
@@ -780,7 +780,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         {
             Session session(ioctx);
             session.connect(where, yield).value();
-            auto result = session.join(Petition("nonexistent"), yield);
+            auto result = session.join(Hello{"nonexistent"}, yield);
             CHECK( result == makeUnexpected(WampErrc::noSuchRealm) );
             CHECK_THROWS_AS( result.value(), error::Failure );
         });
@@ -803,7 +803,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         checkDisconnect<Welcome>([](Session& session, YieldContext,
                                     bool& completed, ErrorOr<Welcome>& result)
         {
-            session.join(Petition(testRealm), [&](ErrorOr<Welcome> info)
+            session.join(testRealm, [&](ErrorOr<Welcome> info)
             {
                 completed = true;
                 result = info;
@@ -816,7 +816,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         checkDisconnect<Goodbye>([](Session& session, YieldContext yield,
                                     bool& completed, ErrorOr<Goodbye>& result)
         {
-            session.join(Petition(testRealm), yield).value();
+            session.join(testRealm, yield).value();
             session.leave([&](ErrorOr<Goodbye> reason)
             {
                 completed = true;

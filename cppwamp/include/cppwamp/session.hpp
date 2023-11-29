@@ -218,13 +218,13 @@ public:
     /** Asynchronously attempts to join the given WAMP realm. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<Welcome>, C>
-    join(Petition realm, C&& completion);
+    join(Hello hello, C&& completion);
 
     /** Asynchronously attempts to join the given WAMP realm, using the given
         authentication challenge handler. */
     template <typename S, typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<Welcome>, C>
-    join(Petition realm, S&& challengeSlot, C&& completion);
+    join(Hello hello, S&& challengeSlot, C&& completion);
 
     /** Asynchronously leaves the WAMP session. */
     template <typename C>
@@ -403,7 +403,7 @@ private:
     bool canUnregister(const Registration& reg) const;
     void setIncidentHandler(IncidentSlot&& s);
     void doConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f);
-    void doJoin(Petition&& p, ChallengeSlot&& s,
+    void doJoin(Hello&& h, ChallengeSlot&& s,
                 CompletionHandler<Welcome>&& f);
     void doLeave(Goodbye&& reason, Timeout t, CompletionHandler<Goodbye>&& f);
     void doDisconnect(Timeout t, CompletionHandler<bool>&& f);
@@ -439,12 +439,12 @@ struct Session::JoinOp
 {
     using ResultValue = Welcome;
     Session* self;
-    Petition p;
+    Hello h;
     ChallengeSlot s;
 
     template <typename F> void operator()(F&& f)
     {
-        self->doJoin(std::move(p), std::move(s),
+        self->doJoin(std::move(h), std::move(s),
                      self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
@@ -724,17 +724,17 @@ Deduced<ErrorOr<Welcome>, C>
 Session::template Deduced<ErrorOr<Welcome>, C>
 #endif
 Session::join(
-    Petition realm, ///< Details on the realm to join.
+    Hello hello,    ///< Details on the realm to join.
     C&& completion  ///< Completion handler or token.
     )
 {
-    return initiate<JoinOp>(std::forward<C>(completion), std::move(realm),
+    return initiate<JoinOp>(std::forward<C>(completion), std::move(hello),
                             nullptr);
 }
 
 //------------------------------------------------------------------------------
 /** @tparam S Callable handler with signature `void (Challenge)`
-    @copydetails Session::join(Petition, C&&)
+    @copydetails Session::join(Hello, C&&)
     @note A copy of the challenge handler is made when it is dispatched. If the
     handler needs to be stateful, or is non-copyable, then pass a stateless
     copyable proxy instead. */
@@ -746,13 +746,13 @@ Deduced<ErrorOr<Welcome>, C>
 Session::template Deduced<ErrorOr<Welcome>, C>
 #endif
 Session::join(
-    Petition realm,    /**< Details on the realm to join. */
+    Hello hello,       /**< Details on the realm to join. */
     S&& challengeSlot, /**< Handles authentication challenges. */
     C&& completion     /**< Completion handler or token. */
     )
 {
     return initiate<JoinOp>(
-        bindFallbackExecutor(std::forward<C>(completion)), std::move(realm),
+        bindFallbackExecutor(std::forward<C>(completion)), std::move(hello),
         std::forward<S>(challengeSlot));
 }
 

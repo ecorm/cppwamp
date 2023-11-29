@@ -305,7 +305,7 @@ TEST_CASE( "WAMP protocol violation detection by client", "[WAMP][Advanced]" )
             Abort reason;
             session.connect(withTcp, yield).value();
             auto welcome = session.join(
-                Petition{testRealm}.captureAbort(reason),
+                Hello{testRealm}.captureAbort(reason),
                 yield);
             REQUIRE_FALSE(welcome.has_value());
             CHECK(welcome.error() == WampErrc::authenticationDenied);

@@ -26,9 +26,9 @@ struct RpcFixture
     void join(YieldContext yield)
     {
         caller.connect(where, yield).value();
-        caller.join(Petition(testRealm), yield).value();
+        caller.join(testRealm, yield).value();
         callee.connect(where, yield).value();
-        callee.join(Petition(testRealm), yield).value();
+        callee.join(testRealm, yield).value();
     }
 
     void enroll(YieldContext yield)
@@ -468,13 +468,13 @@ GIVEN( "these test fixture objects" )
         spawn(ioctx, [&](YieldContext yield)
         {
             session1.connect(where, yield).value();
-            session1.join(Petition(testRealm), yield).value();
+            session1.join(testRealm, yield).value();
             session1.enroll(Procedure("upperify"),
                              unpackedRpc<std::string>(upperify), yield).value();
 
 
             session2.connect(where, yield).value();
-            session2.join(Petition(testRealm), yield).value();
+            session2.join(testRealm, yield).value();
             session2.enroll(
                 Procedure("uppercat"),
                 simpleCoroRpc<std::string, std::string, std::string>(uppercat),
@@ -509,12 +509,12 @@ GIVEN( "these test fixture objects" )
         spawn(ioctx, [&](YieldContext yield)
         {
             callee.connect(where, yield).value();
-            callee.join(Petition(testRealm), yield).value();
+            callee.join(testRealm, yield).value();
             callee.enroll(Procedure("upperify"),
                            unpackedRpc<std::string>(upperify), yield).value();
 
             subscriber.connect(where, yield).value();
-            subscriber.join(Petition(testRealm), yield).value();
+            subscriber.join(testRealm, yield).value();
             subscriber.subscribe(Topic("onEvent"),
                                   simpleCoroEvent<std::string>(onEvent),
                                   yield).value();
@@ -554,12 +554,12 @@ GIVEN( "these test fixture objects" )
         spawn(ioctx, [&](YieldContext yield)
         {
             callee.connect(where, yield).value();
-            callee.join(Petition(testRealm), yield).value();
+            callee.join(testRealm, yield).value();
             callee.enroll(Procedure("shout"),
                            unpackedCoroRpc<std::string>(shout), yield).value();
 
             subscriber.connect(where, yield).value();
-            subscriber.join(Petition(testRealm), yield).value();
+            subscriber.join(testRealm, yield).value();
             subscriber.subscribe(Topic("grapevine"),
                                   unpackedEvent<std::string>(onEvent),
                                   yield).value();
@@ -593,12 +593,12 @@ GIVEN( "these test fixture objects" )
         spawn(ioctx, [&](YieldContext yield)
         {
             callee.connect(where, yield).value();
-            callee.join(Petition(testRealm), yield).value();
+            callee.join(testRealm, yield).value();
             reg = callee.enroll(Procedure("oneShot"),
                                  simpleCoroRpc<void>(oneShot), yield).value();
 
             caller.connect(where, yield).value();
-            caller.join(Petition(testRealm), yield).value();
+            caller.join(testRealm, yield).value();
 
             caller.call(Rpc("oneShot"), yield).value();
             while (callCount == 0)
@@ -640,13 +640,13 @@ GIVEN( "these test fixture objects" )
         spawn(ioctx, [&](YieldContext yield)
         {
             session1.connect(where, yield).value();
-            session1.join(Petition(testRealm), yield).value();
+            session1.join(testRealm, yield).value();
             session1.subscribe(
                         Topic("onTalk"),
                         simpleCoroEvent<std::string>(onTalk), yield).value();
 
             session2.connect(where, yield).value();
-            session2.join(Petition(testRealm), yield).value();
+            session2.join(testRealm, yield).value();
             session2.subscribe(
                         Topic("onShout"),
                         unpackedEvent<std::string>(onShout), yield).value();
@@ -680,10 +680,10 @@ GIVEN( "these test fixture objects" )
         spawn(ioctx, [&](YieldContext yield)
         {
             publisher.connect(where, yield).value();
-            publisher.join(Petition(testRealm), yield).value();
+            publisher.join(testRealm, yield).value();
 
             subscriber.connect(where, yield).value();
-            subscriber.join(Petition(testRealm), yield).value();
+            subscriber.join(testRealm, yield).value();
             sub = subscriber.subscribe(Topic("onEvent"),
                                         unpackedCoroEvent(onEvent),
                                         yield).value();
@@ -1003,7 +1003,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             [](Session& session, YieldContext yield,
                bool& completed, ErrorOr<Registration>& result)
             {
-                session.join(Petition(testRealm), yield).value();
+                session.join(testRealm, yield).value();
                 session.enroll(Procedure("rpc"),
                                [](Invocation)->Outcome {return {};},
                                [&](ErrorOr<Registration> reg)
@@ -1019,7 +1019,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         checkDisconnect<bool>([](Session& session, YieldContext yield,
                                  bool& completed, ErrorOr<bool>& result)
         {
-            session.join(Petition(testRealm), yield).value();
+            session.join(testRealm, yield).value();
             auto reg = session.enroll(Procedure("rpc"),
                                       [](Invocation)->Outcome{return {};},
                                       yield).value();
@@ -1038,7 +1038,7 @@ GIVEN( "an IO service and a ConnectionWish" )
                                  bool& completed,
                                  ErrorOr<bool>& result)
         {
-            session.join(Petition(testRealm), yield).value();
+            session.join(testRealm, yield).value();
             auto reg = session.enroll(Procedure("rpc"),
                                       [](Invocation)->Outcome{return {};},
                                       yield).value();
@@ -1055,7 +1055,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         checkDisconnect<Result>([](Session& session, YieldContext yield,
                                    bool& completed, ErrorOr<Result>& result)
         {
-            session.join(Petition(testRealm), yield).value();
+            session.join(testRealm, yield).value();
             session.call(Rpc("rpc").withArgs("foo"),
                 [&](ErrorOr<Result> callResult)
                 {
@@ -1072,7 +1072,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         {
             Session s(ioctx);
             s.connect(where, yield).value();
-            s.join(Petition(testRealm), yield).value();
+            s.join(testRealm, yield).value();
             s.enroll(Procedure("procedure"),
                      [&](Invocation) -> Outcome {return {};},
                      [&](ErrorOr<Registration> r) {reg = r;});
@@ -1091,7 +1091,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         {
             Session s(ioctx);
             s.connect(where, yield).value();
-            s.join(Petition(testRealm), yield).value();
+            s.join(testRealm, yield).value();
             auto reg = s.enroll(Procedure("procedure"),
                                 [&](Invocation) -> Outcome {return {};},
                                 yield).value();
@@ -1112,7 +1112,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         {
             Session s(ioctx);
             s.connect(where, yield).value();
-            s.join(Petition(testRealm), yield).value();
+            s.join(testRealm, yield).value();
             s.call(Rpc("procedure"),
                    [&](ErrorOr<Result> r) {result = r;});
             s.leave(yield).value();

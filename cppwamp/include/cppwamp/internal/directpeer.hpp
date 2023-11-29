@@ -40,7 +40,7 @@ public:
 
     void connect(DirectRouterLink&& link);
 
-    Object open(Petition&& hello);
+    Object open(Hello&& hello);
 
     void close();
 
@@ -136,7 +136,7 @@ private:
         return true;
     }
 
-    ErrorOrDone send(Petition&& hello) override
+    ErrorOrDone send(Hello&& hello) override
     {
         assert(state() == State::establishing);
         traceTx(hello.message({}));
@@ -366,7 +366,7 @@ inline void DirectRouterSession::connect(DirectRouterLink&& link)
     Base::connect(std::move(info));
 }
 
-inline Object DirectRouterSession::open(Petition&& hello)
+inline Object DirectRouterSession::open(Hello&& hello)
 {
     if (!hello.hasOption("authid"))
         hello.withAuthId(authInfo_.id());

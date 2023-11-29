@@ -28,10 +28,10 @@ void checkInvalidConnect(Session& session, YieldContext yield)
 void checkInvalidJoin(Session& session, YieldContext yield)
 {
     INFO("join");
-    auto welcome = session.join(Petition(testRealm), yield);
+    auto welcome = session.join(testRealm, yield);
     REQUIRE_FALSE( welcome.has_value() );
     CHECK( welcome.error() == MiscErrc::invalidState );
-    CHECK_THROWS_AS( session.join(Petition(testRealm), yield).value(),
+    CHECK_THROWS_AS( session.join(testRealm, yield).value(),
                      error::Failure );
 }
 
@@ -182,7 +182,7 @@ GIVEN( "an IO service and a TCP connector" )
         {
             session.disconnect();
             session.connect(where, yield).value();
-            session.join(Petition(testRealm), [](ErrorOr<Welcome>){});
+            session.join(testRealm, [](ErrorOr<Welcome>){});
             while (session.state() != SessionState::establishing)
                 suspendCoro(yield);
         };
@@ -221,7 +221,7 @@ GIVEN( "an IO service and a TCP connector" )
         {
             Session session(ioctx);
             session.connect(where, yield).value();
-            session.join(Petition(testRealm), yield).value();
+            session.join(testRealm, yield).value();
             REQUIRE( session.state() == SessionState::established );
             checkInvalidConnect(session, yield);
             checkInvalidJoin(session, yield);
@@ -237,7 +237,7 @@ GIVEN( "an IO service and a TCP connector" )
         spawn(ioctx, [&](YieldContext yield)
         {
             session.connect(where, yield).value();
-            session.join(Petition(testRealm), yield).value();
+            session.join(testRealm, yield).value();
             session.leave([](ErrorOr<Goodbye>){});
             while (session.state() != SessionState::shuttingDown)
                 suspendCoro(yield);
@@ -308,13 +308,13 @@ GIVEN( "these test fixture objects" )
         spawn(ioctx, [&](YieldContext yield)
         {
             caller.connect(where, yield).value();
-            caller.join(Petition(testRealm), yield).value();
+            caller.join(testRealm, yield).value();
             caller.subscribe(Topic("grapevine"),
                              unpackedEvent<std::string>(onEvent),
                              yield).value();
 
             callee.connect(where, yield).value();
-            callee.join(Petition(testRealm), yield).value();
+            callee.join(testRealm, yield).value();
             callee.enroll(Procedure("echo"), unpackedRpc<std::string>(echo),
                           yield).value();
             callee.enroll(Procedure("trigger"), trigger, yield).value();
@@ -352,10 +352,10 @@ GIVEN( "these test fixture objects" )
         spawn(ioctx, [&](YieldContext yield)
         {
             caller.connect(where, yield).value();
-            caller.join(Petition(testRealm), yield).value();
+            caller.join(testRealm, yield).value();
 
             callee.connect(where, yield).value();
-            callee.join(Petition(testRealm), yield).value();
+            callee.join(testRealm, yield).value();
             callee.enroll(Procedure("echo"), unpackedRpc<std::string>(echo),
                           yield).value();
 
@@ -375,13 +375,13 @@ GIVEN( "these test fixture objects" )
         spawn(ioctx, [&](YieldContext yield)
         {
             caller.connect(where, yield).value();
-            caller.join(Petition(testRealm), yield).value();
+            caller.join(testRealm, yield).value();
 
             std::vector<Incident> incidents;
             callee.observeIncidents(
                 [&incidents](Incident i) {incidents.push_back(i);});
             callee.connect(where, yield).value();
-            callee.join(Petition(testRealm), yield).value();
+            callee.join(testRealm, yield).value();
             callee.enroll(Procedure("excessive"), excessive, yield).value();
 
             auto result = caller.call(Rpc("excessive"), yield);
@@ -403,13 +403,13 @@ GIVEN( "these test fixture objects" )
         spawn(ioctx, [&](YieldContext yield)
         {
             caller.connect(where, yield).value();
-            caller.join(Petition(testRealm), yield).value();
+            caller.join(testRealm, yield).value();
 
             std::vector<Incident> incidents;
             callee.observeIncidents(
                 [&incidents](Incident i) {incidents.push_back(i);});
             callee.connect(where, yield).value();
-            callee.join(Petition(testRealm), yield).value();
+            callee.join(testRealm, yield).value();
             callee.enroll(Procedure("excessive"), excessiveError,
                           yield).value();
 

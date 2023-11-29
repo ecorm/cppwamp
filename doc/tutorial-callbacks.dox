@@ -97,7 +97,8 @@ public:
 private:
     void join()
     {
-        session_.join(Petition("somerealm"),
+        session_.join(
+            "somerealm",
             [this](wamp::ErrorOr<wamp::Welcome> info)
             {
                 sessionInfo_ = info.value(); // throws if join failed

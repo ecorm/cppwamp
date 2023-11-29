@@ -63,7 +63,7 @@ void doCheckRegisterMetaProcedure(const Uri& realmUri,
     {
         Session s{ioctx};
         s.connect(withTcp, yield).value();
-        s.join(Petition{realmUri}, yield).value();
+        s.join(realmUri, yield).value();
 
         {
             INFO( "Known meta procedure" );
@@ -144,14 +144,14 @@ void doCheckPublishMetaTopic(const Uri& realmUri, WampErrc expected)
     {
         Session s1{ioctx};
         s1.connect(withTcp, yield).value();
-        s1.join(Petition{realmUri}, yield).value();
+        s1.join(realmUri, yield).value();
         s1.subscribe(Topic{"wamp.session.on_join"}, onKnownEvent,
                      yield).value();
         s1.subscribe(Topic{"wamp.bogus"}, onUnknownEvent, yield).value();
 
         Session s2{ioctx};
         s2.connect(withTcp, yield).value();
-        s2.join(Petition{realmUri}, yield).value();
+        s2.join(realmUri, yield).value();
 
         {
             INFO( "Known meta topic" );
@@ -332,13 +332,13 @@ TEST_CASE( "WAMP session meta events", "[WAMP][Router][MetaAPI]" )
     spawn(ioctx, [&](YieldContext yield)
     {
         s1.connect(withTcp, yield).value();
-        auto w1 = s1.join(Petition(testRealm), yield).value();
+        auto w1 = s1.join(testRealm, yield).value();
         REQUIRE(w1.features().broker().test(Feature::sessionMetaApi));
         s1.subscribe(Topic{"wamp.session.on_join"}, onJoin, yield).value();
         s1.subscribe(Topic{"wamp.session.on_leave"}, onLeave, yield).value();
 
         s2.connect(withTcp, yield).value();
-        auto w2 = s2.join(Petition(testRealm), yield).value();
+        auto w2 = s2.join(testRealm, yield).value();
 
         while (joinedInfo.sessionId == 0)
             test::suspendCoro(yield);
@@ -379,9 +379,9 @@ TEST_CASE( "WAMP session meta procedures", "[WAMP][Router][MetaAPI]" )
     spawn(ioctx, [&](YieldContext yield)
     {
         s1.connect(withTcp, yield).value();
-        auto w1 = s1.join(Petition(testRealm), yield).value();
+        auto w1 = s1.join(testRealm, yield).value();
         s2.connect(withTcp, yield).value();
-        auto w2 = s2.join(Petition(testRealm), yield).value();
+        auto w2 = s2.join(testRealm, yield).value();
         std::vector<String> inclusiveAuthRoleList{{"anonymous"}};
         std::vector<String> exclusiveAuthRoleList{{"exclusive"}};
         REQUIRE(w1.features().dealer().test(Feature::sessionMetaApi));
@@ -467,7 +467,7 @@ TEST_CASE( "WAMP session meta procedures", "[WAMP][Router][MetaAPI]" )
 
             s2.disconnect();
             s2.connect(withTcp, yield).value();
-            w2 = s2.join(Petition(testRealm), yield).value();
+            w2 = s2.join(testRealm, yield).value();
         }
 
         {
@@ -504,7 +504,7 @@ TEST_CASE( "WAMP session meta procedures", "[WAMP][Router][MetaAPI]" )
 
             s2.disconnect();
             s2.connect(withTcp, yield).value();
-            w2 = s2.join(Petition(testRealm), yield).value();
+            w2 = s2.join(testRealm, yield).value();
         }
 
         // Crossbar does not exclude the caller, as the spec requires.
@@ -545,7 +545,7 @@ TEST_CASE( "WAMP session meta procedures", "[WAMP][Router][MetaAPI]" )
 
             s2.disconnect();
             s2.connect(withTcp, yield).value();
-            w2 = s2.join(Petition(testRealm), yield).value();
+            w2 = s2.join(testRealm, yield).value();
         }
 
         // Crossbar does not currently implement wamp.session.kill_all
@@ -678,7 +678,7 @@ TEST_CASE( "WAMP registration meta events", "[WAMP][Router]" )
         auto after = now + chrono::seconds(60);
 
         s1.connect(withTcp, yield).value();
-        auto w1 = s1.join(Petition(testRealm), yield).value();
+        auto w1 = s1.join(testRealm, yield).value();
         REQUIRE(w1.features().dealer().test(Feature::registrationMetaApi));
         s1.subscribe(Topic{"wamp.registration.on_create"},
                      onRegistrationCreated, yield).value();
@@ -690,7 +690,7 @@ TEST_CASE( "WAMP registration meta events", "[WAMP][Router]" )
                      onRegistrationDeleted, yield).value();
 
         s2.connect(withTcp, yield).value();
-        auto w2 = s2.join(Petition(testRealm), yield).value();
+        auto w2 = s2.join(testRealm, yield).value();
         auto reg = s2.enroll(Procedure{"rpc"}, rpc, yield).value();
         while (regInfo.id == 0 || registrationId == 0)
             test::suspendCoro(yield);
@@ -792,7 +792,7 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
         auto before = now - chrono::seconds(60);
         auto after = now + chrono::seconds(60);
         s1.connect(withTcp, yield).value();
-        auto w1 = s1.join(Petition(testRealm), yield).value();
+        auto w1 = s1.join(testRealm, yield).value();
         REQUIRE(w1.features().broker().test(Feature::subscriptionMetaApi));
         s1.subscribe(Topic{"wamp.subscription.on_create"},
                      onSubscriptionCreated, yield).value();
@@ -804,7 +804,7 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
                      onSubDeleted, yield).value();
 
         s2.connect(withTcp, yield).value();
-        auto w2 = s2.join(Petition(testRealm), yield).value();
+        auto w2 = s2.join(testRealm, yield).value();
         auto sub2 = s2.subscribe(Topic{"exact"}, [](Event) {}, yield).value();
 
         while (subInfo.id == 0 || subscriptionId == 0)
@@ -821,7 +821,7 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
         subInfo.id = 0;
         subscriptionId = 0;
         s3.connect(withTcp, yield).value();
-        auto welcome3 = s3.join(Petition(testRealm), yield).value();
+        auto welcome3 = s3.join(testRealm, yield).value();
         auto sub3 = s3.subscribe(
             Topic{"prefix"}.withMatchPolicy(MatchPolicy::prefix),
             [](Event) {},
@@ -840,7 +840,7 @@ TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
 
         subscriptionId = 0;
         s4.connect(withTcp, yield).value();
-        auto welcome4 = s4.join(Petition(testRealm), yield).value();
+        auto welcome4 = s4.join(testRealm, yield).value();
         auto sub4 = s4.subscribe(
             Topic{"prefix"}.withMatchPolicy(MatchPolicy::prefix),
             [](Event) {},
@@ -945,7 +945,7 @@ TEST_CASE( "Insecure WAMP meta events subscriptions",
     spawn(ioctx, [&](YieldContext yield)
     {
         s1.connect(withTcp, yield).value();
-        auto w1 = s1.join(Petition(testRealm), yield).value();
+        auto w1 = s1.join(testRealm, yield).value();
         REQUIRE(w1.features().broker().test(Feature::sessionMetaApi));
 
         s1.subscribe(Topic{"wamp.registration.on_register"},
@@ -971,7 +971,7 @@ TEST_CASE( "Insecure WAMP meta events subscriptions",
                      onNeverFiredEvent, yield).value();
 
         s2.connect(withTcp, yield).value();
-        auto w2 = s2.join(Petition(testRealm), yield).value();
+        auto w2 = s2.join(testRealm, yield).value();
 
         // Cause a registration meta event to stop the waiting loop below.
         s2.enroll(Procedure{"rpc"},

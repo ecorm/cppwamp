@@ -66,9 +66,9 @@ int main(int argc, char *argv[])
     wamp::spawn(ioctx, [&](wamp::YieldContext yield)
     {
         session.connect(tcp, yield).value();
-        auto petition = wamp::Petition{realm}.withAuthMethods({"ticket"})
-                                             .withAuthId(username);
-        auto welcome = session.join(petition, onChallenge, yield);
+        auto hello = wamp::Hello{realm}.withAuthMethods({"ticket"})
+                                       .withAuthId(username);
+        auto welcome = session.join(hello, onChallenge, yield);
         if (!welcome.has_value())
         {
             std::cerr << "Login failed: " << welcome.error().message() << "\n";

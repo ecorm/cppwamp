@@ -57,7 +57,7 @@ boost::asio::awaitable<void> client(wamp::Session& session,
     using boost::asio::use_awaitable;
 
     (co_await session.connect(std::move(where), use_awaitable)).value();
-    (co_await session.join(Petition(realm), use_awaitable)).value();
+    (co_await session.join(realm, use_awaitable)).value();
 
     auto result = (co_await session.call(Rpc("get_time"),
                                           use_awaitable)).value();

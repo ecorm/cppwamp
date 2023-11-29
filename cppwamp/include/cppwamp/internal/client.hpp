@@ -114,22 +114,22 @@ public:
         peer_->connect(strand_, std::move(link));
     }
 
-    void join(Petition&& p, ChallengeSlot c, CompletionHandler<Welcome>&& f)
+    void join(Hello&& h, ChallengeSlot c, CompletionHandler<Welcome>&& f)
     {
         struct Dispatched
         {
             Ptr self;
-            Petition p;
+            Hello h;
             ChallengeSlot c;
             CompletionHandler<Welcome> f;
 
             void operator()()
             {
-                self->doJoin(std::move(p), std::move(c), std::move(f));
+                self->doJoin(std::move(h), std::move(c), std::move(f));
             }
         };
 
-        safelyDispatch<Dispatched>(std::move(p), std::move(c), std::move(f));
+        safelyDispatch<Dispatched>(std::move(h), std::move(c), std::move(f));
     }
 
     void authenticate(Authentication&& a) override
@@ -434,7 +434,7 @@ private:
             report({IncidentKind::trace, std::move(messageDump)});
     }
 
-    void onPeerHello(Petition&&) override {assert(false);}
+    void onPeerHello(Hello&&) override {assert(false);}
 
     void onPeerAbort(Abort&& reason, bool wasJoining) override
     {
@@ -767,7 +767,7 @@ private:
         }
     }
 
-    void doJoin(Petition&& petition, ChallengeSlot onChallenge,
+    void doJoin(Hello&& hello, ChallengeSlot onChallenge,
                 CompletionHandler<Welcome>&& handler)
     {
         struct Requested
@@ -800,15 +800,15 @@ private:
         if (!peer_->establishSession())
             return postErrorToHandler(MiscErrc::invalidState, handler);
 
-        if (!petition.hasOption("agent"))
-            petition.withOption("agent", Version::clientAgentString());
-        if (!petition.hasOption("roles"))
-            petition.withOption("roles", ClientFeatures::providedRoles());
+        if (!hello.hasOption("agent"))
+            hello.withOption("agent", Version::clientAgentString());
+        if (!hello.hasOption("roles"))
+            hello.withOption("roles", ClientFeatures::providedRoles());
         challengeSlot_ = std::move(onChallenge);
         Requested requested{shared_from_this(), std::move(handler),
-                            petition.uri(), petition.abortReason({})};
-        auto timeout = timeoutOrFallback(petition.timeout());
-        request(std::move(petition), timeout, std::move(requested));
+                            hello.uri(), hello.abortReason({})};
+        auto timeout = timeoutOrFallback(hello.timeout());
+        request(std::move(hello), timeout, std::move(requested));
     }
 
     void doAuthenticate(Authentication&& auth)

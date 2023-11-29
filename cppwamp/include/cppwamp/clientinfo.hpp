@@ -178,25 +178,29 @@ public: // Internal use only
 
 //------------------------------------------------------------------------------
 /** %Realm URI and other options contained within WAMP `HELLO` messages. */
-// TODO: Rename to Hello
 //------------------------------------------------------------------------------
-class CPPWAMP_API Petition : public Options<Petition,
-                                            internal::MessageKind::hello>
+class CPPWAMP_API Hello : public Options<Hello, internal::MessageKind::hello>
 {
 public:
+    /// Character type of the realm URI
+    using UriChar = Uri::value_type;
+
+    /** Converting constructor taking a realm URI C string. */
+    Hello(const UriChar* realm); // NOLINT(google-explicit-constructor)
+
     /** Converting constructor taking a realm URI. */
-    Petition(Uri realm); // NOLINT(google-explicit-constructor)
+    Hello(Uri realm); // NOLINT(google-explicit-constructor)
 
     /** Specifies the Goodbye object in which to store abort details returned
         by the router. */
-    Petition& captureAbort(Abort& reason);
+    Hello& captureAbort(Abort& reason);
 
     /** Specifies the duration after which the joining operation should time out
         and disconnect the session. */
-    Petition& withTimeout(Timeout timeout);
+    Hello& withTimeout(Timeout timeout);
 
     /** Specifies the agent string to use. */
-    Petition& withAgent(String agent);
+    Hello& withAgent(String agent);
 
     /** Obtains the joining operation timeout duration. */
     Timeout timeout() const;
@@ -222,10 +226,10 @@ public:
         @{ */
 
     /** Sets the `HELLO.Details.authmethods` option. */
-    Petition& withAuthMethods(std::vector<String> methods);
+    Hello& withAuthMethods(std::vector<String> methods);
 
     /** Sets the `HELLO.Details.authid` option. */
-    Petition& withAuthId(String authId);
+    Hello& withAuthId(String authId);
 
     /** Obtains the `authmethods` array. */
     ErrorOr<Array> authMethods() const;
@@ -237,14 +241,14 @@ public:
 private:
     static constexpr unsigned uriPos_ = 1;
 
-    using Base = Options<Petition, internal::MessageKind::hello>;
+    using Base = Options<Hello, internal::MessageKind::hello>;
 
     Abort* abortReason_ = nullptr;
     Timeout timeout_ = unspecifiedTimeout;
 
 public:
     // Internal use only
-    Petition(internal::PassKey, internal::Message&& msg);
+    Hello(internal::PassKey, internal::Message&& msg);
     Abort* abortReason(internal::PassKey);
     Uri& uri(internal::PassKey);
     String agentOrEmptyString(internal::PassKey);
