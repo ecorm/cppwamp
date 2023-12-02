@@ -514,8 +514,8 @@ TEST_CASE( "ServerTimeoutMonitor", "[Transport]" )
             {     0, E::start},
             {     1, E::check,       ok},
             {299999, E::check,       ok},
-            {300000, E::check,       TransportErrc::idleTimeout},
-            {300001, E::check,       TransportErrc::idleTimeout},
+            {300000, E::check,       TransportErrc::silenceTimeout},
+            {300001, E::check,       TransportErrc::silenceTimeout},
 
             // Delayed by read
             {     0, E::start},
@@ -524,7 +524,7 @@ TEST_CASE( "ServerTimeoutMonitor", "[Transport]" )
             {  3000, E::endRead},
             {  8000, E::check,       ok},
             {302999, E::check,       ok},
-            {303000, E::check,       TransportErrc::idleTimeout},
+            {303000, E::check,       TransportErrc::silenceTimeout},
 
             // Delayed by write
             {     0, E::start},
@@ -533,7 +533,7 @@ TEST_CASE( "ServerTimeoutMonitor", "[Transport]" )
             {  3000, E::endWrite},
             {  8000, E::check,       ok},
             {302999, E::check,       ok},
-            {303000, E::check,       TransportErrc::idleTimeout},
+            {303000, E::check,       TransportErrc::silenceTimeout},
         };
 
         checkServerTimeoutMonitor(endpoint, testVectors);

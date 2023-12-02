@@ -6,7 +6,6 @@
 
 #if defined(CPPWAMP_TEST_HAS_WEB)
 
-#include <limits>
 #include <catch2/catch.hpp>
 #include <cppwamp/asiodefs.hpp>
 #include <cppwamp/codecs/cbor.hpp>

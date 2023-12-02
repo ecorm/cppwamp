@@ -8,9 +8,7 @@
 #define CPPWAMP_INTERNAL_WEBSOCKETTRANSPORT_HPP
 
 #include <cstddef>
-#include <functional>
 #include <memory>
-#include <limits>
 #include <utility>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/read.hpp>
@@ -213,24 +211,16 @@ public:
     }
 
     template <typename F>
+    void awaitRead(MessageBuffer& buffer, F&& callback)
+    {
+        doReadSome(buffer, 1, std::forward<F>(callback));
+    }
+
+    template <typename F>
     void readSome(MessageBuffer& buffer, F&& callback)
     {
-        struct Received
-        {
-            Decay<F> callback;
-            WebsocketStream* self;
-
-            void operator()(boost::beast::error_code netEc, std::size_t n)
-            {
-                self->onRead(netEc, n, callback);
-            }
-        };
-
-        rxBuffer_.emplace(buffer);
-        websocket_->async_read_some(
-            *rxBuffer_,
-            0, // Beast will choose 1536
-            Received{std::forward<F>(callback), this});
+        // Beast will choose 1536 as the read limit
+        doReadSome(buffer, 0, std::forward<F>(callback));
     }
 
     template <typename F>
@@ -288,6 +278,27 @@ private:
                 ec = make_error_code(TransportErrc::outboundTooLong);
         }
         return ec;
+    }
+
+    template <typename F>
+    void doReadSome(MessageBuffer& buffer, std::size_t limit, F&& callback)
+    {
+        struct Received
+        {
+            Decay<F> callback;
+            WebsocketStream* self;
+
+            void operator()(boost::beast::error_code netEc, std::size_t n)
+            {
+                self->onRead(netEc, n, callback);
+            }
+        };
+
+        rxBuffer_.emplace(buffer);
+        websocket_->async_read_some(
+            *rxBuffer_,
+            limit, // Beast will choose 1536
+            Received{std::forward<F>(callback), this});
     }
 
     template <typename F>

@@ -83,70 +83,105 @@ public:
         : settings_(std::move(settings))
     {}
 
-    void start(TimePoint now) {bumpActivityDeadline(now);}
+    void start(TimePoint now)
+    {
+        bumpLoiterDeadline(now);
+
+        auto timeout = settings_->limits().overstayTimeout();
+        if (internal::timeoutIsDefinite(timeout))
+            overstayDeadline_ = now + timeout;
+    }
 
     void startRead(TimePoint now)
     {
         readDeadline_.start(settings_->limits().readTimeout(), now);
-        bumpActivityDeadline(now);
+        bumpLoiterDeadline(now);
+        isReading_ = true;
     }
 
     void updateRead(TimePoint now, std::size_t bytesRead)
     {
         readDeadline_.update(settings_->limits().readTimeout(), bytesRead);
-        bumpActivityDeadline(now);
+        bumpLoiterDeadline(now);
     }
 
     void endRead(TimePoint now)
     {
         readDeadline_.reset();
-        bumpActivityDeadline(now);
+        bumpLoiterDeadline(now);
+        isReading_ = false;
     }
 
     void startWrite(TimePoint now)
     {
         writeDeadline_.start(settings_->limits().writeTimeout(), now);
-        bumpActivityDeadline(now);
+        bumpLoiterDeadline(now);
+        isWriting_ = true;
     }
 
     void updateWrite(TimePoint now, std::size_t bytesWritten)
     {
         writeDeadline_.update(settings_->limits().writeTimeout(), bytesWritten);
-        bumpActivityDeadline(now);
+        bumpLoiterDeadline(now);
     }
 
     void endWrite(TimePoint now)
     {
         writeDeadline_.reset();
-        bumpActivityDeadline(now);
+        bumpLoiterDeadline(now);
+        isWriting_ = false;
+    }
+
+    void heartbeat(TimePoint now)
+    {
+        bumpSilenceDeadline(now);
     }
 
     std::error_code check(TimePoint now) const
     {
-        if (now >= activityDeadline_)
-            return make_error_code(TransportErrc::idleTimeout);
-
         if (now >= readDeadline_.due())
             return make_error_code(TransportErrc::readTimeout);
 
         if (now >= writeDeadline_.due())
             return make_error_code(TransportErrc::writeTimeout);
 
+        if (now >= silenceDeadline_)
+            return make_error_code(TransportErrc::silenceTimeout);
+
+        if (now >= loiterDeadline_)
+            return make_error_code(TransportErrc::loiterTimeout);
+
+        if (!isReading_ && !isWriting_ && now >= overstayDeadline_)
+            return make_error_code(TransportErrc::overstayTimeout);
+
         return {};
     }
 
 private:
-    void bumpActivityDeadline(TimePoint now)
+    void bumpLoiterDeadline(TimePoint now)
     {
-        auto timeout = settings_->limits().idleTimeout();
+        bumpSilenceDeadline(now);
+
+        auto timeout = settings_->limits().loiterTimeout();
         if (internal::timeoutIsDefinite(timeout))
-            activityDeadline_ = now + timeout;
+            loiterDeadline_ = now + timeout;
+    }
+
+    void bumpSilenceDeadline(TimePoint now)
+    {
+        auto timeout = settings_->limits().silenceTimeout();
+        if (internal::timeoutIsDefinite(timeout))
+            silenceDeadline_ = now + timeout;
     }
 
     internal::ProgressiveDeadline readDeadline_;
     internal::ProgressiveDeadline writeDeadline_;
-    TimePoint activityDeadline_ = TimePoint::max();
+    TimePoint silenceDeadline_ = TimePoint::max();
+    TimePoint loiterDeadline_ = TimePoint::max();
+    TimePoint overstayDeadline_ = TimePoint::max();
     SettingsPtr settings_;
+    bool isReading_ = false;
+    bool isWriting_ = false;
 };
 
 } // namespace internal

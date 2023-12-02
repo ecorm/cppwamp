@@ -264,24 +264,26 @@ enum class TransportErrc
     handshakeTimeout  = 5,  ///< Transport handshake timed out
     readTimeout       = 6,  ///< Transport read operation timed out
     writeTimeout      = 7,  ///< Transport write operation timed out
-    idleTimeout       = 8,  ///< Transport timed out due to inactivity
-    lingerTimeout     = 9,  ///< Peer transport close timed out
-    failed            = 10, ///< Transport operation failed
-    exhausted         = 11, ///< All transports failed during connection
-    overloaded        = 12, ///< Excessive resource usage
-    shedded           = 13, ///< Connection dropped due to limits
-    unresponsive      = 14, ///< The other peer is unresponsive
-    inboundTooLong    = 15, ///< Inbound message exceeds transport's length limit
-    outboundTooLong   = 16, ///< Outbound message exceeds peer's length limit
-    handshakeDeclined = 17, ///< Handshake declined by other peer
-    badHandshake      = 18, ///< Received invalid handshake
-    badCommand        = 19, ///< Received invalid transport command
-    badSerializer     = 20, ///< Unsupported serialization format
-    badLengthLimit    = 21, ///< Unacceptable maximum message length
-    badFeature        = 22, ///< Unsupported transport feature
-    expectedBinary    = 23, ///< Expected text but got binary
-    expectedText      = 24, ///< Expected binary but got text
-    noSerializer      = 25, ///< Missing serializer information
+    silenceTimeout    = 8,  ///< Transport timed out due to silence
+    loiterTimeout     = 9,  ///< Transport timed out due to inactivity
+    overstayTimeout   = 10, ///< Transport continuous connection time exceeded
+    lingerTimeout     = 11, ///< Peer transport close timed out
+    failed            = 12, ///< Transport operation failed
+    exhausted         = 13, ///< All transports failed during connection
+    overloaded        = 14, ///< Excessive resource usage
+    shedded           = 15, ///< Connection dropped due to limits
+    unresponsive      = 16, ///< The other peer is unresponsive
+    inboundTooLong    = 17, ///< Inbound message exceeds transport's length limit
+    outboundTooLong   = 18, ///< Outbound message exceeds peer's length limit
+    handshakeDeclined = 19, ///< Handshake declined by other peer
+    badHandshake      = 20, ///< Received invalid handshake
+    badCommand        = 21, ///< Received invalid transport command
+    badSerializer     = 22, ///< Unsupported serialization format
+    badLengthLimit    = 23, ///< Unacceptable maximum message length
+    badFeature        = 24, ///< Unsupported transport feature
+    expectedBinary    = 25, ///< Expected text but got binary
+    expectedText      = 26, ///< Expected binary but got text
+    noSerializer      = 27, ///< Missing serializer information
     count
 };
 

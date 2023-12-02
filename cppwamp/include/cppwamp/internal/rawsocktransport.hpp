@@ -107,6 +107,23 @@ public:
     }
 
     template <typename F>
+    void awaitRead(MessageBuffer&, F&& callback)
+    {
+        struct Awaited
+        {
+            Decay<F> callback;
+
+            void operator()(boost::system::error_code netEc)
+            {
+                callback(rawsockErrorCodeToStandard(netEc), 0, false);
+            }
+        };
+
+        socket_.async_wait(Socket::wait_read,
+                           Awaited{std::forward<F>(callback)});
+    }
+
+    template <typename F>
     void readSome(MessageBuffer& buffer, F&& callback)
     {
         if (wampRxBytesRemaining_ != 0)
@@ -242,11 +259,6 @@ private:
     void onHeaderRead(boost::system::error_code netEc,
                       MessageBuffer& wampPayload, F& callback)
     {
-        if (netEc == boost::asio::error::eof)
-        {
-            callback(make_error_code(TransportErrc::ended), 0, true);
-            return;
-        }
         if (!checkRead(netEc, callback))
             return;
 
@@ -390,6 +402,12 @@ private:
     template <typename F>
     bool checkRead(boost::system::error_code netEc, F& callback)
     {
+        if (netEc == boost::asio::error::eof)
+        {
+            callback(make_error_code(TransportErrc::ended), 0, true);
+            return false;
+        }
+
         if (netEc)
             callback(rawsockErrorCodeToStandard(netEc), 0, false);
         return !netEc;

@@ -247,6 +247,7 @@ private:
     void onHeartbeat(TransportFrameKind kind, const Byte* data,
                      std::size_t size)
     {
+        monitor_.heartbeat(now());
         if (kind == TransportFrameKind::ping)
         {
             auto buf = enframe(MessageBuffer{data, data + size},
@@ -460,8 +461,23 @@ private:
     void receive()
     {
         rxBuffer_.clear();
+        auto self = this->shared_from_this();
+        stream_.awaitRead(
+            rxBuffer_,
+            [this, self](std::error_code ec, std::size_t n, bool done)
+            {
+                if (checkRxError(ec))
+                    onReadReady(n, done);
+            });
+    }
+
+    void onReadReady(std::size_t bytesReceived, bool done)
+    {
+        if (!stream_.isOpen())
+            return;
+
         monitor_.startRead(now());
-        receiveMore();
+        onRead(bytesReceived, done);
     }
 
     void receiveMore()
@@ -475,16 +491,19 @@ private:
             [this, self](std::error_code ec, std::size_t n, bool done)
             {
                 if (checkRxError(ec))
+                {
+                    monitor_.updateRead(now(), n);
                     onRead(n, done);
+                }
             });
     }
 
     void onRead(std::size_t bytesReceived, bool done)
     {
-        monitor_.updateRead(now(), bytesReceived);
-
         if (!done)
             return receiveMore();
+
+        monitor_.endRead(now());
 
         if (rxHandler_)
             post(rxHandler_, std::move(rxBuffer_));

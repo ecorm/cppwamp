@@ -94,7 +94,6 @@ private:
 
 //------------------------------------------------------------------------------
 /** Contains general timeouts and size limits for server transports. */
-// TODO: Overstay timeout
 //------------------------------------------------------------------------------
 template <typename TDerived>
 class BasicServerLimits
@@ -110,9 +109,13 @@ public:
 
     TDerived& withWriteTimeout(ProgressiveTimeout t) {return set(writeTimeout_, t);}
 
-    TDerived& withIdleTimeout(Timeout t) {return set(idleTimeout_, t);}
+    TDerived& withIdleTimeout(Timeout t) {return set(silenceTimeout_, t);}
 
-    TDerived& withLingerTimeout(Timeout t) {return set(idleTimeout_, t);}
+    TDerived& withLoiterTimeout(Timeout t) {return set(loiterTimeout_, t);}
+
+    TDerived& withOverstayTimeout(Timeout t) {return set(overstayTimeout_, t);}
+
+    TDerived& withLingerTimeout(Timeout t) {return set(silenceTimeout_, t);}
 
     TDerived& withBacklogCapacity(int n)
     {
@@ -131,8 +134,20 @@ public:
 
     const ProgressiveTimeout& writeTimeout() const {return writeTimeout_;}
 
-    Timeout idleTimeout() const {return idleTimeout_;}
+    /** Obtains the maximum time of no data being transferred, including
+        pings. */
+    Timeout silenceTimeout() const {return silenceTimeout_;}
 
+    /** Obtains the maximum time of no data being transferred, excluding
+        pings. This prevents clients indefinitely keeping a connection alive
+        by just sending pings. */
+    Timeout loiterTimeout() const {return loiterTimeout_;}
+
+    /** Obtains the maximum allowable continuous connection time. */
+    Timeout overstayTimeout() const {return overstayTimeout_;}
+
+    /** Obtains the maxiumum time the server will wait for a client to
+        gracefully close the connection. */
     Timeout lingerTimeout() const {return lingerTimeout_;}
 
     int backlogCapacity() const {return backlogCapacity_;}
@@ -163,8 +178,11 @@ private:
     ProgressiveTimeout writeTimeout_;
     Timeout handshakeTimeout_ = std::chrono::seconds{30};
         // Using ejabberd's negotiation_timeout
-    Timeout idleTimeout_ = std::chrono::seconds{300};
+    Timeout silenceTimeout_ = std::chrono::seconds{300};
         // Using ejabberd's websocket_timeout
+    Timeout loiterTimeout_ = std::chrono::minutes(60);
+        // Using Nginx's keepalive_time
+    Timeout overstayTimeout_ = neverTimeout;
     Timeout lingerTimeout_ = std::chrono::seconds{30};
         // Using Nginx's lingering_time
     std::size_t readMsgSize_ = 16*1024*1024;
