@@ -14,8 +14,8 @@
 #include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcpclient.hpp>
 #include <cppwamp/transports/tcpserver.hpp>
+#include "mockrawsockpeer.hpp"
 #include "routerfixture.hpp"
-#include "silentclient.hpp"
 
 using namespace wamp;
 
@@ -428,7 +428,11 @@ TEST_CASE( "Router connection limit options", "[WAMP][Router]" )
     std::vector<LogEntry> logEntries;
     auto logSnoopGuard = routerFixture.snoopLog(
         ioctx.get_executor(),
-        [&logEntries](LogEntry e) {logEntries.push_back(e);});
+        [&logEntries](LogEntry e)
+        {
+            if (e.severity() > LogLevel::info)
+                logEntries.push_back(e);
+        });
     auto logLevelGuard = routerFixture.supressLogLevel(LogLevel::critical);
     boost::asio::steady_timer timer{ioctx};
     Session s1{ioctx};
@@ -452,7 +456,9 @@ TEST_CASE( "Router connection limit options", "[WAMP][Router]" )
 
             while (logEntries.empty())
                 test::suspendCoro(yield);
-            CHECK(logEntries.front().message().find("soft connection limit"));
+            INFO("log entry: " << logEntries.front().message());
+            CHECK(logEntries.front().message().find("soft connection limit") !=
+                  std::string::npos);
 
             s2.disconnect();
             timer.expires_after(std::chrono::milliseconds(50));
@@ -467,27 +473,40 @@ TEST_CASE( "Router connection limit options", "[WAMP][Router]" )
 
     SECTION("hard limit")
     {
+        logEntries.clear();
+
         spawn(ioctx, [&](YieldContext yield)
         {
+            auto mc = test::MockRawsockClient::create(ioctx, 45678);
+
             timer.expires_after(std::chrono::milliseconds(100));
             timer.async_wait(yield);
             s1.connect(where, yield).value();
             s2.connect(where, yield).value();
-
-            test::SilentClient sc{ioctx};
-            sc.run(45678);
+            mc->connect();
 
             auto index = s3.connect(where, yield);
             REQUIRE_FALSE(index.has_value());
             CHECK(index.error() == TransportErrc::disconnected);
             s3.disconnect();
-            sc.close();
 
             while (logEntries.size() < 2)
                 test::suspendCoro(yield);
-            CHECK(logEntries.at(0).message().find("soft connection limit"));
-            CHECK(logEntries.at(1).message().find("hard connection limit"));
 
+            // The hard limit log entry will occur before the soft one due
+            // to the delay in processing a soft drop.
+            INFO("log entry 0: " << logEntries.at(0).message());
+            INFO("log entry 1: " << logEntries.at(1).message());
+            CHECK(logEntries.at(0).message().find("hard connection limit") !=
+                  std::string::npos);
+            CHECK(logEntries.back().message().find("soft connection limit") !=
+                  std::string::npos);
+
+            auto handshake =
+                internal::RawsockHandshake::fromBigEndian(mc->peerHandshake());
+            CHECK(handshake.errorCode() == TransportErrc::shedded);
+
+            mc->close();
             s2.disconnect();
             timer.expires_after(std::chrono::milliseconds(50));
             timer.async_wait(yield);

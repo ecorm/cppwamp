@@ -4,11 +4,6 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#include <algorithm>
-#include <atomic>
-#include <cctype>
-#include <mutex>
-#include <thread>
 #include <boost/asio/thread_pool.hpp>
 #include <catch2/catch.hpp>
 #include <cppwamp/config.hpp>

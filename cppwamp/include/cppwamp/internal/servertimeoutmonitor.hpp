@@ -86,7 +86,6 @@ public:
     void start(TimePoint now)
     {
         bumpLoiterDeadline(now);
-
         auto timeout = settings_->limits().overstayTimeout();
         if (internal::timeoutIsDefinite(timeout))
             overstayDeadline_ = now + timeout;
@@ -139,22 +138,20 @@ public:
 
     std::error_code check(TimePoint now) const
     {
+        std::error_code ec;
+
         if (now >= readDeadline_.due())
-            return make_error_code(TransportErrc::readTimeout);
+            ec = make_error_code(TransportErrc::readTimeout);
+        else if (now >= writeDeadline_.due())
+            ec = make_error_code(TransportErrc::writeTimeout);
+        else if (now >= silenceDeadline_)
+            ec = make_error_code(TransportErrc::silenceTimeout);
+        else if (now >= loiterDeadline_)
+            ec = make_error_code(TransportErrc::loiterTimeout);
+        else if (!isReading_ && !isWriting_ && now >= overstayDeadline_)
+            ec = make_error_code(TransportErrc::overstayTimeout);
 
-        if (now >= writeDeadline_.due())
-            return make_error_code(TransportErrc::writeTimeout);
-
-        if (now >= silenceDeadline_)
-            return make_error_code(TransportErrc::silenceTimeout);
-
-        if (now >= loiterDeadline_)
-            return make_error_code(TransportErrc::loiterTimeout);
-
-        if (!isReading_ && !isWriting_ && now >= overstayDeadline_)
-            return make_error_code(TransportErrc::overstayTimeout);
-
-        return {};
+        return ec;
     }
 
 private:

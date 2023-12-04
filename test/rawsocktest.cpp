@@ -6,8 +6,6 @@
 
 #include <algorithm>
 #include <cstring>
-#include <set>
-#include <thread>
 #include <vector>
 #include <boost/asio/steady_timer.hpp>
 #include <catch2/catch.hpp>
@@ -20,7 +18,6 @@
 #include <cppwamp/internal/udsconnector.hpp>
 #include <cppwamp/internal/udslistener.hpp>
 #include "mockrawsockpeer.hpp"
-#include "silentclient.hpp"
 
 using namespace wamp;
 using namespace wamp::internal;
@@ -185,6 +182,7 @@ MessageBuffer makeMessageBuffer(const std::string& str)
 enum class ServerTimeoutMonitorTestEvent
 {
     start,
+    heartbeat,
     startRead,
     updateRead,
     endRead,
@@ -248,6 +246,7 @@ void checkServerTimeoutMonitor(
             monitor.start(now);
             break;;
 
+        case E::heartbeat:   monitor.heartbeat(now);          break;
         case E::startRead:   monitor.startRead(now);          break;
         case E::updateRead:  monitor.updateRead(now, bytes);  break;
         case E::endRead:     monitor.endRead(now);            break;
@@ -500,17 +499,17 @@ TEST_CASE( "ServerTimeoutMonitor", "[Transport]" )
 
     static constexpr auto ok = TransportErrc::success;
 
-    SECTION("Idle timeouts")
+    SECTION("Silence timeouts")
     {
         auto endpoint = TcpEndpoint(tcpTestPort).withLimits(
             TcpEndpoint::Limits{}
-                .withReadTimeout( {seconds{ 5}, 100, seconds{15}})
-                .withWriteTimeout({seconds{10}, 100, seconds{20}})
-                .withIdleTimeout(  seconds{300}));
+                .withReadTimeout( {  seconds{ 5}, 100, seconds{15}})
+                .withWriteTimeout({  seconds{10}, 100, seconds{20}})
+                .withSilenceTimeout( seconds{300}));
 
         std::vector<ServerTimeoutMonitorTestVector> testVectors
         {
-            // No reads/writes
+            // No reads/writes/heartbeats
             {     0, E::start},
             {     1, E::check,       ok},
             {299999, E::check,       ok},
@@ -534,6 +533,111 @@ TEST_CASE( "ServerTimeoutMonitor", "[Transport]" )
             {  8000, E::check,       ok},
             {302999, E::check,       ok},
             {303000, E::check,       TransportErrc::silenceTimeout},
+
+            // Delayed by heartbeat
+            {     0, E::start},
+            {  1000, E::heartbeat},
+            {300999, E::check,       ok},
+            {301000, E::check,       TransportErrc::silenceTimeout},
+        };
+
+        checkServerTimeoutMonitor(endpoint, testVectors);
+    }
+
+    SECTION("Loiter timeouts")
+    {
+        auto endpoint = TcpEndpoint(tcpTestPort).withLimits(
+            TcpEndpoint::Limits{}
+                .withReadTimeout( {  seconds{ 5}, 100, seconds{15}})
+                .withWriteTimeout({  seconds{10}, 100, seconds{20}})
+                .withSilenceTimeout( seconds{300})
+                .withLoiterTimeout(  seconds{600}));
+
+        std::vector<ServerTimeoutMonitorTestVector> testVectors
+        {
+            // Delayed by read
+            {     0, E::start},
+            {  1000, E::startRead},
+            {  2000, E::updateRead,  50},
+            {  3000, E::endRead},
+            {  8000, E::check,       ok},
+            {200000, E::heartbeat},
+            {500000, E::heartbeat},
+            {602999, E::check,       ok},
+            {603000, E::check,       TransportErrc::loiterTimeout},
+
+            // Delayed by write
+            {     0, E::start},
+            {  1000, E::startWrite},
+            {  2000, E::updateWrite, 50},
+            {  3000, E::endWrite},
+            {  8000, E::check,       ok},
+            {200000, E::heartbeat},
+            {500000, E::heartbeat},
+            {602999, E::check,       ok},
+            {603000, E::check,       TransportErrc::loiterTimeout}
+        };
+
+        checkServerTimeoutMonitor(endpoint, testVectors);
+    }
+
+    SECTION("Overstay timeouts")
+    {
+        auto endpoint = TcpEndpoint(tcpTestPort).withLimits(
+            TcpEndpoint::Limits{}
+                .withReadTimeout( {   seconds{ 5}, 100, seconds{15}})
+                .withWriteTimeout({   seconds{10}, 100, seconds{20}})
+                .withSilenceTimeout(  seconds{300})
+                .withLoiterTimeout(   seconds{600})
+                .withOverstayTimeout( seconds{900}));
+
+        std::vector<ServerTimeoutMonitorTestVector> testVectors
+        {
+            // Not delayed by anything
+            {     0, E::start},
+            {  1000, E::startRead},
+            {  3000, E::endRead},
+            {  8000, E::check,       ok},
+            { 11000, E::startWrite},
+            { 13000, E::endWrite},
+            { 18000, E::check,       ok},
+            {200000, E::heartbeat},
+            {500000, E::heartbeat},
+            {601000, E::startWrite},
+            {603000, E::endWrite},
+            {700000, E::heartbeat},
+            {899999, E::check,       ok},
+            {900000, E::check,       TransportErrc::overstayTimeout},
+
+            // Does not interrupt a read in progress
+            {     0, E::start},
+            {  1000, E::startRead},
+            {  3000, E::endRead},
+            {  8000, E::check,       ok},
+            {200000, E::heartbeat},
+            {500000, E::heartbeat},
+            {601000, E::startRead},
+            {603000, E::endRead},
+            {700000, E::heartbeat},
+            {899500, E::startRead},
+            {900499, E::check,       ok},
+            {900500, E::endRead},
+            {900501, E::check,       TransportErrc::overstayTimeout},
+
+            // Does not interrupt a write in progress
+            {     0, E::start},
+            {  1000, E::startWrite},
+            {  3000, E::endWrite},
+            {  8000, E::check,       ok},
+            {200000, E::heartbeat},
+            {500000, E::heartbeat},
+            {601000, E::startWrite},
+            {603000, E::endWrite},
+            {700000, E::heartbeat},
+            {899500, E::startWrite},
+            {900499, E::check,       ok},
+            {900500, E::endWrite},
+            {900501, E::check,       TransportErrc::overstayTimeout},
         };
 
         checkServerTimeoutMonitor(endpoint, testVectors);
@@ -1711,7 +1815,7 @@ GIVEN ( "mock client sending a message exceeding the server's maximum length" )
     IoContext ioctx;
     auto exec = ioctx.get_executor();
     auto strand = boost::asio::make_strand(exec);
-    MessageBuffer tooLong(64*1024 + 1, 'A');
+    std::string tooLong(64*1024 + 1, 'A');
 
     Transporting::Ptr server;
     auto lstn = std::make_shared<TcpListener>(exec, strand, tcpEndpoint,
@@ -1767,7 +1871,7 @@ GIVEN ( "a mock server sending a message exceeding the client's limit" )
     IoContext ioctx;
     auto exec = ioctx.get_executor();
     auto strand = boost::asio::make_strand(exec);
-    MessageBuffer tooLong(64*1024 + 1, 'A');
+    std::string tooLong(64*1024 + 1, 'A');
 
     auto server = test::MockRawsockServer::create(exec, tcpTestPort);
     server->load({{{tooLong}}});
@@ -1836,7 +1940,7 @@ GIVEN ( "A mock client that sends an invalid message type" )
     lstn->establish();
 
     auto client = test::MockRawsockClient::create(ioctx, tcpTestPort);
-    auto payload = makeMessageBuffer("Hello");
+    std::string payload{"Hello"};
     auto badFrameKind =
         static_cast<TransportFrameKind>(
             static_cast<int>(TransportFrameKind::pong) + 1);
@@ -1884,7 +1988,7 @@ GIVEN ( "A mock server that sends an invalid message type" )
     auto server = test::MockRawsockServer::create(exec, tcpTestPort);
     auto badKind = static_cast<TransportFrameKind>(
         static_cast<int>(TransportFrameKind::pong) + 1);
-    server->load({{makeMessageBuffer("World"), badKind}});
+    server->load({{"World", badKind}});
     server->start();
 
     auto cnct = std::make_shared<TcpConnector>(strand, tcpHost, jsonId);
@@ -1931,7 +2035,8 @@ GIVEN ( "A mock server that sends an invalid message type" )
 TEST_CASE( "TCP server transport handshake timeout", "[Transport][Rawsock]" )
 {
     IoContext ioctx;
-    test::SilentClient client{ioctx};
+    auto client = test::MockRawsockClient::create(ioctx, tcpTestPort);
+    client->inhibitHandshake();
     auto exec = ioctx.get_executor();
     auto strand = boost::asio::make_strand(exec);
     std::error_code serverError;
@@ -1958,10 +2063,10 @@ TEST_CASE( "TCP server transport handshake timeout", "[Transport][Rawsock]" )
 
     using boost::asio::ip::tcp;
 
-    client.run(tcpEndpoint.port());
+    client->connect();
 
     ioctx.run();
-    CHECK(client.readError() == boost::asio::error::eof);
+    CHECK(client->readError() == boost::asio::error::eof);
     CHECK(serverError == TransportErrc::timeout);
 }
 
@@ -2023,7 +2128,7 @@ TEST_CASE( "TCP rawsocket client pings", "[Transport][Rawsock]" )
     REQUIRE(pings.size() == 3);
     const auto& firstPing = pings.front();
     REQUIRE(firstPing.size() == 16);
-    std::vector<uint8_t> transportId{firstPing.begin(), firstPing.begin() + 8};
+    std::string transportId{firstPing.begin(), firstPing.begin() + 8};
     for (unsigned i=1; i<=pings.size(); ++i)
     {
         INFO("For ping #" << i);
@@ -2039,7 +2144,7 @@ TEST_CASE( "TCP rawsocket client pings", "[Transport][Rawsock]" )
 
     // Make the server stop echoing the correct pong and check that the client
     // fails due to heartbeat timeout.
-    session->setPong(MessageBuffer{0x12, 0x34, 0x56});
+    session->setPong("ABC");
     timer.expires_after(2*interval);
     timer.async_wait([&ioctx](boost::system::error_code) {ioctx.stop();});
     ioctx.run();
@@ -2068,11 +2173,11 @@ TEST_CASE( "TCP rawsocket server pongs", "[Transport][Rawsock]" )
     lstn->establish();
 
     auto client = test::MockRawsockClient::create(ioctx, tcpTestPort);
-    std::vector<test::MockRawsockClientFrame> pings =
+    std::vector<test::MockRawsockFrame> pings =
     {
-        {{0x12},             TransportFrameKind::ping},
-        {{0x34, 0x56},       TransportFrameKind::ping},
-        {{0x78, 0x90, 0xAB}, TransportFrameKind::ping},
+        {"A",   TransportFrameKind::ping},
+        {"BC",  TransportFrameKind::ping},
+        {"DEF", TransportFrameKind::ping},
     };
     client->load(pings);
     client->connect();

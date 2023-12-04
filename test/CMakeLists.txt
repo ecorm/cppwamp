@@ -39,6 +39,7 @@ set(SOURCES
     routermanagementtest.cpp
     routermetaapitest.cpp
     routerprotocolerrors.cpp
+    routertimeouttest.cpp
     timeoutschedulertest.cpp
     uritest.cpp
     varianttestconvert.cpp

@@ -6,6 +6,7 @@
 
 #if defined(CPPWAMP_TEST_HAS_CORO)
 
+#include <thread>
 #include "clienttesting.hpp"
 
 using namespace test;

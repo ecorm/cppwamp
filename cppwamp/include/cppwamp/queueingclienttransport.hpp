@@ -355,7 +355,25 @@ private:
     void receive()
     {
         rxBuffer_.clear();
-        receiveMore();
+        auto self = this->shared_from_this();
+        stream_.awaitRead(
+            rxBuffer_,
+            [this, self](std::error_code ec, std::size_t n, bool done)
+            {
+                if (checkRxError(ec))
+                    onRead(n, done);
+            });
+    }
+
+    void onRead(std::size_t /*bytesReceived*/, bool done)
+    {
+        if (!done)
+            return receiveMore();
+
+        if (rxHandler_)
+            post(rxHandler_, std::move(rxBuffer_));
+
+        receive();
     }
 
     void receiveMore()
@@ -371,17 +389,6 @@ private:
                 if (checkRxError(ec))
                     onRead(n, done);
             });
-    }
-
-    void onRead(std::size_t bytesReceived, bool done)
-    {
-        if (!done)
-            return receiveMore();
-
-        if (rxHandler_)
-            post(rxHandler_, std::move(rxBuffer_));
-
-        receive();
     }
 
     bool checkRxError(std::error_code ec)

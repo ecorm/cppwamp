@@ -7,9 +7,7 @@
 #ifndef CPPWAMP_INTERNAL_NETWORKPEER_HPP
 #define CPPWAMP_INTERNAL_NETWORKPEER_HPP
 
-#include <sstream>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include "../errorcodes.hpp"
 #include "message.hpp"
@@ -35,6 +33,12 @@ public:
     {
         if (transport_)
             transport_->close();
+    }
+
+    std::error_code monitor()
+    {
+        return (transport_ == nullptr) ? std::error_code{}
+                                       : transport_->monitor();
     }
 
     ErrorOrDone sendMessage(Message& msg)

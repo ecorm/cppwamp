@@ -490,11 +490,10 @@ private:
             rxBuffer_,
             [this, self](std::error_code ec, std::size_t n, bool done)
             {
-                if (checkRxError(ec))
-                {
-                    monitor_.updateRead(now(), n);
-                    onRead(n, done);
-                }
+                if (!checkRxError(ec))
+                    return;
+                monitor_.updateRead(now(), n);
+                onRead(n, done);
             });
     }
 

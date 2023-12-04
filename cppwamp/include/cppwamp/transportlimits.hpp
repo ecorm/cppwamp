@@ -109,7 +109,7 @@ public:
 
     TDerived& withWriteTimeout(ProgressiveTimeout t) {return set(writeTimeout_, t);}
 
-    TDerived& withIdleTimeout(Timeout t) {return set(silenceTimeout_, t);}
+    TDerived& withSilenceTimeout(Timeout t) {return set(silenceTimeout_, t);}
 
     TDerived& withLoiterTimeout(Timeout t) {return set(loiterTimeout_, t);}
 

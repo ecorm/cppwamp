@@ -387,10 +387,7 @@ private:
 
     void monitorTransport()
     {
-        if (!transport_)
-            return;
-
-        auto ec = transport_->monitor();
+        auto ec = peer_->monitor();
         if (!ec)
             return;
 
@@ -407,7 +404,8 @@ private:
 
     void abortSession(Abort reason)
     {
-        AccessActionInfo a{AccessAction::serverAbort, {}, reason.options(), reason.uri()};
+        AccessActionInfo a{AccessAction::serverAbort, {}, reason.options(),
+                           reason.uri()};
         abortSession(std::move(reason), std::move(a));
     }
 

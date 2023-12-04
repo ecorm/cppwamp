@@ -15,10 +15,12 @@
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/read.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/asio/write.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <cppwamp/codec.hpp>
+#include <cppwamp/timeout.hpp>
 #include <cppwamp/wampdefs.hpp>
 #include <cppwamp/internal/endian.hpp>
 #include <cppwamp/internal/rawsockheader.hpp>
@@ -28,28 +30,39 @@ namespace test
 {
 
 //------------------------------------------------------------------------------
-struct MockRawsockClientFrame
+struct MockRawsockFrame
 {
-    using Payload = std::vector<uint8_t>;
+    using Payload = std::string;
     using FrameKind = wamp::TransportFrameKind;
     using Header = uint32_t;
+    using Timeout = wamp::Timeout;
 
-    MockRawsockClientFrame(Payload p, FrameKind k = FrameKind::wamp)
-        : MockRawsockClientFrame(std::move(p), computeHeader(p, k))
+    MockRawsockFrame(Payload p, FrameKind k = FrameKind::wamp,
+                     Timeout delay = Timeout{0})
+        : MockRawsockFrame(std::move(p), computeHeader(p, k, p.size()), delay)
     {}
 
-    MockRawsockClientFrame(Payload p, Header h)
+    MockRawsockFrame(Payload p, FrameKind k, std::size_t length)
+        : MockRawsockFrame(std::move(p), computeHeader(p, k, length),
+                           Timeout{0})
+    {}
+
+    MockRawsockFrame(Payload p, Header h, Timeout delay = Timeout{0})
         : payload(std::move(p)),
-          header(wamp::internal::endian::nativeToBig32(h)) {}
+          header(wamp::internal::endian::nativeToBig32(h)),
+          delay(delay)
+    {}
 
     Payload payload;
     Header header;
+    Timeout delay;
 
 private:
-    static Header computeHeader(const Payload& p, FrameKind k)
+    static Header computeHeader(const Payload& p, FrameKind k,
+                                std::size_t length)
     {
         return wamp::internal::RawsockHeader{}
-            .setFrameKind(k).setLength(p.size()).toHostOrder();
+            .setFrameKind(k).setLength(length).toHostOrder();
     }
 };
 
@@ -59,7 +72,7 @@ class MockRawsockClient : public std::enable_shared_from_this<MockRawsockClient>
 public:
     using Ptr = std::shared_ptr<MockRawsockClient>;
     using Handshake = uint32_t;
-    using Frame = MockRawsockClientFrame;
+    using Frame = MockRawsockFrame;
 
     template <typename E>
     static Ptr create(E&& exec, uint16_t port)
@@ -78,7 +91,21 @@ public:
         return Ptr(new MockRawsockClient(std::forward<E>(exec), port, hs));
     }
 
+    void clear()
+    {
+        outFrames_.clear();
+        inFrames_.clear();
+        readError_.clear();
+        frameIndex_ = 0;
+        connected_ = false;
+    }
+
     void load(std::vector<Frame> frames) {outFrames_ = std::move(frames);}
+
+    void inhibitHandshake(bool inhibited = true)
+    {
+        inhibitHandshake_ = inhibited;
+    }
 
     void connect()
     {
@@ -97,21 +124,34 @@ public:
     void start()
     {
         if (!outFrames_.empty())
-            writeFrame();
+            delayAndWriteFrame();
     }
 
-    void close() {socket_.close();}
+    void close()
+    {
+        socket_.close();
+        connected_ = false;
+    }
+
+    bool connected() const {return connected_;}
 
     const std::vector<Frame>& inFrames() const {return inFrames_;}
+
+    boost::system::error_code readError() const {return readError_;}
+
+    Handshake peerHandshake() const {return peerHandshake_;}
 
 private:
     using Resolver = boost::asio::ip::tcp::resolver;
     using Socket = boost::asio::ip::tcp::socket;
 
-    static bool check(boost::system::error_code ec)
+    bool check(boost::system::error_code ec, bool reading = true)
     {
         if (!ec)
             return true;
+
+        if (reading)
+            readError_ = ec;
 
         namespace error = boost::asio::error;
         if (ec == error::eof ||
@@ -129,6 +169,7 @@ private:
     MockRawsockClient(E&& exec, uint16_t port, Handshake hs)
         : resolver_(boost::asio::make_strand(exec)),
           socket_(resolver_.get_executor()),
+          timer_(resolver_.get_executor()),
           handshake_(wamp::internal::endian::nativeToBig32(hs)),
           port_(port)
     {}
@@ -148,6 +189,11 @@ private:
 
     void onConnected()
     {
+        connected_ = true;
+
+        if (inhibitHandshake_)
+            return flush();
+
         auto self = shared_from_this();
         boost::asio::async_write(
             socket_,
@@ -159,13 +205,57 @@ private:
             });
     }
 
-    void onHandshakeWritten()
+    void flush()
     {
-        handshake_ = 0;
+        buffer_.clear();
+        auto self = shared_from_this();
+
         boost::asio::async_read(
             socket_,
-            boost::asio::buffer(&handshake_, sizeof(handshake_)),
-            [](boost::system::error_code ec, std::size_t) {check(ec);});
+            boost::asio::dynamic_buffer(buffer_),
+            [this, self](boost::system::error_code ec, std::size_t)
+            {
+                if (check(ec))
+                    flush();
+                else
+                    socket_.close();
+            });
+    }
+
+    void onHandshakeWritten()
+    {
+        peerHandshake_ = 0;
+        auto self = shared_from_this();
+
+        boost::asio::async_read(
+            socket_,
+            boost::asio::buffer(&peerHandshake_, sizeof(peerHandshake_)),
+            [this, self](boost::system::error_code ec, std::size_t)
+            {
+                check(ec);
+            });
+    }
+
+    void delayAndWriteFrame()
+    {
+        const auto& frame = outFrames_.at(frameIndex_);
+        if (frame.delay.count() == 0)
+            return writeFrame();
+
+        std::weak_ptr<MockRawsockClient> self = shared_from_this();
+        timer_.expires_from_now(frame.delay);
+        timer_.async_wait(
+            [this, self](boost::system::error_code ec)
+            {
+                if (ec == boost::asio::error::operation_aborted)
+                    return;
+                auto me = self.lock();
+                if (!me)
+                    return;
+                if (ec)
+                    throw std::system_error(ec);
+                writeFrame();
+            });
     }
 
     void writeFrame()
@@ -180,7 +270,7 @@ private:
             buffers,
             [this, self](boost::system::error_code ec, std::size_t)
             {
-                if (check(ec))
+                if (check(ec, false))
                     readHeader();
             });
     }
@@ -206,7 +296,7 @@ private:
         auto self = shared_from_this();
         boost::asio::async_read(
             socket_,
-            boost::asio::buffer(buffer_.data(), length),
+            boost::asio::buffer(&(buffer_.front()), length),
             [this, self](boost::system::error_code ec, std::size_t)
             {
                 if (check(ec))
@@ -220,18 +310,25 @@ private:
             wamp::internal::RawsockHeader::fromBigEndian(header_).frameKind();
         inFrames_.emplace_back(buffer_, kind);
         if (++frameIndex_ < outFrames_.size())
-            writeFrame();
+            delayAndWriteFrame();
+        else
+            flush();
     }
 
     Resolver resolver_;
     Socket socket_;
+    boost::asio::steady_timer timer_;
     std::vector<Frame> outFrames_;
     std::vector<Frame> inFrames_;
     Frame::Payload buffer_;
+    boost::system::error_code readError_;
     unsigned frameIndex_ = 0;
     Handshake handshake_ = 0;
+    Handshake peerHandshake_ = 0;
     Frame::Header header_ = 0;
     uint16_t port_ = 0;
+    bool inhibitHandshake_ = false;
+    bool connected_;
 };
 
 //------------------------------------------------------------------------------
@@ -242,7 +339,7 @@ public:
     using Ptr = std::shared_ptr<MockRawsockSession>;
     using Socket = boost::asio::ip::tcp::socket;
     using Handshake = uint32_t;
-    using Frame = MockRawsockClientFrame;
+    using Frame = MockRawsockFrame;
     using Payload = Frame::Payload;
 
     MockRawsockSession(Socket&& socket, std::vector<Frame> frames, Handshake hs)
@@ -332,7 +429,7 @@ private:
         auto self = shared_from_this();
         boost::asio::async_read(
             socket_,
-            boost::asio::buffer(buffer_.data(), length),
+            boost::asio::buffer(&(buffer_.front()), length),
             [this, self](boost::system::error_code ec, std::size_t)
             {
                 if (check(ec))
@@ -411,7 +508,7 @@ class MockRawsockServer : public std::enable_shared_from_this<MockRawsockServer>
 public:
     using Ptr = std::shared_ptr<MockRawsockServer>;
     using Handshake = uint32_t;
-    using Frame = MockRawsockClientFrame;
+    using Frame = MockRawsockFrame;
     using SessionList = std::vector<std::weak_ptr<MockRawsockSession>>;
 
     template <typename E>

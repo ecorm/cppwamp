@@ -109,26 +109,30 @@ public:
     template <typename F>
     void awaitRead(MessageBuffer&, F&& callback)
     {
-        struct Awaited
-        {
-            Decay<F> callback;
+        // struct Awaited
+        // {
+        //     Decay<F> callback;
 
-            void operator()(boost::system::error_code netEc)
-            {
-                callback(rawsockErrorCodeToStandard(netEc), 0, false);
-            }
-        };
+        //     void operator()(boost::system::error_code netEc)
+        //     {
+        //         callback(rawsockErrorCodeToStandard(netEc), 0, false);
+        //     }
+        // };
 
-        socket_.async_wait(Socket::wait_read,
-                           Awaited{std::forward<F>(callback)});
+        // socket_.async_wait(Socket::wait_read,
+        //                    Awaited{std::forward<F>(callback)});
+        payloadReadStarted_ = false;
+        doAwaitRead(std::forward<F>(callback));
     }
 
     template <typename F>
     void readSome(MessageBuffer& buffer, F&& callback)
     {
-        if (wampRxBytesRemaining_ != 0)
-            return readMoreWampPayload(buffer, callback);
-        readHeader(buffer, std::forward<F>(callback));
+        if (payloadReadStarted_)
+            return readMoreWampPayload(buffer, std::forward<F>(callback));
+
+        payloadReadStarted_ = true;
+        readWampPayload(buffer, std::forward<F>(callback));
     }
 
     template <typename F>
@@ -234,17 +238,19 @@ private:
     }
 
     template <typename F>
-    void readHeader(MessageBuffer& wampPayload, F&& callback)
+    void doAwaitRead(F&& callback)
     {
+        // Wait until the header bytes of WAMP frame read, so that the read
+        // timeout logic in QueueingTransport only applies to WAMP frames.
+
         struct Received
         {
             Decay<F> callback;
-            MessageBuffer* payload;
             RawsockStream* self;
 
             void operator()(boost::system::error_code netEc, std::size_t n)
             {
-                self->onHeaderRead(netEc, *payload, callback);
+                self->onHeaderRead(netEc, callback);
             }
         };
 
@@ -252,12 +258,57 @@ private:
         boost::asio::async_read(
             socket_,
             boost::asio::buffer(&rxHeader_, sizeof(rxHeader_)),
-            Received{std::move(callback), &wampPayload, this});
+            Received{std::move(callback), this});
     }
 
+    // template <typename F>
+    // void readHeader(MessageBuffer& wampPayload, F&& callback)
+    // {
+    //     struct Received
+    //     {
+    //         Decay<F> callback;
+    //         MessageBuffer* payload;
+    //         RawsockStream* self;
+
+    //         void operator()(boost::system::error_code netEc, std::size_t n)
+    //         {
+    //             self->onHeaderRead(netEc, *payload, callback);
+    //         }
+    //     };
+
+    //     rxHeader_ = 0;
+    //     boost::asio::async_read(
+    //         socket_,
+    //         boost::asio::buffer(&rxHeader_, sizeof(rxHeader_)),
+    //         Received{std::move(callback), &wampPayload, this});
+    // }
+
+    // template <typename F>
+    // void onHeaderRead(boost::system::error_code netEc,
+    //                   MessageBuffer& wampPayload, F& callback)
+    // {
+    //     if (!checkRead(netEc, callback))
+    //         return;
+
+    //     const auto header = RawsockHeader::fromBigEndian(rxHeader_);
+    //     if (!header.frameKindIsValid())
+    //         return failRead(TransportErrc::badCommand, callback);
+
+    //     auto kind = header.frameKind();
+    //     auto length = header.length();
+    //     auto limit = kind == TransportFrameKind::wamp ? wampPayloadLimit_
+    //                                                   : heartbeatPayloadLimit_;
+    //     if (limit != 0 && length > limit)
+    //         return failRead(TransportErrc::inboundTooLong, callback);
+
+    //     if (kind == TransportFrameKind::wamp)
+    //         return readWampPayload(length, wampPayload, callback);
+
+    //     readHeartbeatPayload(kind, length, wampPayload, callback);
+    // }
+
     template <typename F>
-    void onHeaderRead(boost::system::error_code netEc,
-                      MessageBuffer& wampPayload, F& callback)
+    void onHeaderRead(boost::system::error_code netEc, F& callback)
     {
         if (!checkRead(netEc, callback))
             return;
@@ -273,17 +324,8 @@ private:
         if (limit != 0 && length > limit)
             return failRead(TransportErrc::inboundTooLong, callback);
 
-        if (kind == TransportFrameKind::wamp)
-            return readWampPayload(length, wampPayload, callback);
-
-        readHeartbeatPayload(kind, length, wampPayload, callback);
-    }
-
-    template <typename F>
-    void readWampPayload(size_t length, MessageBuffer& payload, F& callback)
-    {
-        if (wampPayloadLimit_ != 0 && length > wampPayloadLimit_)
-            return failRead(TransportErrc::inboundTooLong, callback);
+        if (kind != TransportFrameKind::wamp)
+            return readHeartbeatPayload(kind, length, callback);
 
         if (length == 0)
         {
@@ -291,25 +333,40 @@ private:
             return;
         }
 
-        try
-        {
-            payload.resize(length);
-        }
-        catch (const std::bad_alloc&)
-        {
-            return failRead(std::errc::not_enough_memory, callback);
-        }
-        catch (const std::length_error&)
-        {
-            return failRead(std::errc::not_enough_memory, callback);
-        }
-
         wampRxBytesRemaining_ = length;
-        readMoreWampPayload(payload, callback);
+        callback(std::error_code{}, 0, false);
     }
 
     template <typename F>
-    void readMoreWampPayload(MessageBuffer& payload, F& callback)
+    void readWampPayload(MessageBuffer& payload, F&& callback)
+    {
+        assert(wampRxBytesRemaining_ != 0);
+
+        bool tooLong = wampPayloadLimit_ != 0 &&
+                       wampRxBytesRemaining_ > wampPayloadLimit_;
+        if (tooLong)
+            return failRead(TransportErrc::inboundTooLong, callback);
+
+        try
+        {
+            payload.resize(wampRxBytesRemaining_);
+        }
+        catch (const std::bad_alloc&)
+        {
+            return failRead(std::errc::not_enough_memory,
+                            std::forward<F>(callback));
+        }
+        catch (const std::length_error&)
+        {
+            return failRead(std::errc::not_enough_memory,
+                            std::forward<F>(callback));
+        }
+
+        readMoreWampPayload(payload, std::forward<F>(callback));
+    }
+
+    template <typename F>
+    void readMoreWampPayload(MessageBuffer& payload, F&& callback)
     {
         struct Read
         {
@@ -323,11 +380,11 @@ private:
         };
 
         assert(payload.size() >= wampRxBytesRemaining_);
-        auto bytesRead = payload.size() - wampRxBytesRemaining_;
-        auto ptr = payload.data() + bytesRead;
+        auto bytesReadSoFar = payload.size() - wampRxBytesRemaining_;
+        auto ptr = payload.data() + bytesReadSoFar;
         socket_.async_read_some(
             boost::asio::buffer(ptr, wampRxBytesRemaining_),
-            Read{std::move(callback), this});
+            Read{std::forward<F>(callback), this});
     }
 
     template <typename F>
@@ -340,20 +397,61 @@ private:
         callback(rawsockErrorCodeToStandard(netEc), bytesRead, done);
     }
 
+    // template <typename F>
+    // void readHeartbeatPayload(TransportFrameKind kind, size_t length,
+    //                           MessageBuffer& wampPayload, F& callback)
+    // {
+    //     struct Read
+    //     {
+    //         Decay<F> callback;
+    //         MessageBuffer* wampPayload;
+    //         RawsockStream* self;
+    //         TransportFrameKind kind;
+
+    //         void operator()(boost::system::error_code netEc, std::size_t)
+    //         {
+    //             self->onHeartbeatPayloadRead(netEc, kind, *wampPayload, callback);
+    //         }
+    //     };
+
+    //     if (heartbeatPayloadLimit_ != 0 && length > heartbeatPayloadLimit_)
+    //         return failRead(TransportErrc::inboundTooLong, callback);
+
+    //     try
+    //     {
+    //         heartbeatPayload_.resize(length);
+    //     }
+    //     catch (const std::bad_alloc&)
+    //     {
+    //         return failRead(std::errc::not_enough_memory, callback);
+    //     }
+    //     catch (const std::length_error&)
+    //     {
+    //         return failRead(std::errc::not_enough_memory, callback);
+    //     }
+
+    //     if (length == 0)
+    //         onHeartbeatPayloadRead({}, kind, wampPayload, callback);
+
+    //     boost::asio::async_read(
+    //         socket_,
+    //         boost::asio::buffer(heartbeatPayload_.data(), length),
+    //         Read{std::move(callback), &wampPayload, this, kind});
+    // }
+
     template <typename F>
     void readHeartbeatPayload(TransportFrameKind kind, size_t length,
-                              MessageBuffer& wampPayload, F& callback)
+                              F& callback)
     {
         struct Read
         {
             Decay<F> callback;
-            MessageBuffer* wampPayload;
             RawsockStream* self;
             TransportFrameKind kind;
 
             void operator()(boost::system::error_code netEc, std::size_t)
             {
-                self->onHeartbeatPayloadRead(netEc, kind, *wampPayload, callback);
+                self->onHeartbeatPayloadRead(netEc, kind, callback);
             }
         };
 
@@ -374,18 +472,34 @@ private:
         }
 
         if (length == 0)
-            onHeartbeatPayloadRead({}, kind, wampPayload, callback);
+            onHeartbeatPayloadRead({}, kind, callback);
 
         boost::asio::async_read(
             socket_,
             boost::asio::buffer(heartbeatPayload_.data(), length),
-            Read{std::move(callback), &wampPayload, this, kind});
+            Read{std::move(callback), this, kind});
     }
+
+    // template <typename F>
+    // void onHeartbeatPayloadRead(boost::system::error_code netEc,
+    //                             TransportFrameKind kind,
+    //                             MessageBuffer& wampPayload, F& callback)
+    // {
+    //     if (!checkRead(netEc, callback))
+    //         return;
+
+    //     if (heartbeatHandler_ != nullptr)
+    //     {
+    //         postAny(socket_.get_executor(), heartbeatHandler_, kind,
+    //                 heartbeatPayload_.data(), heartbeatPayload_.size());
+    //     }
+
+    //     readSome(wampPayload, callback);
+    // }
 
     template <typename F>
     void onHeartbeatPayloadRead(boost::system::error_code netEc,
-                                TransportFrameKind kind,
-                                MessageBuffer& wampPayload, F& callback)
+                                TransportFrameKind kind, F& callback)
     {
         if (!checkRead(netEc, callback))
             return;
@@ -396,11 +510,11 @@ private:
                     heartbeatPayload_.data(), heartbeatPayload_.size());
         }
 
-        readSome(wampPayload, callback);
+        doAwaitRead(callback);
     }
 
     template <typename F>
-    bool checkRead(boost::system::error_code netEc, F& callback)
+    bool checkRead(boost::system::error_code netEc, F&& callback)
     {
         if (netEc == boost::asio::error::eof)
         {
@@ -414,7 +528,7 @@ private:
     }
 
     template <typename TErrc, typename F>
-    void failRead(TErrc errc, F& callback)
+    void failRead(TErrc errc, F&& callback)
     {
         callback(make_error_code(errc), 0, false);
     }
@@ -430,6 +544,7 @@ private:
     Header rxHeader_ = 0;
     Header txHeader_ = 0;
     bool headerSent_ = false;
+    bool payloadReadStarted_ = false;
 };
 
 //------------------------------------------------------------------------------
