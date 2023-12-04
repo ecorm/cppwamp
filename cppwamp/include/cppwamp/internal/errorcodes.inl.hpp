@@ -58,7 +58,9 @@ CPPWAMP_INLINE std::string MiscCategory::message(int ev) const
         /* absent           */ "Item is absent",
         /* alreadyExists    */ "Item already exists",
         /* badType,         */ "Invalid or unexpected type",
-        /* noSuchTopic      */ "No subscription under the given topic URI"
+        /* noSuchTopic      */ "No subscription under the given topic URI",
+        /* helloTimeout     */ "Timed out while waiting for HELLO",
+        /* challengeTimeout */ "Timed out while waiting for CHALLENGE response"
     }};
 
     return internal::lookupErrorMessage<MiscErrc>("cppwamp.MiscCategory",

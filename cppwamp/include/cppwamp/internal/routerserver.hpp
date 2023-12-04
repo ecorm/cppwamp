@@ -22,7 +22,6 @@
 #include "networkpeer.hpp"
 #include "routercontext.hpp"
 #include "routersession.hpp"
-#include "timeoutscheduler.hpp"
 
 namespace wamp
 {
@@ -41,8 +40,6 @@ class ServerContext : public RouterContext
 public:
     ServerContext(RouterContext r, const std::shared_ptr<RouterServer>& s);
     void removeSession(ServerSessionKey key);
-    void armChallengeTimeout(ServerSessionKey key);
-    void cancelChallengeTimeout(ServerSessionKey key);
 
 private:
     using Base = RouterContext;
@@ -169,7 +166,7 @@ public:
     void monitor()
     {
         auto self = shared_from_this();
-        dispatch([this, self]() {monitorTransport();});
+        dispatch([this, self]() {doMonitor();});
     }
 
     void onChallengeTimeout()
@@ -190,6 +187,9 @@ public:
 
 private:
     using Base = RouterSession;
+    using TimePoint = std::chrono::steady_clock::time_point;
+
+    static TimePoint steadyTime() {return std::chrono::steady_clock::now();}
 
     void onRouterAbort(Abort&& reason) override
     {
@@ -283,7 +283,7 @@ private:
                                 withHint("Unexpected AUTHENTICATE message"));
         }
 
-        server_.cancelChallengeTimeout(key_);
+        challengeDeadline_ = TimePoint::max();
         authExchange_->setAuthentication({}, std::move(authentication));
         serverOptions_->authenticator()->authenticate(authExchange_, executor_);
     }
@@ -385,9 +385,17 @@ private:
         report({AccessAction::clientConnect});
     }
 
-    void monitorTransport()
+    void doMonitor()
     {
         auto ec = peer_->monitor();
+
+        if (!ec)
+        {
+            auto now = steadyTime();
+            if (now >= challengeDeadline_)
+                ec = make_error_code(MiscErrc::challengeTimeout);
+        }
+
         if (!ec)
             return;
 
@@ -462,7 +470,10 @@ private:
             auto c = authExchange_->challenge();
             report(c.info());
             peer_->send(std::move(c));
-            server_.armChallengeTimeout(key_);
+
+            auto timeout = serverOptions_->challengeTimeout();
+            if (timeoutIsDefinite(timeout))
+                challengeDeadline_ = steadyTime() + timeout;
         }
     }
 
@@ -577,6 +588,7 @@ private:
     RequestIdChecker requestIdChecker_;
     UriValidator::Ptr uriValidator_;
     Key key_;
+    TimePoint challengeDeadline_ = TimePoint::max();
     bool alreadyStarted_ = false;
 };
 
@@ -668,7 +680,6 @@ public:
     ServerOptions::Ptr config() const {return options_;}
 
 private:
-    using SessionTimeoutScheduler = TimeoutScheduler<ServerSession::Key>;
     using TimePoint = std::chrono::steady_clock::time_point;
     using Backoff = BinaryExponentialBackoff;
 
@@ -677,7 +688,6 @@ private:
     RouterServer(AnyIoExecutor e, ServerOptions&& c, RouterContext&& r)
         : executor_(std::move(e)),
           strand_(boost::asio::make_strand(executor_)),
-          challengeTimeouts_(SessionTimeoutScheduler::create(strand_)),
           backoffTimer_(strand_, c.acceptBackoff()),
           monitoringTimer_(strand_),
           logSuffix_(" [Server " + c.name() + ']'),
@@ -696,14 +706,6 @@ private:
         inform("Starting server listening on " + listener_->where());
 
         const std::weak_ptr<RouterServer> self{shared_from_this()};
-        challengeTimeouts_->listen(
-            [this, self](ServerSession::Key n)
-            {
-                auto me = self.lock();
-                if (me)
-                    onChallengeTimeout(n);
-            });
-
         listener_->observe(
             [this, self](ListenResult result)
             {
@@ -905,7 +907,6 @@ private:
             msg += " " + toString(reason.options());
         inform(std::move(msg));
 
-        challengeTimeouts_->unlisten();
         backoffTimer_.cancel();
 
         if (!listener_)
@@ -923,37 +924,6 @@ private:
             Ptr self;
             ServerSessionKey key;
             void operator()() const {self->sessions_.erase(key);}
-        };
-
-        safelyDispatch<Dispatched>(key);
-    }
-
-    void armChallengeTimeout(ServerSessionKey key)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            ServerSessionKey key;
-
-            void operator()() const
-            {
-                auto& me = *self;
-                auto timeout = me.options_->challengeTimeout();
-                if (timeout != unspecifiedTimeout)
-                    me.challengeTimeouts_->insert(key, timeout);
-            }
-        };
-
-        safelyDispatch<Dispatched>(key);
-    }
-
-    void cancelChallengeTimeout(ServerSessionKey key)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            ServerSessionKey key;
-            void operator()() const {self->challengeTimeouts_->erase(key);}
         };
 
         safelyDispatch<Dispatched>(key);
@@ -992,7 +962,6 @@ private:
     AnyIoExecutor executor_;
     IoStrand strand_;
     std::unordered_map<ServerSession::Key, ServerSession::Ptr> sessions_;
-    SessionTimeoutScheduler::Ptr challengeTimeouts_;
     BinaryExponentialBackoffTimer backoffTimer_;
     boost::asio::steady_timer monitoringTimer_;
     std::string logSuffix_;
@@ -1024,20 +993,6 @@ ServerContext::removeSession(ServerSessionKey key)
     auto server = server_.lock();
     if (server)
         server->removeSession(key);
-}
-
-inline void ServerContext::armChallengeTimeout(ServerSessionKey key)
-{
-    auto server = server_.lock();
-    if (server)
-        server->armChallengeTimeout(key);
-}
-
-inline void ServerContext::cancelChallengeTimeout(ServerSessionKey key)
-{
-    auto server = server_.lock();
-    if (server)
-        server->cancelChallengeTimeout(key);
 }
 
 } // namespace internal

@@ -22,7 +22,6 @@
     - IP allow/block lists
     - Authentication lockout/cooldown
     - Message rate limiting (https://github.com/wamp-proto/wamp-proto/issues/510)
-    - Unjoined time limit
 */
 
 /* Other options wishlist
@@ -165,6 +164,9 @@ public:
     ServerOptions& withHardConnectionLimit(std::size_t limit);
 
     ServerOptions& withMonitoringInterval(Timeout timeout);
+
+    // TODO: Unjoined timeout
+    // TODO: Shedding eligbility loiter time threshold
 
     ServerOptions& withChallengeTimeout(Timeout timeout);
 
