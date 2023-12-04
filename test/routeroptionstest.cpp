@@ -380,6 +380,53 @@ TEST_CASE( "Router meta API enable options", "[WAMP][Router]" )
 }
 
 //------------------------------------------------------------------------------
+TEST_CASE( "Router hello timeout option", "[WAMP][Router]" )
+{
+    if (!test::RouterFixture::enabled())
+        return;
+
+    IoContext ioctx;
+    Session s{ioctx};
+    boost::asio::steady_timer timer{ioctx};
+    std::vector<Incident> incidents;
+    s.observeIncidents([&incidents](Incident i) {incidents.push_back(i);});
+
+    spawn(ioctx, [&](YieldContext yield)
+    {
+        // Connect and wait too long to join
+        s.connect(TcpHost{"localhost", 23456}.withFormat(json), yield).value();
+        timer.expires_after(std::chrono::milliseconds(100));
+        timer.async_wait(yield);
+        CHECK(s.state() == SessionState::failed);
+        REQUIRE(!incidents.empty());
+        const auto& incident = incidents.back();
+        CHECK(incident.kind() == IncidentKind::abortedByPeer);
+        CHECK(incident.error() == WampErrc::timeout);
+        CHECK(incident.message().find("HELLO") != std::string::npos);
+        s.disconnect();
+
+        // Leave and wait too long to re-join
+        incidents.clear();
+        s.connect(TcpHost{"localhost", 23456}.withFormat(json), yield).value();
+        auto hello = Hello{"cppwamp.authtest"}.withAuthMethods({"ticket"})
+                                              .withAuthId("alice");
+        s.join(hello, [](Challenge c) {c.authenticate({"password123"});},
+               yield).value();
+        timer.expires_after(std::chrono::milliseconds(100));
+        timer.async_wait(yield);
+        REQUIRE(s.state() == SessionState::established);
+        s.leave(yield).value();
+        timer.expires_after(std::chrono::milliseconds(100));
+        timer.async_wait(yield);
+        CHECK(incident.kind() == IncidentKind::abortedByPeer);
+        CHECK(incident.error() == WampErrc::timeout);
+        CHECK(incident.message().find("HELLO") != std::string::npos);
+        s.disconnect();
+    });
+    ioctx.run();
+}
+
+//------------------------------------------------------------------------------
 TEST_CASE( "Router challenge timeout option", "[WAMP][Router]" )
 {
     if (!test::RouterFixture::enabled())

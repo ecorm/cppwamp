@@ -250,6 +250,8 @@ private:
     {
         Base::report(hello.info());
 
+        helloDeadline_ = TimePoint::max();
+
         realm_ = server_.realmAt(hello.uri());
         if (realm_.expired())
         {
@@ -303,8 +305,14 @@ private:
         }
 
         leaveRealm();
-        if (!wasShuttingDown)
-            peer_->establishSession();
+        if (wasShuttingDown)
+            return;
+
+        peer_->establishSession();
+
+        auto timeout = serverOptions_->helloTimeout();
+        if (timeoutIsDefinite(timeout))
+            helloDeadline_ = steadyTime() + timeout;
     }
 
     void onPeerMessage(Message&& m) override
@@ -383,6 +391,10 @@ private:
         peer_->connect(std::move(transport_), std::move(codec));
         peer_->establishSession();
         report({AccessAction::clientConnect});
+
+        auto timeout = serverOptions_->helloTimeout();
+        if (timeoutIsDefinite(timeout))
+            helloDeadline_ = steadyTime() + timeout;
     }
 
     void doMonitor()
@@ -392,7 +404,9 @@ private:
         if (!ec)
         {
             auto now = steadyTime();
-            if (now >= challengeDeadline_)
+            if (now >= helloDeadline_)
+                ec = make_error_code(MiscErrc::helloTimeout);
+            else if (now >= challengeDeadline_)
                 ec = make_error_code(MiscErrc::challengeTimeout);
         }
 
@@ -588,6 +602,7 @@ private:
     RequestIdChecker requestIdChecker_;
     UriValidator::Ptr uriValidator_;
     Key key_;
+    TimePoint helloDeadline_ = TimePoint::max();
     TimePoint challengeDeadline_ = TimePoint::max();
     bool alreadyStarted_ = false;
 };

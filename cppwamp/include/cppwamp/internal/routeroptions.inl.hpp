@@ -165,6 +165,14 @@ ServerOptions::withMonitoringInterval(Timeout interval)
 
 /** @throws error::Logic if the given timeout duration is negative. */
 CPPWAMP_INLINE ServerOptions&
+ServerOptions::withHelloTimeout(Timeout timeout)
+{
+    helloTimeout_ = internal::checkTimeout(timeout);
+    return *this;
+}
+
+/** @throws error::Logic if the given timeout duration is negative. */
+CPPWAMP_INLINE ServerOptions&
 ServerOptions::withChallengeTimeout(Timeout timeout)
 {
     challengeTimeout_ = internal::checkTimeout(timeout);
@@ -202,6 +210,11 @@ CPPWAMP_INLINE std::size_t ServerOptions::hardConnectionLimit() const
 CPPWAMP_INLINE Timeout ServerOptions::monitoringInterval() const
 {
     return monitoringInterval_;
+}
+
+CPPWAMP_INLINE Timeout ServerOptions::helloTimeout() const
+{
+    return challengeTimeout_;
 }
 
 CPPWAMP_INLINE Timeout ServerOptions::challengeTimeout() const

@@ -165,8 +165,9 @@ public:
 
     ServerOptions& withMonitoringInterval(Timeout timeout);
 
-    // TODO: Unjoined timeout
     // TODO: Shedding eligbility loiter time threshold
+
+    ServerOptions& withHelloTimeout(Timeout timeout);
 
     ServerOptions& withChallengeTimeout(Timeout timeout);
 
@@ -184,6 +185,8 @@ public:
 
     Timeout monitoringInterval() const;
 
+    Timeout helloTimeout() const;
+
     Timeout challengeTimeout() const;
 
     Backoff acceptBackoff() const;
@@ -200,6 +203,8 @@ private:
     std::size_t hardConnectionLimit_ = 768; // // Using soft limit + 50%
     Timeout monitoringInterval_ = std::chrono::seconds{1};
         // Apache httpd RequestReadTimeout has a 1-second granularity
+    Timeout helloTimeout_ = std::chrono::seconds{30};
+        // Using ejabberd's negotiation_timeout
     Timeout challengeTimeout_ = std::chrono::seconds{30};
         // Using ejabberd's negotiation_timeout
     Backoff acceptBackoff_ = {std::chrono::milliseconds{625},

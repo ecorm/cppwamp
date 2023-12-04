@@ -299,6 +299,7 @@ struct CPPWAMP_API MessageTraits
     unsigned maxSize           : 8;
     bool isClientRx            : 1;
     bool isRouterRx            : 1;
+    bool forClosed             : 1;
     bool forEstablishing       : 1;
     bool forAuthenticating     : 1;
     bool forEstablished        : 1;

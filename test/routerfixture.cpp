@@ -152,6 +152,8 @@ private:
         return wamp::ServerOptions("tcp23456", wamp::TcpEndpoint{23456},
                                    wamp::json)
             .withAuthenticator(std::make_shared<TicketAuthenticator>())
+            .withMonitoringInterval(std::chrono::milliseconds(25))
+            .withHelloTimeout(std::chrono::milliseconds(50))
             .withChallengeTimeout(std::chrono::milliseconds(50));
     }
 
