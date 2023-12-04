@@ -26,7 +26,7 @@ SCENARIO( "MiscErrc error codes", "[Error]" )
             INFO("For error code " << ec);
             CHECK(ec.category() == genericCategory());
             CHECK_THAT(ec.category().name(),
-                       Catch::Matchers::Equals("wamp::MiscCategory"));
+                       Catch::Matchers::Equals("cppwamp.MiscCategory"));
             CHECK(!ec.message().empty());
             CHECK(ec == errc);
             CHECK(ec == make_error_condition(errc));
@@ -55,7 +55,7 @@ SCENARIO( "WampErrc error codes", "[Error]" )
             INFO("For error code " << ec);
             CHECK(ec.category() == wampCategory());
             CHECK_THAT(ec.category().name(),
-                       Catch::Matchers::Equals("wamp::WampCategory"));
+                       Catch::Matchers::Equals("cppwamp.WampCategory"));
             CHECK(!ec.message().empty());
             CHECK(ec == errc);
             CHECK(ec == make_error_condition(errc));
@@ -105,7 +105,7 @@ SCENARIO( "DecodingErrc error codes", "[Error]" )
             INFO("For error code " << ec);
             CHECK(ec.category() == decodingCategory());
             CHECK_THAT(ec.category().name(),
-                       Catch::Matchers::Equals("wamp::DecodingCategory"));
+                       Catch::Matchers::Equals("cppwamp.DecodingCategory"));
             CHECK(!ec.message().empty());
             CHECK(ec == errc);
             CHECK(ec == make_error_condition(errc));
@@ -141,7 +141,7 @@ SCENARIO( "TransportErrc error codes", "[Error]" )
             INFO("For error code " << ec);
             CHECK(ec.category() == transportCategory());
             CHECK_THAT(ec.category().name(),
-                       Catch::Matchers::Equals("wamp::TransportCategory"));
+                       Catch::Matchers::Equals("cppwamp.TransportCategory"));
             CHECK(!ec.message().empty());
             CHECK(ec == errc);
             CHECK(ec == make_error_condition(errc));

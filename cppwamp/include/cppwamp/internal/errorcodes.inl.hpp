@@ -43,7 +43,7 @@ std::string lookupErrorMessage(const char* categoryName, int errorCodeValue,
 
 CPPWAMP_INLINE const char* MiscCategory::name() const noexcept
 {
-    return "wamp::MiscCategory";
+    return "cppwamp.MiscCategory";
 }
 
 CPPWAMP_INLINE std::string MiscCategory::message(int ev) const
@@ -61,7 +61,7 @@ CPPWAMP_INLINE std::string MiscCategory::message(int ev) const
         /* noSuchTopic      */ "No subscription under the given topic URI"
     }};
 
-    return internal::lookupErrorMessage<MiscErrc>("wamp::MiscCategory",
+    return internal::lookupErrorMessage<MiscErrc>("cppwamp.MiscCategory",
                                                   ev, msg);
 }
 
@@ -100,7 +100,7 @@ CPPWAMP_INLINE std::error_condition make_error_condition(MiscErrc errc)
 
 CPPWAMP_INLINE const char* WampCategory::name() const noexcept
 {
-    return "wamp::WampCategory";
+    return "cppwamp.WampCategory";
 }
 
 CPPWAMP_INLINE std::string WampCategory::message(int ev) const
@@ -148,7 +148,7 @@ CPPWAMP_INLINE std::string WampCategory::message(int ev) const
 /* unavailable            */ "Callee is unable to handle the invocation",
     };
 
-    return internal::lookupErrorMessage<WampErrc>("wamp::WampCategory", ev,
+    return internal::lookupErrorMessage<WampErrc>("cppwamp.WampCategory", ev,
                                                   msg);
 }
 
@@ -323,7 +323,7 @@ CPPWAMP_INLINE const std::string& errorCodeToUri(WampErrc errc)
     using T = std::underlying_type<WampErrc>::type;
     auto n = static_cast<T>(errc);
     CPPWAMP_LOGIC_CHECK((n >= 0) && (n < T(count)),
-                        "wamp::errorCodeToUri code is not a valid enumerator");
+                        "cppwamp.errorCodeToUri code is not a valid enumerator");
     return sortedByErrc.at(n);
 }
 
@@ -336,7 +336,7 @@ CPPWAMP_INLINE std::string errorCodeToUri(std::error_code ec)
 {
     if (ec.category() == wampCategory())
         return errorCodeToUri(static_cast<WampErrc>(ec.value()));
-    return std::string("cppwamp.error.") + ec.category().name() +
+    return std::string("cppwamp.error.") + ec.category().name() + '.' +
            std::to_string(ec.value());
 }
 
@@ -363,7 +363,7 @@ CPPWAMP_INLINE std::string detailedErrorCodeString(std::error_code ec)
 
 CPPWAMP_INLINE const char* DecodingCategory::name() const noexcept
 {
-    return "wamp::DecodingCategory";
+    return "cppwamp.DecodingCategory";
 }
 
 CPPWAMP_INLINE std::string DecodingCategory::message(int ev) const
@@ -382,7 +382,7 @@ CPPWAMP_INLINE std::string DecodingCategory::message(int ev) const
     }};
 
     return internal::lookupErrorMessage<DecodingErrc>(
-        "wamp::DecodingCategory", ev, msg);
+        "cppwamp.DecodingCategory", ev, msg);
 }
 
 CPPWAMP_INLINE bool DecodingCategory::equivalent(const std::error_code& code,
@@ -436,7 +436,7 @@ CPPWAMP_INLINE std::error_condition make_error_condition(DecodingErrc errc)
 
 CPPWAMP_INLINE const char* TransportCategory::name() const noexcept
 {
-    return "wamp::TransportCategory";
+    return "cppwamp.TransportCategory";
 }
 
 CPPWAMP_INLINE std::string TransportCategory::message(int ev) const
@@ -476,7 +476,7 @@ CPPWAMP_INLINE std::string TransportCategory::message(int ev) const
     }};
 
     return internal::lookupErrorMessage<TransportErrc>(
-        "wamp::TransportCategory", ev, msg);
+        "cppwamp.TransportCategory", ev, msg);
 }
 
 CPPWAMP_INLINE bool TransportCategory::equivalent(const std::error_code& code,
