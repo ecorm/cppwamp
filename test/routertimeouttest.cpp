@@ -54,10 +54,12 @@ TEST_CASE( "Router transport timeouts", "[WAMP][Router]" )
     // Not feasible to test write timeout without external software
     auto tcp = wamp::TcpEndpoint{45678}.withLimits(
         TcpEndpoint::Limits{}
-            .withReadTimeout( {   milliseconds{100}})
-            .withSilenceTimeout(  milliseconds{200})
-            .withLoiterTimeout(   milliseconds{300})
-            .withOverstayTimeout( milliseconds{600}));
+            .withHandshakeTimeout( milliseconds{100})
+            .withReadTimeout({     milliseconds{100}})
+            .withSilenceTimeout(   milliseconds{200})
+            .withLoiterTimeout(    milliseconds{300})
+            .withOverstayTimeout(  milliseconds{600})
+            .withLingerTimeout(    milliseconds{100}));
 
     router.openServer(
         ServerOptions("tcp45678", tcp, wamp::json)
@@ -77,7 +79,30 @@ TEST_CASE( "Router transport timeouts", "[WAMP][Router]" )
     auto client = test::MockRawsockClient::create(ioctx, 45678);
 
     {
+        INFO("handshake timeout")
+
+        client->inhibitHandshake(true);
+
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            client->connect();
+
+            while (logEntries.empty() || !client->readError())
+                test::suspendCoro(yield);
+            CHECK(logEntries.back().action.errorUri ==
+                  errorCodeToUri(make_error_code(TransportErrc::handshakeTimeout)));
+            CHECK(client->readError() == boost::asio::error::eof);
+            client->close();
+        });
+        ioctx.run();
+        ioctx.restart();
+    }
+
+    {
         INFO("read timeout")
+
+        logEntries.clear();
+        client->clear();
 
         client->load(
         {
@@ -112,8 +137,7 @@ TEST_CASE( "Router transport timeouts", "[WAMP][Router]" )
         client->load(
         {
             {"[1,\"cppwamp.test\",{}]"}, // HELLO
-            {"[16,1,{\"acknowledge\":true},\"pub\"]",
-             FrameKind::wamp, milliseconds{100}}, // PUBLISH
+            {"[16,1,{\"acknowledge\":true},\"pub\"]", FrameKind::wamp}, // PUBLISH
             {"Heartbeat", FrameKind::ping, milliseconds{100}}
         });
 
@@ -130,9 +154,11 @@ TEST_CASE( "Router transport timeouts", "[WAMP][Router]" )
                   errorCodeToUri(
                       make_error_code(TransportErrc::silenceTimeout)));
             CHECK(client->readError() == boost::asio::error::eof);
+            CHECK(client->inFrames().size() == 3);
             client->close();
         });
         ioctx.run();
+        ioctx.restart();
     }
 
     {
@@ -144,10 +170,10 @@ TEST_CASE( "Router transport timeouts", "[WAMP][Router]" )
         client->load(
         {
             {"[1,\"cppwamp.test\",{}]"}, // HELLO
-            {"[16,1,{\"acknowledge\":true},\"pub\"]",
-             FrameKind::wamp, milliseconds{100}}, // PUBLISH
+            {"[16,1,{\"acknowledge\":true},\"pub\"]", FrameKind::wamp}, // PUBLISH
             {"Heartbeat1", FrameKind::ping, milliseconds{100}},
-            {"Heartbeat2", FrameKind::ping, milliseconds{250}},
+            {"Heartbeat2", FrameKind::ping, milliseconds{100}},
+            {"Heartbeat3", FrameKind::ping, milliseconds{150}},
         });
 
         spawn(ioctx, [&](YieldContext yield)
@@ -163,11 +189,14 @@ TEST_CASE( "Router transport timeouts", "[WAMP][Router]" )
                   errorCodeToUri(
                       make_error_code(TransportErrc::loiterTimeout)));
             CHECK(client->readError() == boost::asio::error::eof);
-            REQUIRE(!client->inFrames().empty());
-            CHECK(client->inFrames().back().payload == "Heartbeat1");
+            REQUIRE(client->inFrames().size() >= 4);
+            CHECK(client->inFrames().at(3).payload == "Heartbeat2");
+            if (client->inFrames().size() > 4)
+            CHECK(client->inFrames().at(4).payload != "Heartbeat3");
             client->close();
         });
         ioctx.run();
+        ioctx.restart();
     }
 
     {
@@ -202,10 +231,13 @@ TEST_CASE( "Router transport timeouts", "[WAMP][Router]" )
                   errorCodeToUri(
                       make_error_code(TransportErrc::overstayTimeout)));
             CHECK(client->readError() == boost::asio::error::eof);
-            CHECK(client->inFrames().size() == 4);
+            CHECK(client->inFrames().size() >= 4);
+            if (client->inFrames().size() > 4)
+                CHECK(client->inFrames().at(4).payload.find("[3") == 0);
             client->close();
         });
         ioctx.run();
+        ioctx.restart();
     }
 
     {
@@ -242,6 +274,59 @@ TEST_CASE( "Router transport timeouts", "[WAMP][Router]" )
             client->close();
         });
         ioctx.run();
+        ioctx.restart();
+    }
+
+    {
+        INFO("linger timeout via abort")
+
+        logEntries.clear();
+        client->clear();
+        client->inhibitLingeringClose(true);
+        client->load(
+        {
+            {"x"} // Malformed WAMP message
+        });
+
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            client->connect();
+            while (!client->connected())
+                test::suspendCoro(yield);
+            client->start();
+
+            while (logEntries.size() < 2 || !client->readError())
+              test::suspendCoro(yield);
+            CHECK(logEntries.back().action.errorUri ==
+                errorCodeToUri(make_error_code(TransportErrc::lingerTimeout)));
+            CHECK(client->readError() == boost::asio::error::eof);
+            client->close();
+        });
+        ioctx.run();
+        ioctx.restart();
+    }
+
+    {
+        INFO("linger timeout via admit rejection")
+
+        logEntries.clear();
+        client->clear();
+        client->setHandshake(0xbad);
+        client->inhibitLingeringClose(true);
+
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            client->connect();
+
+            while (logEntries.size() < 2 || !client->readError())
+                test::suspendCoro(yield);
+            CHECK(logEntries.back().action.errorUri ==
+                  errorCodeToUri(make_error_code(TransportErrc::lingerTimeout)));
+            CHECK(client->readError() == boost::asio::error::eof);
+            client->close();
+        });
+        ioctx.run();
+        ioctx.restart();
     }
 }
 

@@ -41,7 +41,7 @@ class Peer : public std::enable_shared_from_this<Peer>
 public:
     using Ptr = std::shared_ptr<Peer>;
     using State = SessionState;
-    using DisconnectHandler = AnyCompletionHandler<void (ErrorOr<bool>)>;
+    using CompletionHandler = AnyCompletionHandler<void (ErrorOr<bool>)>;
 
     virtual ~Peer() = default;
 
@@ -63,14 +63,14 @@ public:
             setState(State::connecting);
         assert(state() == State::connecting);
         setState(State::closed);
-        onConnect(std::move(transport), std::move(codec));
+        doConnect(std::move(transport), std::move(codec));
     }
 
     void connect(IoStrand strand, any link)
     {
         assert(state() == State::disconnected);
         setState(State::closed);
-        onDirectConnect(std::move(strand), std::move(link));
+        doDirectConnect(std::move(strand), std::move(link));
     }
 
     bool establishSession()
@@ -98,28 +98,36 @@ public:
         auto oldState = setState(State::closed);
         if (oldState == State::established)
             send(Goodbye{WampErrc::goodbyeAndOut});
-        onClose();
+        doClose();
     }
 
     void disconnect()
     {
         auto oldState = setState(State::disconnected);
-        onDisconnect(oldState);
+        doDisconnect(oldState);
     }
 
-    void disconnectGracefully(DisconnectHandler handler)
+    void disconnectGracefully(CompletionHandler handler)
     {
         auto oldState = setState(State::disconnecting);
-        onDisconnectGracefully(oldState, std::move(handler));
+        doDisconnectGracefully(oldState, std::move(handler));
+    }
+
+    ErrorOrDone abort(Abort reason)
+    {
+        return doAbort(std::move(reason), nullptr);
+    }
+
+    ErrorOrDone abort(Abort reason, CompletionHandler handler)
+    {
+        return doAbort(std::move(reason), std::move(handler));
     }
 
     void fail()
     {
         auto oldState = setState(State::failed);
-        onDisconnect(oldState);
+        doDisconnect(oldState);
     }
-
-    virtual ErrorOrDone abort(Abort) = 0;
 
     virtual ErrorOrDone send(Error&&) = 0;
 
@@ -170,16 +178,18 @@ protected:
           isRouter_(isRouter)
     {}
 
-    virtual void onConnect(Transporting::Ptr, AnyBufferCodec) = 0;
+    virtual void doConnect(Transporting::Ptr, AnyBufferCodec) = 0;
 
-    virtual void onDirectConnect(IoStrand, any) = 0;
+    virtual void doDirectConnect(IoStrand, any) = 0;
 
-    virtual void onClose() = 0;
+    virtual void doClose() = 0;
 
-    virtual void onDisconnect(State previousState) = 0;
+    virtual void doDisconnect(State previousState) = 0;
 
-    virtual void onDisconnectGracefully(State previousState,
-                                        DisconnectHandler handler) = 0;
+    virtual void doDisconnectGracefully(State previousState,
+                                        CompletionHandler handler) = 0;
+
+    virtual ErrorOrDone doAbort(Abort, CompletionHandler) = 0;
 
     State setState(State s) {return state_.exchange(s);}
 

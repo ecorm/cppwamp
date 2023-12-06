@@ -66,6 +66,7 @@ enum class TransportState
     initial,   /// Initial state of a server transport
     accepting, /// The server transport is performing its handshake
     shedding,  /// Server is handshaking but will ultimately shed connection
+    rejected,  /// Transport handshake was rejected
     ready,     /// Transport handshake is complete (initial for client)
     running,   /// Sending and receiving of messages is enabled
     aborting,  /// Transport is sending an ABORT and shutting down
@@ -284,6 +285,10 @@ protected:
     /** Must be called by derived server classes after transport details
         have been negotiated successfully. */
     void setReady(TransportInfo ti);
+
+    /** Must be called by derived server classes when negotiation results
+        in rejection. */
+    void setRejected();
 
     template <typename F, typename... Ts>
     void post(F&& handler, Ts&&... args)

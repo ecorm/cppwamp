@@ -154,11 +154,8 @@ CPPWAMP_INLINE void Transporting::shed(AdmitHandler handler)
 
 CPPWAMP_INLINE std::error_code Transporting::monitor()
 {
-    if (state_ != State::running)
-        return {};
-    return onMonitor();
+    return (state_ == State::closed) ? std::error_code{} : onMonitor();
 }
-
 
 CPPWAMP_INLINE void Transporting::start(RxHandler rxHandler,
                                         TxErrorHandler txHandler)
@@ -193,7 +190,11 @@ CPPWAMP_INLINE void Transporting::shutdown(std::error_code reason,
                                            ShutdownHandler handler)
 {
     assert(state_ != TransportState::initial);
-    if (state_ != State::ready && state_ != State::running)
+    const auto s = state_;
+    const bool badState = s != State::ready &&
+                          s != State::rejected &&
+                          s != State::running;
+    if (badState)
     {
         return post(std::move(handler),
                     make_error_code(MiscErrc::invalidState));
@@ -238,6 +239,11 @@ CPPWAMP_INLINE void Transporting::setReady(TransportInfo ti)
 {
     info_ = ti;
     state_ = State::ready;
+}
+
+CPPWAMP_INLINE void Transporting::setRejected()
+{
+    state_ = State::rejected;
 }
 
 } // namespace wamp

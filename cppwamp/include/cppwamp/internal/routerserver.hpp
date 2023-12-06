@@ -229,16 +229,30 @@ private:
         retire();
     }
 
-    void onPeerFailure(std::error_code ec, bool abortSent,
-                       std::string why) override
+    void onPeerFailure(std::error_code ec, std::string why,
+                       bool abortNeeded) override
     {
-        auto action = abortSent ? AccessAction::serverAbort
-                                : AccessAction::serverDisconnect;
+        auto action = abortNeeded ? AccessAction::serverAbort
+                                  : AccessAction::serverDisconnect;
         Object opts;
         if (!why.empty())
-            opts.emplace("message", std::move(why));
+            opts.emplace("message", why);
         report({action, {}, std::move(opts), ec});
-        retire();
+
+        if (!abortNeeded)
+            return retire();
+
+        leaveRealm();
+        Abort reason{ec};
+        if (!why.empty())
+            reason.withHint(std::move(why));
+        auto self = shared_from_this();
+        peer_->abort(
+            std::move(reason),
+            [this, self](ErrorOr<bool> done)
+            {
+                retire();
+            });
     }
 
     void onPeerTrace(std::string&& messageDump) override
@@ -268,7 +282,7 @@ private:
     void onPeerAbort(Abort&& reason, bool) override
     {
         report(reason.info(false));
-        // ServerSession::onStateChanged will perform the retire() operation.
+        retire();
     }
 
     void onPeerChallenge(Challenge&&) override {assert(false);}
@@ -358,13 +372,16 @@ private:
         switch (result.status())
         {
         case S::responded:
+            shutdownTransportThenRetire();
             break;
 
         case S::wamp:
-            return onPeerNegotiated(result.codecId());
+            onPeerNegotiated(result.codecId());
+            break;
 
         case S::rejected:
             Base::report({AccessAction::serverReject, {}, {}, result.error()});
+            shutdownTransportThenRetire(result.error());
             break;
 
         case S::failed:
@@ -372,14 +389,30 @@ private:
                 {LogLevel::error,
                  std::string{"Handshake failure during "} + result.operation(),
                  result.error()});
+            retire();
             break;
 
         default:
             assert(false && "Unexpected AdmitStatus enumerator");
-            break;
+            break;;
         }
+    }
 
-        retire();
+    void shutdownTransportThenRetire(std::error_code reason = {})
+    {
+        auto self = shared_from_this();
+        transport_->shutdown(
+            reason,
+            [this, self](std::error_code shutdownEc)
+            {
+                if (shutdownEc)
+                {
+                    Base::report({AccessAction::serverDisconnect, {}, {},
+                                  shutdownEc});
+                }
+
+                retire();
+            });
     }
 
     void onPeerNegotiated(int codecId)
@@ -399,7 +432,22 @@ private:
 
     void doMonitor()
     {
-        auto ec = peer_->monitor();
+        if (transport_ == nullptr)
+            monitorPeerTransport();
+        else
+            monitorTransport();
+    }
+
+    void monitorPeerTransport()
+    {
+        std::error_code ec = peer_->monitor();
+
+        if (ec == TransportErrc::lingerTimeout)
+        {
+            report({AccessAction::serverDisconnect, {}, {}, ec});
+            peer_->disconnect();
+            return retire();
+        }
 
         if (!ec)
         {
@@ -418,6 +466,17 @@ private:
                      {AccessAction::serverAbort, {}, {}, ec});
     }
 
+    void monitorTransport()
+    {
+        std::error_code ec = transport_->monitor();
+        if (!ec)
+            return;
+
+        report({AccessAction::serverDisconnect, {}, {}, ec});
+        transport_->close();
+        retire();
+    }
+
     void onAdmitError(std::error_code ec, const char* operation)
     {
         report({AccessAction::serverReject, {}, {}, ec});
@@ -434,7 +493,15 @@ private:
     void abortSession(Abort reason, AccessActionInfo a)
     {
         report(std::move(a));
-        peer_->abort(std::move(reason));
+
+        auto self = shared_from_this();
+        peer_->abort(
+            std::move(reason),
+            [this, self](ErrorOr<bool> done)
+            {
+                retire();
+            });
+
         leaveRealm();
     }
 

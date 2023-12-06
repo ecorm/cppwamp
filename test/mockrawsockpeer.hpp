@@ -98,6 +98,8 @@ public:
         readError_.clear();
         frameIndex_ = 0;
         connected_ = false;
+        inhibitHandshake_ = false;
+        inhibitLingeringClose_ = false;
     }
 
     void load(std::vector<Frame> frames) {outFrames_ = std::move(frames);}
@@ -105,6 +107,16 @@ public:
     void inhibitHandshake(bool inhibited = true)
     {
         inhibitHandshake_ = inhibited;
+    }
+
+    void inhibitLingeringClose(bool inhibited = true)
+    {
+        inhibitLingeringClose_ = inhibited;
+    }
+
+    void setHandshake(Handshake hs)
+    {
+        handshake_ = wamp::internal::endian::nativeToBig32(hs);
     }
 
     void connect()
@@ -145,6 +157,15 @@ private:
     using Resolver = boost::asio::ip::tcp::resolver;
     using Socket = boost::asio::ip::tcp::socket;
 
+    template <typename E>
+    MockRawsockClient(E&& exec, uint16_t port, Handshake hs)
+        : resolver_(boost::asio::make_strand(exec)),
+          socket_(resolver_.get_executor()),
+          timer_(resolver_.get_executor()),
+          handshake_(wamp::internal::endian::nativeToBig32(hs)),
+          port_(port)
+    {}
+
     bool check(boost::system::error_code ec, bool reading = true)
     {
         if (!ec)
@@ -164,15 +185,6 @@ private:
         throw std::system_error{ec};
         return false;
     }
-
-    template <typename E>
-    MockRawsockClient(E&& exec, uint16_t port, Handshake hs)
-        : resolver_(boost::asio::make_strand(exec)),
-          socket_(resolver_.get_executor()),
-          timer_(resolver_.get_executor()),
-          handshake_(wamp::internal::endian::nativeToBig32(hs)),
-          port_(port)
-    {}
 
     void onResolved(const Resolver::results_type& endpoints)
     {
@@ -216,9 +228,18 @@ private:
             [this, self](boost::system::error_code ec, std::size_t)
             {
                 if (check(ec))
+                {
                     flush();
+                }
+                else if (ec == boost::asio::error::eof)
+                {
+                    if (!inhibitLingeringClose_)
+                        socket_.close();
+                }
                 else
+                {
                     socket_.close();
+                }
             });
     }
 
@@ -328,6 +349,7 @@ private:
     Frame::Header header_ = 0;
     uint16_t port_ = 0;
     bool inhibitHandshake_ = false;
+    bool inhibitLingeringClose_ = false;
     bool connected_;
 };
 

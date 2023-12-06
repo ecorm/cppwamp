@@ -603,6 +603,7 @@ private:
 
     void fail(std::error_code ec, const char* operation)
     {
+        close();
         finish(AdmitResult::failed(ec, operation));
     }
 

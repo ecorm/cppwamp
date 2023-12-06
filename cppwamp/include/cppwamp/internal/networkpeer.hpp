@@ -56,50 +56,6 @@ public:
         return true;
     }
 
-    ErrorOrDone abort(Abort reason) override
-    {
-        auto s = state();
-        if (s == State::disconnected || s == State::failed)
-            return makeUnexpectedError(MiscErrc::invalidState);
-
-        if (!readyToAbort())
-        {
-            disconnect();
-            return makeUnexpectedError(MiscErrc::invalidState);
-        }
-
-        const auto& msg = reason.message({});
-        MessageBuffer buffer;
-        codec_.encode(msg.fields(), buffer);
-
-        const bool fits = buffer.size() <= sendLimit_;
-        if (!fits)
-        {
-            reason.options().clear();
-            reason.withHint("(snipped)");
-            buffer.clear();
-            codec_.encode(msg.fields(), buffer);
-        }
-
-        traceTx(msg);
-        setState(State::failed);
-
-        auto self = std::dynamic_pointer_cast<NetworkPeer>(shared_from_this());
-        transport_->abort(
-            std::move(buffer),
-            [this, self](std::error_code ec)
-            {
-                transport_->close();
-                transport_.reset();
-                if (ec)
-                    fail("Transport shutdown failure", ec);
-            });
-
-        if (!fits)
-            return makeUnexpectedError(WampErrc::payloadSizeExceeded);
-        return true;
-    }
-
     ErrorOrDone send(Goodbye&& c) override           {return sendCommand(c);}
     ErrorOrDone send(Hello&& c) override             {return sendCommand(c);}
     ErrorOrDone send(Welcome&& c) override           {return sendCommand(c);}
@@ -145,12 +101,12 @@ private:
         return done;
     }
     
-    void onDirectConnect(IoStrand, any) override
+    void doDirectConnect(IoStrand, any) override
     {
         assert(false);
     }
 
-    void onConnect(Transporting::Ptr t, AnyBufferCodec c) override
+    void doConnect(Transporting::Ptr t, AnyBufferCodec c) override
     {
         transport_ = std::move(t);
         ++transportId_;
@@ -178,9 +134,9 @@ private:
         }
     }
 
-    void onClose() override {/* Nothing to do*/}
+    void doClose() override {/* Nothing to do*/}
 
-    void onDisconnect(State) override
+    void doDisconnect(State) override
     {
         if (transport_)
         {
@@ -189,17 +145,87 @@ private:
         }
     }
 
-    void onDisconnectGracefully(State, DisconnectHandler handler) override
+    void doDisconnectGracefully(State, CompletionHandler handler) override
     {
-        struct ShutDown
+        shutdownTransport(State::disconnected, std::move(handler));
+    }
+
+    ErrorOrDone doAbort(Abort reason, CompletionHandler handler) override
+    {
+        struct Aborted
         {
-            DisconnectHandler handler;
+            CompletionHandler handler;
             Ptr self;
 
             void operator()(std::error_code ec)
             {
                 auto& me = *self;
-                me.transport_->close();
+                if (me.transport_)
+                    me.transport_->close();
+                me.transport_.reset();
+
+                if (ec)
+                {
+                    me.fail("Transport shutdown failure", ec);
+                    if (handler != nullptr)
+                        handler(makeUnexpected(ec));
+                    return;
+                }
+
+                if (handler != nullptr)
+                    handler(true);
+            }
+        };
+
+        auto s = state();
+        if (s == State::disconnected || s == State::failed)
+            return makeUnexpectedError(MiscErrc::invalidState);
+        bool canAbort = readyToAbort();
+        setState(State::failed);
+
+        if (!canAbort)
+        {
+            shutdownTransport(State::failed, std::move(handler));
+            return makeUnexpectedError(MiscErrc::invalidState);
+        }
+
+        const auto& msg = reason.message({});
+        MessageBuffer buffer;
+        codec_.encode(msg.fields(), buffer);
+
+        const bool fits = buffer.size() <= sendLimit_;
+        if (!fits)
+        {
+            reason.options().clear();
+            reason.withHint("(snipped)");
+            buffer.clear();
+            codec_.encode(msg.fields(), buffer);
+        }
+
+        traceTx(msg);
+
+        auto self = std::dynamic_pointer_cast<NetworkPeer>(shared_from_this());
+        transport_->abort(std::move(buffer),
+                          Aborted{std::move(handler), std::move(self)});
+
+        if (!fits)
+            return makeUnexpectedError(WampErrc::payloadSizeExceeded);
+        return true;
+    }
+
+    void shutdownTransport(State endState, CompletionHandler handler)
+    {
+        struct ShutDown
+        {
+            CompletionHandler handler;
+            Ptr self;
+            State endState;
+
+            void operator()(std::error_code ec)
+            {
+                auto& me = *self;
+                if (me.transport_)
+                    me.transport_->close();
                 me.transport_.reset();
                 if (ec)
                 {
@@ -208,7 +234,7 @@ private:
                 }
                 else
                 {
-                    me.setState(State::disconnected);
+                    me.setState(endState);
                     handler(true);
                 }
             }
@@ -219,7 +245,7 @@ private:
             auto self =
                 std::dynamic_pointer_cast<NetworkPeer>(shared_from_this());
             transport_->shutdown({}, ShutDown{std::move(handler),
-                                              std::move(self)});
+                                              std::move(self), endState});
         }
         else
         {
@@ -399,28 +425,23 @@ private:
     void fail(std::string why, std::error_code ec)
     {
         Base::fail();
-        listener().onPeerFailure(ec, false, std::move(why));
+        listener().onPeerFailure(ec, std::move(why), false);
     }
 
     void failProtocol(std::string why)
     {
         auto ec = make_error_code(WampErrc::protocolViolation);
         if (readyToAbort())
-        {
-            auto reason = Abort(ec).withHint(why);
-            listener().onPeerFailure(ec, true, std::move(why));
-            abort(std::move(reason));
-        }
+            listener().onPeerFailure(ec, std::move(why), true);
         else
-        {
             fail(std::move(why), ec);
-        }
     }
 
     bool readyToAbort() const
     {
         auto s = state();
-        return s == State::establishing ||
+        return s == State::closed ||
+               s == State::establishing ||
                s == State::authenticating ||
                s == State::established;
     }

@@ -422,10 +422,18 @@ private:
         report({IncidentKind::transportDropped});
     }
 
-    void onPeerFailure(std::error_code ec, bool, std::string why) override
+    void onPeerFailure(std::error_code ec, std::string why,
+                       bool abortNeeded) override
     {
-        report({IncidentKind::commFailure, ec, std::move(why)});
+        report({IncidentKind::commFailure, ec, why});
         abandonPending(ec);
+        if (abortNeeded)
+        {
+            Abort reason{ec};
+            if (!why.empty())
+                reason.withHint(std::move(why));
+            peer_->abort(std::move(reason));
+        }
     }
 
     void onPeerTrace(std::string&& messageDump) override

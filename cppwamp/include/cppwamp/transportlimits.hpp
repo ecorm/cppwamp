@@ -115,7 +115,7 @@ public:
 
     TDerived& withOverstayTimeout(Timeout t) {return set(overstayTimeout_, t);}
 
-    TDerived& withLingerTimeout(Timeout t) {return set(silenceTimeout_, t);}
+    TDerived& withLingerTimeout(Timeout t) {return set(lingerTimeout_, t);}
 
     TDerived& withBacklogCapacity(int n)
     {

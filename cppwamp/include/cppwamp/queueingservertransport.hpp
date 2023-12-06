@@ -56,7 +56,6 @@ public:
         : Base(boost::asio::make_strand(socket.get_executor()),
                Stream::makeConnectionInfo(socket)),
           stream_(socket.get_executor()),
-          timer_(socket.get_executor()),
           monitor_(settings),
           settings_(std::move(settings)),
           admitter_(std::make_shared<Admitter>(std::move(socket),
@@ -83,25 +82,10 @@ protected:
         assert(admitHandler_ == nullptr && "Admit already in progress");
 
         admitHandler_ = std::move(handler);
-        auto self = shared_from_this();
-        auto timeout = settings_->limits().handshakeTimeout();
-
-        if (internal::timeoutIsDefinite(timeout))
-        {
-            std::weak_ptr<Transporting> weakSelf{self};
-            timer_.expires_from_now(timeout);
-            timer_.async_wait(
-                [this, weakSelf](boost::system::error_code ec)
-                {
-                    auto self = weakSelf.lock();
-                    if (!self)
-                        return;
-                    if (ec != boost::asio::error::operation_aborted)
-                        onAdmitTimeout(static_cast<std::error_code>(ec));
-                });
-        }
+        monitor_.startHandshake(now());
 
         bool isShedding = Base::state() == TransportState::shedding;
+        auto self = shared_from_this();
         admitter_->admit(
             isShedding,
             [this, self](AdmitResult result) {onAdmissionCompletion(result);});
@@ -160,17 +144,26 @@ protected:
         struct AdmitShutdown
         {
             ShutdownHandler handler;
+            Ptr self;
 
             void operator()(std::error_code ec, bool /*flush*/)
             {
+                self->monitor_.endLinger();
                 handler(ec);
             }
         };
 
         if (admitter_ != nullptr)
-            admitter_->shutdown(reason, AdmitShutdown{std::move(handler)});
-        else
-            stop(reason, std::move(handler));
+        {
+            monitor_.startLinger(now());
+            auto self = std::dynamic_pointer_cast<QueueingServerTransport>(
+                shared_from_this());
+            admitter_->shutdown(reason, AdmitShutdown{std::move(handler),
+                                                      std::move(self)});
+            return;
+        }
+
+        stop(reason, std::move(handler));
     }
 
     void onClose() override
@@ -195,50 +188,34 @@ private:
         return std::chrono::steady_clock::now();
     }
 
-    void onAdmitTimeout(boost::system::error_code ec)
-    {
-        if (admitter_)
-            admitter_->close();
-
-        if (!admitHandler_)
-            return;
-
-        if (ec)
-            admitHandler_(AdmitResult::failed(ec, "timer wait"));
-        else
-            admitHandler_(AdmitResult::rejected(TransportErrc::handshakeTimeout));
-        admitHandler_ = nullptr;
-    }
-
     void onAdmissionCompletion(AdmitResult result)
     {
+        monitor_.endHandshake();
+
         if (admitHandler_ != nullptr)
         {
-            if (result.status() == AdmitStatus::wamp)
+            switch (result.status())
             {
-                timer_.cancel();
+            case AdmitStatus::wamp:
                 stream_ = Stream{admitter_->releaseSocket(), settings_};
                 Base::setReady(admitter_->transportInfo());
                 admitter_.reset();
-            }
-            else if (result.status() == AdmitStatus::failed)
-            {
-                timer_.cancel();
+                break;
+
+            case AdmitStatus::rejected:
+                Base::setRejected();
+                break;
+
+            case AdmitStatus::failed:
                 admitter_->close();
                 admitter_.reset();
+                break;
+
+            default:
+                // Do nothings
+                break;
             }
-            else
-            {
-                auto self = shared_from_this();
-                admitter_->shutdown(
-                    result.error(),
-                    [this, self](std::error_code, bool)
-                    {
-                        timer_.cancel();
-                        admitter_->close();
-                        admitter_.reset();
-                    });
-            }
+
             Base::post(std::move(admitHandler_), result);
             admitHandler_ = nullptr;
         }
@@ -279,25 +256,9 @@ private:
 
     void shutdownTransport(std::error_code reason)
     {
+        monitor_.startLinger(now());
+
         auto self = this->shared_from_this();
-        auto lingerTimeout = settings_->limits().lingerTimeout();
-
-        if (internal::timeoutIsDefinite(lingerTimeout))
-        {
-            std::weak_ptr<Transporting> weakSelf{self};
-            timer_.expires_after(lingerTimeout);
-            timer_.async_wait(
-                [this, weakSelf](boost::system::error_code ec)
-                {
-                    auto self = weakSelf.lock();
-                    if (!self)
-                        return;
-                    if (ec == boost::asio::error::operation_aborted)
-                        return;
-                    onLingerTimeout();
-                });
-        }
-
         stream_.shutdown(
             reason,
             [this, self](std::error_code ec, bool flush)
@@ -305,17 +266,8 @@ private:
                 // When 'flush' is true, successful shutdown is signalled by
                 // stream_.readSome emitting TransportErrc::ended
                 if (ec || !flush)
-                {
-                    timer_.cancel();
                     notifyShutdown(ec);
-                }
             });
-    }
-
-    void onLingerTimeout()
-    {
-        stream_.close();
-        notifyShutdown(make_error_code(TransportErrc::lingerTimeout));
     }
 
     void onPingGeneratedOrTimedOut(ErrorOr<PingBytes> pingBytes)
@@ -352,7 +304,7 @@ private:
 
         txFrame_ = std::move(txQueue_.front());
         txQueue_.pop_front();
-        monitor_.startWrite(now());
+        monitor_.startWrite(now(), txFrame_.kind() == TransportFrameKind::wamp);
 
         switch (txFrame_.kind())
         {
@@ -396,6 +348,8 @@ private:
             {
                 if (checkTxError(ec))
                     onWampMessageBytesWritten(bytesWritten);
+                else
+                    monitor_.endWrite(now(), true);
             });
     }
 
@@ -408,6 +362,7 @@ private:
         if (txBytesRemaining_ > 0)
             return sendMoreWamp();
 
+        monitor_.endWrite(now(), true);
         isTransmitting_ = false;
 
         if (!txFrame_.isPoisoned())
@@ -424,7 +379,7 @@ private:
             txFrame_.payload().data(), txFrame_.payload().size(),
             [this, self](std::error_code ec)
             {
-                monitor_.endWrite(now());
+                monitor_.endWrite(now(), false);
                 isTransmitting_ = false;
                 if (checkTxError(ec))
                     transmit();
@@ -439,7 +394,7 @@ private:
             txFrame_.payload().data(), txFrame_.payload().size(),
             [this, self](std::error_code ec)
             {
-                monitor_.endWrite(now());
+                monitor_.endWrite(now(), false);
                 isTransmitting_ = false;
                 if (checkTxError(ec))
                     transmit();
@@ -450,7 +405,6 @@ private:
     {
         if (!ec)
             return true;
-        monitor_.endWrite(now());
         isTransmitting_ = false;
         if (txErrorHandler_)
             post(txErrorHandler_, ec);
@@ -515,14 +469,8 @@ private:
         if (!ec)
             return true;
 
-        monitor_.endRead(now());
-
-        if (shutdownHandler_ != nullptr)
-        {
-            timer_.cancel();
-            if (ec == TransportErrc::ended)
-                notifyShutdown({});
-        }
+        if (shutdownHandler_ != nullptr && ec == TransportErrc::ended)
+            notifyShutdown({});
 
         fail(ec);
         return false;
@@ -530,6 +478,7 @@ private:
 
     void fail(std::error_code ec)
     {
+        monitor_.stop();
         halt();
         if (rxHandler_)
             Base::post(rxHandler_, makeUnexpected(ec));
@@ -538,6 +487,7 @@ private:
 
     void notifyShutdown(std::error_code ec)
     {
+        monitor_.endLinger();
         if (!shutdownHandler_)
             return;
         Base::post(std::move(shutdownHandler_), ec);
@@ -545,7 +495,6 @@ private:
     }
 
     Stream stream_; // TODO: Use std::optional<Stream>
-    boost::asio::steady_timer timer_;
     std::deque<Frame> txQueue_;
     Frame txFrame_;
     MessageBuffer rxBuffer_;

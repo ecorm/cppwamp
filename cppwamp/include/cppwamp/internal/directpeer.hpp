@@ -87,7 +87,7 @@ private:
         return false;
     }
 
-    void onDirectConnect(IoStrand strand, any routerLink) override
+    void doDirectConnect(IoStrand strand, any routerLink) override
     {
         if (!strand_)
             strand_ = IoStrandPtr(new IoStrand(std::move(strand)));
@@ -98,15 +98,15 @@ private:
         session_->report({AccessAction::clientConnect});
     }
 
-    void onConnect(Transporting::Ptr, AnyBufferCodec) override
+    void doConnect(Transporting::Ptr, AnyBufferCodec) override
     {
         CPPWAMP_LOGIC_ERROR("Cannot connect a wamp::DirectionSession via "
                             " a wamp::Session base class reference/pointer");
     }
 
-    void onClose() override {session_->close();}
+    void doClose() override {session_->close();}
 
-    void onDisconnect(State previousState) override
+    void doDisconnect(State previousState) override
     {
         session_->close();
         auto s = previousState;
@@ -118,21 +118,39 @@ private:
         session_->disconnect();
     }
 
-    void onDisconnectGracefully(State previousState,
-                                DisconnectHandler handler) override
+    void doDisconnectGracefully(State previousState,
+                                CompletionHandler handler) override
     {
-        onDisconnect(previousState);
+        doDisconnect(previousState);
         handler(true);
     }
 
-    ErrorOrDone abort(Abort reason) override
+    ErrorOrDone doAbort(Abort reason, CompletionHandler handler) override
     {
+        struct Posted
+        {
+            Peer::Ptr self;
+            CompletionHandler handler;
+            ErrorOr<bool> done;
+
+            void operator()() {handler(done);}
+        };
+
         traceTx(reason.message({}));
         session_->report(reason.info(false));
         const bool ready = readyToAbort();
         disconnect();
+
         if (!ready)
-            return makeUnexpectedError(MiscErrc::invalidState);
+        {
+            auto unex = makeUnexpectedError(MiscErrc::invalidState);
+            if (handler != nullptr)
+                post<Posted>(std::move(handler), unex);
+            return unex;
+        }
+
+        if (handler != nullptr)
+            post<Posted>(std::move(handler), true);
         return true;
     }
 
@@ -174,8 +192,7 @@ private:
             }
         };
 
-        boost::asio::post(*strand_,
-                          Posted{shared_from_this(), std::move(welcome)});
+        post<Posted>(std::move(welcome));
         return true;
     }
 
@@ -202,8 +219,7 @@ private:
             }
         };
 
-        boost::asio::post(*strand_,
-                          Posted{shared_from_this(), std::move(reason)});
+        post<Posted>(std::move(reason));
         return true;
     }
 
@@ -273,8 +289,7 @@ private:
         };
 
         setState(State::failed);
-        boost::asio::post(*strand_,
-                          Posted{shared_from_this(), std::move(reason)});
+        post<Posted>(std::move(reason));
     };
 
     void onMessage(Message&& msg)
@@ -292,8 +307,7 @@ private:
             }
         };
 
-        boost::asio::post(*strand_,
-                          Posted{shared_from_this(), std::move(msg)});
+        post<Posted>(std::move(msg));
     }
 
     UnexpectedError fail(std::string why, std::error_code ec)
@@ -307,15 +321,14 @@ private:
             void operator()()
             {
                 auto& me = dynamic_cast<DirectPeer&>(*self);
-                me.listener().onPeerFailure(ec, false, std::move(why));
+                me.listener().onPeerFailure(ec, std::move(why), false);
             }
         };
 
         setState(State::failed);
         realm_.leave(session_);
         realm_.reset();
-        boost::asio::post(*strand_,
-                          Posted{shared_from_this(), std::move(why), ec});
+        post<Posted>(std::move(why), ec);
         return UnexpectedError(ec);
     }
 
@@ -323,6 +336,14 @@ private:
     UnexpectedError fail(std::string why, TErrc errc)
     {
         return fail(std::move(why), make_error_code(errc));
+    }
+
+    template <typename TPosted, typename... Ts>
+    void post(Ts&&... args)
+    {
+        boost::asio::post(
+            *strand_,
+            TPosted{shared_from_this(), std::forward<Ts>(args)...});
     }
 
     bool readyToAbort() const

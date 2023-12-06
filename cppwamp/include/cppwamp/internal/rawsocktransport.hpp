@@ -109,18 +109,6 @@ public:
     template <typename F>
     void awaitRead(MessageBuffer&, F&& callback)
     {
-        // struct Awaited
-        // {
-        //     Decay<F> callback;
-
-        //     void operator()(boost::system::error_code netEc)
-        //     {
-        //         callback(rawsockErrorCodeToStandard(netEc), 0, false);
-        //     }
-        // };
-
-        // socket_.async_wait(Socket::wait_read,
-        //                    Awaited{std::forward<F>(callback)});
         payloadReadStarted_ = false;
         doAwaitRead(std::forward<F>(callback));
     }
@@ -135,6 +123,7 @@ public:
         readWampPayload(buffer, std::forward<F>(callback));
     }
 
+    // TODO: Take care of flushing
     template <typename F>
     void shutdown(std::error_code reason, F&& callback)
     {
@@ -261,52 +250,6 @@ private:
             Received{std::move(callback), this});
     }
 
-    // template <typename F>
-    // void readHeader(MessageBuffer& wampPayload, F&& callback)
-    // {
-    //     struct Received
-    //     {
-    //         Decay<F> callback;
-    //         MessageBuffer* payload;
-    //         RawsockStream* self;
-
-    //         void operator()(boost::system::error_code netEc, std::size_t n)
-    //         {
-    //             self->onHeaderRead(netEc, *payload, callback);
-    //         }
-    //     };
-
-    //     rxHeader_ = 0;
-    //     boost::asio::async_read(
-    //         socket_,
-    //         boost::asio::buffer(&rxHeader_, sizeof(rxHeader_)),
-    //         Received{std::move(callback), &wampPayload, this});
-    // }
-
-    // template <typename F>
-    // void onHeaderRead(boost::system::error_code netEc,
-    //                   MessageBuffer& wampPayload, F& callback)
-    // {
-    //     if (!checkRead(netEc, callback))
-    //         return;
-
-    //     const auto header = RawsockHeader::fromBigEndian(rxHeader_);
-    //     if (!header.frameKindIsValid())
-    //         return failRead(TransportErrc::badCommand, callback);
-
-    //     auto kind = header.frameKind();
-    //     auto length = header.length();
-    //     auto limit = kind == TransportFrameKind::wamp ? wampPayloadLimit_
-    //                                                   : heartbeatPayloadLimit_;
-    //     if (limit != 0 && length > limit)
-    //         return failRead(TransportErrc::inboundTooLong, callback);
-
-    //     if (kind == TransportFrameKind::wamp)
-    //         return readWampPayload(length, wampPayload, callback);
-
-    //     readHeartbeatPayload(kind, length, wampPayload, callback);
-    // }
-
     template <typename F>
     void onHeaderRead(boost::system::error_code netEc, F& callback)
     {
@@ -397,48 +340,6 @@ private:
         callback(rawsockErrorCodeToStandard(netEc), bytesRead, done);
     }
 
-    // template <typename F>
-    // void readHeartbeatPayload(TransportFrameKind kind, size_t length,
-    //                           MessageBuffer& wampPayload, F& callback)
-    // {
-    //     struct Read
-    //     {
-    //         Decay<F> callback;
-    //         MessageBuffer* wampPayload;
-    //         RawsockStream* self;
-    //         TransportFrameKind kind;
-
-    //         void operator()(boost::system::error_code netEc, std::size_t)
-    //         {
-    //             self->onHeartbeatPayloadRead(netEc, kind, *wampPayload, callback);
-    //         }
-    //     };
-
-    //     if (heartbeatPayloadLimit_ != 0 && length > heartbeatPayloadLimit_)
-    //         return failRead(TransportErrc::inboundTooLong, callback);
-
-    //     try
-    //     {
-    //         heartbeatPayload_.resize(length);
-    //     }
-    //     catch (const std::bad_alloc&)
-    //     {
-    //         return failRead(std::errc::not_enough_memory, callback);
-    //     }
-    //     catch (const std::length_error&)
-    //     {
-    //         return failRead(std::errc::not_enough_memory, callback);
-    //     }
-
-    //     if (length == 0)
-    //         onHeartbeatPayloadRead({}, kind, wampPayload, callback);
-
-    //     boost::asio::async_read(
-    //         socket_,
-    //         boost::asio::buffer(heartbeatPayload_.data(), length),
-    //         Read{std::move(callback), &wampPayload, this, kind});
-    // }
-
     template <typename F>
     void readHeartbeatPayload(TransportFrameKind kind, size_t length,
                               F& callback)
@@ -479,23 +380,6 @@ private:
             boost::asio::buffer(heartbeatPayload_.data(), length),
             Read{std::move(callback), this, kind});
     }
-
-    // template <typename F>
-    // void onHeartbeatPayloadRead(boost::system::error_code netEc,
-    //                             TransportFrameKind kind,
-    //                             MessageBuffer& wampPayload, F& callback)
-    // {
-    //     if (!checkRead(netEc, callback))
-    //         return;
-
-    //     if (heartbeatHandler_ != nullptr)
-    //     {
-    //         postAny(socket_.get_executor(), heartbeatHandler_, kind,
-    //                 heartbeatPayload_.data(), heartbeatPayload_.size());
-    //     }
-
-    //     readSome(wampPayload, callback);
-    // }
 
     template <typename F>
     void onHeartbeatPayloadRead(boost::system::error_code netEc,
@@ -553,14 +437,15 @@ class RawsockAdmitter
     : public std::enable_shared_from_this<RawsockAdmitter<TTraits>>
 {
 public:
-    using Traits         = TTraits;
-    using Ptr            = std::shared_ptr<RawsockAdmitter>;
-    using Stream         = RawsockStream<Traits>;
-    using ListenerSocket = typename Traits::NetProtocol::socket;
-    using Socket         = ListenerSocket;
-    using Settings       = typename Traits::ServerSettings;
-    using SettingsPtr    = std::shared_ptr<Settings>;
-    using Handler        = AnyCompletionHandler<void (AdmitResult)>;
+    using Traits          = TTraits;
+    using Ptr             = std::shared_ptr<RawsockAdmitter>;
+    using Stream          = RawsockStream<Traits>;
+    using ListenerSocket  = typename Traits::NetProtocol::socket;
+    using Socket          = ListenerSocket;
+    using Settings        = typename Traits::ServerSettings;
+    using SettingsPtr     = std::shared_ptr<Settings>;
+    using Handler         = AnyCompletionHandler<void (AdmitResult)>;
+    using ShutdownHandler = AnyCompletionHandler<void (std::error_code, bool)>;
 
     explicit RawsockAdmitter(ListenerSocket&& s, SettingsPtr p,
                              const CodecIdSet& c)
@@ -575,23 +460,44 @@ public:
         handler_ = std::move(handler);
 
         auto self = this->shared_from_this();
+        isReading_ = true;
         boost::asio::async_read(
             socket_,
             boost::asio::buffer(&handshake_, sizeof(handshake_)),
             [this, self](boost::system::error_code ec, size_t)
             {
+                isReading_ = false;
+
+                if (shutdownHandler_ != nullptr)
+                {
+                    if (ec == boost::asio::error::eof)
+                        shutdownHandler_(std::error_code{}, false);
+                    else
+                        shutdownHandler_(rawsockErrorCodeToStandard(ec), false);
+
+                    shutdownHandler_ = nullptr;
+                    return;
+                }
+
                 if (check(ec, "socket read"))
                     onHandshakeReceived(Handshake::fromBigEndian(handshake_));
             });
     }
 
-    template <typename F>
-    void shutdown(std::error_code /*reason*/, F&& callback)
+    void shutdown(std::error_code /*reason*/, ShutdownHandler handler)
     {
         boost::system::error_code netEc;
         socket_.shutdown(Socket::shutdown_send, netEc);
         auto ec = static_cast<std::error_code>(netEc);
-        postAny(socket_.get_executor(), std::forward<F>(callback), ec, true);
+        if (ec)
+        {
+            postAny(socket_.get_executor(), std::move(handler), ec, true);
+            return;
+        }
+
+        shutdownHandler_ = std::move(handler);
+        if (!isReading_)
+            flush();
     }
 
     void close() {socket_.close();}
@@ -684,6 +590,7 @@ private:
     {
         if (netEc)
         {
+            socket_.close();
             finish(AdmitResult::failed(rawsockErrorCodeToStandard(netEc),
                                        operation));
         }
@@ -703,14 +610,41 @@ private:
         handler_ = nullptr;
     }
 
+    void flush()
+    {
+        auto self = this->shared_from_this();
+        buffer_.resize(+flushReadSize_);
+        socket_.async_read_some(
+            boost::asio::buffer(buffer_.data(), +flushReadSize_),
+            [this, self](boost::system::error_code netEc, size_t n)
+            {
+                if (!netEc)
+                    return flush();
+
+                socket_.close();
+
+                if (netEc == boost::asio::error::eof)
+                    shutdownHandler_(std::error_code{}, false);
+                else
+                    shutdownHandler_(rawsockErrorCodeToStandard(netEc), false);
+
+                shutdownHandler_ = nullptr;
+            });
+    }
+
+    static constexpr std::size_t flushReadSize_ = 1536;
+
     Socket socket_;
     CodecIdSet codecIds_;
     TransportInfo transportInfo_;
+    std::vector<uint8_t> buffer_;
     Handler handler_;
+    ShutdownHandler shutdownHandler_;
     SettingsPtr settings_;
     std::size_t peerSizeLimit_ = 0;
     uint32_t handshake_ = 0;
     bool isShedding_ = false;
+    bool isReading_ = false;
 };
 
 //------------------------------------------------------------------------------

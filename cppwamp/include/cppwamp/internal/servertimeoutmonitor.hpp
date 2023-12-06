@@ -83,12 +83,32 @@ public:
         : settings_(std::move(settings))
     {}
 
+    void startHandshake(TimePoint now)
+    {
+        auto timeout = settings_->limits().handshakeTimeout();
+        if (internal::timeoutIsDefinite(timeout))
+            handshakeDeadline_ = now + timeout;
+    }
+
+    void endHandshake() {handshakeDeadline_ = TimePoint::max();}
+
     void start(TimePoint now)
     {
         bumpLoiterDeadline(now);
         auto timeout = settings_->limits().overstayTimeout();
         if (internal::timeoutIsDefinite(timeout))
             overstayDeadline_ = now + timeout;
+    }
+
+    void stop()
+    {
+        readDeadline_.reset();
+        writeDeadline_.reset();
+        handshakeDeadline_ = TimePoint::max();
+        silenceDeadline_ = TimePoint::max();
+        loiterDeadline_ = TimePoint::max();
+        overstayDeadline_ = TimePoint::max();
+        lingerDeadline_ = TimePoint::max();
     }
 
     void startRead(TimePoint now)
@@ -111,10 +131,11 @@ public:
         isReading_ = false;
     }
 
-    void startWrite(TimePoint now)
+    void startWrite(TimePoint now, bool bumpLoiter)
     {
         writeDeadline_.start(settings_->limits().writeTimeout(), now);
-        bumpLoiterDeadline(now);
+        if (bumpLoiter)
+            bumpLoiterDeadline(now);
         isWriting_ = true;
     }
 
@@ -124,10 +145,11 @@ public:
         bumpLoiterDeadline(now);
     }
 
-    void endWrite(TimePoint now)
+    void endWrite(TimePoint now, bool bumpLoiter)
     {
         writeDeadline_.reset();
-        bumpLoiterDeadline(now);
+        if (bumpLoiter)
+            bumpLoiterDeadline(now);
         isWriting_ = false;
     }
 
@@ -136,22 +158,18 @@ public:
         bumpSilenceDeadline(now);
     }
 
+    void startLinger(TimePoint now)
+    {
+        auto timeout = settings_->limits().lingerTimeout();
+        if (internal::timeoutIsDefinite(timeout))
+            lingerDeadline_ = now + timeout;
+    }
+
+    void endLinger() {lingerDeadline_ = TimePoint::max();}
+
     std::error_code check(TimePoint now) const
     {
-        std::error_code ec;
-
-        if (now >= readDeadline_.due())
-            ec = make_error_code(TransportErrc::readTimeout);
-        else if (now >= writeDeadline_.due())
-            ec = make_error_code(TransportErrc::writeTimeout);
-        else if (now >= silenceDeadline_)
-            ec = make_error_code(TransportErrc::silenceTimeout);
-        else if (now >= loiterDeadline_)
-            ec = make_error_code(TransportErrc::loiterTimeout);
-        else if (!isReading_ && !isWriting_ && now >= overstayDeadline_)
-            ec = make_error_code(TransportErrc::overstayTimeout);
-
-        return ec;
+        return make_error_code(checkForTimeouts(now));
     }
 
 private:
@@ -171,11 +189,32 @@ private:
             silenceDeadline_ = now + timeout;
     }
 
+    TransportErrc checkForTimeouts(TimePoint now) const
+    {
+        if (now >= readDeadline_.due())
+            return TransportErrc::readTimeout;
+        if (now >= writeDeadline_.due())
+            return TransportErrc::writeTimeout;
+        if (now >= silenceDeadline_)
+            return TransportErrc::silenceTimeout;
+        if (now >= loiterDeadline_)
+            return TransportErrc::loiterTimeout;
+        if (!isReading_ && !isWriting_ && now >= overstayDeadline_)
+            return TransportErrc::overstayTimeout;
+        if (now >= handshakeDeadline_)
+            return TransportErrc::handshakeTimeout;
+        if (now >= lingerDeadline_)
+            return TransportErrc::lingerTimeout;
+        return TransportErrc::success;
+    }
+
     internal::ProgressiveDeadline readDeadline_;
     internal::ProgressiveDeadline writeDeadline_;
+    TimePoint handshakeDeadline_ = TimePoint::max();
     TimePoint silenceDeadline_ = TimePoint::max();
     TimePoint loiterDeadline_ = TimePoint::max();
     TimePoint overstayDeadline_ = TimePoint::max();
+    TimePoint lingerDeadline_ = TimePoint::max();
     SettingsPtr settings_;
     bool isReading_ = false;
     bool isWriting_ = false;

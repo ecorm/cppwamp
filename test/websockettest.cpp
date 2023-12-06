@@ -302,7 +302,11 @@ void checkUnsupportedSerializer(LoopbackFixture& f)
         REQUIRE( result.ok() );
         f.server = f.lstn->take();
         f.server->admit(
-            [&serverEc](AdmitResult result) {serverEc = result.error();});
+            [&](AdmitResult result)
+            {
+                serverEc = result.error();
+                f.server->close();
+            });
     });
     f.lstn->establish();
 
@@ -560,7 +564,12 @@ TEST_CASE( "Websocket shedding", "[Transport][Websocket]" )
         {
             REQUIRE( result.ok() );
             server = lstn->take();
-            server->shed( [&](AdmitResult r) {admitResult = r;} );
+            server->shed(
+                [&](AdmitResult r)
+                {
+                    admitResult = r;
+                    server->close();
+                } );
         });
     lstn->establish();
 
@@ -1048,40 +1057,6 @@ TEST_CASE( "Peer sending a websocket message longer than maximum",
         CHECK( clientError == TransportErrc::inboundTooLong );
         CHECK( serverError == TransportErrc::outboundTooLong );
     }
-}
-
-//------------------------------------------------------------------------------
-TEST_CASE( "Websocket server transport handshake timeout",
-           "[Transport][Websocket]" )
-{
-    IoContext ioctx;
-    auto exec = ioctx.get_executor();
-    auto strand = boost::asio::make_strand(exec);
-    std::error_code serverError;
-
-    auto limits = WebsocketServerLimits{}
-                      .withHandshakeTimeout(std::chrono::milliseconds(50));
-    auto lstn = std::make_shared<WebsocketListener>(
-        exec, strand, wsEndpoint.withLimits(limits), CodecIdSet{jsonId});
-    Transporting::Ptr server;
-    lstn->observe(
-        [&](ListenResult result)
-        {
-            REQUIRE( result.ok() );
-            server = lstn->take();
-            server->admit(
-                [&serverError](AdmitResult r) {serverError = r.error();});
-        });
-    lstn->establish();
-
-    using boost::asio::ip::tcp;
-
-    test::SilentClient client{ioctx};
-    client.run(wsEndpoint.port());
-
-    ioctx.run();
-    CHECK(client.readError() == boost::asio::error::eof);
-    CHECK(serverError == TransportErrc::timeout);
 }
 
 //------------------------------------------------------------------------------

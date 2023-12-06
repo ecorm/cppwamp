@@ -28,8 +28,8 @@ public:
 
     virtual void onPeerDisconnect() = 0;
 
-    virtual void onPeerFailure(std::error_code ec, bool abortSent,
-                               std::string why) = 0;
+    virtual void onPeerFailure(std::error_code ec, std::string why,
+                               bool abortNeeded) = 0;
 
     virtual void onPeerTrace(std::string&& messageDump) = 0;
 

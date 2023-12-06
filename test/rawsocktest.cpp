@@ -250,9 +250,9 @@ void checkServerTimeoutMonitor(
         case E::startRead:   monitor.startRead(now);          break;
         case E::updateRead:  monitor.updateRead(now, bytes);  break;
         case E::endRead:     monitor.endRead(now);            break;
-        case E::startWrite:  monitor.startWrite(now);         break;
+        case E::startWrite:  monitor.startWrite(now, true);   break;
         case E::updateWrite: monitor.updateWrite(now, bytes); break;
-        case E::endWrite:    monitor.endWrite(now);           break;
+        case E::endWrite:    monitor.endWrite(now, true);     break;
 
         case E::check:
             CHECK(monitor.check(now) == vec.status);
@@ -411,7 +411,11 @@ void checkUnsupportedSerializer(TFixture& f)
         REQUIRE( result.ok() );
         f.server = f.lstn->take();
         f.server->admit(
-            [&serverEc](AdmitResult result) {serverEc = result.error();});
+            [&](AdmitResult result)
+            {
+                serverEc = result.error();
+                f.server->close();
+            });
     });
     f.lstn->establish();
 
@@ -1290,7 +1294,12 @@ TEST_CASE( "Raw socket shedding", "[Transport][Rawsock]" )
         {
             REQUIRE( result.ok() );
             server = lstn->take();
-            server->shed( [&](AdmitResult r) {admitResult = r;} );
+            server->shed(
+                [&](AdmitResult r)
+                {
+                    admitResult = r;
+                    server->close();
+                } );
         });
     lstn->establish();
 
@@ -2029,45 +2038,6 @@ GIVEN ( "A mock server that sends an invalid message type" )
         }
     }
 }
-}
-
-//------------------------------------------------------------------------------
-TEST_CASE( "TCP server transport handshake timeout", "[Transport][Rawsock]" )
-{
-    IoContext ioctx;
-    auto client = test::MockRawsockClient::create(ioctx, tcpTestPort);
-    client->inhibitHandshake();
-    auto exec = ioctx.get_executor();
-    auto strand = boost::asio::make_strand(exec);
-    std::error_code serverError;
-
-    auto tcp = tcpEndpoint;
-    std::chrono::milliseconds timeout{50};
-    tcp.withLimits(RawsockServerLimits{}.withHandshakeTimeout(timeout));
-    auto lstn = std::make_shared<TcpListener>(exec, strand, tcp,
-                                              CodecIdSet{jsonId});
-    Transporting::Ptr server;
-    lstn->observe(
-        [&](ListenResult result)
-        {
-            REQUIRE( result.ok() );
-            server = lstn->take();
-            server->admit(
-                [&](AdmitResult r)
-                {
-                    serverError = r.error();
-                    server->close();
-                });
-        });
-    lstn->establish();
-
-    using boost::asio::ip::tcp;
-
-    client->connect();
-
-    ioctx.run();
-    CHECK(client->readError() == boost::asio::error::eof);
-    CHECK(serverError == TransportErrc::timeout);
 }
 
 //------------------------------------------------------------------------------
