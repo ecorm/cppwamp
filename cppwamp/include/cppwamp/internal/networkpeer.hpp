@@ -166,7 +166,12 @@ private:
 
                 if (ec)
                 {
-                    me.fail("Transport shutdown failure", ec);
+                    if (ec != TransportErrc::aborted &&
+                        ec != TransportErrc::disconnected)
+                    {
+                        me.fail("Transport shutdown failure", ec);
+                    }
+
                     if (handler != nullptr)
                         handler(makeUnexpected(ec));
                     return;
@@ -229,7 +234,12 @@ private:
                 me.transport_.reset();
                 if (ec)
                 {
-                    me.fail("Transport shutdown failure", ec);
+                    if (ec != TransportErrc::aborted &&
+                        ec != TransportErrc::disconnected)
+                    {
+                        me.fail("Transport shutdown failure", ec);
+                    }
+
                     handler(makeUnexpected(ec));
                 }
                 else

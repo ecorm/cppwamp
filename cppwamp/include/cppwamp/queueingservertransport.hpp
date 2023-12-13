@@ -55,8 +55,8 @@ public:
                             CodecIdSet codecIds, RouterLogger::Ptr)
         : Base(boost::asio::make_strand(socket.get_executor()),
                Stream::makeConnectionInfo(socket)),
-          stream_(socket.get_executor()),
           monitor_(settings),
+          stream_(std::make_shared<Stream>(socket.get_executor())),
           settings_(std::move(settings)),
           admitter_(std::make_shared<Admitter>(std::move(socket),
                                                settings_, std::move(codecIds)))
@@ -102,7 +102,7 @@ protected:
         std::weak_ptr<Self> self =
             std::dynamic_pointer_cast<Self>(shared_from_this());
 
-        stream_.observeHeartbeats(
+        stream_->observeHeartbeats(
             [self, this](TransportFrameKind kind, const Byte* data,
                          std::size_t size)
             {
@@ -117,7 +117,7 @@ protected:
 
     void onSend(MessageBuffer message) override
     {
-        if (!stream_.isOpen())
+        if (!stream_->isOpen())
             return;
         auto buf = enframe(std::move(message));
         enqueueFrame(std::move(buf));
@@ -125,7 +125,7 @@ protected:
 
     void onAbort(MessageBuffer message, ShutdownHandler handler) override
     {
-        if (!stream_.isOpen())
+        if (!stream_->isOpen())
         {
             return Base::post(std::move(handler),
                               make_error_code(MiscErrc::invalidState));
@@ -146,7 +146,7 @@ protected:
             ShutdownHandler handler;
             Ptr self;
 
-            void operator()(std::error_code ec, bool /*flush*/)
+            void operator()(std::error_code ec)
             {
                 self->monitor_.endLinger();
                 handler(ec);
@@ -172,7 +172,7 @@ protected:
         if (admitter_ != nullptr)
             admitter_->close();
         else
-            stream_.close();
+            stream_->close();
     }
 
 private:
@@ -197,7 +197,8 @@ private:
             switch (result.status())
             {
             case AdmitStatus::wamp:
-                stream_ = Stream{admitter_->releaseSocket(), settings_};
+                stream_ = std::make_shared<Stream>(admitter_->releaseSocket(),
+                                                   settings_);
                 Base::setReady(admitter_->transportInfo());
                 admitter_.reset();
                 break;
@@ -235,7 +236,7 @@ private:
 
     void stop(std::error_code reason, ShutdownHandler handler)
     {
-        if (shutdownHandler_ != nullptr || !stream_.isOpen())
+        if (shutdownHandler_ != nullptr || !stream_->isOpen())
         {
             Base::post(std::move(handler),
                        make_error_code(MiscErrc::invalidState));
@@ -251,7 +252,7 @@ private:
     {
         txErrorHandler_ = nullptr;
         txQueue_.clear();
-        stream_.unobserveHeartbeats();
+        stream_->unobserveHeartbeats();
     }
 
     void shutdownTransport(std::error_code reason)
@@ -259,15 +260,9 @@ private:
         monitor_.startLinger(now());
 
         auto self = this->shared_from_this();
-        stream_.shutdown(
+        stream_->shutdown(
             reason,
-            [this, self](std::error_code ec, bool flush)
-            {
-                // When 'flush' is true, successful shutdown is signalled by
-                // stream_.readSome emitting TransportErrc::ended
-                if (ec || !flush)
-                    notifyShutdown(ec);
-            });
+            [this, self](std::error_code ec) {notifyShutdown(ec);});
     }
 
     void onPingGeneratedOrTimedOut(ErrorOr<PingBytes> pingBytes)
@@ -325,7 +320,7 @@ private:
 
     bool isReadyToTransmit() const
     {
-        return stream_.isOpen() && !isTransmitting_ && !txQueue_.empty();
+        return stream_->isOpen() && !isTransmitting_ && !txQueue_.empty();
     }
 
     void sendWamp()
@@ -342,7 +337,7 @@ private:
         const auto* data = txFrame_.payload().data() + bytesSent;
         auto self = shared_from_this();
 
-        stream_.writeSome(
+        stream_->writeSome(
             data, txBytesRemaining_,
             [this, self](std::error_code ec, std::size_t bytesWritten)
             {
@@ -375,7 +370,7 @@ private:
     {
         auto self = this->shared_from_this();
         isTransmitting_ = true;
-        stream_.ping(
+        stream_->ping(
             txFrame_.payload().data(), txFrame_.payload().size(),
             [this, self](std::error_code ec)
             {
@@ -390,7 +385,7 @@ private:
     {
         auto self = this->shared_from_this();
         isTransmitting_ = true;
-        stream_.pong(
+        stream_->pong(
             txFrame_.payload().data(), txFrame_.payload().size(),
             [this, self](std::error_code ec)
             {
@@ -416,7 +411,7 @@ private:
     {
         rxBuffer_.clear();
         auto self = this->shared_from_this();
-        stream_.awaitRead(
+        stream_->awaitRead(
             rxBuffer_,
             [this, self](std::error_code ec, std::size_t n, bool done)
             {
@@ -427,7 +422,7 @@ private:
 
     void onReadReady(std::size_t bytesReceived, bool done)
     {
-        if (!stream_.isOpen())
+        if (!stream_->isOpen())
             return;
 
         monitor_.startRead(now());
@@ -436,11 +431,11 @@ private:
 
     void receiveMore()
     {
-        if (!stream_.isOpen())
+        if (!stream_->isOpen())
             return;
 
         auto self = this->shared_from_this();
-        stream_.readSome(
+        stream_->readSome(
             rxBuffer_,
             [this, self](std::error_code ec, std::size_t n, bool done)
             {
@@ -468,10 +463,6 @@ private:
     {
         if (!ec)
             return true;
-
-        if (shutdownHandler_ != nullptr && ec == TransportErrc::ended)
-            notifyShutdown({});
-
         fail(ec);
         return false;
     }
@@ -481,8 +472,11 @@ private:
         monitor_.stop();
         halt();
         if (rxHandler_)
-            Base::post(rxHandler_, makeUnexpected(ec));
-        rxHandler_ = nullptr;
+        {
+            auto handler = std::move(rxHandler_);
+            rxHandler_ = nullptr;
+            handler(makeUnexpected(ec));
+        }
     }
 
     void notifyShutdown(std::error_code ec)
@@ -490,15 +484,16 @@ private:
         monitor_.endLinger();
         if (!shutdownHandler_)
             return;
-        Base::post(std::move(shutdownHandler_), ec);
+        auto handler = std::move(shutdownHandler_);
         shutdownHandler_ = nullptr;
+        handler(ec);
     }
 
-    Stream stream_; // TODO: Use std::optional<Stream>
     std::deque<Frame> txQueue_;
     Frame txFrame_;
     MessageBuffer rxBuffer_;
     internal::ServerTimeoutMonitor<Settings> monitor_;
+    std::shared_ptr<Stream> stream_;
     SettingsPtr settings_;
     std::shared_ptr<Admitter> admitter_;
     AdmitHandler admitHandler_;

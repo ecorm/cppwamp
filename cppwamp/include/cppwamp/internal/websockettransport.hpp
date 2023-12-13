@@ -233,8 +233,7 @@ public:
                 boost::asio::ip::tcp::socket::shutdown_send, netEc);
             postAny(websocket_->get_executor(),
                     std::forward<F>(callback),
-                    static_cast<std::error_code>(netEc),
-                    true);
+                    static_cast<std::error_code>(netEc));
             return;
         }
 
@@ -244,7 +243,7 @@ public:
 
             void operator()(boost::beast::error_code netEc)
             {
-                callback(static_cast<std::error_code>(netEc), false);
+                callback(static_cast<std::error_code>(netEc));
             }
         };
 
@@ -402,8 +401,7 @@ public:
                 boost::asio::ip::tcp::socket::shutdown_send, netEc);
             postAny(tcpSocket->get_executor(),
                     std::forward<F>(callback),
-                    static_cast<std::error_code>(netEc),
-                    true);
+                    static_cast<std::error_code>(netEc));
             return;
         }
 
@@ -413,7 +411,7 @@ public:
 
             void operator()(boost::beast::error_code netEc)
             {
-                callback(static_cast<std::error_code>(netEc), false);
+                callback(static_cast<std::error_code>(netEc));
             }
         };
 

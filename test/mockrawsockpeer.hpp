@@ -508,7 +508,7 @@ private:
             [this, self](boost::system::error_code ec, std::size_t)
             {
                 ++frameIndex_;
-                if (check(ec))
+                if (check(ec) && socket_.is_open())
                     readHeader();
             });
     }

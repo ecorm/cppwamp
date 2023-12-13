@@ -62,6 +62,8 @@ public:
 
     TDerived& withTxMsgSize(std::size_t n) {return set(writeMsgSize_, n);}
 
+    TDerived& withLingerTimeout(Timeout t) {return set(lingerTimeout_, t);}
+
     std::size_t readMsgSize() const {return readMsgSize_;}
 
     std::size_t writeMsgSize() const {return writeMsgSize_;}

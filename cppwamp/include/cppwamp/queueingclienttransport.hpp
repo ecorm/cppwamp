@@ -204,19 +204,13 @@ private:
 
         stream_.shutdown(
             reason,
-            [this, self](std::error_code ec, bool flush)
-            {
-                // When 'flush' is true, successful shutdown is signalled by
-                // stream_.readSome emitting TransportErrc::ended
-                if (ec || !flush)
-                    notifyShutdown(ec);
-            });
+            [this, self](std::error_code ec) {notifyShutdown(ec);});
     }
 
     void onLingerTimeout()
     {
-        stream_.close();
         notifyShutdown(make_error_code(TransportErrc::lingerTimeout));
+        stream_.close();
     }
 
     void onPingGeneratedOrTimedOut(ErrorOr<PingBytes> pingBytes)
@@ -395,14 +389,6 @@ private:
     {
         if (!ec)
             return true;
-
-        if (shutdownHandler_ != nullptr)
-        {
-            timer_.cancel();
-            if (ec == TransportErrc::ended)
-                notifyShutdown({});
-        }
-
         fail(ec);
         return false;
     }
@@ -411,16 +397,21 @@ private:
     {
         halt();
         if (rxHandler_)
-            Base::post(rxHandler_, makeUnexpected(ec));
-        rxHandler_ = nullptr;
+        {
+            auto handler = std::move(rxHandler_);
+            rxHandler_ = nullptr;
+            handler(makeUnexpected(ec));
+        }
     }
 
     void notifyShutdown(std::error_code ec)
     {
         if (!shutdownHandler_)
             return;
-        Base::post(std::move(shutdownHandler_), ec);
+        timer_.cancel();
+        auto handler = std::move(shutdownHandler_);
         shutdownHandler_ = nullptr;
+        handler(ec);
     }
 
     boost::asio::steady_timer timer_;
