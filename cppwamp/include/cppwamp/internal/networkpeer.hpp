@@ -169,7 +169,8 @@ private:
                     if (ec != TransportErrc::aborted &&
                         ec != TransportErrc::disconnected)
                     {
-                        me.fail("Transport shutdown failure", ec);
+                        me.listener().onPeerFailure(
+                            ec, "Transport shutdown failure", false);
                     }
 
                     if (handler != nullptr)
