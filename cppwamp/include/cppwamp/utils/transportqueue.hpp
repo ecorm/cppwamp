@@ -116,7 +116,35 @@ private:
 };
 
 //------------------------------------------------------------------------------
-/** Provides outbound message queueing for transports.
+class NullTimeoutMonitor
+{
+public:
+    using TimePoint = std::chrono::steady_clock::time_point;
+
+    void start(TimePoint) {}
+
+    void stop() {}
+
+    void startRead(TimePoint) {}
+
+    void updateRead(TimePoint, std::size_t) {}
+
+    void endRead(TimePoint) {}
+
+    void startWrite(TimePoint, bool) {}
+
+    void updateWrite(TimePoint, std::size_t) {}
+
+    void endWrite(TimePoint, bool) {}
+
+    void heartbeat(TimePoint) {}
+
+    std::error_code check(TimePoint) const {return {};}
+};
+
+//------------------------------------------------------------------------------
+/** Provides inbound message receiving and outbound message queueing for
+    transports.
 
     @tparam TSettings Transport settings type
     @tparam TStream Class wrapping a networking socket with the following member
@@ -131,15 +159,19 @@ private:
     - `void read(B& buffer, std::size_t limit, F&& callback)`
     - `void shutdown(std::error_code reason, F&& callback)`
     - `void close()`
-    @tparam TBouncer Class that enforces linger timeouts. */
+    @tparam TBouncer Class that enforces linger timeout
+    @tparam TMonitor Class that enforces other server timeouts. */
 //------------------------------------------------------------------------------
-template <typename TStream, typename TBouncer>
+template <typename TStream, typename TBouncer,
+         typename TMonitor = NullTimeoutMonitor>
 class TransportQueue
-    : public std::enable_shared_from_this<TransportQueue<TStream, TBouncer>>
+    : public std::enable_shared_from_this<
+          TransportQueue<TStream, TBouncer, TMonitor>>
 {
 public:
     using Stream          = TStream;
     using Bouncer         = TBouncer;
+    using Monitor         = TMonitor;
     using Ptr             = std::shared_ptr<TransportQueue>;
     using Socket          = typename Stream::Socket;
     using RxHandler       = Transporting::RxHandler;
@@ -147,14 +179,19 @@ public:
     using ShutdownHandler = Transporting::ShutdownHandler;
     using TimePoint       = std::chrono::steady_clock::time_point;
 
-    TransportQueue(TStream&& stream, std::size_t txPayloadLimit,
-                   Bouncer bouncer)
+    TransportQueue(TStream&& stream, Bouncer&& bouncer,
+                   std::size_t txPayloadLimit, Monitor* monitor = nullptr)
         : stream_(std::move(stream)),
           bouncer_(std::move(bouncer)),
+          monitor_(monitor),
           txPayloadLimit_(txPayloadLimit)
     {}
 
-    Stream& stream() {return stream_;}
+    template <typename F>
+    void observeHeartbeats(F&& callback)
+    {
+        stream_.observeHeartbeats(std::forward<F>(callback));
+    }
 
     const Stream& stream() const {return stream_;}
 
@@ -162,6 +199,8 @@ public:
     {
         rxHandler_ = rxHandler;
         txErrorHandler_ = txErrorHandler;
+        if (monitor_)
+            monitor_->start(now());
         receive();
     }
 
@@ -176,6 +215,8 @@ public:
 
     void abort(MessageBuffer message, ShutdownHandler handler)
     {
+        stream_.unobserveHeartbeats();
+
         if (!stream_.isOpen())
         {
             post(std::move(handler), make_error_code(MiscErrc::invalidState));
@@ -193,12 +234,25 @@ public:
 
     void shutdown(std::error_code reason, ShutdownHandler handler)
     {
-        stop(reason, std::move(handler));
+        stream_.unobserveHeartbeats();
+
+        if (shutdownHandler_ != nullptr || !stream_.isOpen())
+        {
+            post(std::move(handler), make_error_code(MiscErrc::invalidState));
+            return;
+        }
+
+        shutdownHandler_ = std::move(handler);
+        halt();
+        shutdownTransport(reason);
     }
 
     void close()
     {
         halt();
+        if (monitor_)
+            monitor_->stop();
+        stream_.unobserveHeartbeats();
         stream_.close();
     }
 
@@ -210,6 +264,9 @@ public:
     void fail(std::error_code ec)
     {
         halt();
+        stream_.unobserveHeartbeats();
+        if (monitor_)
+            monitor_->stop();
         if (rxHandler_)
         {
             auto handler = std::move(rxHandler_);
@@ -223,17 +280,9 @@ private:
     using Frame = wamp::internal::TransportFrame;
     using Byte = MessageBuffer::value_type;
 
-    void stop(std::error_code reason, ShutdownHandler handler)
+    static std::chrono::steady_clock::time_point now()
     {
-        if (shutdownHandler_ != nullptr || !stream_.isOpen())
-        {
-            post(std::move(handler), make_error_code(MiscErrc::invalidState));
-            return;
-        }
-
-        shutdownHandler_ = std::move(handler);
-        halt();
-        shutdownTransport(reason);
+        return std::chrono::steady_clock::now();
     }
 
     void halt()
@@ -297,6 +346,10 @@ private:
 
         txFrame_ = std::move(txQueue_.front());
         txQueue_.pop_front();
+        bool bumpLoiter = txFrame_.kind() == TransportFrameKind::wamp;
+        if (monitor_)
+            monitor_->startWrite(now(), bumpLoiter);
+
         switch (txFrame_.kind())
         {
         case TransportFrameKind::wamp:
@@ -339,15 +392,23 @@ private:
             {
                 if (checkTxError(ec))
                     onWampMessageBytesWritten(bytesWritten);
+                else if (monitor_)
+                    monitor_->endWrite(now(), true);
             });
     }
 
     void onWampMessageBytesWritten(std::size_t bytesWritten)
     {
+        if (monitor_)
+            monitor_->updateWrite(now(), bytesWritten);
+
         assert(bytesWritten <= txBytesRemaining_);
         txBytesRemaining_ -= bytesWritten;
         if (txBytesRemaining_ > 0)
             return sendMoreWamp();
+
+        if (monitor_)
+            monitor_->endWrite(now(), true);
 
         isTransmitting_ = false;
 
@@ -365,6 +426,8 @@ private:
             txFrame_.payload().data(), txFrame_.payload().size(),
             [this, self](std::error_code ec)
             {
+                if (monitor_)
+                    monitor_->endWrite(now(), false);
                 isTransmitting_ = false;
                 if (checkTxError(ec))
                     transmit();
@@ -379,6 +442,8 @@ private:
             txFrame_.payload().data(), txFrame_.payload().size(),
             [this, self](std::error_code ec)
             {
+                if (monitor_)
+                    monitor_->endWrite(now(), false);
                 isTransmitting_ = false;
                 if (checkTxError(ec))
                     transmit();
@@ -405,14 +470,28 @@ private:
             [this, self](std::error_code ec, std::size_t n, bool done)
             {
                 if (checkRxError(ec))
-                    onRead(n, done);
+                    onReadReady(n, done);
             });
+    }
+
+    void onReadReady(std::size_t bytesReceived, bool done)
+    {
+        if (!stream_.isOpen())
+            return;
+
+        if (monitor_)
+            monitor_->startRead(now());
+
+        onRead(bytesReceived, done);
     }
 
     void onRead(std::size_t /*bytesReceived*/, bool done)
     {
         if (!done)
             return receiveMore();
+
+        if (monitor_)
+            monitor_->endRead(now());
 
         if (rxHandler_)
             post(rxHandler_, std::move(rxBuffer_));
@@ -430,8 +509,11 @@ private:
             rxBuffer_,
             [this, self](std::error_code ec, std::size_t n, bool done)
             {
-                if (checkRxError(ec))
-                    onRead(n, done);
+                if (!checkRxError(ec))
+                    return;
+                if (monitor_)
+                    monitor_->updateRead(now(), n);
+                onRead(n, done);
             });
     }
 
@@ -468,6 +550,7 @@ private:
     RxHandler rxHandler_;
     TxErrorHandler txErrorHandler_;
     ShutdownHandler shutdownHandler_;
+    Monitor* monitor_ = nullptr;
     std::size_t txPayloadLimit_ = 0;
     std::size_t txBytesRemaining_ = 0;
     bool isTransmitting_ = false;

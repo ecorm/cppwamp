@@ -77,8 +77,8 @@ private:
     {
         return std::make_shared<Queue>(
             Stream{std::move(socket), settings},
-            ti.sendLimit(),
-            Bouncer{socket.get_executor(), settings->limits().lingerTimeout()});
+            Bouncer{socket.get_executor(), settings->limits().lingerTimeout()},
+            ti.sendLimit());
     }
 
     void onStart(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
@@ -115,7 +115,7 @@ private:
     {
         std::weak_ptr<Transporting> self = shared_from_this();
 
-        queue_->stream().observeHeartbeats(
+        queue_->observeHeartbeats(
             [self, this](TransportFrameKind kind, const PingByte* data,
                          std::size_t size)
             {
@@ -152,7 +152,6 @@ private:
     {
         if (pinger_)
             pinger_->stop();
-        queue_->stream().unobserveHeartbeats();
     }
 
     void onPingGeneratedOrTimedOut(ErrorOr<PingBytes> pingBytes)
@@ -162,7 +161,6 @@ private:
 
         if (!pingBytes.has_value())
         {
-            halt();
             queue_->fail(pingBytes.error());
             return;
         }
