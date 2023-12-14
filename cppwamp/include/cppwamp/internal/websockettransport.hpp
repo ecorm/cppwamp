@@ -121,6 +121,10 @@ public:
             websocket_->read_message_max(n);
     }
 
+    WebsocketStream(WebsocketStream&& rhs)
+        : websocket_(std::move(rhs.websocket_).value())
+    {}
+
     WebsocketStream& operator=(WebsocketStream&& rhs)
     {
         websocket_.emplace(std::move(rhs.websocket_).value());

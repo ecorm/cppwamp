@@ -165,6 +165,7 @@ set(HEADERS
     include/cppwamp/utils/tokentriemap.hpp
     include/cppwamp/utils/tokentriemapiterator.hpp
     include/cppwamp/utils/tokentriemapnode.hpp
+    include/cppwamp/utils/transportqueue.hpp
     include/cppwamp/utils/treeview.hpp
     include/cppwamp/utils/triemap.hpp
     include/cppwamp/utils/wildcarduri.hpp
