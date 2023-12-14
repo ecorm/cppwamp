@@ -165,11 +165,11 @@ public:
 
     ServerOptions& withMonitoringInterval(Timeout timeout);
 
-    // TODO: Shedding eligbility loiter time threshold
-
     ServerOptions& withHelloTimeout(Timeout timeout);
 
     ServerOptions& withChallengeTimeout(Timeout timeout);
+
+    ServerOptions& withStaleTimeout(Timeout timeout);
 
     ServerOptions& withAcceptBackoff(Backoff backoff);
 
@@ -189,6 +189,8 @@ public:
 
     Timeout challengeTimeout() const;
 
+    Timeout staleTimeout() const;
+
     Backoff acceptBackoff() const;
 
     Backoff outageBackoff() const;
@@ -207,6 +209,8 @@ private:
         // Using ejabberd's negotiation_timeout
     Timeout challengeTimeout_ = std::chrono::seconds{30};
         // Using ejabberd's negotiation_timeout
+    Timeout staleTimeout_ = std::chrono::seconds{300};
+        // Using ejabberd's websocket_timeout
     Backoff acceptBackoff_ = {std::chrono::milliseconds{625},
                               std::chrono::seconds{10}};
         // Starts from approximately Nginx's accept_mutex_delay and ends with

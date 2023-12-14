@@ -179,6 +179,14 @@ ServerOptions::withChallengeTimeout(Timeout timeout)
     return *this;
 }
 
+/** @throws error::Logic if the given timeout duration is negative. */
+CPPWAMP_INLINE ServerOptions&
+ServerOptions::withStaleTimeout(Timeout timeout)
+{
+    staleTimeout_ = internal::checkTimeout(timeout);
+    return *this;
+}
+
 /** @throws error::Logic if either or both of the backoff delays are negative,
             or if the max delay is shorter than the min delay. */
 CPPWAMP_INLINE ServerOptions&
@@ -220,6 +228,11 @@ CPPWAMP_INLINE Timeout ServerOptions::helloTimeout() const
 CPPWAMP_INLINE Timeout ServerOptions::challengeTimeout() const
 {
     return challengeTimeout_;
+}
+
+CPPWAMP_INLINE Timeout ServerOptions::staleTimeout() const
+{
+    return staleTimeout_;
 }
 
 CPPWAMP_INLINE ServerOptions::Backoff ServerOptions::acceptBackoff() const

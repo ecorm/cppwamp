@@ -469,7 +469,9 @@ TEST_CASE( "Router connection limit options", "[WAMP][Router]" )
     ServerCloseGuard serverGuard{"tcp45678"};
     router.openServer(
         ServerOptions("tcp45678", wamp::TcpEndpoint{45678}, wamp::json)
-            .withSoftConnectionLimit(2).withHardConnectionLimit(3));
+            .withSoftConnectionLimit(2)
+            .withHardConnectionLimit(3)
+            .withStaleTimeout(std::chrono::milliseconds(50)));
 
     IoContext ioctx;
     std::vector<LogEntry> logEntries;
@@ -514,6 +516,48 @@ TEST_CASE( "Router connection limit options", "[WAMP][Router]" )
             CHECK(index.has_value());
             s1.disconnect();
             s3.disconnect();
+        });
+        ioctx.run();
+    }
+
+    SECTION("soft limit evicting stale session")
+    {
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            std::vector<Incident> incidents;
+            s1.observeIncidents(
+                [&incidents] (Incident i) {incidents.push_back(i);});
+
+            timer.expires_after(std::chrono::milliseconds(100));
+            timer.async_wait(yield);
+            s1.connect(where, yield).value();
+
+            // Make session s1 stale
+            timer.expires_after(std::chrono::milliseconds(100));
+            timer.async_wait(yield);
+            s2.connect(where, yield).value();
+
+            auto index = s3.connect(where, yield);
+            CHECK(index.has_value());
+
+            while (logEntries.empty() || incidents.empty())
+                test::suspendCoro(yield);
+            INFO("log entry: " << logEntries.front().message());
+            CHECK(logEntries.front().message().find("Evicting stale") !=
+                  std::string::npos);
+            CHECK(s1.state() == SessionState::failed);
+            const auto& incident = incidents.front();
+            CHECK(incident.kind() == IncidentKind::abortedByPeer);
+            CHECK(incident.message().find("Evicted") != std::string::npos);
+
+            s1.disconnect();
+            s3.disconnect();
+            timer.expires_after(std::chrono::milliseconds(50));
+            timer.async_wait(yield);
+            index = s1.connect(where, yield);
+            CHECK(index.has_value());
+            s1.disconnect();
+            s2.disconnect();
         });
         ioctx.run();
     }

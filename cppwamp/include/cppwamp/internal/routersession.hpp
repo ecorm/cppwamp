@@ -8,7 +8,6 @@
 #define CPPWAMP_INTERNAL_ROUTERSESSION_HPP
 
 #include <atomic>
-#include <cstring>
 #include <memory>
 #include "../clientinfo.hpp"
 #include "../connectioninfo.hpp"

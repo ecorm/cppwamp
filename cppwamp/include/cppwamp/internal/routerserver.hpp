@@ -7,6 +7,7 @@
 #ifndef CPPWAMP_INTERNAL_ROUTER_SERVER_HPP
 #define CPPWAMP_INTERNAL_ROUTER_SERVER_HPP
 
+#include <atomic>
 #include <cassert>
 #include <cstdint>
 #include <memory>
@@ -133,6 +134,7 @@ public:
     using Ptr = std::shared_ptr<ServerSession>;
     using State = SessionState;
     using Key = ServerSessionKey;
+    using TimePoint = std::chrono::steady_clock::time_point;
 
     ServerSession(AnyIoExecutor e, Transporting::Ptr&& t, ServerContext&& s,
                   ServerOptions::Ptr o, Key k)
@@ -150,6 +152,7 @@ public:
         auto info = t->connectionInfo();
         info.setServer({}, serverOptions_->name(), k);
         Base::connect(std::move(info));
+        bumpLastActivityTime();
         peer_->listen(this);
     }
 
@@ -180,6 +183,11 @@ public:
         safelyDispatch<Dispatched>();
     }
 
+    TimePoint lastActivityTime() const
+    {
+        return TimePoint{Timeout{lastActivityTime_.load()}};
+    }
+
     ServerSession(const ServerSession&) = delete;
     ServerSession(ServerSession&&) = delete;
     ServerSession& operator=(const ServerSession&) = delete;
@@ -187,7 +195,6 @@ public:
 
 private:
     using Base = RouterSession;
-    using TimePoint = std::chrono::steady_clock::time_point;
 
     static TimePoint steadyTime() {return std::chrono::steady_clock::now();}
 
@@ -220,6 +227,7 @@ private:
             }
         };
 
+        bumpLastActivityTime();
         dispatch(Dispatched{shared_from_this(), std::move(msg)});
     }
 
@@ -263,7 +271,7 @@ private:
     void onPeerHello(Hello&& hello) override
     {
         Base::report(hello.info());
-
+        bumpLastActivityTime();
         helloDeadline_ = TimePoint::max();
 
         realm_ = server_.realmAt(hello.uri());
@@ -290,6 +298,7 @@ private:
     void onPeerAuthenticate(Authentication&& authentication) override
     {
         Base::report(authentication.info());
+        bumpLastActivityTime();
 
         const bool isExpected = authExchange_ != nullptr &&
                                 state() == State::authenticating;
@@ -331,6 +340,8 @@ private:
 
     void onPeerMessage(Message&& m) override
     {
+        bumpLastActivityTime();
+
         using K = MessageKind;
         switch (m.kind())
         {
@@ -345,6 +356,11 @@ private:
         case K::yield:          return sendToRealm(Result{{},           std::move(m)});
         default: assert(false && "Unexpected MessageKind enumerator");
         }
+    }
+
+    void bumpLastActivityTime()
+    {
+        lastActivityTime_.store(steadyTime().time_since_epoch().count());
     }
 
     State state() const {return peer_->state();}
@@ -668,6 +684,7 @@ private:
     AuthExchange::Ptr authExchange_;
     RequestIdChecker requestIdChecker_;
     UriValidator::Ptr uriValidator_;
+    std::atomic<TimePoint::rep> lastActivityTime_;
     Key key_;
     TimePoint helloDeadline_ = TimePoint::max();
     TimePoint challengeDeadline_ = TimePoint::max();
@@ -923,30 +940,19 @@ private:
 
     void onAccepted()
     {
-        auto self = shared_from_this();
         const auto sessionCount = sessions_.size() + sheddingTransportsCount_;
 
         if (sessionCount >= options_->hardConnectionLimit())
-        {
-            alert("Client connection dropped due to hard connection limit");
-            listener_->drop();
-            return;
-        }
+            return hardShed();
 
         auto transport = listener_->take();
-
         if (sessionCount >= options_->softConnectionLimit())
         {
-            ++sheddingTransportsCount_;
-            transport->shed(
-                [this, self, transport](AdmitResult result)
-                {
-                    onRefusalCompleted(result);
-                });
-            return;
+            if (!softShedStaleSession())
+                return softShedAccepted(std::move(transport));
         }
 
-        ServerContext ctx{router_, self};
+        ServerContext ctx{router_, shared_from_this()};
         if (++nextSessionIndex_ == 0u)
             nextSessionIndex_ = 1u;
         auto index = nextSessionIndex_;
@@ -954,6 +960,54 @@ private:
             executor_, std::move(transport), std::move(ctx), options_, index);
         sessions_.emplace(index, s);
         s->start();
+    }
+
+    void hardShed()
+    {
+        warn("Client connection dropped due to hard connection limit");
+        listener_->drop();
+    }
+
+    bool softShedStaleSession()
+    {
+        auto staleTimeout = options_->staleTimeout();
+        if (!timeoutIsDefinite(staleTimeout))
+            return false;
+
+        ServerSession* stalest = nullptr;
+        Timeout maxIdleTime = staleTimeout;
+        auto now = steadyTime();
+
+        for (auto& kv: sessions_)
+        {
+            auto& session = kv.second;
+            auto idleTime = now - session->lastActivityTime();
+            if (idleTime >= maxIdleTime)
+            {
+                maxIdleTime = idleTime;
+                stalest = session.get();
+            }
+        }
+
+        if (stalest == nullptr)
+            return false;
+
+        warn("Evicting stale client session due to soft connection limit");
+        auto reason = Abort{WampErrc::timeout}
+                          .withHint("Evicted due to connection limits");
+        stalest->abort(std::move(reason));
+        return true;
+    }
+
+    void softShedAccepted(Transporting::Ptr transport)
+    {
+        ++sheddingTransportsCount_;
+        auto self = shared_from_this();
+        transport->shed(
+            [this, self, transport](AdmitResult result)
+            {
+                onRefusalCompleted(result);
+            });
     }
 
     void onRefusalCompleted(AdmitResult result)
@@ -964,7 +1018,7 @@ private:
         switch (result.status())
         {
         case AdmitStatus::shedded:
-            alert("Client connection refused due to soft connection limit");
+            warn("Client connection refused due to soft connection limit");
             break;
 
         case AdmitStatus::rejected:
