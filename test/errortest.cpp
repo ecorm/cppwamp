@@ -24,7 +24,7 @@ SCENARIO( "MiscErrc error codes", "[Error]" )
             auto errc = MiscErrc(i);
             auto ec = make_error_code(errc);
             INFO("For error code " << ec);
-            CHECK(ec.category() == genericCategory());
+            CHECK(ec.category() == miscCategory());
             CHECK_THAT(ec.category().name(),
                        Catch::Matchers::Equals("cppwamp.MiscCategory"));
             CHECK(!ec.message().empty());

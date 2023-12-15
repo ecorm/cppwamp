@@ -79,7 +79,16 @@ errorCodeToWebsocketCloseCode(std::error_code ec)
         case TransportErrc::expectedBinary: return close_code::bad_payload;
         case TransportErrc::expectedText:   return close_code::bad_payload;
         case TransportErrc::shedded:        return close_code::try_again_later;
-        case TransportErrc::overloaded:     return close_code::try_again_later;
+        default: break;
+        }
+    }
+    if (ec.category() == serverCategory())
+    {
+        switch (static_cast<ServerErrc>(ec.value()))
+        {
+        case ServerErrc::overloaded:        return close_code::try_again_later;
+        case ServerErrc::shedded:           return close_code::try_again_later;
+        case ServerErrc::evicted:           return close_code::try_again_later;
         default: break;
         }
     }

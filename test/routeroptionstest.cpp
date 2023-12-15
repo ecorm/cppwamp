@@ -401,7 +401,7 @@ TEST_CASE( "Router hello timeout option", "[WAMP][Router]" )
         REQUIRE(!incidents.empty());
         const auto& incident = incidents.back();
         CHECK(incident.kind() == IncidentKind::abortedByPeer);
-        CHECK(incident.error() == WampErrc::timeout);
+        CHECK(incident.error() == WampErrc::sessionKilled);
         CHECK(incident.message().find("HELLO") != std::string::npos);
         s.disconnect();
 
@@ -419,7 +419,7 @@ TEST_CASE( "Router hello timeout option", "[WAMP][Router]" )
         timer.expires_after(std::chrono::milliseconds(100));
         timer.async_wait(yield);
         CHECK(incident.kind() == IncidentKind::abortedByPeer);
-        CHECK(incident.error() == WampErrc::timeout);
+        CHECK(incident.error() == WampErrc::sessionKilled);
         CHECK(incident.message().find("HELLO") != std::string::npos);
         s.disconnect();
     });
@@ -442,7 +442,7 @@ TEST_CASE( "Router challenge timeout option", "[WAMP][Router]" )
                                               .withAuthId("alice");
         auto welcome = s.join(hello, [](Challenge) {}, yield);
         REQUIRE_FALSE(welcome.has_value());
-        CHECK(welcome.error() == WampErrc::timeout);
+        CHECK(welcome.error() == WampErrc::sessionKilled);
         s.disconnect();
     });
     ioctx.run();
@@ -548,7 +548,8 @@ TEST_CASE( "Router connection limit options", "[WAMP][Router]" )
             CHECK(s1.state() == SessionState::failed);
             const auto& incident = incidents.front();
             CHECK(incident.kind() == IncidentKind::abortedByPeer);
-            CHECK(incident.message().find("Evicted") != std::string::npos);
+            auto evictedMsg = make_error_code(ServerErrc::evicted).message();
+            CHECK(incident.message().find(evictedMsg) != std::string::npos);
 
             s1.disconnect();
             s3.disconnect();

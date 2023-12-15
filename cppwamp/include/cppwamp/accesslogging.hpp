@@ -92,6 +92,10 @@ struct CPPWAMP_API AccessActionInfo
     AccessActionInfo(Action action, RequestId r, std::string target,
                      Object options, WampErrc errc);
 
+    AccessActionInfo(Action action, std::error_code ec);
+
+    AccessActionInfo(Action action, WampErrc errc);
+
     std::string target;
     std::string errorUri;
     Object options;

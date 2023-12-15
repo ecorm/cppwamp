@@ -270,20 +270,19 @@ enum class TransportErrc
     lingerTimeout     = 11, ///< Peer transport close timed out
     failed            = 12, ///< Transport operation failed
     exhausted         = 13, ///< All transports failed during connection
-    overloaded        = 14, ///< Excessive resource usage
-    shedded           = 15, ///< Connection dropped due to limits
-    unresponsive      = 16, ///< The other peer is unresponsive
-    inboundTooLong    = 17, ///< Inbound message exceeds transport's length limit
-    outboundTooLong   = 18, ///< Outbound message exceeds peer's length limit
-    handshakeDeclined = 19, ///< Handshake declined by other peer
-    badHandshake      = 20, ///< Received invalid handshake
-    badCommand        = 21, ///< Received invalid transport command
-    badSerializer     = 22, ///< Unsupported serialization format
-    badLengthLimit    = 23, ///< Unacceptable maximum message length
-    badFeature        = 24, ///< Unsupported transport feature
-    expectedBinary    = 25, ///< Expected text but got binary
-    expectedText      = 26, ///< Expected binary but got text
-    noSerializer      = 27, ///< Missing serializer information
+    shedded           = 14, ///< Connection refused due to server limits
+    unresponsive      = 15, ///< The other peer is unresponsive
+    inboundTooLong    = 16, ///< Inbound message exceeds transport's length limit
+    outboundTooLong   = 17, ///< Outbound message exceeds peer's length limit
+    handshakeDeclined = 18, ///< Handshake declined by other peer
+    badHandshake      = 19, ///< Received invalid handshake
+    badCommand        = 20, ///< Received invalid transport command
+    badSerializer     = 21, ///< Unsupported serialization format
+    badLengthLimit    = 22, ///< Unacceptable maximum message length
+    badFeature        = 23, ///< Unsupported transport feature
+    expectedBinary    = 24, ///< Expected text but got binary
+    expectedText      = 25, ///< Expected binary but got text
+    noSerializer      = 26, ///< Missing serializer information
     count
 };
 
@@ -331,6 +330,71 @@ CPPWAMP_API std::error_condition make_error_condition(TransportErrc errc);
 
 
 //******************************************************************************
+// Server Error Codes
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+/** %Error code values used with the ServerCategory error category. */
+//------------------------------------------------------------------------------
+enum class ServerErrc
+{
+    success          = 0, ///< Server operation successful
+    timeout          = 1, ///< Exceeded server timeout limits
+    helloTimeout     = 2, ///< Timed out while waiting for HELLO
+    challengeTimeout = 3, ///< Timed out while waiting for CHALLENGE response
+    loiterTimeout    = 4, ///< Session timed out due to inactivity
+    overstayTimeout  = 5, ///< Session continuous connection time exceeded
+    overloaded       = 6, ///< Connection rejected due to server resource usage
+    shedded          = 7, ///< Connection rejected due to server limits
+    evicted          = 8, ///< Session killed due to server limits
+    count
+};
+
+//------------------------------------------------------------------------------
+/** std::error_category used for reporting server errors not already covered by
+    WAMP error URIs.
+    @see ServerErrc */
+//------------------------------------------------------------------------------
+class CPPWAMP_API ServerCategory : public std::error_category
+{
+public:
+    /** Obtains the name of the category. */
+    const char* name() const noexcept override;
+
+    /** Obtains the explanatory string. */
+    std::string message(int ev) const override;
+
+    /** Compares `error_code` and and error condition for equivalence. */
+    bool equivalent(const std::error_code& code,
+                    int condition) const noexcept override;
+
+private:
+    CPPWAMP_HIDDEN ServerCategory();
+
+    friend ServerCategory& serverCategory();
+};
+
+//------------------------------------------------------------------------------
+/** Obtains a reference to the static error category object for server
+    errors.
+    @relates ServerCategory */
+//------------------------------------------------------------------------------
+CPPWAMP_API ServerCategory& serverCategory();
+
+//------------------------------------------------------------------------------
+/** Creates an error code value from a ServerErrc enumerator.
+    @relates ServerCategory */
+//-----------------------------------------------------------------------------
+CPPWAMP_API std::error_code make_error_code(ServerErrc errc);
+
+//------------------------------------------------------------------------------
+/** Creates an error condition value from a ServerErrc enumerator.
+    @relates ServerCategory */
+//-----------------------------------------------------------------------------
+CPPWAMP_API std::error_condition make_error_condition(ServerErrc errc);
+
+
+//******************************************************************************
 // Miscellaneous Error Codes
 //******************************************************************************
 
@@ -346,8 +410,6 @@ enum class MiscErrc
     alreadyExists    = 4, ///< Item already exists
     badType          = 5, ///< Invalid or unexpected type
     noSuchTopic      = 6, ///< No subscription under the given topic URI
-    helloTimeout     = 7, ///< Timed out while waiting for HELLO
-    challengeTimeout = 8, ///< Timed out while waiting for CHALLENGE response
     count
 };
 
@@ -372,14 +434,14 @@ public:
 private:
     CPPWAMP_HIDDEN MiscCategory();
 
-    friend MiscCategory& genericCategory();
+    friend MiscCategory& miscCategory();
 };
 
 //------------------------------------------------------------------------------
 /** Obtains a reference to the static error category object for Generic errors.
     @relates MiscCategory */
 //------------------------------------------------------------------------------
-CPPWAMP_API MiscCategory& genericCategory();
+CPPWAMP_API MiscCategory& miscCategory();
 
 //------------------------------------------------------------------------------
 /** Creates an error code value from an MiscErrc enumerator.
@@ -413,6 +475,11 @@ struct CPPWAMP_API is_error_condition_enum<wamp::DecodingErrc>
 
 template <>
 struct CPPWAMP_API is_error_condition_enum<wamp::TransportErrc>
+    : public true_type
+{};
+
+template <>
+struct CPPWAMP_API is_error_condition_enum<wamp::ServerErrc>
     : public true_type
 {};
 

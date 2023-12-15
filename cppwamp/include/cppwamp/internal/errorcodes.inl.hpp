@@ -38,65 +38,6 @@ std::string lookupErrorMessage(const char* categoryName, int errorCodeValue,
 
 
 //------------------------------------------------------------------------------
-// Generic Error Codes
-//------------------------------------------------------------------------------
-
-CPPWAMP_INLINE const char* MiscCategory::name() const noexcept
-{
-    return "cppwamp.MiscCategory";
-}
-
-CPPWAMP_INLINE std::string MiscCategory::message(int ev) const
-{
-    static constexpr auto count = static_cast<unsigned>(MiscErrc::count);
-
-    static const std::array<const char*, count> msg{
-    {
-        /* success          */ "Operation successful",
-        /* abandoned        */ "Operation abandoned by this peer",
-        /* invalidState     */ "Invalid state for this operation",
-        /* absent           */ "Item is absent",
-        /* alreadyExists    */ "Item already exists",
-        /* badType,         */ "Invalid or unexpected type",
-        /* noSuchTopic      */ "No subscription under the given topic URI",
-        /* helloTimeout     */ "Timed out while waiting for HELLO",
-        /* challengeTimeout */ "Timed out while waiting for CHALLENGE response"
-    }};
-
-    return internal::lookupErrorMessage<MiscErrc>("cppwamp.MiscCategory",
-                                                  ev, msg);
-}
-
-CPPWAMP_INLINE bool MiscCategory::equivalent(const std::error_code& code,
-                                                int condition) const noexcept
-{
-    if (code.category() == wampCategory())
-        return code.value() == condition;
-    if (condition == static_cast<int>(MiscErrc::success))
-        return !code;
-    return false;
-}
-
-CPPWAMP_INLINE MiscCategory::MiscCategory() = default;
-
-CPPWAMP_INLINE MiscCategory& genericCategory()
-{
-    static MiscCategory instance;
-    return instance;
-}
-
-CPPWAMP_INLINE std::error_code make_error_code(MiscErrc errc)
-{
-    return {static_cast<int>(errc), genericCategory()};
-}
-
-CPPWAMP_INLINE std::error_condition make_error_condition(MiscErrc errc)
-{
-    return {static_cast<int>(errc), genericCategory()};
-}
-
-
-//------------------------------------------------------------------------------
 // WAMP Protocol Error Codes
 //------------------------------------------------------------------------------
 
@@ -461,8 +402,7 @@ CPPWAMP_INLINE std::string TransportCategory::message(int ev) const
         /* lingerTimeout     */ "Peer transport close timed out",
         /* failed            */ "Transport operation failed",
         /* exhausted         */ "All transports failed during connection",
-        /* overloaded        */ "Excessive resource usage",
-        /* shedded           */ "Connection dropped due to limits",
+        /* shedded           */ "Connection refused due to server limits",
         /* unresponsive      */ "The other peer is unresponsive",
         /* inboundTooLong    */ "Inbound message exceeds transport's length limit",
         /* outboundTooLong   */ "Outbound message exceeds peer's length limit",
@@ -555,6 +495,122 @@ CPPWAMP_INLINE std::error_code make_error_code(TransportErrc errc)
 CPPWAMP_INLINE std::error_condition make_error_condition(TransportErrc errc)
 {
     return {static_cast<int>(errc), transportCategory()};
+}
+
+
+//------------------------------------------------------------------------------
+// Miscellaneous Error Codes
+//------------------------------------------------------------------------------
+
+CPPWAMP_INLINE const char* MiscCategory::name() const noexcept
+{
+    return "cppwamp.MiscCategory";
+}
+
+CPPWAMP_INLINE std::string MiscCategory::message(int ev) const
+{
+    static constexpr auto count = static_cast<unsigned>(MiscErrc::count);
+
+    static const std::array<const char*, count> msg{
+    {
+        /* success          */ "Operation successful",
+        /* abandoned        */ "Operation abandoned by this peer",
+        /* invalidState     */ "Invalid state for this operation",
+        /* absent           */ "Item is absent",
+        /* alreadyExists    */ "Item already exists",
+        /* badType,         */ "Invalid or unexpected type",
+        /* noSuchTopic      */ "No subscription under the given topic URI"
+    }};
+
+    return internal::lookupErrorMessage<MiscErrc>("cppwamp.MiscCategory",
+                                                  ev, msg);
+}
+
+CPPWAMP_INLINE bool MiscCategory::equivalent(const std::error_code& code,
+                                                int condition) const noexcept
+{
+    if (code.category() == wampCategory())
+        return code.value() == condition;
+    if (condition == static_cast<int>(MiscErrc::success))
+        return !code;
+    return false;
+}
+
+CPPWAMP_INLINE MiscCategory::MiscCategory() = default;
+
+CPPWAMP_INLINE MiscCategory& miscCategory()
+{
+    static MiscCategory instance;
+    return instance;
+}
+
+CPPWAMP_INLINE std::error_code make_error_code(MiscErrc errc)
+{
+    return {static_cast<int>(errc), miscCategory()};
+}
+
+CPPWAMP_INLINE std::error_condition make_error_condition(MiscErrc errc)
+{
+    return {static_cast<int>(errc), miscCategory()};
+}
+
+
+//------------------------------------------------------------------------------
+// Miscellaneous Error Codes
+//------------------------------------------------------------------------------
+
+CPPWAMP_INLINE const char* ServerCategory::name() const noexcept
+{
+    return "cppwamp.ServerCategory";
+}
+
+CPPWAMP_INLINE std::string ServerCategory::message(int ev) const
+{
+    static constexpr auto count = static_cast<unsigned>(ServerErrc::count);
+
+    static const std::array<const char*, count> msg{
+    {
+         /* success          */ "Server operation successful",
+         /* timeout          */ "Exceeded server timeout limits",
+         /* helloTimeout     */ "Timed out while waiting for HELLO",
+         /* challengeTimeout */ "Timed out while waiting for CHALLENGE response",
+         /* loiterTimeout    */ "Session timed out due to inactivity",
+         /* overstayTimeout  */ "Session continuous connection time exceeded",
+         /* overloaded       */ "Connection rejected due to server resource usage",
+         /* shedded          */ "Connection rejected due to server limits",
+         /* evicted          */ "Session killed due to server limits",
+    }};
+
+    return internal::lookupErrorMessage<ServerErrc>("cppwamp.ServerCategory",
+                                                     ev, msg);
+}
+
+CPPWAMP_INLINE bool ServerCategory::equivalent(const std::error_code& code,
+                                                int condition) const noexcept
+{
+    if (code.category() == wampCategory())
+        return code.value() == condition;
+    if (condition == static_cast<int>(ServerErrc::success))
+        return !code;
+    return false;
+}
+
+CPPWAMP_INLINE ServerCategory::ServerCategory() = default;
+
+CPPWAMP_INLINE ServerCategory& serverCategory()
+{
+    static ServerCategory instance;
+    return instance;
+}
+
+CPPWAMP_INLINE std::error_code make_error_code(ServerErrc errc)
+{
+    return {static_cast<int>(errc), serverCategory()};
+}
+
+CPPWAMP_INLINE std::error_condition make_error_condition(ServerErrc errc)
+{
+    return {static_cast<int>(errc), serverCategory()};
 }
 
 } // namespace wamp

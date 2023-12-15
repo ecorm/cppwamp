@@ -177,6 +177,19 @@ CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
 {}
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(Action action,
+                                                  std::error_code ec)
+    : AccessActionInfo(action, nullId(), std::string{},
+                       optionsWithErrorDesc(Object{}, ec),
+                       errorCodeToUri(ec))
+{}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(Action action, WampErrc errc)
+    : AccessActionInfo(action, make_error_code(errc))
+{}
+
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE Object AccessActionInfo::optionsWithErrorDesc(
     Object options, std::error_code ec)
 {

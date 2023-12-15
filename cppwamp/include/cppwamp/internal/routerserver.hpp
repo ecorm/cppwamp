@@ -396,7 +396,7 @@ private:
             break;
 
         case S::rejected:
-            Base::report({AccessAction::serverReject, {}, {}, result.error()});
+            Base::report({AccessAction::serverReject, result.error()});
             shutdownTransportThenRetire(result.error());
             break;
 
@@ -422,11 +422,7 @@ private:
             [this, self](std::error_code shutdownEc)
             {
                 if (shutdownEc)
-                {
-                    Base::report({AccessAction::serverDisconnect, {}, {},
-                                  shutdownEc});
-                }
-
+                    Base::report({AccessAction::serverDisconnect, shutdownEc});
                 retire();
             });
     }
@@ -460,7 +456,7 @@ private:
 
         if (ec == TransportErrc::lingerTimeout)
         {
-            report({AccessAction::serverDisconnect, {}, {}, ec});
+            report({AccessAction::serverDisconnect, ec});
             peer_->disconnect();
             return retire();
         }
@@ -469,17 +465,17 @@ private:
         {
             auto now = steadyTime();
             if (now >= helloDeadline_)
-                ec = make_error_code(MiscErrc::helloTimeout);
+                ec = make_error_code(ServerErrc::helloTimeout);
             else if (now >= challengeDeadline_)
-                ec = make_error_code(MiscErrc::challengeTimeout);
+                ec = make_error_code(ServerErrc::challengeTimeout);
         }
 
         if (!ec)
             return;
 
         auto hint = detailedErrorCodeString(ec);
-        abortSession(Abort{WampErrc::timeout}.withHint(std::move(hint)),
-                     {AccessAction::serverAbort, {}, {}, ec});
+        abortSession(Abort{WampErrc::sessionKilled}.withHint(std::move(hint)),
+                     {AccessAction::serverAbort, ec});
     }
 
     void monitorTransport()
@@ -488,14 +484,14 @@ private:
         if (!ec)
             return;
 
-        report({AccessAction::serverDisconnect, {}, {}, ec});
+        report({AccessAction::serverDisconnect, ec});
         transport_->close();
         retire();
     }
 
     void onAdmitError(std::error_code ec, const char* operation)
     {
-        report({AccessAction::serverReject, {}, {}, ec});
+        report({AccessAction::serverReject, ec});
         retire();
     }
 
@@ -964,7 +960,7 @@ private:
 
     void hardShed()
     {
-        warn("Client connection dropped due to hard connection limit");
+        warn("Dropping client connection due to hard connection limit");
         listener_->drop();
     }
 
@@ -993,8 +989,8 @@ private:
             return false;
 
         warn("Evicting stale client session due to soft connection limit");
-        auto reason = Abort{WampErrc::timeout}
-                          .withHint("Evicted due to connection limits");
+        auto hint = detailedErrorCodeString(make_error_code(ServerErrc::evicted));
+        auto reason = Abort{WampErrc::sessionKilled}.withHint(std::move(hint));
         stalest->abort(std::move(reason));
         return true;
     }
@@ -1006,11 +1002,11 @@ private:
         transport->shed(
             [this, self, transport](AdmitResult result)
             {
-                onRefusalCompleted(result);
+                onRefusalCompleted(*transport, result);
             });
     }
 
-    void onRefusalCompleted(AdmitResult result)
+    void onRefusalCompleted(const Transporting& transport, AdmitResult result)
     {
         if (sheddingTransportsCount_ > 0)
             --sheddingTransportsCount_;
@@ -1018,14 +1014,17 @@ private:
         switch (result.status())
         {
         case AdmitStatus::shedded:
+            report(transport, {AccessAction::serverReject, result.error()});
             warn("Client connection refused due to soft connection limit");
             break;
 
         case AdmitStatus::rejected:
+            report(transport, {AccessAction::serverReject, result.error()});
             warn("Client handshake rejected or timed out", result.error());
             break;
 
         case AdmitStatus::failed:
+            report(transport, {AccessAction::serverReject, result.error()});
             alert("Error establishing connection with remote peer "
                   "during transport handshake", result.error());
             break;
@@ -1063,6 +1062,12 @@ private:
         };
 
         safelyDispatch<Dispatched>(key);
+    }
+
+    void report(const Transporting& transport, AccessActionInfo&& info)
+    {
+        logger_->log(AccessLogEntry{transport.connectionInfo(), {},
+                                    std::move(info)});
     }
 
     void log(LogEntry&& e)
