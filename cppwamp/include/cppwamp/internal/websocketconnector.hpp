@@ -138,7 +138,7 @@ private:
         websocket_->set_option(boost::beast::websocket::stream_base::decorator(
             Decorator{settings_->agent(), subprotocol}));
 
-        setPermessageDeflateOptions();
+        setWebsocketOptions();
 
         // Perform the handshake
         auto self = shared_from_this();
@@ -157,21 +157,27 @@ private:
             });
     }
 
-    void setPermessageDeflateOptions()
+    void setWebsocketOptions()
     {
-        const auto& opts = settings_->permessageDeflate();
-        if (!opts.enabled())
-            return;
+        const auto& pmd = settings_->permessageDeflate();
+        if (pmd.enabled())
+        {
+            boost::beast::websocket::permessage_deflate pd;
+            pd.client_enable = true;
+            pd.client_max_window_bits = pmd.maxWindowBits();
+            pd.client_no_context_takeover = pmd.noContextTakeover();
+            pd.compLevel = pmd.compressionLevel();
+            pd.memLevel = pmd.memoryLevel();
+            pd.msg_size_threshold = pmd.threshold();
 
-        boost::beast::websocket::permessage_deflate pd;
-        pd.client_enable = true;
-        pd.client_max_window_bits = opts.maxWindowBits();
-        pd.client_no_context_takeover = opts.noContextTakeover();
-        pd.compLevel = opts.compressionLevel();
-        pd.memLevel = opts.memoryLevel();
-        pd.msg_size_threshold = opts.threshold();
+            websocket_->set_option(pd);
+        }
 
-        websocket_->set_option(pd);
+        if (websocket_->write_buffer_bytes() != settings_->writeBufferSize())
+            websocket_->write_buffer_bytes(settings_->writeBufferSize());
+
+        if (websocket_->auto_fragment() != settings_->autoFragment())
+            websocket_->auto_fragment(settings_->autoFragment());
     }
 
 

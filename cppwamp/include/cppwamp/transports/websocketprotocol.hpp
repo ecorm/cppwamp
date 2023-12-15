@@ -7,15 +7,11 @@
 #ifndef CPPWAMP_TRANSPORTS_WEBSOCKETPROTOCOL_HPP
 #define CPPWAMP_TRANSPORTS_WEBSOCKETPROTOCOL_HPP
 
-// TODO: auto_fragment
-// TODO: write_buffer_bytes
-
 //------------------------------------------------------------------------------
 /** @file
     @brief Contains basic Websocket protocol facilities. */
 //------------------------------------------------------------------------------
 
-#include <cstdint>
 #include <system_error>
 #include "../api.hpp"
 #include "../transportlimits.hpp"
@@ -97,7 +93,9 @@ CPPWAMP_API std::error_condition make_error_condition(WebsocketCloseErrc errc);
 
 
 //------------------------------------------------------------------------------
-/** Contains options for the Websocket permessage-deflate extension. */
+/** Contains options for the Websocket permessage-deflate extension.
+    See [boost::beast::websocket::permessage_deflate]
+    (https://www.boost.org/doc/libs/release/libs/beast/doc/html/beast/ref/boost__beast__websocket__permessage_deflate.html) */
 //------------------------------------------------------------------------------
 class CPPWAMP_API WebsocketPermessageDeflate
 {
@@ -177,6 +175,12 @@ public:
         (default is Version::serverAgentString). */
     WebsocketHost& withAgent(std::string agent);
 
+    /** Sets the write buffer size. */
+    WebsocketHost& withWriteBufferSize(std::size_t bytes);
+
+    /** Sets the automatic fragmentation option. */
+    WebsocketHost& withAutoFragment(bool enabled = true);
+
     /** Specifies the permessage-deflate extension options. */
     WebsocketHost& withPermessageDeflate(WebsocketPermessageDeflate options);
 
@@ -185,6 +189,12 @@ public:
 
     /** Obtains the custom agent string to use. */
     const std::string& agent() const;
+
+    /** Obtains the write buffer size. */
+    std::size_t writeBufferSize() const;
+
+    /** Obtains the automatic fragmentation option. */
+    bool autoFragment() const;
 
     /** Obtains the permessage-deflate extension options. */
     const WebsocketPermessageDeflate& permessageDeflate() const;
@@ -196,6 +206,8 @@ private:
     std::string target_ = "/";
     std::string agent_;
     WebsocketPermessageDeflate permessageDeflate_;
+    std::size_t writeBufferSize_ = 4096;
+    bool autoFragment_ = true;
 };
 
 
@@ -235,11 +247,23 @@ public:
         Version::clientAgentString). */
     WebsocketEndpoint& withAgent(std::string agent);
 
+    /** Sets the write buffer size. */
+    WebsocketEndpoint& withWriteBufferSize(std::size_t bytes);
+
+    /** Sets the automatic fragmentation option. */
+    WebsocketEndpoint& withAutoFragment(bool enabled = true);
+
     /** Specifies the permessage-deflate extension options. */
     WebsocketEndpoint& withPermessageDeflate(WebsocketPermessageDeflate opts);
 
     /** Obtains the custom agent string. */
     const std::string& agent() const;
+
+    /** Obtains the write buffer size. */
+    std::size_t writeBufferSize() const;
+
+    /** Obtains the automatic fragmentation option. */
+    bool autoFragment() const;
 
     /** Obtains the permessage-deflate extension options. */
     const WebsocketPermessageDeflate& permessageDeflate() const;
@@ -254,6 +278,8 @@ private:
     // Maintenance note: Keep HttpEndpoint::toWebsocket in sync with changes.
     std::string agent_;
     WebsocketPermessageDeflate permessageDeflate_;
+    std::size_t writeBufferSize_ = 4096;
+    bool autoFragment_ = true;
 };
 
 } // namespace wamp
