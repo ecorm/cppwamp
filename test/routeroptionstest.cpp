@@ -449,7 +449,7 @@ TEST_CASE( "Router challenge timeout option", "[WAMP][Router]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "Router connection limit options", "[WAMP][Router]" )
+TEST_CASE( "Router connection limit and overstay options", "[WAMP][Router]" )
 {
     if (!test::RouterFixture::enabled())
         return;
@@ -471,7 +471,9 @@ TEST_CASE( "Router connection limit options", "[WAMP][Router]" )
         ServerOptions("tcp45678", wamp::TcpEndpoint{45678}, wamp::json)
             .withSoftConnectionLimit(2)
             .withHardConnectionLimit(3)
-            .withStaleTimeout(std::chrono::milliseconds(50)));
+            .withStaleTimeout(std::chrono::milliseconds(50))
+            .withOverstayTimeout(std::chrono::milliseconds(200))
+            .withMonitoringInterval(std::chrono::milliseconds(10)));
 
     IoContext ioctx;
     std::vector<LogEntry> logEntries;
@@ -481,6 +483,13 @@ TEST_CASE( "Router connection limit options", "[WAMP][Router]" )
         {
             if (e.severity() > LogLevel::info)
                 logEntries.push_back(e);
+        });
+    std::vector<AccessLogEntry> accessLogEntries;
+    auto accesLogSnoopGuard = routerFixture.snoopAccessLog(
+        ioctx.get_executor(),
+        [&accessLogEntries](AccessLogEntry e)
+        {
+            accessLogEntries.push_back(e);
         });
     auto logLevelGuard = routerFixture.supressLogLevel(LogLevel::critical);
     boost::asio::steady_timer timer{ioctx};
@@ -606,6 +615,43 @@ TEST_CASE( "Router connection limit options", "[WAMP][Router]" )
             CHECK(index.has_value());
             s1.disconnect();
             s3.disconnect();
+        });
+        ioctx.run();
+    }
+
+    SECTION("overstay")
+    {
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            std::vector<Incident> incidents;
+            s1.observeIncidents(
+                [&incidents] (Incident i) {incidents.push_back(i);});
+
+            timer.expires_after(std::chrono::milliseconds(100));
+            timer.async_wait(yield);
+            s1.connect(where, yield).value();
+
+            timer.expires_after(std::chrono::milliseconds(100));
+            timer.async_wait(yield);
+            s2.connect(where, yield).value();
+
+            while (accessLogEntries.size() < 2 || incidents.empty())
+                test::suspendCoro(yield);
+            auto overstayStr =
+                briefErrorCodeString(make_error_code(ServerErrc::overstayed));
+            auto logEntry = accessLogEntries.back();
+            INFO("log entry: " << logEntry);
+            CHECK(logEntry.action.errorUri.find(overstayStr) !=
+                  std::string::npos);
+            CHECK(s1.state() == SessionState::failed);
+            CHECK(s2.state() == SessionState::closed);
+            const auto& incident = incidents.front();
+            CHECK(incident.kind() == IncidentKind::abortedByPeer);
+            INFO("incident message: " << incident.message());
+            CHECK(incident.message().find(overstayStr) != std::string::npos);
+
+            s1.disconnect();
+            s2.disconnect();
         });
         ioctx.run();
     }

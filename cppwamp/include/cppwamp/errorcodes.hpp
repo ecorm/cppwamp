@@ -266,23 +266,22 @@ enum class TransportErrc
     writeTimeout      = 7,  ///< Transport write operation timed out
     silenceTimeout    = 8,  ///< Transport timed out due to silence
     loiterTimeout     = 9,  ///< Transport timed out due to inactivity
-    overstayTimeout   = 10, ///< Transport continuous connection time exceeded
-    lingerTimeout     = 11, ///< Peer transport close timed out
-    failed            = 12, ///< Transport operation failed
-    exhausted         = 13, ///< All transports failed during connection
-    shedded           = 14, ///< Connection refused due to server limits
-    unresponsive      = 15, ///< The other peer is unresponsive
-    inboundTooLong    = 16, ///< Inbound message exceeds transport's length limit
-    outboundTooLong   = 17, ///< Outbound message exceeds peer's length limit
-    handshakeDeclined = 18, ///< Handshake declined by other peer
-    badHandshake      = 19, ///< Received invalid handshake
-    badCommand        = 20, ///< Received invalid transport command
-    badSerializer     = 21, ///< Unsupported serialization format
-    badLengthLimit    = 22, ///< Unacceptable maximum message length
-    badFeature        = 23, ///< Unsupported transport feature
-    expectedBinary    = 24, ///< Expected text but got binary
-    expectedText      = 25, ///< Expected binary but got text
-    noSerializer      = 26, ///< Missing serializer information
+    lingerTimeout     = 10, ///< Peer transport close timed out
+    failed            = 11, ///< Transport operation failed
+    exhausted         = 12, ///< All transports failed during connection
+    shedded           = 13, ///< Connection refused due to server limits
+    unresponsive      = 14, ///< The other peer is unresponsive
+    inboundTooLong    = 15, ///< Inbound message exceeds transport's length limit
+    outboundTooLong   = 16, ///< Outbound message exceeds peer's length limit
+    handshakeDeclined = 17, ///< Handshake declined by other peer
+    badHandshake      = 18, ///< Received invalid handshake
+    badCommand        = 19, ///< Received invalid transport command
+    badSerializer     = 20, ///< Unsupported serialization format
+    badLengthLimit    = 21, ///< Unacceptable maximum message length
+    badFeature        = 22, ///< Unsupported transport feature
+    expectedBinary    = 23, ///< Expected text but got binary
+    expectedText      = 24, ///< Expected binary but got text
+    noSerializer      = 25, ///< Missing serializer information
     count
 };
 
@@ -342,11 +341,10 @@ enum class ServerErrc
     timeout          = 1, ///< Exceeded server timeout limits
     helloTimeout     = 2, ///< Timed out while waiting for HELLO
     challengeTimeout = 3, ///< Timed out while waiting for CHALLENGE response
-    loiterTimeout    = 4, ///< Session timed out due to inactivity
-    overstayTimeout  = 5, ///< Session continuous connection time exceeded
-    overloaded       = 6, ///< Connection rejected due to server resource usage
-    shedded          = 7, ///< Connection rejected due to server limits
-    evicted          = 8, ///< Session killed due to server limits
+    overstayed       = 4, ///< Session connection time limit exceeded
+    overloaded       = 5, ///< Connection rejected due to server resource usage
+    shedded          = 6, ///< Connection rejected due to server limits
+    evicted          = 7, ///< Session killed due to server limits
     count
 };
 

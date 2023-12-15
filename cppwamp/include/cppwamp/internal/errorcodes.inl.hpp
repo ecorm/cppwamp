@@ -288,7 +288,7 @@ CPPWAMP_INLINE std::string errorCodeToUri(std::error_code ec)
 //-----------------------------------------------------------------------------
 CPPWAMP_INLINE std::string briefErrorCodeString(std::error_code ec)
 {
-    return std::string{ec.category().name()} + ':' + std::to_string(ec.value());
+    return std::string{ec.category().name()} + '.' + std::to_string(ec.value());
 }
 
 //------------------------------------------------------------------------------
@@ -296,7 +296,7 @@ CPPWAMP_INLINE std::string briefErrorCodeString(std::error_code ec)
 //-----------------------------------------------------------------------------
 CPPWAMP_INLINE std::string detailedErrorCodeString(std::error_code ec)
 {
-    return std::string{ec.category().name()} + ':' +
+    return std::string{ec.category().name()} + '.' +
            std::to_string(ec.value()) + " (" + ec.message() + ')';
 }
 
@@ -398,7 +398,6 @@ CPPWAMP_INLINE std::string TransportCategory::message(int ev) const
         /* writeTimeout      */ "Transport write operation timed out",
         /* silenceTimeout    */ "Transport timed out due to silence",
         /* loiterTimeout     */ "Transport timed out due to inactivity",
-        /* overstayTimeout   */ "Transport continuous connection time exceeded",
         /* lingerTimeout     */ "Peer transport close timed out",
         /* failed            */ "Transport operation failed",
         /* exhausted         */ "All transports failed during connection",
@@ -556,7 +555,7 @@ CPPWAMP_INLINE std::error_condition make_error_condition(MiscErrc errc)
 
 
 //------------------------------------------------------------------------------
-// Miscellaneous Error Codes
+// Server Error Codes
 //------------------------------------------------------------------------------
 
 CPPWAMP_INLINE const char* ServerCategory::name() const noexcept
@@ -574,8 +573,7 @@ CPPWAMP_INLINE std::string ServerCategory::message(int ev) const
          /* timeout          */ "Exceeded server timeout limits",
          /* helloTimeout     */ "Timed out while waiting for HELLO",
          /* challengeTimeout */ "Timed out while waiting for CHALLENGE response",
-         /* loiterTimeout    */ "Session timed out due to inactivity",
-         /* overstayTimeout  */ "Session continuous connection time exceeded",
+         /* overstay         */ "Session connection time limit exceeded",
          /* overloaded       */ "Connection rejected due to server resource usage",
          /* shedded          */ "Connection rejected due to server limits",
          /* evicted          */ "Session killed due to server limits",

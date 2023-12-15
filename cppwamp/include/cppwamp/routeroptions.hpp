@@ -171,6 +171,8 @@ public:
 
     ServerOptions& withStaleTimeout(Timeout timeout);
 
+    ServerOptions& withOverstayTimeout(Timeout timeout);
+
     ServerOptions& withAcceptBackoff(Backoff backoff);
 
     const String& name() const;
@@ -190,6 +192,9 @@ public:
     Timeout challengeTimeout() const;
 
     Timeout staleTimeout() const;
+
+    /** Obtains the maximum allowable continuous connection time. */
+    Timeout overstayTimeout() const;
 
     Backoff acceptBackoff() const;
 
@@ -211,6 +216,7 @@ private:
         // Using ejabberd's negotiation_timeout
     Timeout staleTimeout_ = std::chrono::seconds{300};
         // Using ejabberd's websocket_timeout
+    Timeout overstayTimeout_ = neverTimeout;
     Backoff acceptBackoff_ = {std::chrono::milliseconds{625},
                               std::chrono::seconds{10}};
         // Starts from approximately Nginx's accept_mutex_delay and ends with

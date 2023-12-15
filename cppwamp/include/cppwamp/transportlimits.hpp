@@ -115,8 +115,6 @@ public:
 
     TDerived& withLoiterTimeout(Timeout t) {return set(loiterTimeout_, t);}
 
-    TDerived& withOverstayTimeout(Timeout t) {return set(overstayTimeout_, t);}
-
     TDerived& withLingerTimeout(Timeout t) {return set(lingerTimeout_, t);}
 
     TDerived& withBacklogCapacity(int n)
@@ -144,9 +142,6 @@ public:
         pings. This prevents clients indefinitely keeping a connection alive
         by just sending pings. */
     Timeout loiterTimeout() const {return loiterTimeout_;}
-
-    /** Obtains the maximum allowable continuous connection time. */
-    Timeout overstayTimeout() const {return overstayTimeout_;}
 
     /** Obtains the maxiumum time the server will wait for a client to
         gracefully close the connection. */
@@ -184,7 +179,6 @@ private:
         // Using ejabberd's websocket_timeout
     Timeout loiterTimeout_ = std::chrono::minutes(60);
         // Using Nginx's keepalive_time
-    Timeout overstayTimeout_ = neverTimeout;
     Timeout lingerTimeout_ = std::chrono::seconds{30};
         // Using Nginx's lingering_time
     std::size_t readMsgSize_ = 16*1024*1024;

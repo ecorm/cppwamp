@@ -51,7 +51,7 @@ public:
                             CodecIdSet codecIds, RouterLogger::Ptr)
         : Base(boost::asio::make_strand(socket.get_executor()),
                Stream::makeConnectionInfo(socket)),
-          monitor_(settings),
+          monitor_(std::make_shared<Monitor>(settings)),
           settings_(std::move(settings)),
           admitter_(std::make_shared<Admitter>(std::move(socket),
                                                settings_, std::move(codecIds)))
@@ -77,7 +77,7 @@ protected:
         assert(admitHandler_ == nullptr && "Admit already in progress");
 
         admitHandler_ = std::move(handler);
-        monitor_.startHandshake(now());
+        monitor_->startHandshake(now());
 
         bool isShedding = Base::state() == TransportState::shedding;
         auto self = shared_from_this();
@@ -91,7 +91,7 @@ protected:
         auto tick = now();
         if (queue_)
             queue_->monitor(tick);
-        return monitor_.check(tick);
+        return monitor_->check(tick);
     }
 
     void onStart(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
@@ -132,14 +132,14 @@ protected:
 
             void operator()(std::error_code ec)
             {
-                self->monitor_.endLinger();
+                self->monitor_->endLinger();
                 handler(ec);
             }
         };
 
         if (admitter_ != nullptr)
         {
-            monitor_.startLinger(now());
+            monitor_->startLinger(now());
             auto self = std::dynamic_pointer_cast<QueueingServerTransport>(
                 shared_from_this());
             admitter_->shutdown(reason, AdmitShutdown{std::move(handler),
@@ -171,13 +171,13 @@ private:
     static typename Queue::Ptr makeQueue(Socket&& socket,
                                          const SettingsPtr& settings,
                                          const TransportInfo& ti,
-                                         Monitor& monitor)
+                                         std::shared_ptr<Monitor> monitor)
     {
         return std::make_shared<Queue>(
             Stream{std::move(socket), settings},
             Bouncer{socket.get_executor(), settings->limits().lingerTimeout()},
             ti.sendLimit(),
-            &monitor);
+            std::move(monitor));
     }
 
     static std::chrono::steady_clock::time_point now()
@@ -187,7 +187,7 @@ private:
 
     void onAdmissionCompletion(AdmitResult result)
     {
-        monitor_.endHandshake();
+        monitor_->endHandshake();
 
         if (admitHandler_ != nullptr)
         {
@@ -223,7 +223,7 @@ private:
     void onHeartbeat(TransportFrameKind kind, const Byte* data,
                      std::size_t size)
     {
-        monitor_.heartbeat(now());
+        monitor_->heartbeat(now());
 
         if (kind == TransportFrameKind::ping)
         {
@@ -233,7 +233,7 @@ private:
     }
 
     std::shared_ptr<Queue> queue_;
-    internal::ServerTimeoutMonitor<Settings> monitor_;
+    std::shared_ptr<Monitor> monitor_;
     SettingsPtr settings_;
     std::shared_ptr<Admitter> admitter_;
     AdmitHandler admitHandler_;

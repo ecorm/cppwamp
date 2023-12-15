@@ -58,7 +58,6 @@ TEST_CASE( "Router transport timeouts", "[WAMP][Router]" )
             .withReadTimeout({     milliseconds{100}})
             .withSilenceTimeout(   milliseconds{200})
             .withLoiterTimeout(    milliseconds{300})
-            .withOverstayTimeout(  milliseconds{600})
             .withLingerTimeout(    milliseconds{100}));
 
     router.openServer(
@@ -193,84 +192,6 @@ TEST_CASE( "Router transport timeouts", "[WAMP][Router]" )
             CHECK(client->inFrames().at(3).payload == "Heartbeat2");
             if (client->inFrames().size() > 4)
             CHECK(client->inFrames().at(4).payload != "Heartbeat3");
-            client->close();
-        });
-        ioctx.run();
-        ioctx.restart();
-    }
-
-    {
-        INFO("overstay timeout")
-
-        logEntries.clear();
-        client->clear();
-
-        client->load(
-        {
-            {"[1,\"cppwamp.test\",{}]"}, // HELLO
-            {"[16,1,{\"acknowledge\":true},\"pub\"]",
-             FrameKind::wamp, milliseconds{175}}, // PUBLISH
-            {"[16,2,{\"acknowledge\":true},\"pub\"]",
-             FrameKind::wamp, milliseconds{175}}, // PUBLISH
-            {"[16,3,{\"acknowledge\":true},\"pub\"]",
-             FrameKind::wamp, milliseconds{175}}, // PUBLISH
-            {"[16,4,{\"acknowledge\":true},\"pub\"]",
-             FrameKind::wamp, milliseconds{175}} // PUBLISH
-        });
-
-        spawn(ioctx, [&](YieldContext yield)
-        {
-            client->connect();
-            while (!client->connected())
-                test::suspendCoro(yield);
-            client->start();
-
-            while (logEntries.empty() || !client->readError())
-                test::suspendCoro(yield);
-            CHECK(logEntries.back().action.errorUri ==
-                  errorCodeToUri(
-                      make_error_code(TransportErrc::overstayTimeout)));
-            CHECK(client->readError() == boost::asio::error::eof);
-            CHECK(client->inFrames().size() >= 4);
-            if (client->inFrames().size() > 4)
-                CHECK(client->inFrames().at(4).payload.find("[3") == 0);
-            client->close();
-        });
-        ioctx.run();
-        ioctx.restart();
-    }
-
-    {
-        INFO("overstay timeout inhibited by ongoing read")
-
-        logEntries.clear();
-        client->clear();
-
-        client->load(
-        {
-            {"[1,\"cppwamp.test\",{}]"}, // HELLO
-            {"[16,1,{\"acknowledge\":true},\"pub\"]",
-             FrameKind::wamp, milliseconds{175}}, // PUBLISH
-            {"[16,2,{\"acknowledge\":true},\"pub\"]",
-             FrameKind::wamp, milliseconds{175}}, // PUBLISH
-            {"[16,3,{\"acknowledge\":true},\"pub\"]",
-             FrameKind::wamp, milliseconds{175}}, // PUBLISH
-            {"[16", FrameKind::wamp, 16} // Incomplete PUBLISH
-        });
-
-        spawn(ioctx, [&](YieldContext yield)
-        {
-            client->connect();
-            while (!client->connected())
-                test::suspendCoro(yield);
-            client->start();
-
-            while (logEntries.empty() || !client->readError())
-                test::suspendCoro(yield);
-            CHECK(logEntries.back().action.errorUri ==
-                  errorCodeToUri(
-                      make_error_code(TransportErrc::readTimeout)));
-            CHECK(client->readError() == boost::asio::error::eof);
             client->close();
         });
         ioctx.run();

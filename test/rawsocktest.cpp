@@ -205,14 +205,16 @@ struct ServerTimeoutMonitorTestVector
         : milliseconds(ms), event(ev), bytesTransferred(bytes)
     {}
 
-    ServerTimeoutMonitorTestVector(unsigned ms, Event ev, TransportErrc errc)
-        : milliseconds(ms), event(ev), status(errc)
+    template <typename TErrc,
+              Needs<std::is_error_condition_enum<TErrc>::value> = 0>
+    ServerTimeoutMonitorTestVector(unsigned ms, Event ev, TErrc errc)
+        : milliseconds(ms), event(ev), status(make_error_code(errc))
     {}
 
     unsigned milliseconds;
     ServerTimeoutMonitorTestEvent event;
     std::size_t bytesTransferred = 0;
-    TransportErrc status = TransportErrc::success;
+    std::error_code status;
 };
 
 //------------------------------------------------------------------------------
@@ -580,68 +582,6 @@ TEST_CASE( "ServerTimeoutMonitor", "[Transport]" )
             {500000, E::heartbeat},
             {602999, E::check,       ok},
             {603000, E::check,       TransportErrc::loiterTimeout}
-        };
-
-        checkServerTimeoutMonitor(endpoint, testVectors);
-    }
-
-    SECTION("Overstay timeouts")
-    {
-        auto endpoint = TcpEndpoint(tcpTestPort).withLimits(
-            TcpEndpoint::Limits{}
-                .withReadTimeout( {   seconds{ 5}, 100, seconds{15}})
-                .withWriteTimeout({   seconds{10}, 100, seconds{20}})
-                .withSilenceTimeout(  seconds{300})
-                .withLoiterTimeout(   seconds{600})
-                .withOverstayTimeout( seconds{900}));
-
-        std::vector<ServerTimeoutMonitorTestVector> testVectors
-        {
-            // Not delayed by anything
-            {     0, E::start},
-            {  1000, E::startRead},
-            {  3000, E::endRead},
-            {  8000, E::check,       ok},
-            { 11000, E::startWrite},
-            { 13000, E::endWrite},
-            { 18000, E::check,       ok},
-            {200000, E::heartbeat},
-            {500000, E::heartbeat},
-            {601000, E::startWrite},
-            {603000, E::endWrite},
-            {700000, E::heartbeat},
-            {899999, E::check,       ok},
-            {900000, E::check,       TransportErrc::overstayTimeout},
-
-            // Does not interrupt a read in progress
-            {     0, E::start},
-            {  1000, E::startRead},
-            {  3000, E::endRead},
-            {  8000, E::check,       ok},
-            {200000, E::heartbeat},
-            {500000, E::heartbeat},
-            {601000, E::startRead},
-            {603000, E::endRead},
-            {700000, E::heartbeat},
-            {899500, E::startRead},
-            {900499, E::check,       ok},
-            {900500, E::endRead},
-            {900501, E::check,       TransportErrc::overstayTimeout},
-
-            // Does not interrupt a write in progress
-            {     0, E::start},
-            {  1000, E::startWrite},
-            {  3000, E::endWrite},
-            {  8000, E::check,       ok},
-            {200000, E::heartbeat},
-            {500000, E::heartbeat},
-            {601000, E::startWrite},
-            {603000, E::endWrite},
-            {700000, E::heartbeat},
-            {899500, E::startWrite},
-            {900499, E::check,       ok},
-            {900500, E::endWrite},
-            {900501, E::check,       TransportErrc::overstayTimeout},
         };
 
         checkServerTimeoutMonitor(endpoint, testVectors);

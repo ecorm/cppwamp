@@ -180,10 +180,11 @@ public:
     using TimePoint       = std::chrono::steady_clock::time_point;
 
     TransportQueue(TStream&& stream, Bouncer&& bouncer,
-                   std::size_t txPayloadLimit, Monitor* monitor = nullptr)
+                   std::size_t txPayloadLimit,
+                   std::shared_ptr<Monitor> monitor = nullptr)
         : stream_(std::move(stream)),
           bouncer_(std::move(bouncer)),
-          monitor_(monitor),
+          monitor_(std::move(monitor)),
           txPayloadLimit_(txPayloadLimit)
     {}
 
@@ -550,7 +551,7 @@ private:
     RxHandler rxHandler_;
     TxErrorHandler txErrorHandler_;
     ShutdownHandler shutdownHandler_;
-    Monitor* monitor_ = nullptr;
+    std::shared_ptr<Monitor> monitor_;
     std::size_t txPayloadLimit_ = 0;
     std::size_t txBytesRemaining_ = 0;
     bool isTransmitting_ = false;

@@ -437,20 +437,26 @@ private:
         peer_->establishSession();
         report({AccessAction::clientConnect});
 
+        auto now = steadyTime();
+
         auto timeout = serverOptions_->helloTimeout();
         if (timeoutIsDefinite(timeout))
-            helloDeadline_ = steadyTime() + timeout;
+            helloDeadline_ = now + timeout;
+
+        timeout = serverOptions_->overstayTimeout();
+        if (timeoutIsDefinite(timeout))
+            overstayDeadline_ = now + timeout;
     }
 
     void doMonitor()
     {
         if (transport_ == nullptr)
-            monitorPeerTransport();
+            monitorSession();
         else
             monitorTransport();
     }
 
-    void monitorPeerTransport()
+    void monitorSession()
     {
         std::error_code ec = peer_->monitor();
 
@@ -462,13 +468,7 @@ private:
         }
 
         if (!ec)
-        {
-            auto now = steadyTime();
-            if (now >= helloDeadline_)
-                ec = make_error_code(ServerErrc::helloTimeout);
-            else if (now >= challengeDeadline_)
-                ec = make_error_code(ServerErrc::challengeTimeout);
-        }
+            ec = monitorSessionTimeouts();
 
         if (!ec)
             return;
@@ -476,6 +476,18 @@ private:
         auto hint = detailedErrorCodeString(ec);
         abortSession(Abort{WampErrc::sessionKilled}.withHint(std::move(hint)),
                      {AccessAction::serverAbort, ec});
+    }
+
+    std::error_code monitorSessionTimeouts()
+    {
+        auto now = steadyTime();
+        if (now >= helloDeadline_)
+            return make_error_code(ServerErrc::helloTimeout);
+        if (now >= challengeDeadline_)
+            return make_error_code(ServerErrc::challengeTimeout);
+        if (now >= overstayDeadline_)
+            return make_error_code(ServerErrc::overstayed);
+        return {};
     }
 
     void monitorTransport()
@@ -684,6 +696,7 @@ private:
     Key key_;
     TimePoint helloDeadline_ = TimePoint::max();
     TimePoint challengeDeadline_ = TimePoint::max();
+    TimePoint overstayDeadline_ = TimePoint::max();
     bool alreadyStarted_ = false;
 };
 

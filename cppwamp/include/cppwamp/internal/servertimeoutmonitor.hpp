@@ -95,9 +95,6 @@ public:
     void start(TimePoint now)
     {
         bumpLoiterDeadline(now);
-        auto timeout = settings_->limits().overstayTimeout();
-        if (internal::timeoutIsDefinite(timeout))
-            overstayDeadline_ = now + timeout;
     }
 
     void stop()
@@ -107,7 +104,6 @@ public:
         handshakeDeadline_ = TimePoint::max();
         silenceDeadline_ = TimePoint::max();
         loiterDeadline_ = TimePoint::max();
-        overstayDeadline_ = TimePoint::max();
         lingerDeadline_ = TimePoint::max();
     }
 
@@ -199,8 +195,6 @@ private:
             return TransportErrc::silenceTimeout;
         if (now >= loiterDeadline_)
             return TransportErrc::loiterTimeout;
-        if (!isReading_ && !isWriting_ && now >= overstayDeadline_)
-            return TransportErrc::overstayTimeout;
         if (now >= handshakeDeadline_)
             return TransportErrc::handshakeTimeout;
         if (now >= lingerDeadline_)
@@ -213,7 +207,6 @@ private:
     TimePoint handshakeDeadline_ = TimePoint::max();
     TimePoint silenceDeadline_ = TimePoint::max();
     TimePoint loiterDeadline_ = TimePoint::max();
-    TimePoint overstayDeadline_ = TimePoint::max();
     TimePoint lingerDeadline_ = TimePoint::max();
     SettingsPtr settings_;
     bool isReading_ = false;
