@@ -520,6 +520,7 @@ CPPWAMP_INLINE const std::string& incidentDescription(IncidentKind k)
         /* transportDropped */ "Transport connection dropped",
         /* closedByPeer */     "Session killed by remote peer",
         /* abortedByPeer */    "Session aborted by remote peer",
+        /* idleTimeout */      "Idle timeout due to inactivity",
         /* commFailure */      "Transport failure or protocol error",
         /* challengeFailure */ "Error reported by CHALLENGE handler",
         /* eventError */       "Error reported by EVENT handler",
@@ -595,6 +596,10 @@ CPPWAMP_INLINE LogEntry Incident::toLogEntry() const
     LogLevel level = {};
     switch (kind_)
     {
+    case IncidentKind::idleTimeout:
+        level = LogLevel::info;
+        break;
+
     case IncidentKind::eventError:
         level = LogLevel::error;
         break;

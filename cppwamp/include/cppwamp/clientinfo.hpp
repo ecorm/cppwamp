@@ -478,6 +478,7 @@ enum class IncidentKind
     transportDropped, ///< Transport connection dropped by peer or network.
     closedByPeer,     ///< WAMP session killed by the remote peer.
     abortedByPeer,    ///< WAMP session aborted by the remote peer.
+    idleTimeout,      ///< Idle timeout due to inactivity.
     commFailure,      ///< A fatal transport or protocol error occurred.
     challengeFailure, ///< The challenge handler reported an error.
     eventError,       ///< A pub-sub event handler reported an error.

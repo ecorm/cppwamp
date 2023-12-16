@@ -13,9 +13,7 @@
            WAMP applications. */
 //------------------------------------------------------------------------------
 
-#include <chrono>
 #include <memory>
-#include <string>
 #include <utility>
 #include <boost/asio/async_result.hpp>
 #include "any.hpp"
@@ -201,6 +199,10 @@ public:
     /** Sets the default timeout duration to use for an operation without
         a specified timeout. */
     void setFallbackTimeout(Timeout timeout);
+
+    /** Sets the period of inactivity during the Session::established state
+        for which an IncidentKind::idleTimeout incident is emitted. */
+    void setIdleTimeout(Timeout timeout);
     /// @}
 
     /// @name Session Management

@@ -52,7 +52,6 @@ private:
 
 //------------------------------------------------------------------------------
 /** Contains general timeouts and size limits for client transports. */
-// TODO: Client-side idle timeout
 //------------------------------------------------------------------------------
 template <typename TDerived>
 class BasicClientLimits

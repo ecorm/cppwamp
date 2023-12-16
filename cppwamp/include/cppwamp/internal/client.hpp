@@ -92,7 +92,30 @@ public:
 
     void setFallbackTimeout(Timeout timeout)
     {
-        fallbackTimeout_ = timeout;
+        fallbackTimeout_.store(timeout.count());
+    }
+
+    void setIdleTimeout(Timeout timeout)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Timeout t;
+            void operator()() {self->doSetIdleTimeout(t);}
+        };
+
+        safelyDispatch<Dispatched>(timeout);
+    }
+
+    void doSetIdleTimeout(Timeout timeout)
+    {
+        idleTimeout_ = timeout;
+
+        if (!timeoutIsDefinite(timeout))
+            return cancelIdleTimer();
+
+        if (state() == State::established)
+            kickIdleTimer();
     }
 
     void connect(ConnectionWishList&& w, CompletionHandler<size_t>&& f)
@@ -388,7 +411,9 @@ private:
           readership_(executor_),
           registry_(peer_.get(), executor_),
           requestor_(peer_.get(), strand_, executor_),
-        timer_(strand_)
+          timer_(strand_),
+          idleTimer_(strand_),
+          fallbackTimeout_(unspecifiedTimeout.count())
     {
         peer_->listen(this);
     }
@@ -419,12 +444,16 @@ private:
 
     void onPeerDisconnect() override
     {
+        cancelIdleTimer();
+
         report({IncidentKind::transportDropped});
     }
 
     void onPeerFailure(std::error_code ec, std::string why,
                        bool abortNeeded) override
     {
+        cancelIdleTimer();
+
         report({IncidentKind::commFailure, ec, why});
         abandonPending(ec);
         if (abortNeeded)
@@ -446,6 +475,8 @@ private:
 
     void onPeerAbort(Abort&& reason, bool wasJoining) override
     {
+        cancelIdleTimer();
+
         if (wasJoining)
             return onWampReply(reason.message({}));
 
@@ -510,6 +541,8 @@ private:
 
     void onPeerGoodbye(Goodbye&& reason, bool wasShuttingDown) override
     {
+        cancelIdleTimer();
+
         if (wasShuttingDown)
         {
             onWampReply(reason.message({}));
@@ -525,6 +558,8 @@ private:
 
     void onPeerMessage(Message&& msg) override
     {
+        kickIdleTimer();
+
         switch (msg.kind())
         {
         case MessageKind::event:      return onEvent(msg);
@@ -870,6 +905,7 @@ private:
         if (!peer_->startShuttingDown())
             return postErrorToHandler(MiscErrc::invalidState, handler);
 
+        cancelIdleTimer();
         timeout = timeoutOrFallback(timeout);
         request(std::move(reason), timeout,
                 Requested{shared_from_this(), std::move(handler)});
@@ -890,6 +926,8 @@ private:
                 me.clear();
             }
         };
+
+        cancelIdleTimer();
 
         using S = State;
         auto s = state();
@@ -924,6 +962,8 @@ private:
 
     void doDisconnect()
     {
+        cancelIdleTimer();
+
         auto oldState = state();
         timer_.cancel();
         peer_->disconnect();
@@ -964,6 +1004,8 @@ private:
         if (!checkState(State::established, handler))
             return;
 
+        kickIdleTimer();
+
         MatchUri matchUri{topic};
         auto* record = readership_.findSubscription(matchUri);
         if (record != nullptr)
@@ -983,6 +1025,7 @@ private:
 
     void doUnsubscribe(SubscriptionKey key)
     {
+        kickIdleTimer();
         if (readership_.unsubscribe(key))
             sendUnsubscribe(key.first);
     }
@@ -990,6 +1033,7 @@ private:
     void doUnsubscribe(const Subscription& sub, Timeout timeout,
                        CompletionHandler<bool>&& handler)
     {
+        kickIdleTimer();
         if (!sub || !readership_.unsubscribe(sub.key({})))
             return complete(handler, false);
         timeout = timeoutOrFallback(timeout);
@@ -1023,6 +1067,7 @@ private:
     {
         if (state() != State::established)
             return;
+        kickIdleTimer();
         auto uri = pub.uri();
         auto reqId = requestor_.request(std::move(pub), nullptr);
         if (incidentSlot_ && !reqId)
@@ -1054,6 +1099,7 @@ private:
         if (!checkState(State::established, handler))
             return;
 
+        kickIdleTimer();
         pub.withOption("acknowledge", true);
         auto timeout = timeoutOrFallback(pub.timeout());
         request(std::move(pub), timeout,
@@ -1084,6 +1130,7 @@ private:
         if (!checkState(State::established, f))
             return;
 
+        kickIdleTimer();
         ProcedureRegistration reg{std::move(c), std::move(i), p.uri(),
                                   makeContext()};
         auto timeout = timeoutOrFallback(p.timeout());
@@ -1115,6 +1162,7 @@ private:
         if (!checkState(State::established, f))
             return;
 
+        kickIdleTimer();
         StreamRegistration reg{std::move(ss), s.uri(), makeContext(),
                                s.invitationExpected()};
         request(std::move(s),
@@ -1132,6 +1180,7 @@ private:
             }
         };
 
+        kickIdleTimer();
         if (registry_.unregister(regId) && state() == State::established)
             request(Unregister{regId}, Requested{});
     }
@@ -1151,6 +1200,8 @@ private:
                     me.completeNow(handler, true);
             }
         };
+
+        kickIdleTimer();
 
         if (!reg || !registry_.unregister(reg.id()))
             return complete(handler, false);
@@ -1184,6 +1235,8 @@ private:
 
         if (!checkState(State::established, handler))
             return;
+
+        kickIdleTimer();
 
         auto rpcCancelSlot = rpc.cancellationSlot({});
         auto boundCancelSlot =
@@ -1228,8 +1281,10 @@ private:
 
     void doCancelCall(RequestId reqId, CallCancelMode mode)
     {
-        if (state() == State::established)
-            requestor_.cancelCall(reqId, mode);
+        if (state() != State::established)
+            return;
+        kickIdleTimer();
+        requestor_.cancelCall(reqId, mode);
     }
 
     void doRequestStream(StreamRequest&& req, ChunkSlot&& onChunk,
@@ -1238,6 +1293,7 @@ private:
         if (!checkState(State::established, handler))
             return;
 
+        kickIdleTimer();
         requestor_.requestStream(true, makeContext(), std::move(req),
                                  std::move(onChunk), std::move(handler));
     }
@@ -1248,6 +1304,7 @@ private:
         if (!checkState(State::established, handler))
             return;
 
+        kickIdleTimer();
         auto channel = requestor_.requestStream(
             false, makeContext(), std::move(req), std::move(onChunk));
         complete(handler, std::move(channel));
@@ -1273,6 +1330,7 @@ private:
         if (state() != State::established)
             return;
 
+        kickIdleTimer();
         auto done = requestor_.sendCallerChunk(std::move(chunk));
         if (incidentSlot_ && !done)
         {
@@ -1310,6 +1368,7 @@ private:
     {
         if (state() != State::established)
             return;
+        kickIdleTimer();
         auto reqId = chunk.requestId({});
         auto done = registry_.yield(std::move(chunk));
         if (incidentSlot_ && !done)
@@ -1342,6 +1401,7 @@ private:
     {
         if (state() != State::established)
             return;
+        kickIdleTimer();
         auto reqId = result.requestId({});
         auto done = registry_.yield(std::move(result));
         if (incidentSlot_ && !done)
@@ -1374,6 +1434,7 @@ private:
     {
         if (state() != State::established)
             return;
+        kickIdleTimer();
         auto reqId = error.requestId({});
         auto done = registry_.yield(std::move(error));
         if (incidentSlot_ && !done)
@@ -1562,6 +1623,7 @@ private:
     void failProtocol(std::string why)
     {
         static constexpr auto errc = WampErrc::protocolViolation;
+        cancelIdleTimer();
         abandonPending(errc);
         peer_->abort(Abort(errc).withHint(why));
         report({IncidentKind::commFailure, make_error_code(errc),
@@ -1610,7 +1672,34 @@ private:
 
     Timeout timeoutOrFallback(Timeout t)
     {
-        return (t == unspecifiedTimeout) ? fallbackTimeout_ : t;
+        return (t != unspecifiedTimeout) ? t : Timeout{fallbackTimeout_.load()};
+    }
+
+    void kickIdleTimer()
+    {
+        if (!timeoutIsDefinite(idleTimeout_))
+            return;
+
+        std::weak_ptr<Client> self = shared_from_this();
+        idleTimer_.expires_from_now(idleTimeout_);
+        idleTimer_.async_wait(
+            [self](boost::system::error_code ec)
+            {
+                auto me = self.lock();
+                if (me)
+                    me->onIdleTimeout(ec);
+            });
+    }
+
+    void cancelIdleTimer() {idleTimer_.cancel();}
+
+    void onIdleTimeout(boost::system::error_code ec)
+    {
+        if (ec == boost::asio::error::operation_aborted)
+            return;
+
+        assert(!ec && "Unexpected timer error");
+        report({IncidentKind::idleTimeout});
     }
 
     AnyIoExecutor executor_;
@@ -1620,13 +1709,15 @@ private:
     ProcedureRegistry registry_;
     Requestor requestor_;
     boost::asio::steady_timer timer_;
+    boost::asio::steady_timer idleTimer_;
     IncidentSlot incidentSlot_;
     ChallengeSlot challengeSlot_;
     Connecting::Ptr currentConnector_;
 #ifdef CPPWAMP_STRICT_INVOCATION_ID_CHECKS
     RequestId inboundRequestIdWatermark_ = 0;
 #endif
-    Timeout fallbackTimeout_ = unspecifiedTimeout;
+    std::atomic<Timeout::rep> fallbackTimeout_;
+    Timeout idleTimeout_ = unspecifiedTimeout;
     bool isTerminating_ = false;
 
     friend class ClientContext;

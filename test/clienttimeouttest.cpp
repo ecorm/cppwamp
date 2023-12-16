@@ -296,4 +296,91 @@ TEST_CASE("WAMP Client Command Timeouts", "[WAMP][Basic]")
     }
 }
 
+//------------------------------------------------------------------------------
+TEST_CASE("WAMP Client Idle Timeouts", "[WAMP][Basic]")
+{
+    IoContext ioctx;
+    std::vector<Incident> incidents;
+    Session s1{ioctx};
+    Session s2{ioctx};
+    s1.setIdleTimeout(std::chrono::milliseconds(80));
+    s1.observeIncidents([&incidents](Incident i) {incidents.push_back(i);});
+    boost::asio::steady_timer timer{ioctx};
+
+    auto wait = [&timer](unsigned ms, YieldContext yield)
+    {
+        timer.expires_after(std::chrono::milliseconds{ms});
+        timer.async_wait(yield);
+    };
+
+    spawn([&](YieldContext yield)
+    {
+        // Idle timeout does not apply while not established
+        s1.connect(withTcp, yield).value();
+        wait(100, yield);
+
+        // Idle timeout countdown starts as soon as the session is established
+        s1.join(Hello{testRealm}, yield).value();
+        wait(100, yield);
+        REQUIRE(!incidents.empty());
+        CHECK(incidents.front().kind() == IncidentKind::idleTimeout);
+        incidents.clear();
+
+        // There should be no subsequent timeouts while there is no activity
+        // to restart the idle timeout countdown
+        wait(100, yield);
+        CHECK(incidents.empty());
+
+        s2.connect(withTcp, yield).value();
+        s2.join(Hello{testRealm}, yield).value();
+
+        // Keep triggering activity before the idle timeout deadline
+        auto sub = s1.subscribe("topic", [](Event) {}, yield).value();
+        wait(60, yield);
+        s1.publish(Pub{"topic"}, yield).value();
+        wait(60, yield);
+        s1.publish(Pub{"topic"});
+        wait(60, yield);
+        s2.publish(Pub{"topic"});
+        wait(60, yield);
+        sub.unsubscribe();
+        wait(60, yield);
+        auto reg = s1.enroll("rpc", [](Invocation) {return Result{};},
+                             yield).value();
+        wait(60, yield);
+        s1.call(Rpc{"rpc"}, yield).value();
+        wait(60, yield);
+        s2.call(Rpc{"rpc"}, yield).value();
+        wait(60, yield);
+        reg.unregister();
+        wait(60, yield);
+        CHECK(incidents.empty());
+
+        // Allow the idle timeout deadline to lapse
+        wait(40, yield);
+        REQUIRE(!incidents.empty());
+        CHECK(incidents.front().kind() == IncidentKind::idleTimeout);
+        incidents.clear();
+
+        // Clearing the idle timeout cancels the current pending timeout
+        s1.publish(Pub{"topic"}, yield).value();
+        wait(60, yield);
+        s1.setIdleTimeout(neverTimeout);
+        wait(60, yield);
+        CHECK(incidents.empty());
+
+        // Setting the idle timeout triggers a new idle timeout countdown
+        s1.setIdleTimeout(std::chrono::milliseconds(100));
+        wait(120, yield);
+        REQUIRE(!incidents.empty());
+        CHECK(incidents.front().kind() == IncidentKind::idleTimeout);
+
+        s1.disconnect();
+        s2.disconnect();
+        ioctx.stop();
+    });
+
+    ioctx.run();
+}
+
 #endif // defined(CPPWAMP_TEST_HAS_CORO)
