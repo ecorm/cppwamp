@@ -259,6 +259,7 @@ CPPWAMP_INLINE WebsocketHost::WebsocketHost(std::string address, Port port)
 
 CPPWAMP_INLINE WebsocketHost& WebsocketHost::withTarget(std::string target)
 {
+    // TODO: Validate target path
     target_ = std::move(target);
     return *this;
 }

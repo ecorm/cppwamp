@@ -47,8 +47,12 @@ endif()
 
 if(CPPWAMP_OPT_WITH_WEB)
     add_subdirectory(webserver)
+    add_subdirectory(wsrouter)
+    add_subdirectory(wstimeclient)
     add_dependencies(cppwamp_examples
-                     cppwamp-example-webserver)
+                     cppwamp-example-webserver
+                     cppwamp-example-wsrouter
+                     cppwamp-example-wstimeclient)
 endif()
 
 # Copy Crossbar node configuration to build directory
