@@ -377,7 +377,7 @@ public:
           settings_(std::move(s))
     {
         response_.base().set(boost::beast::http::field::server,
-                             settings_->agent());
+                             settings_->options().agent());
     }
 
     void admit(bool isShedding, Handler handler)
@@ -542,7 +542,7 @@ private:
         // Set the Server and Sec-WebsocketSocket-Protocol fields of
         // the handshake
         websocket_->set_option(boost::beast::websocket::stream_base::decorator(
-            Decorator{settings_->agent(), subprotocol}));
+            Decorator{settings_->options().agent(), subprotocol}));
 
         setPermessageDeflateOptions();
 
@@ -559,7 +559,7 @@ private:
 
     void setPermessageDeflateOptions()
     {
-        const auto& opts = settings_->permessageDeflate();
+        const auto& opts = settings_->options().permessageDeflate();
         if (!opts.enabled())
             return;
 

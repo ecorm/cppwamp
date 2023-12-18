@@ -85,13 +85,13 @@ public:
             });
     }
 
-    void websocketUpgrade()
+    void websocketUpgrade(WebsocketOptions options,
+                          const WebsocketServerLimits limits)
     {
         auto self = shared_from_this();
-        // TODO: Add permessageDeflate, writeBufferSize, and autoFragment
-        // options from action
+        auto settings = settings_->toWebsocket(std::move(options), limits);
         auto wsEndpoint =
-            std::make_shared<WebsocketEndpoint>(settings_->toWebsocket());
+            std::make_shared<WebsocketEndpoint>(std::move(settings));
         auto t = std::make_shared<WebsocketServerTransport>(
             std::move(tcpSocket_), std::move(wsEndpoint), codecIds_);
         upgradedTransport_ = std::move(t);

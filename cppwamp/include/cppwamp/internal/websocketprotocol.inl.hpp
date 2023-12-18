@@ -165,6 +165,65 @@ CPPWAMP_INLINE std::size_t WebsocketPermessageDeflate::threshold() const
 
 
 //******************************************************************************
+// WebsocketOptions
+//******************************************************************************
+
+CPPWAMP_INLINE WebsocketOptions& WebsocketOptions::withAgent(std::string agent)
+{
+    agent_ = std::move(agent);
+    return *this;
+}
+
+/** @details
+    Sets the [boost::beast::websocket::stream::write_buffer_bytes]
+    (https://www.boost.org/doc/libs/release/libs/beast/doc/html/beast/ref/boost__beast__websocket__stream/write_buffer_bytes.html) option. */
+CPPWAMP_INLINE WebsocketOptions&
+WebsocketOptions::withWriteBufferSize(std::size_t bytes)
+{
+    writeBufferSize_ = bytes;
+    return *this;
+}
+
+/** @details
+    Sets the [boost::beast::websocket::stream::auto_fragment]
+    (https://www.boost.org/doc/libs/release/libs/beast/doc/html/beast/ref/boost__beast__websocket__stream/auto_fragment.html) option. */
+CPPWAMP_INLINE WebsocketOptions&
+WebsocketOptions::withAutoFragment(bool enabled)
+{
+    autoFragment_ = enabled;
+    return *this;
+}
+
+CPPWAMP_INLINE WebsocketOptions&
+WebsocketOptions::withPermessageDeflate(WebsocketPermessageDeflate options)
+{
+    permessageDeflate_ = options;
+    return *this;
+}
+
+CPPWAMP_INLINE const std::string& WebsocketOptions::agent() const
+{
+    return agent_;
+}
+
+CPPWAMP_INLINE std::size_t WebsocketOptions::writeBufferSize() const
+{
+    return writeBufferSize_;
+}
+
+CPPWAMP_INLINE bool WebsocketOptions::autoFragment() const
+{
+    return autoFragment_;
+}
+
+CPPWAMP_INLINE const WebsocketPermessageDeflate&
+WebsocketOptions::permessageDeflate() const
+{
+    return permessageDeflate_;
+}
+
+
+//******************************************************************************
 // WebsocketClientLimits
 //******************************************************************************
 
@@ -188,11 +247,15 @@ CPPWAMP_INLINE std::size_t WebsocketClientLimits::headerSize() const
 CPPWAMP_INLINE WebsocketHost::WebsocketHost(std::string address,
                                             std::string serviceName)
     : Base(std::move(address), std::move(serviceName))
-{}
+{
+    options_.withAgent(Version::clientAgentString());
+}
 
 CPPWAMP_INLINE WebsocketHost::WebsocketHost(std::string address, Port port)
     : WebsocketHost(std::move(address), std::to_string(port))
-{}
+{
+    options_.withAgent(Version::clientAgentString());
+}
 
 CPPWAMP_INLINE WebsocketHost& WebsocketHost::withTarget(std::string target)
 {
@@ -200,35 +263,10 @@ CPPWAMP_INLINE WebsocketHost& WebsocketHost::withTarget(std::string target)
     return *this;
 }
 
-CPPWAMP_INLINE WebsocketHost& WebsocketHost::withAgent(std::string agent)
-{
-    agent_ = std::move(agent);
-    return *this;
-}
-
-/** @details
-    Sets the [boost::beast::websocket::stream::write_buffer_bytes]
-    (https://www.boost.org/doc/libs/release/libs/beast/doc/html/beast/ref/boost__beast__websocket__stream/write_buffer_bytes.html) option. */
 CPPWAMP_INLINE WebsocketHost&
-WebsocketHost::withWriteBufferSize(std::size_t bytes)
+WebsocketHost::withOptions(WebsocketOptions options)
 {
-    writeBufferSize_ = bytes;
-    return *this;
-}
-
-/** @details
-    Sets the [boost::beast::websocket::stream::auto_fragment]
-    (https://www.boost.org/doc/libs/release/libs/beast/doc/html/beast/ref/boost__beast__websocket__stream/auto_fragment.html) option. */
-CPPWAMP_INLINE WebsocketHost& WebsocketHost::withAutoFragment(bool enabled)
-{
-    autoFragment_ = enabled;
-    return *this;
-}
-
-CPPWAMP_INLINE WebsocketHost&
-WebsocketHost::withPermessageDeflate(WebsocketPermessageDeflate options)
-{
-    permessageDeflate_ = options;
+    options_ = std::move(options);
     return *this;
 }
 
@@ -237,19 +275,9 @@ CPPWAMP_INLINE const std::string& WebsocketHost::target() const
     return target_;
 }
 
-CPPWAMP_INLINE const std::string& WebsocketHost::agent() const {return agent_;}
-
-CPPWAMP_INLINE std::size_t WebsocketHost::writeBufferSize() const
+CPPWAMP_INLINE const WebsocketOptions& WebsocketHost::options() const
 {
-    return writeBufferSize_;
-}
-
-CPPWAMP_INLINE bool WebsocketHost::autoFragment() const {return autoFragment_;}
-
-CPPWAMP_INLINE const WebsocketPermessageDeflate&
-WebsocketHost::permessageDeflate() const
-{
-    return permessageDeflate_;
+    return options_;
 }
 
 
@@ -275,72 +303,30 @@ CPPWAMP_INLINE std::size_t WebsocketServerLimits::headerSize() const
 //******************************************************************************
 
 CPPWAMP_INLINE WebsocketEndpoint::WebsocketEndpoint(Port port)
-    : Base("", port),
-      agent_(Version::serverAgentString())
+    : Base("", port)
 {
+    options_.withAgent(Version::serverAgentString());
     mutableAcceptorOptions().withReuseAddress(true);
 }
 
 CPPWAMP_INLINE WebsocketEndpoint::WebsocketEndpoint(std::string address,
                                                     unsigned short port)
-    : Base(std::move(address), port),
-      agent_(Version::serverAgentString())
+    : Base(std::move(address), port)
 {
+    options_.withAgent(Version::serverAgentString());
     mutableAcceptorOptions().withReuseAddress(true);
 }
 
-CPPWAMP_INLINE WebsocketEndpoint& WebsocketEndpoint::withAgent(std::string a)
-{
-    agent_ = std::move(a);
-    return *this;
-}
-
-/** @details
-    Sets the [boost::beast::websocket::stream::write_buffer_bytes]
-    (https://www.boost.org/doc/libs/release/libs/beast/doc/html/beast/ref/boost__beast__websocket__stream/write_buffer_bytes.html) option. */
 CPPWAMP_INLINE WebsocketEndpoint&
-WebsocketEndpoint::withWriteBufferSize(std::size_t bytes)
+WebsocketEndpoint::withOptions(WebsocketOptions options)
 {
-    writeBufferSize_ = bytes;
+    options_ = std::move(options);
     return *this;
 }
 
-/** @details
-    Sets the [boost::beast::websocket::stream::auto_fragment]
-    (https://www.boost.org/doc/libs/release/libs/beast/doc/html/beast/ref/boost__beast__websocket__stream/auto_fragment.html) option. */
-CPPWAMP_INLINE WebsocketEndpoint&
-WebsocketEndpoint::withAutoFragment(bool enabled)
+CPPWAMP_INLINE const WebsocketOptions& WebsocketEndpoint::options() const
 {
-    autoFragment_ = enabled;
-    return *this;
-}
-
-CPPWAMP_INLINE WebsocketEndpoint&
-WebsocketEndpoint::withPermessageDeflate(WebsocketPermessageDeflate opts)
-{
-    permessageDeflate_ = opts;
-    return *this;
-}
-
-CPPWAMP_INLINE const std::string& WebsocketEndpoint::agent() const
-{
-    return agent_;
-}
-
-CPPWAMP_INLINE std::size_t WebsocketEndpoint::writeBufferSize() const
-{
-    return writeBufferSize_;
-}
-
-CPPWAMP_INLINE bool WebsocketEndpoint::autoFragment() const
-{
-    return autoFragment_;
-}
-
-CPPWAMP_INLINE const WebsocketPermessageDeflate&
-WebsocketEndpoint::permessageDeflate() const
-{
-    return permessageDeflate_;
+    return options_;
 }
 
 CPPWAMP_INLINE std::string WebsocketEndpoint::label() const

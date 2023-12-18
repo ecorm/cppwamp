@@ -98,18 +98,25 @@ public:
     /** Constructor. */
     explicit HttpWebsocketUpgrade(std::string route);
 
-    /** Specifies the maximum length permitted for incoming messages. */
-    HttpWebsocketUpgrade& withMaxRxLength(std::size_t length);
+    /** Specifies the Websocket options. */
+    HttpWebsocketUpgrade& withOptions(WebsocketOptions options);
+
+    /** Specifies the Websocket server limits. */
+    HttpWebsocketUpgrade& withLimits(WebsocketServerLimits limits);
 
     /** Obtains the route associated with this action. */
     const std::string& route() const;
 
+    /** Obtains the websocket options. */
+    const WebsocketOptions options() const;
+
     /** Obtains the specified maximum incoming message length. */
-    std::size_t receiveLimit() const;
+    const WebsocketServerLimits& limits() const;
 
 private:
     std::string route_;
-    std::size_t receiveLimit_ = 16*1024*1024;
+    WebsocketOptions options_;
+    WebsocketServerLimits limits_;
 };
 
 

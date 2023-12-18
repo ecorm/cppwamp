@@ -136,7 +136,7 @@ private:
         assert(!subprotocol.empty());
         assert(websocket_.has_value());
         websocket_->set_option(boost::beast::websocket::stream_base::decorator(
-            Decorator{settings_->agent(), subprotocol}));
+            Decorator{settings_->options().agent(), subprotocol}));
 
         setWebsocketOptions();
 
@@ -159,7 +159,7 @@ private:
 
     void setWebsocketOptions()
     {
-        const auto& pmd = settings_->permessageDeflate();
+        const auto& pmd = settings_->options().permessageDeflate();
         if (pmd.enabled())
         {
             boost::beast::websocket::permessage_deflate pd;
@@ -173,11 +173,12 @@ private:
             websocket_->set_option(pd);
         }
 
-        if (websocket_->write_buffer_bytes() != settings_->writeBufferSize())
-            websocket_->write_buffer_bytes(settings_->writeBufferSize());
+        const auto& opts = settings_->options();
+        if (websocket_->write_buffer_bytes() != opts.writeBufferSize())
+            websocket_->write_buffer_bytes(opts.writeBufferSize());
 
-        if (websocket_->auto_fragment() != settings_->autoFragment())
-            websocket_->auto_fragment(settings_->autoFragment());
+        if (websocket_->auto_fragment() != opts.autoFragment())
+            websocket_->auto_fragment(opts.autoFragment());
     }
 
 

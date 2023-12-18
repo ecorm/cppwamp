@@ -321,11 +321,12 @@ public:
     const ErrorPage* findErrorPage(HttpStatus status) const;
 
     /** Converts to settings for use in Websocket upgrade requests. */
-    WebsocketEndpoint toWebsocket() const
+    WebsocketEndpoint toWebsocket(WebsocketOptions options,
+                                  WebsocketServerLimits limits) const
     {
         return WebsocketEndpoint{address(), port()}
-            .withAgent(agent_)
-            .withLimits(limits_.toWebsocket());
+            .withOptions(std::move(options))
+            .withLimits(limits);
     }
 
 private:

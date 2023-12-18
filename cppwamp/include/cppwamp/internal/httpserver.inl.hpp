@@ -154,18 +154,32 @@ CPPWAMP_INLINE HttpWebsocketUpgrade::HttpWebsocketUpgrade(std::string route)
 {}
 
 CPPWAMP_INLINE HttpWebsocketUpgrade&
-HttpWebsocketUpgrade::withMaxRxLength(std::size_t length)
+HttpWebsocketUpgrade::withOptions(WebsocketOptions options)
 {
-    receiveLimit_ = length;
+    options_ = std::move(options);
+    return *this;
+}
+
+CPPWAMP_INLINE HttpWebsocketUpgrade&
+HttpWebsocketUpgrade::withLimits(WebsocketServerLimits limits)
+{
+    limits_ = limits;
     return *this;
 }
 
 CPPWAMP_INLINE const std::string& HttpWebsocketUpgrade::route() const
-{return route_;}
-
-CPPWAMP_INLINE std::size_t HttpWebsocketUpgrade::receiveLimit() const
 {
-    return receiveLimit_;
+    return route_;
+}
+
+CPPWAMP_INLINE const WebsocketOptions HttpWebsocketUpgrade::options() const
+{
+    return options_;
+}
+
+CPPWAMP_INLINE const WebsocketServerLimits& HttpWebsocketUpgrade::limits() const
+{
+    return limits_;
 }
 
 //******************************************************************************
@@ -593,7 +607,7 @@ CPPWAMP_INLINE void HttpAction<HttpWebsocketUpgrade>::execute(HttpJob& job)
             {{boost::beast::http::field::upgrade, "websocket"}});
     }
 
-    job.websocketUpgrade();
+    job.websocketUpgrade(options_.options(), options_.limits());
 };
 
 } // namespace internal
