@@ -88,7 +88,7 @@ macro(cppwamp_find_vendorized_boost)
         set(Boost_USE_STATIC_LIBS ON)
     endif()
 
-    set(BOOST_ROOT "${CPPWAMP_BOOST_VENDOR_DIR}")
+    set(Boost_ROOT "${CPPWAMP_BOOST_VENDOR_DIR}")
     set(Boost_NO_SYSTEM_PATHS "${CPPWAMP_BOOST_VENDOR_DIR}")
 
     find_package(Boost
@@ -138,7 +138,7 @@ macro(cppwamp_resolve_boost_dependency)
                 COMPONENTS ${CPPWAMP_BOOST_COMPONENTS})
             if(NOT ${Boost_FOUND})
                 message(WARNING
-"Cannot find Boost libraries. Please either define BOOST_ROOT or \
+"Cannot find Boost libraries. Please either define Boost_ROOT or \
 enable CPPWAMP_OPT_VENDORIZE")
             endif()
         endif()

@@ -8,7 +8,6 @@ add_subdirectory(asynctimeclient)
 add_subdirectory(asynctimeservice)
 add_subdirectory(futuretimeclient)
 add_subdirectory(futuretimeservice)
-add_subdirectory(webserver)
 add_subdirectory(router)
 
 # Convenience target that groups all examples
@@ -18,8 +17,7 @@ add_dependencies(cppwamp_examples
                  cppwamp-example-asynctimeservice
                  cppwamp-example-futuretimeclient
                  cppwamp-example-futuretimeservice
-                 cppwamp-example-router
-                 cppwamp-example-webserver)
+                 cppwamp-example-router)
 
 if(CPPWAMP_OPT_WITH_CORO)
     add_subdirectory(chat)
@@ -42,8 +40,15 @@ endif()
 if(CPPWAMP_OPT_WITH_CORO20)
     add_subdirectory(coro20timeclient)
     add_subdirectory(coro20timeservice)
-    add_dependencies(cppwamp-example-coro20timeclient
+    add_dependencies(cppwamp_examples
+                     cppwamp-example-coro20timeclient
                      cppwamp-example-coro20timeservice)
+endif()
+
+if(CPPWAMP_OPT_WITH_WEB)
+    add_subdirectory(webserver)
+    add_dependencies(cppwamp_examples
+                     cppwamp-example-webserver)
 endif()
 
 # Copy Crossbar node configuration to build directory
