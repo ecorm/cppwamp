@@ -45,6 +45,8 @@ public:
 
     const std::string& server() const {return server_;}
 
+    const std::string& target() const {return target_;}
+
     ServerSessionNumber serverSessionNumber() const
     {
         return serverSessionNumber_;
@@ -57,6 +59,15 @@ public:
         transport_.emplace("server", name);
     }
 
+    void setTarget(std::string target)
+    {
+        if (target.empty())
+            return;
+        target_ = std::move(target);
+        transport_.emplace("target", target_);
+        endpoint_ += target_;
+    }
+
     ConnectionInfoImpl(const ConnectionInfoImpl&) = delete;
     ConnectionInfoImpl& operator=(const ConnectionInfoImpl&) = delete;
 
@@ -64,6 +75,7 @@ private:
     Object transport_;
     std::string endpoint_;
     std::string server_;
+    std::string target_;
     ServerSessionNumber serverSessionNumber_ = 0;
 };
 

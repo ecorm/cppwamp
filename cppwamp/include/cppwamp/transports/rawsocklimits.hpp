@@ -16,7 +16,7 @@ namespace wamp
 /** Contains timeouts and size limits for raw socket client transports. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API RawsockClientLimits
-    : public BasicClientLimits<RawsockClientLimits>
+    : public BasicClientTransportLimits<RawsockClientLimits>
 {
 public:
     RawsockClientLimits& withHeartbeatSize(std::size_t n)
@@ -35,7 +35,7 @@ private:
 /** Contains timeouts and size limits for raw socket server transports. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API RawsockServerLimits
-    : public BasicServerLimits<RawsockServerLimits>
+    : public BasicServerTransportLimits<RawsockServerLimits>
 {
 public:
     RawsockServerLimits& withHeartbeatSize(std::size_t n)

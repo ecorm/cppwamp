@@ -35,6 +35,11 @@ public:
             transport_->close();
     }
 
+    const ConnectionInfo& connectionInfo() const
+    {
+        return transport_->connectionInfo();
+    }
+
     std::error_code monitor()
     {
         return (transport_ == nullptr) ? std::error_code{}

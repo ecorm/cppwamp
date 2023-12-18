@@ -191,11 +191,11 @@ private:
         else
             websocket_->binary(true);
 
-        const TransportInfo i{codecId_,
-                              settings_->limits().writeMsgSize(),
-                              settings_->limits().readMsgSize()};
+        TransportInfo info{codecId_, settings_->limits().writeMsgSize(),
+                           settings_->limits().readMsgSize()};
         Transporting::Ptr transport =
-            std::make_shared<Transport>(std::move(*websocket_), settings_, i);
+            std::make_shared<Transport>(std::move(*websocket_), settings_,
+                                        std::move(info));
         websocket_.reset();
         dispatchHandler(std::move(transport));
     }

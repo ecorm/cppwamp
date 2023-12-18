@@ -7,7 +7,6 @@
 #include "../transport.hpp"
 #include "../api.hpp"
 #include "../errorcodes.hpp"
-#include "../exceptions.hpp"
 #include "random.hpp"
 
 namespace wamp
@@ -19,8 +18,8 @@ namespace wamp
 
 CPPWAMP_INLINE TransportInfo::TransportInfo() = default;
 
-CPPWAMP_INLINE TransportInfo::TransportInfo(
-    int codecId, std::size_t sendLimit, std::size_t receiveLimit)
+CPPWAMP_INLINE TransportInfo::TransportInfo(int codecId, std::size_t sendLimit,
+                                            std::size_t receiveLimit)
     : codecId_(codecId),
       sendLimit_(sendLimit),
       receiveLimit_(receiveLimit)
@@ -235,9 +234,11 @@ CPPWAMP_INLINE void Transporting::onShed(AdmitHandler handler)
 
 CPPWAMP_INLINE std::error_code Transporting::onMonitor() {return {};}
 
-CPPWAMP_INLINE void Transporting::setReady(TransportInfo ti)
+CPPWAMP_INLINE void Transporting::setReady(TransportInfo ti,
+                                           std::string targetPath)
 {
     info_ = ti;
+    connectionInfo_.setTarget({}, std::move(targetPath));
     state_ = State::ready;
 }
 

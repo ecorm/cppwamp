@@ -546,6 +546,8 @@ public:
 
     const TransportInfo& transportInfo() const {return transportInfo_;}
 
+    std::string releaseTargetPath() {return std::string{};}
+
     Socket&& releaseSocket() {return std::move(socket_);}
 
 private:

@@ -282,7 +282,8 @@ private:
             return;
         }
 
-        authExchange_ = AuthExchange::create({}, std::move(hello),
+        authExchange_ = AuthExchange::create({}, peer_->connectionInfo(),
+                                             std::move(hello),
                                              shared_from_this());
         serverOptions_->authenticator()->authenticate(authExchange_, executor_);
     }

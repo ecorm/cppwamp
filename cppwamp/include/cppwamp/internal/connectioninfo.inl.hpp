@@ -38,6 +38,12 @@ CPPWAMP_INLINE const std::string& ConnectionInfo::server() const
     return impl_ ? impl_->server() : empty;
 }
 
+CPPWAMP_INLINE const std::string& ConnectionInfo::target() const
+{
+    static const std::string empty;
+    return impl_ ? impl_->target() : empty;
+}
+
 CPPWAMP_INLINE ConnectionInfo::ServerSessionNumber
 ConnectionInfo::serverSessionNumber() const
 {
@@ -58,6 +64,12 @@ CPPWAMP_INLINE void ConnectionInfo::setServer(
     internal::PassKey, const std::string& name, ServerSessionNumber n)
 {
     impl_->setServer(name, n);
+}
+
+CPPWAMP_INLINE void ConnectionInfo::setTarget(internal::PassKey,
+                                              std::string target)
+{
+    impl_->setTarget(std::move(target));
 }
 
 } // namespace wamp

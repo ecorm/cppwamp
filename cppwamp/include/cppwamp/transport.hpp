@@ -8,13 +8,9 @@
 #define CPPWAMP_TRANSPORT_HPP
 
 #include <cstdint>
-#include <deque>
 #include <functional>
-#include <limits>
 #include <memory>
-#include <mutex>
 #include <system_error>
-#include <vector>
 #include "api.hpp"
 #include "anyhandler.hpp"
 #include "asiodefs.hpp"
@@ -284,7 +280,7 @@ protected:
 
     /** Must be called by derived server classes after transport details
         have been negotiated successfully. */
-    void setReady(TransportInfo ti);
+    void setReady(TransportInfo ti, std::string targetPath = {});
 
     /** Must be called by derived server classes when negotiation results
         in rejection. */

@@ -17,6 +17,7 @@
 #include "any.hpp"
 #include "anyhandler.hpp"
 #include "api.hpp"
+#include "connectioninfo.hpp"
 #include "clientinfo.hpp"
 #include "internal/passkey.hpp"
 #include "internal/challenger.hpp"
@@ -33,13 +34,16 @@ public:
     /// Shared pointer type.
     using Ptr = std::shared_ptr<AuthExchange>;
 
-    /** Accesses the HELLO information provided by the client. */
+    /** Obtains the connection information associated with the client. */
+    const ConnectionInfo& connectionInfo() const;
+
+    /** Obtains the HELLO information provided by the client. */
     const Hello& hello() const;
 
-    /** Accesses the CHALLENGE information sent by the router. */
+    /** Obtains the CHALLENGE information sent by the router. */
     const Challenge& challenge() const;
 
-    /** Accesses the AUTHENTICATE information sent by the client. */
+    /** Obtains the AUTHENTICATE information sent by the client. */
     const Authentication& authentication() const;
 
     /** Obtains the number of times a CHALLENGE has been issued. */
@@ -66,9 +70,11 @@ public:
 private:
     using ChallengerPtr = std::weak_ptr<internal::Challenger>;
 
-    AuthExchange(Hello&& h, ChallengerPtr c);
+    AuthExchange(ConnectionInfo i, Hello&& h, ChallengerPtr c);
 
+    ConnectionInfo connectionInfo_;
     Hello hello_;
+    std::string transportTarget_;
     ChallengerPtr challenger_;
     Challenge challenge_;
     Authentication authentication_;
@@ -76,7 +82,8 @@ private:
     unsigned challengeCount_ = 0;
 
 public: // Internal use only
-    static Ptr create(internal::PassKey, Hello&& h, ChallengerPtr c);
+    static Ptr create(internal::PassKey, ConnectionInfo i, Hello&& h,
+                      ChallengerPtr c);
     void setAuthentication(internal::PassKey, Authentication&& a);
     Hello& hello(internal::PassKey);
 };

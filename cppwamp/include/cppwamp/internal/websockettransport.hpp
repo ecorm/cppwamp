@@ -385,6 +385,8 @@ public:
         isShedding_ = isShedding;
         handler_ = std::move(handler);
 
+        // The parser is not resettable; the Beast author recommends wrapping
+        // it in boost::optional.
         // https://github.com/boostorg/beast/issues/971#issuecomment-356306911
         requestParser_.emplace();
         const auto headerSizeLimit = settings_->limits().headerSize();
@@ -449,6 +451,8 @@ public:
 
     const TransportInfo& transportInfo() const {return transportInfo_;}
 
+    std::string releaseTargetPath() {return std::string{std::move(target_)};}
+
     Socket&& releaseSocket()
     {
         assert(websocket_.has_value());
@@ -492,9 +496,6 @@ private:
 
     void acceptHandshake()
     {
-        // TODO: Multiplex websocket transports with same port but different
-        //       request-target URIs.
-
         // Check that we actually received a websocket upgrade request
         assert(requestParser_.has_value());
         if (!requestParser_->upgrade())
@@ -535,6 +536,10 @@ private:
                           HttpStatus::bad_request,
                           AdmitResult::rejected(TransportErrc::badSerializer));
         }
+
+        // Store the request-target string
+        // TODO: Validate like in HttpJob::normalizeAndCheckTargetPath
+        target_ = request.target();
 
         // Transfer the TCP socket to a new websocket stream
         websocket_.emplace(std::move(tcpSocket_));
@@ -640,6 +645,7 @@ private:
     boost::beast::flat_buffer buffer_;
     boost::optional<Parser> requestParser_;
     boost::beast::http::response<boost::beast::http::string_body> response_;
+    std::string target_;
     int codecId_ = 0;
     bool isShedding_ = false;
 };

@@ -160,10 +160,11 @@ private:
         auto txLimit = settings_->limits().writeMsgSize();
         txLimit = txLimit < peerLimit ? txLimit : peerLimit;
         const auto rxLimit = settings_->limits().readMsgSize();
-        const TransportInfo i{codecId_, txLimit, rxLimit};
+        TransportInfo i{codecId_, txLimit, rxLimit};
 
         Transporting::Ptr transport =
-            std::make_shared<Transport>(std::move(socket_), settings_, i);
+            std::make_shared<Transport>(std::move(socket_), settings_,
+                                        std::move(i));
         dispatchHandler(std::move(transport));
     }
 

@@ -54,7 +54,7 @@ private:
 /** Contains general timeouts and size limits for client transports. */
 //------------------------------------------------------------------------------
 template <typename TDerived>
-class BasicClientLimits
+class BasicClientTransportLimits
 {
 public:
     TDerived& withRxMsgSize(std::size_t n) {return set(readMsgSize_, n);}
@@ -97,7 +97,7 @@ private:
 /** Contains general timeouts and size limits for server transports. */
 //------------------------------------------------------------------------------
 template <typename TDerived>
-class BasicServerLimits
+class BasicServerTransportLimits
 {
 public:
     TDerived& withReadMsgSize(std::size_t n) {return set(readMsgSize_, n);}

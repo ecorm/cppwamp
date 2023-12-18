@@ -12,6 +12,7 @@
     @brief Contains basic Websocket protocol facilities. */
 //------------------------------------------------------------------------------
 
+#include <map>
 #include <system_error>
 #include "../api.hpp"
 #include "../transportlimits.hpp"
@@ -177,7 +178,7 @@ private:
 /** Contains timeouts and size limits for Websocket client transports. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API WebsocketClientLimits
-    : public BasicClientLimits<WebsocketClientLimits>
+    : public BasicClientTransportLimits<WebsocketClientLimits>
 {
 public:
     WebsocketClientLimits& withHeaderSize(std::size_t n);
@@ -231,7 +232,7 @@ private:
 /** Contains timeouts and size limits for Websocket client transports. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API WebsocketServerLimits
-    : public BasicServerLimits<WebsocketServerLimits>
+    : public BasicServerTransportLimits<WebsocketServerLimits>
 {
 public:
     WebsocketServerLimits& withHeaderSize(std::size_t n);

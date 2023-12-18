@@ -49,8 +49,8 @@ public:
                             TransportInfo ti)
         : Base(boost::asio::make_strand(socket.get_executor()),
                Stream::makeConnectionInfo(socket),
-               ti),
-          queue_(makeQueue(std::move(socket), settings, ti)),
+               std::move(ti)),
+          queue_(makeQueue(std::move(socket), settings, Base::info())),
           settings_(std::move(settings))
     {
         auto interval = settings_->heartbeatInterval();

@@ -49,6 +49,9 @@ public:
     /** Obtains the name of the server hosting the session. */
     const std::string& server() const;
 
+    /** Obtains the transport target path. */
+    const std::string& target() const;
+
     /** Obtains the sequential session number on the server. */
     ServerSessionNumber serverSessionNumber() const;
 
@@ -65,6 +68,8 @@ public: // Internal use only
 
     void setServer(internal::PassKey, const std::string& name,
                    ServerSessionNumber n);
+
+    void setTarget(internal::PassKey, std::string target);
 };
 
 } // namespace wamp

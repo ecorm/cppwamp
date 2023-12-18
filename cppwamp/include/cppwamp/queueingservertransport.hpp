@@ -197,7 +197,8 @@ private:
                 queue_ = makeQueue(admitter_->releaseSocket(),
                                    settings_, admitter_->transportInfo(),
                                    monitor_);
-                Base::setReady(admitter_->transportInfo());
+                Base::setReady(admitter_->transportInfo(),
+                               admitter_->releaseTargetPath());
                 admitter_.reset();
                 break;
 
