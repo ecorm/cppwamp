@@ -7,7 +7,6 @@
 #ifndef CPPWAMP_INTERNAL_HTTPTRANSPORT_HPP
 #define CPPWAMP_INTERNAL_HTTPTRANSPORT_HPP
 
-#include <fstream>
 #include <initializer_list>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/beast/core/string_type.hpp>
@@ -17,6 +16,7 @@
 #include <boost/beast/http/parser.hpp>
 #include <boost/beast/http/string_body.hpp>
 #include <boost/filesystem/path.hpp>
+#include <boost/url.hpp>
 #include "../routerlogger.hpp"
 #include "../transports/httpprotocol.hpp"
 #include "tcptraits.hpp"
@@ -27,6 +27,114 @@ namespace wamp
 
 namespace internal
 {
+
+//------------------------------------------------------------------------------
+class HttpUrlValidator
+{
+public:
+    using UrlView = boost::urls::url_view;
+    using Verb = boost::beast::http::verb;
+
+    static bool isValid(const UrlView& url, Verb verb)
+    {
+        using V = Verb;
+
+        switch (verb)
+        {
+        case V::delete_: case V::get: case V::head:
+        case V::post: case V::put: case V::trace:
+            return isOriginFormUrl(url) ||  // RFC7230, section 5.3.1
+                   isAbsoluteFormUrl(url);  // RFC7230, section 5.3.2
+
+        case V::connect:
+            return isAuthorityFormUrl(url); // RFC7230, section 5.3.3
+
+        case V::options:
+            return isAsteriskFormUrl(url);  // RFC7230, section 5.3.4
+
+        default:
+            break;
+        }
+
+        return true; // Caller needs to check for other, non-standard verbs.
+    }
+
+    static bool isOriginFormUrl(const UrlView& url)
+    {
+        /**
+        origin-form   = absolute-path [ "?" query ]
+        absolute-path = 1*( "/" segment )
+        */
+        return !url.has_scheme() &&
+               !url.has_authority() &&
+               url.is_path_absolute();
+    }
+
+    static bool isAbsoluteFormUrl(const UrlView& url)
+    {
+        /**
+        absolute-form = absolute-URI ; defers to RFC3986
+        absolute-URI  = scheme ":" hier-part [ "?" query ]
+        hier-part     = "//" authority path-abempty
+                         / path-absolute
+                         / path-rootless
+                         / path-empty
+        path-abempty  = *( "/" segment ) ; begins with "/" or is empty
+        path-absolute = "/" [ segment-nz *( "/" segment ) ] ; begins with "/"
+                                                              but not "//"
+        path-rootless = segment-nz *( "/" segment ) ; begins with a segment
+        path-empty    = 0<pchar> ; zero characters
+
+        // Initial logic expression:
+        bool pabs = url.is_path_absolute();
+        bool pempty = url.path().empty();
+        bool is_absolute_form =
+            url.has_scheme() &&
+            (url.has_authority()
+                ? (pabs || pempty)      // path-abempty
+                : (pabs ||              // path-absolute
+                  (!pabs && !pempty) || // path-rootless
+                   pempty));            // path-empty
+
+        // Simplifies to:
+        bool is_absolute_form =
+            url.has_scheme() &&
+            (url.has_authority()
+                 ? true  // Path can only be absolute or empty with an authority
+                 : true); // Logical tautology
+
+        // Which simplifies to:
+        bool is_absolute_form = url.has_scheme();
+
+        Proof of logical tautology:
+            pabs || (!pabs && !pempty) || pempty
+        Rearranging the OR terms and grouping:
+            (pabs || pempty) || (!pabs && !pempty)
+        Applying De Morgan's Theorem to the last OR term:
+            (pabs || pempty) || !(pabs || pempty)
+        Substituting A = (pabs || pempty):
+            A || !A
+        which is always true.
+        */
+
+        return url.has_scheme();
+    }
+
+    static bool isAuthorityFormUrl(const UrlView& url)
+    {
+        /**
+        authority-form = authority ; defers to RFC3986
+        authority      = [ userinfo "@" ] host [ ":" port ]
+        */
+        return !url.has_scheme() && url.has_authority() && url.path().empty();
+    }
+
+    static bool isAsteriskFormUrl(const UrlView& url)
+    {
+        // asterisk-form = "*"
+        return url.buffer() == "*";
+    }
+};
 
 //------------------------------------------------------------------------------
 class HttpJob : public std::enable_shared_from_this<HttpJob>
@@ -43,7 +151,7 @@ public:
     using Field       = boost::beast::http::field;
     using StringView  = boost::beast::string_view;
     using FieldList   = std::initializer_list<std::pair<Field, StringView>>;
-    using Path        = boost::filesystem::path;
+    using Url         = boost::urls::url;
 
     HttpJob(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
             ConnectionInfo i, RouterLogger::Ptr l)
@@ -55,9 +163,7 @@ public:
           logger_(std::move(l))
     {}
 
-    const std::string& route() const {return route_;}
-
-    const Path& target() const {return target_;}
+    const Url& target() const {return target_;}
 
     const Request& request() const
     {
@@ -221,40 +327,26 @@ private:
                         "Connection limit exceeded", isUpgrade, {});
         }
 
-        if (!normalizeAndCheckTargetPath())
+        if (!parseAndNormalizeTarget())
             return balk(HttpStatus::badRequest, "Invalid request-target.");
 
         // Lookup and execute the action associated with the normalized
         // target path.
-        auto* action = settings_->findAction(target_.generic_string());
+        auto* action = settings_->findAction(target_.path());
         if (action == nullptr)
             return balk(HttpStatus::notFound, {}, isUpgrade, {});
         action->execute(*this);
     }
 
-    bool normalizeAndCheckTargetPath()
+    bool parseAndNormalizeTarget()
     {
-        // Normalize the request target path
-        auto target = parser_->get().target();
-        target_ = Path{target.begin(), target.end()};
-        target_ = target_.lexically_normal();
+        auto url = boost::urls::parse_uri_reference(parser_->get().target());
+        if (url.has_error())
+            return false;
 
-        // Normalize as per v4 if v3 is in effect
-        if (target_.filename_is_dot())
-        {
-            target_.remove_filename();
-            target_.concat("/");
-        }
-
-        // Normalized request target path must not contain a dot-dot that
-        // refers to a parent path.
-        for (const auto& elem: target_)
-        {
-            if (elem == "..")
-                return false;
-        }
-
-        return true;
+        target_ = *url;
+        target_.normalize();
+        return HttpUrlValidator::isValid(target_, parser_->get().method());
     }
 
     bool check(boost::system::error_code netEc, const char* operation)
@@ -404,8 +496,7 @@ private:
     TransportInfo transportInfo_;
     boost::beast::flat_buffer buffer_;
     boost::optional<Parser> parser_;
-    boost::filesystem::path target_;
-    std::string route_;
+    boost::urls::url target_;
     Handler handler_;
     ConnectionInfo connectionInfo_;
     WebsocketServerTransport::Ptr upgradedTransport_;

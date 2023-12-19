@@ -9,7 +9,6 @@
 //******************************************************************************
 
 #include <csignal>
-#include <map>
 #include <utility>
 #include <boost/asio/signal_set.hpp>
 #include <cppwamp/authenticators/anonymousauthenticator.hpp>

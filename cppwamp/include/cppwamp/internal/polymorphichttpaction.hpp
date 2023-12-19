@@ -19,6 +19,7 @@ namespace internal
 class HttpJob;
 
 //------------------------------------------------------------------------------
+// TODO: Make this non-internal
 template <typename TOptions>
 class HttpAction
 {};

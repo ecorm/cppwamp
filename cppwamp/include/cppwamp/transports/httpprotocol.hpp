@@ -337,6 +337,7 @@ private:
 
     void setErrorPage(HttpStatus status, std::string uri, HttpStatus newStatus);
 
+    // TODO: HTTP server names and aliases
     utils::TrieMap<AnyHttpAction> actionsByExactKey_;
     utils::TrieMap<AnyHttpAction> actionsByPrefixKey_;
     std::map<HttpStatus, ErrorPage> errorPages_;

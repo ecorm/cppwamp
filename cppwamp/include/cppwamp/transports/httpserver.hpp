@@ -13,8 +13,6 @@
 //------------------------------------------------------------------------------
 
 #include <memory>
-#include <set>
-#include <utility>
 #include "../api.hpp"
 #include "../asiodefs.hpp"
 #include "../listener.hpp"

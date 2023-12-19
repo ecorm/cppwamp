@@ -5,7 +5,6 @@
 ------------------------------------------------------------------------------*/
 
 #include "../transports/httpprotocol.hpp"
-#include <array>
 #include <utility>
 #include "../api.hpp"
 #include "../exceptions.hpp"

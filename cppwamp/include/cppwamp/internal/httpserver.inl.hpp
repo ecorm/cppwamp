@@ -5,9 +5,6 @@
 ------------------------------------------------------------------------------*/
 
 #include "../transports/httpserver.hpp"
-#include <chrono>
-#include <cstring>
-#include <ctime>
 #include <iomanip>
 #include <sstream>
 #include <boost/filesystem.hpp>
@@ -289,8 +286,26 @@ private:
         namespace beast = boost::beast;
         namespace http = beast::http;
 
-        // HttpJob has already checked that target does not contain
-        // dot-dot parent paths.
+        // Reject proxying requests
+        // TODO: Check if absolute URI matches server name or alias
+        const auto& target = job_.target();
+        if (target.has_scheme() || target.has_authority())
+        {
+            job_.balk(HttpStatus::badRequest, "Not configured for proxying",
+                      true);
+            return false;
+        }
+
+        // Reject target paths that contain dot-dot segments which can allow
+        // access file system access outside the document root.
+        for (const auto& segment: target.segments())
+        {
+            if (segment == "..")
+            {
+                job_.balk(HttpStatus::badRequest, "Invalid target path", true);
+                return false;
+            }
+        }
 
         // Check that request is not an HTTP upgrade request
         const auto& req = job_.request();
@@ -317,7 +332,7 @@ private:
         if (options_.path().empty())
         {
             absolutePath_ = Path{job_.settings().documentRoot()} /
-                            job_.target().relative_path();
+                            job_.target().path();
         }
         else
         {
@@ -325,17 +340,17 @@ private:
             {
                 // Substitute route portion of target with alias path
                 auto routeLen = options_.route().length();
-                auto targetStr = job_.target().generic_string();
+                auto targetStr = job_.target().buffer();
                 assert(targetStr.length() >= routeLen);
-                const auto& alias = options_.path();
+                auto path = options_.path();
                 auto targetTailLen = targetStr.length() - routeLen;
-                absolutePath_.assign(alias + targetStr.substr(targetTailLen));
+                path += std::string{targetStr.substr(targetTailLen)};
+                absolutePath_.assign(std::move(path));
             }
             else
             {
                 // Append target to root path
-                absolutePath_ = Path{options_.path()} /
-                                job_.target().relative_path();
+                absolutePath_ = Path{options_.path()} / job_.target().path();
             }
         }
     }
@@ -411,7 +426,7 @@ private:
         namespace http = boost::beast::http;
 
         const auto& req = job_.request();
-        auto dir = job_.target();
+        boost::filesystem::path dir{job_.target().buffer()};
         auto dirString = dir.generic_string();
 
         std::string body{
