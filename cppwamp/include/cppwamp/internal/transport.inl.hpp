@@ -174,13 +174,8 @@ CPPWAMP_INLINE void Transporting::send(MessageBuffer message)
 CPPWAMP_INLINE void Transporting::abort(MessageBuffer abortMessage,
                                         ShutdownHandler handler)
 {
-    assert(state_ != TransportState::initial);
-    if (state_ != State::running)
-    {
-        return post(std::move(handler),
-                    make_error_code(MiscErrc::invalidState));
-    }
-
+    assert(state_ != State::initial);
+    assert(state_ == State::running);
     onAbort(std::move(abortMessage), std::move(handler));
     state_ = State::aborting;
 }
@@ -188,16 +183,11 @@ CPPWAMP_INLINE void Transporting::abort(MessageBuffer abortMessage,
 CPPWAMP_INLINE void Transporting::shutdown(std::error_code reason,
                                            ShutdownHandler handler)
 {
-    assert(state_ != TransportState::initial);
-    const auto s = state_;
-    const bool badState = s != State::ready &&
-                          s != State::rejected &&
-                          s != State::running;
-    if (badState)
-    {
-        return post(std::move(handler),
-                    make_error_code(MiscErrc::invalidState));
-    }
+    assert(state_ != State::initial);
+    assert(state_ != State::shedding);
+    assert(state_ != State::aborting);
+    assert(state_ != State::shutdown);
+    assert(state_ != State::closed);
 
     onShutdown(reason, std::move(handler));
     state_ = State::shutdown;

@@ -216,18 +216,14 @@ public:
 
     void abort(MessageBuffer message, ShutdownHandler handler)
     {
+        assert(stream_.isOpen());
         stream_.unobserveHeartbeats();
-
-        if (!stream_.isOpen())
-        {
-            post(std::move(handler), make_error_code(MiscErrc::invalidState));
-            return;
-        }
 
         auto frame = enframe(std::move(message));
         assert((frame.payload().size() <= txPayloadLimit_) &&
                "Outgoing message is longer than allowed by peer");
         frame.poison();
+
         shutdownHandler_ = std::move(handler);
         txQueue_.push_front(std::move(frame));
         transmit();
@@ -235,14 +231,8 @@ public:
 
     void shutdown(std::error_code reason, ShutdownHandler handler)
     {
+        assert(stream_.isOpen());
         stream_.unobserveHeartbeats();
-
-        if (shutdownHandler_ != nullptr || !stream_.isOpen())
-        {
-            post(std::move(handler), make_error_code(MiscErrc::invalidState));
-            return;
-        }
-
         shutdownHandler_ = std::move(handler);
         halt();
         shutdownTransport(reason);
