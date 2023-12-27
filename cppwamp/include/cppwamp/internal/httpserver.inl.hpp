@@ -449,7 +449,7 @@ private:
         const auto& req = job_.request();
         StringResponse res{http::status::ok, req.version(), std::move(body)};
         res.base().set(http::field::server, job_.settings().agent());
-        res.set(http::field::content_type, "text/html");
+        res.set(http::field::content_type, "text/html; charset=utf-8");
         res.keep_alive(req.keep_alive());
         return res;
     }

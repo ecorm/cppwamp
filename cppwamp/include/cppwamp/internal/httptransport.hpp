@@ -385,7 +385,7 @@ private:
             generateErrorPage(status, what)};
 
         response.set(Field::server, settings().agent());
-        response.set(Field::content_type, "text/html");
+        response.set(Field::content_type, "text/html; charset=utf-8");
         for (auto pair: fields)
             response.set(pair.first, pair.second);
 
@@ -455,7 +455,7 @@ private:
         http::response<http::file_body> response{
             http::status::ok, request().version(), std::move(body)};
         response.set(Field::server, settings().agent());
-        response.set(Field::content_type, "text/html");
+        response.set(Field::content_type, "text/html; charset=utf-8");
         for (auto pair: fields)
             response.set(pair.first, pair.second);
         response.prepare_payload();
