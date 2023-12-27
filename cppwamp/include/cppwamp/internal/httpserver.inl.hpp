@@ -355,17 +355,6 @@ private:
         }
     }
 
-    bool stat(const Path& path, bool& result)
-    {
-        boost::system::error_code sysEc;
-        result = boost::filesystem::exists(path, sysEc);
-        if (sysEc == boost::system::errc::no_such_file_or_directory)
-            return true;
-        if (!check(sysEc, "file exists query"))
-            return false;
-        return true;
-    }
-
     bool stat(const Path& path, FileStatus& status)
     {
         namespace fs = boost::filesystem;
@@ -425,37 +414,39 @@ private:
     {
         namespace http = boost::beast::http;
 
-        const auto& req = job_.request();
-        boost::filesystem::path dir{job_.target().buffer()};
-        auto dirString = dir.generic_string();
+        // Remove empty segments not removed by boost::urls::url::normalize
+        std::string dirString;
+        const auto& segments = job_.target().segments();
+        if (!segments.empty())
+        {
+            for (auto segment: segments)
+            {
+                if (!segment.empty())
+                {
+                    dirString += '/';
+                    dirString += segment;
+                }
+            }
+        }
 
         std::string body{
             "<html>\n"
             "<head><title>Index of " + dirString + "</title></head>\n"
             "<body>\n"
-            "<h1>Index of " + dirString + "</h1>\n"
+            "<h1>Index of " + dirString + "/</h1>\n"
             "<hr>\n"
             "<pre>\n"};
 
-        if (dir.filename_is_dot()) // filesystem v3
+        if (!dirString.empty())
         {
-            dir.remove_filename();
-            dir.remove_filename();
-        }
-        else // filesystem v4
-        {
-            dir = dir.parent_path();
-            dir = dir.parent_path();
+            boost::filesystem::path path{dirString};
+            auto parent = path.parent_path().string();
+            if (parent.back() != '/')
+                parent += '/';
+            body += "<a href=\"" + parent + "\">../</a>\n";
         }
 
-        if (!dir.empty())
-        {
-            if (dir.has_parent_path())
-                dir.concat("/");
-            body += "<a href=\"" + dir.generic_string() + "\">"
-                    "../</a>\n";
-        }
-
+        const auto& req = job_.request();
         StringResponse res{http::status::ok, req.version(), std::move(body)};
         res.base().set(http::field::server, job_.settings().agent());
         res.set(http::field::content_type, "text/html");
