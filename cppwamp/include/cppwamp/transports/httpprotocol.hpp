@@ -30,6 +30,8 @@ namespace wamp
 //------------------------------------------------------------------------------
 enum class HttpStatus : unsigned
 {
+    none                          = 0, // Non-standard, used internally
+
     continueRequest               = 100,
     switchingProtocols            = 101,
     processing                    = 102,
@@ -228,6 +230,41 @@ private:
 
 
 //------------------------------------------------------------------------------
+/** Contains HTTP error page information. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API HttpErrorPage
+{
+public:
+    HttpErrorPage();
+
+    /** Specifies a file path or redirect URL to be associated with the given
+        key HTTP status code, with the key status optionally substituted with
+        the given status. */
+    HttpErrorPage(HttpStatus key, std::string uri,
+                  HttpStatus status = HttpStatus::none);
+
+    /** Specifies a status code that substitutes the given key HTTP
+        status code. */
+    HttpErrorPage(HttpStatus key, HttpStatus status);
+
+    HttpStatus key() const;
+
+    HttpStatus status() const;
+
+    const std::string& uri() const;
+
+    const std::string& charset() const;
+
+    bool isRedirect() const;
+
+private:
+    std::string uri_;
+    HttpStatus key_ = HttpStatus::none;
+    HttpStatus status_ = HttpStatus::none;
+};
+
+
+//------------------------------------------------------------------------------
 /** Contains HTTP host address information, as well as other socket options.
     Meets the requirements of @ref TransportSettings. */
 //------------------------------------------------------------------------------
@@ -237,15 +274,6 @@ class CPPWAMP_API HttpEndpoint
 public:
     // TODO: Custom error page generator
     // TODO: Custom charset field
-
-    /// URI and status code of an error page.
-    struct ErrorPage
-    {
-        bool isRedirect() const {return static_cast<unsigned>(status) < 400;}
-
-        std::string uri;
-        HttpStatus status;
-    };
 
     /// Transport protocol tag associated with these settings.
     using Protocol = Http;
@@ -277,17 +305,7 @@ public:
 
     /** Specifies the error page to show for the given HTTP response
         status code. */
-    HttpEndpoint& withErrorPage(HttpStatus status, std::string uri);
-
-    /** Specifies the status code that substitutes the given HTTP response
-        status code. */
-    HttpEndpoint& withErrorPage(HttpStatus status, HttpStatus newStatus);
-
-    /** Specifies the error page to show for the given HTTP response
-        status code, with the original status code substituted with the
-        given status code. */
-    HttpEndpoint& withErrorPage(HttpStatus status, std::string uri,
-                                HttpStatus newStatus);
+    HttpEndpoint& withErrorPage(HttpErrorPage page);
 
     /** Specifies transport limits. */
     HttpEndpoint& withLimits(HttpServerLimits limits);
@@ -318,7 +336,7 @@ public:
     }
 
     /** Finds the error page associated with the given HTTP status code. */
-    const ErrorPage* findErrorPage(HttpStatus status) const;
+    const HttpErrorPage* findErrorPage(HttpStatus status) const;
 
     /** Converts to settings for use in Websocket upgrade requests. */
     WebsocketEndpoint toWebsocket(WebsocketOptions options,
@@ -335,12 +353,10 @@ private:
 
     AnyHttpAction* doFindAction(const char* route);
 
-    void setErrorPage(HttpStatus status, std::string uri, HttpStatus newStatus);
-
     // TODO: HTTP server names and aliases
     utils::TrieMap<AnyHttpAction> actionsByExactKey_;
     utils::TrieMap<AnyHttpAction> actionsByPrefixKey_;
-    std::map<HttpStatus, ErrorPage> errorPages_;
+    std::map<HttpStatus, HttpErrorPage> errorPages_;
 #ifdef _WIN32
     std::string documentRoot_ = "C:/web/html";
 #else

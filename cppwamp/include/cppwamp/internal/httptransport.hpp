@@ -222,15 +222,16 @@ public:
         if (page == nullptr)
             return sendGeneratedError(status, std::move(what), fields, result);
 
-        if (page->uri.empty())
-            return sendGeneratedError(page->status, std::move(what), fields,
+        if (page->uri().empty())
+        {
+            return sendGeneratedError(page->status(), std::move(what), fields,
                                       result);
+        }
 
         if (page->isRedirect())
-            return redirectError(page->status, page->uri, fields, result);
+            return redirectError(*page, fields, result);
 
-        return sendErrorFromFile(page->status, std::move(what), page->uri,
-                                 fields, result);
+        return sendErrorFromFile(*page, std::move(what), fields, result);
     }
 
     void report(AccessActionInfo action)
@@ -414,16 +415,16 @@ private:
         return body;
     }
 
-    void redirectError(HttpStatus status, const std::string& where,
-                       FieldList fields, AdmitResult result)
+    void redirectError(const HttpErrorPage& page, FieldList fields,
+                       AdmitResult result)
     {
         namespace http = boost::beast::http;
 
         http::response<http::empty_body> response{
-            static_cast<http::status>(status), request().version()};
+            static_cast<http::status>(page.status()), request().version()};
 
         response.set(Field::server, settings().agent());
-        response.set(Field::location, where);
+        response.set(Field::location, page.uri());
         for (auto pair: fields)
             response.set(pair.first, pair.second);
 
@@ -431,9 +432,8 @@ private:
         sendAndFinish(std::move(response), result);
     }
 
-    void sendErrorFromFile(HttpStatus status, std::string&& what,
-                           std::string path, FieldList fields,
-                           AdmitResult result)
+    void sendErrorFromFile(const HttpErrorPage& page, std::string&& what,
+                           FieldList fields, AdmitResult result)
     {
         namespace beast = boost::beast;
         namespace http = beast::http;
@@ -441,14 +441,14 @@ private:
         beast::error_code netEc;
         http::file_body::value_type body;
         boost::filesystem::path absolutePath{settings().documentRoot()};
-        absolutePath /= path;
+        absolutePath /= page.uri();
         body.open(absolutePath.c_str(), beast::file_mode::scan, netEc);
 
         if (netEc)
         {
             auto ec = static_cast<std::error_code>(netEc);
             return sendGeneratedError(
-                status, std::move(what), fields,
+                page.status(), std::move(what), fields,
                 AdmitResult::failed(ec, "error file read"));
         }
 
