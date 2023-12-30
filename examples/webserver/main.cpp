@@ -36,16 +36,26 @@ int main()
 
         // These options are inherited by all routes
         auto baseFileServerOptions =
-            wamp::HttpFileServingOptions{}.withDocumentRoot("./www");
+            wamp::HttpFileServingOptions{}.withDocumentRoot("./www")
+                                          .withCharset("utf-8");
 
-        auto route1Options =
+        auto mainRouteOptions =
             wamp::HttpServeStaticFiles{"/"}
                 .withOptions(wamp::HttpFileServingOptions{}.withAutoIndex());
+
+        auto altRouteOptions =
+            wamp::HttpServeStaticFiles{"/alt"}
+                .withAlias("/") // Substitutes "/alt" with "/"
+                                // before appending to "./www-alt"
+                .withOptions(
+                    wamp::HttpFileServingOptions{}
+                        .withDocumentRoot("./www-alt"));
 
         auto httpOptions = wamp::HttpEndpoint{8080}
             .withFileServingOptions(baseFileServerOptions)
             .addErrorPage({wamp::HttpStatus::notFound, "/notfound.html"})
-            .addPrefixRoute(std::move(route1Options));
+            .addPrefixRoute(std::move(mainRouteOptions))
+            .addExactRoute(std::move(altRouteOptions));
 
         auto serverOptions =
             wamp::ServerOptions("http8080", std::move(httpOptions),

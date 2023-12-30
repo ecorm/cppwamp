@@ -22,23 +22,13 @@ CPPWAMP_INLINE HttpServeStaticFiles::HttpServeStaticFiles(std::string route)
     : route_(std::move(route))
 {}
 
-/** @post `this->path() == path`
-    @post `this->pathIsAlias() == false` */
+/** @post `this->alias() == alias`
+    @post `this->hasAlias() == true` */
 CPPWAMP_INLINE HttpServeStaticFiles&
-HttpServeStaticFiles::withRoot(std::string path)
+HttpServeStaticFiles::withAlias(std::string alias)
 {
-    path_ = std::move(path);
-    pathIsAlias_ = false;
-    return *this;
-}
-
-/** @post `this->path() == path`
-    @post `this->pathIsAlias() == true` */
-CPPWAMP_INLINE HttpServeStaticFiles&
-HttpServeStaticFiles::withAlias(std::string path)
-{
-    path_ = std::move(path);
-    pathIsAlias_ = true;
+    alias_ = std::move(alias);
+    hasAlias_ = true;
     return *this;
 }
 
@@ -54,15 +44,11 @@ CPPWAMP_INLINE const std::string& HttpServeStaticFiles::route() const
     return route_;
 }
 
-CPPWAMP_INLINE bool HttpServeStaticFiles::pathIsAlias() const
-{
-    return pathIsAlias_;
-}
+CPPWAMP_INLINE bool HttpServeStaticFiles::hasAlias() const {return hasAlias_;}
 
-/** If empty, `options().documentRoot` is used. */
-CPPWAMP_INLINE const std::string& HttpServeStaticFiles::path() const
+CPPWAMP_INLINE const std::string& HttpServeStaticFiles::alias() const
 {
-    return path_;
+    return alias_;
 }
 
 CPPWAMP_INLINE const HttpFileServingOptions&
@@ -271,30 +257,20 @@ private:
 
     void buildPath(const HttpJob& job)
     {
-        if (properties_.path().empty())
+        absolutePath_ = properties_.options().documentRoot();
+        if (!properties_.hasAlias())
         {
-            auto docRoot = properties_.options().documentRoot();
-            absolutePath_ = Path{docRoot} / job.target().path();
+            absolutePath_ /= job.target().path();
+            return;
         }
-        else
-        {
-            if (properties_.pathIsAlias())
-            {
-                // Substitute route portion of target with alias path
-                auto routeLen = properties_.route().length();
-                auto targetStr = job.target().buffer();
-                assert(targetStr.length() >= routeLen);
-                auto path = properties_.path();
-                auto targetTailLen = targetStr.length() - routeLen;
-                path += std::string{targetStr.substr(targetTailLen)};
-                absolutePath_.assign(std::move(path));
-            }
-            else
-            {
-                // Append target to root path
-                absolutePath_ = Path{properties_.path()} / job.target().path();
-            }
-        }
+
+        // Substitute the route portion of the target with the alias
+        auto routeLen = properties_.route().length();
+        auto targetStr = job.target().buffer();
+        assert(targetStr.length() >= routeLen);
+        std::string path = properties_.alias();
+        path += targetStr.substr(routeLen, std::string::npos);
+        absolutePath_ /= path;
     }
 
     bool stat(HttpJob& job, const Path& path, FileStatus& status)
@@ -550,7 +526,7 @@ HttpAction<HttpServeStaticFiles>::initialize(const HttpEndpoint& settings)
 CPPWAMP_INLINE void HttpAction<HttpServeStaticFiles>::execute(HttpJob& job)
 {
     impl_->execute(job);
-};
+}
 
 
 //******************************************************************************

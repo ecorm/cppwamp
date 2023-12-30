@@ -37,11 +37,9 @@ public:
     /** Constructor. */
     explicit HttpServeStaticFiles(std::string route);
 
-    /** Specifies the root path. */
-    HttpServeStaticFiles& withRoot(std::string path);
-
-    /** Specifies the alias path. */
-    HttpServeStaticFiles& withAlias(std::string path);
+    /** Specifies that the route portion of the target path should be
+        substituted with the given alias. */
+    HttpServeStaticFiles& withAlias(std::string alias);
 
     /** Specifies the file serving options. */
     HttpServeStaticFiles& withOptions(HttpFileServingOptions options);
@@ -49,11 +47,11 @@ public:
     /** Obtains the route associated with this action. */
     const std::string& route() const;
 
-    /** Determines if the path corresponds to a root or alias. */
-    bool pathIsAlias() const;
+    /** Determines if aliasing is enabled. */
+    bool hasAlias() const;
 
-    /** Obtains the root or alias path. */
-    const std::string& path() const;
+    /** Obtains the alias path. */
+    const std::string& alias() const;
 
     /** Obtains the file serving options. */
     const HttpFileServingOptions& options() const;
@@ -63,9 +61,9 @@ public:
 
 private:
     std::string route_;
-    std::string path_;
+    std::string alias_;
     HttpFileServingOptions options_;
-    bool pathIsAlias_ = false;
+    bool hasAlias_ = false;
 };
 
 

@@ -10,3 +10,4 @@ target_link_libraries(cppwamp-example-webserver
                       PRIVATE CppWAMP::web CppWAMP::core)
 
 install(DIRECTORY www/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/www/)
+install(DIRECTORY www-alt/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/www-alt/)
