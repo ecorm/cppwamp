@@ -273,6 +273,9 @@ private:
                                 WebsocketServerLimits>;
 
     WebsocketOptions options_;
+
+public: // Internal use only
+    void initialize(internal::PassKey);
 };
 
 } // namespace wamp

@@ -255,22 +255,194 @@ CPPWAMP_INLINE bool HttpErrorPage::isRedirect() const
 
 
 //******************************************************************************
+// HttpFileServingOptions
+//******************************************************************************
+
+CPPWAMP_INLINE std::string
+HttpFileServingOptions::defaultMimeType(const std::string& extension)
+{
+    static const std::map<std::string, std::string> table =
+        {
+            {".bmp",  "image/bmp"},
+            {".css",  "text/css"},
+            {".flv",  "video/x-flv"},
+            {".gif",  "image/gif"},
+            {".htm",  "text/html"},
+            {".html", "text/html"},
+            {".ico",  "image/vnd.microsoft.icon"},
+            {".jpe",  "image/jpeg"},
+            {".jpeg", "image/jpeg"},
+            {".jpg",  "image/jpeg"},
+            {".js",   "application/javascript"},
+            {".json", "application/json"},
+            {".php",  "text/html"},
+            {".png",  "image/png"},
+            {".svg",  "image/svg+xml"},
+            {".svgz", "image/svg+xml"},
+            {".swf",  "application/x-shockwave-flash"},
+            {".tif",  "image/tiff"},
+            {".tiff", "image/tiff"},
+            {".txt",  "text/plain"},
+            {".xml",  "application/xml"}
+        };
+
+    auto found = table.find(extension);
+    if (found != table.end())
+        return found->second;
+    return "application/text";
+}
+
+/** `/var/www/html` (or `C:/web/html` on Windows) is the default if
+    unspecified and uninherited. */
+CPPWAMP_INLINE HttpFileServingOptions&
+HttpFileServingOptions::withDocumentRoot(std::string documentRoot)
+{
+    CPPWAMP_LOGIC_CHECK(!documentRoot.empty(), "Document root cannot be empty");
+    documentRoot_ = std::move(documentRoot);
+    return *this;
+}
+
+CPPWAMP_INLINE HttpFileServingOptions&
+HttpFileServingOptions::withCharset(std::string charset)
+{
+    charset_ = std::move(charset);
+    return *this;
+}
+
+/** `index.html` is the default if unspecified and uninherited. */
+CPPWAMP_INLINE HttpFileServingOptions&
+HttpFileServingOptions::withIndexFileName(std::string name)
+{
+    CPPWAMP_LOGIC_CHECK(!name.empty(), "Index filename cannot be empty");
+    indexFileName_ = std::move(name);
+    return *this;
+}
+
+CPPWAMP_INLINE HttpFileServingOptions&
+HttpFileServingOptions::withAutoIndex(bool enabled)
+{
+    autoIndex_ = enabled;
+    hasAutoIndex_ = true;
+    return *this;
+}
+
+CPPWAMP_INLINE HttpFileServingOptions&
+HttpFileServingOptions::withMimeTypes(MimeTypeMapper f)
+{
+    mimeTypeMapper_ = std::move(f);
+    return *this;
+}
+
+CPPWAMP_INLINE const std::string& HttpFileServingOptions::documentRoot() const
+{
+    return documentRoot_;
+}
+
+CPPWAMP_INLINE const std::string& HttpFileServingOptions::charset() const
+{
+    return charset_;
+}
+
+CPPWAMP_INLINE const std::string& HttpFileServingOptions::indexFileName() const
+{
+    return indexFileName_;
+}
+
+CPPWAMP_INLINE bool HttpFileServingOptions::autoIndex() const
+{
+    return autoIndex_;
+}
+
+CPPWAMP_INLINE bool HttpFileServingOptions::hasMimeTypeMapper() const
+{
+    return mimeTypeMapper_ != nullptr;
+}
+
+CPPWAMP_INLINE std::string
+HttpFileServingOptions::lookupMimeType(const std::string& extension) const
+{
+    std::string ext{extension};
+    for (auto& c: ext)
+        c = toLower(c);
+    return hasMimeTypeMapper() ? mimeTypeMapper_(extension)
+                               : defaultMimeType(extension);
+}
+
+CPPWAMP_INLINE void
+HttpFileServingOptions::applyFallback(const HttpFileServingOptions& opts)
+{
+    if (documentRoot_.empty())
+        documentRoot_ = opts.documentRoot_;
+    if (charset_.empty())
+        charset_ = opts.charset_;
+    if (indexFileName_.empty())
+        indexFileName_ = opts.indexFileName_;
+    if (mimeTypeMapper_ == nullptr)
+        mimeTypeMapper_ = opts.mimeTypeMapper_;
+    if (!hasAutoIndex_)
+        autoIndex_ = opts.autoIndex_;
+}
+
+CPPWAMP_INLINE char HttpFileServingOptions::toLower(char c)
+{
+    static constexpr unsigned offset = 'a' - 'A';
+    if (c >= 'A' && c <= 'Z')
+        c += offset;
+    return c;
+}
+
+//******************************************************************************
 // HttpEndpoint
 //******************************************************************************
 
 CPPWAMP_INLINE HttpEndpoint::HttpEndpoint(Port port)
-    : Base("", port),
-      agent_(Version::serverAgentString())
-{
-    mutableAcceptorOptions().withReuseAddress(true);
-}
+    : HttpEndpoint("", port)
+{}
 
 CPPWAMP_INLINE HttpEndpoint::HttpEndpoint(std::string address,
                                           unsigned short port)
     : Base(std::move(address), port),
+      fileServingOptions_(defaultFileServingOptions()),
       agent_(Version::serverAgentString())
+
 {
     mutableAcceptorOptions().withReuseAddress(true);
+    fileServingOptions_.withIndexFileName("index.html")
+                       .withAutoIndex(false);
+#ifdef _WIN32
+    fileServingOptions_.withDocumentRoot("C:/web/html");
+#else
+    fileServingOptions_.withDocumentRoot("/var/wwww/html");
+#endif
+}
+
+CPPWAMP_INLINE HttpEndpoint&
+HttpEndpoint::withFileServingOptions(HttpFileServingOptions options)
+{
+    fileServingOptions_ = std::move(options);
+    fileServingOptions_.applyFallback(defaultFileServingOptions());
+    return *this;
+}
+
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withAgent(std::string agent)
+{
+    agent_ = std::move(agent);
+    return *this;
+}
+
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withLimits(HttpServerLimits limits)
+{
+    limits_ = limits;
+    return *this;
+}
+
+/** @pre `static_cast<unsigned>(page) >= 400`
+    @pre `!uri.empty` */
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::addErrorPage(HttpErrorPage page)
+{
+    auto key = page.key();
+    errorPages_[key] = std::move(page);
+    return *this;
 }
 
 CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::addExactRoute(AnyHttpAction action)
@@ -287,53 +459,10 @@ CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::addPrefixRoute(AnyHttpAction action)
     return *this;
 }
 
-/** If unset, it is `C:/web/html` on Windows or `/var/wwww/html` otherwise.
-    @pre !root.empty() */
-CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withDocumentRoot(std::string root)
+CPPWAMP_INLINE const HttpFileServingOptions&
+HttpEndpoint::fileServingOptions() const
 {
-    CPPWAMP_LOGIC_CHECK(!root.empty(), "Document root cannot be empty");
-    documentRoot_ = std::move(root);
-    return *this;
-}
-
-/** If unset, it is `index.html`.
-    @pre !name.empty() */
-CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withIndexFileName(std::string name)
-{
-    CPPWAMP_LOGIC_CHECK(!name.empty(), "Index filename cannot be empty");
-    indexFileName_ = std::move(name);
-    return *this;
-}
-
-CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withAgent(std::string agent)
-{
-    agent_ = std::move(agent);
-    return *this;
-}
-
-/** @pre `static_cast<unsigned>(page) >= 400`
-    @pre `!uri.empty` */
-CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withErrorPage(HttpErrorPage page)
-{
-    auto key = page.key();
-    errorPages_[key] = std::move(page);
-    return *this;
-}
-
-CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withLimits(HttpServerLimits limits)
-{
-    limits_ = limits;
-    return *this;
-}
-
-CPPWAMP_INLINE const std::string& HttpEndpoint::documentRoot() const
-{
-    return documentRoot_;
-}
-
-CPPWAMP_INLINE const std::string& HttpEndpoint::indexFileName() const
-{
-    return indexFileName_;
+    return fileServingOptions_;
 }
 
 CPPWAMP_INLINE const std::string& HttpEndpoint::agent() const {return agent_;}
@@ -358,6 +487,21 @@ HttpEndpoint::findErrorPage(HttpStatus status) const
 {
     auto found = errorPages_.find(status);
     return found == errorPages_.end() ? nullptr : &(found->second);
+}
+
+CPPWAMP_INLINE const HttpFileServingOptions&
+HttpEndpoint::defaultFileServingOptions()
+{
+    static const auto options = HttpFileServingOptions{}
+        .withIndexFileName("index.html")
+        .withAutoIndex(false)
+#ifdef _WIN32
+        .withDocumentRoot("C:/web/html");
+#else
+        .withDocumentRoot("/var/wwww/html");
+#endif
+
+    return options;
 }
 
 CPPWAMP_INLINE AnyHttpAction* HttpEndpoint::doFindAction(const char* target)

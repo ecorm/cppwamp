@@ -34,13 +34,18 @@ int main()
 
         auto realmOptions = wamp::RealmOptions("cppwamp.examples");
 
-        auto fileServerOptions = wamp::HttpServeStaticFiles{"/"}
-                                     .withAutoIndex();
+        // These options are inherited by all routes
+        auto baseFileServerOptions =
+            wamp::HttpFileServingOptions{}.withDocumentRoot("./www");
+
+        auto route1Options =
+            wamp::HttpServeStaticFiles{"/"}
+                .withOptions(wamp::HttpFileServingOptions{}.withAutoIndex());
 
         auto httpOptions = wamp::HttpEndpoint{8080}
-            .withDocumentRoot("./www")
-            .withErrorPage({wamp::HttpStatus::notFound, "/notfound.html"})
-            .addPrefixRoute(std::move(fileServerOptions));
+            .withFileServingOptions(baseFileServerOptions)
+            .addErrorPage({wamp::HttpStatus::notFound, "/notfound.html"})
+            .addPrefixRoute(std::move(route1Options));
 
         auto serverOptions =
             wamp::ServerOptions("http8080", std::move(httpOptions),

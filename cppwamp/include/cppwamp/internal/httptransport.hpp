@@ -336,7 +336,7 @@ private:
         auto* action = settings_->findAction(target_.path());
         if (action == nullptr)
             return balk(HttpStatus::notFound, {}, isUpgrade, {});
-        action->execute(*this);
+        action->execute({}, *this);
     }
 
     bool parseAndNormalizeTarget()
@@ -440,7 +440,8 @@ private:
 
         beast::error_code netEc;
         http::file_body::value_type body;
-        boost::filesystem::path absolutePath{settings().documentRoot()};
+        const auto& docRoot = settings().fileServingOptions().documentRoot();
+        boost::filesystem::path absolutePath{docRoot};
         absolutePath /= page.uri();
         body.open(absolutePath.c_str(), beast::file_mode::scan, netEc);
 

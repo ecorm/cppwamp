@@ -147,6 +147,9 @@ public:
 private:
     using Base = SocketEndpoint<TcpEndpoint, Tcp, TcpOptions,
                                 RawsockServerLimits>;
+
+public: // Internal use only
+    void initialize(internal::PassKey);
 };
 
 } // namespace wamp

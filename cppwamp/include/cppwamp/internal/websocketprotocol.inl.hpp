@@ -338,4 +338,6 @@ CPPWAMP_INLINE std::string WebsocketEndpoint::label() const
     return "Websocket " + address() + ':' + portString;
 }
 
+CPPWAMP_INLINE void WebsocketEndpoint::initialize(internal::PassKey) {}
+
 } // namespace wamp

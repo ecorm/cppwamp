@@ -8,7 +8,6 @@
 #define CPPWAMP_INTERNAL_HTTPLISTENER_HPP
 
 #include <memory>
-#include <set>
 #include "tcplistener.hpp"
 #include "httptransport.hpp"
 

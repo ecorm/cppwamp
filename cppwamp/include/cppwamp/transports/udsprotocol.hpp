@@ -145,6 +145,9 @@ private:
     using Base::port;
 
     bool deletePathEnabled_ = true;
+
+public: // Internal use only
+    void initialize(internal::PassKey);
 };
 
 } // namespace wamp

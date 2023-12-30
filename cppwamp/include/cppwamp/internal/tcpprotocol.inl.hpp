@@ -87,4 +87,6 @@ CPPWAMP_INLINE std::string TcpEndpoint::label() const
     return "TCP " + address() + ':' + portString;
 }
 
+CPPWAMP_INLINE void TcpEndpoint::initialize(internal::PassKey) {}
+
 } // namespace wamp

@@ -34,8 +34,6 @@ namespace internal { class HttpJob; }
 class CPPWAMP_API HttpServeStaticFiles
 {
 public:
-    using MimeTypeMapper = std::function<std::string (const std::string&)>;
-
     /** Constructor. */
     explicit HttpServeStaticFiles(std::string route);
 
@@ -45,15 +43,8 @@ public:
     /** Specifies the alias path. */
     HttpServeStaticFiles& withAlias(std::string path);
 
-    /** Specifies the index file name. */
-    HttpServeStaticFiles& withIndexFileName(std::string name);
-
-    /** Enables automatic directory listing. */
-    HttpServeStaticFiles& withAutoIndex(bool enabled = true);
-
-    /** Specifies the mapping function for determining MIME type based on
-        file extension. */
-    HttpServeStaticFiles& withMimeTypes(MimeTypeMapper f);
+    /** Specifies the file serving options. */
+    HttpServeStaticFiles& withOptions(HttpFileServingOptions options);
 
     /** Obtains the route associated with this action. */
     const std::string& route() const;
@@ -64,26 +55,17 @@ public:
     /** Obtains the root or alias path. */
     const std::string& path() const;
 
-    /** Obtains the index file name. */
-    const std::string& indexFileName() const;
+    /** Obtains the file serving options. */
+    const HttpFileServingOptions& options() const;
 
-    /** Determines if automatic directory listing is enabled. */
-    bool autoIndex() const;
-
-    /** Obtains the MIME type associated with the given path. */
-    std::string lookupMimeType(std::string extension) const;
+    /** Applies the given options as default for members that are not set. */
+    void applyFallbackOptions(const HttpFileServingOptions& fallback);
 
 private:
-    static char toLower(char c);
-
-    std::string defaultMimeType(const std::string& extension) const;
-
     std::string route_;
     std::string path_;
-    std::string indexFileName_;
-    MimeTypeMapper mimeTypeMapper_;
+    HttpFileServingOptions options_;
     bool pathIsAlias_ = false;
-    bool autoIndex_ = false;
 };
 
 
@@ -166,19 +148,25 @@ private:
 namespace internal
 {
 
+class HttpServeStaticFilesImpl;
+
 //------------------------------------------------------------------------------
 template <>
 class HttpAction<HttpServeStaticFiles>
 {
 public:
-    explicit HttpAction(HttpServeStaticFiles options);
+    explicit HttpAction(HttpServeStaticFiles properties);
+
+    ~HttpAction();
 
     std::string route() const;
+
+    void initialize(const HttpEndpoint& settings);
 
     void execute(HttpJob& job);
 
 private:
-    HttpServeStaticFiles options_;
+    std::unique_ptr<HttpServeStaticFilesImpl> impl_;
 };
 
 //------------------------------------------------------------------------------
@@ -186,14 +174,16 @@ template <>
 class HttpAction<HttpWebsocketUpgrade>
 {
 public:
-    HttpAction(HttpWebsocketUpgrade options);
+    HttpAction(HttpWebsocketUpgrade properties);
 
     std::string route() const;
+
+    void initialize(const HttpEndpoint& settings);
 
     void execute(HttpJob& job);
 
 private:
-    HttpWebsocketUpgrade options_;
+    HttpWebsocketUpgrade properties_;
 };
 
 } // namespace internal

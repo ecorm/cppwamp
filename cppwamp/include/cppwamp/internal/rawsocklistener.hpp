@@ -10,7 +10,6 @@
 #include <cassert>
 #include <cerrno>
 #include <memory>
-#include <set>
 #include <utility>
 
 #if defined(_WIN32) || defined(__CYGWIN__)
@@ -20,7 +19,6 @@
 #include <boost/asio/socket_base.hpp>
 #include "../asiodefs.hpp"
 #include "../errorcodes.hpp"
-#include "../erroror.hpp"
 #include "../listener.hpp"
 #include "../routerlogger.hpp"
 
@@ -151,7 +149,9 @@ public:
           logger_(std::move(l)),
           acceptor_(strand_),
           socket_(strand_)
-    {}
+    {
+        settings_->initialize({});
+    }
 
     ~RawsockListener()
     {

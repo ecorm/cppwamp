@@ -62,23 +62,22 @@ CPPWAMP_INLINE UdsEndpoint::UdsEndpoint(std::string pathName)
     : Base(std::move(pathName), 0)
 {}
 
-/** Enables/disables the deletion of existing file path before listening. */
 CPPWAMP_INLINE UdsEndpoint& UdsEndpoint::withDeletePath(bool enabled)
 {
     deletePathEnabled_ = enabled;
     return *this;
 }
 
-/** Returns true if automatic path deletion before listening is enabled. */
 CPPWAMP_INLINE bool UdsEndpoint::deletePathEnabled() const
 {
     return deletePathEnabled_;
 }
 
-/** Generates a human-friendly string of the UDS path. */
 CPPWAMP_INLINE std::string UdsEndpoint::label() const
 {
     return "Unix domain socket path '" + address() + "'";
 }
+
+CPPWAMP_INLINE void UdsEndpoint::initialize(internal::PassKey) {}
 
 } // namespace wamp

@@ -13,6 +13,8 @@
 namespace wamp
 {
 
+class HttpEndpoint;
+
 namespace internal
 {
 
@@ -32,6 +34,8 @@ public:
 
     virtual std::string route() const = 0;
 
+    virtual void initialize(const HttpEndpoint& settings) = 0;
+
     virtual void execute(HttpJob& job) = 0;
 };
 
@@ -47,6 +51,11 @@ public:
     PolymorphicHttpAction(Options options) : action_(std::move(options)) {}
 
     std::string route() const override {return action_.route();}
+
+    void initialize(const HttpEndpoint& settings) override
+    {
+        action_.initialize(settings);
+    }
 
     void execute(HttpJob& job) override {action_.execute(job);}
 

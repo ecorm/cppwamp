@@ -16,10 +16,11 @@
 #include <system_error>
 #include "../api.hpp"
 #include "../transportlimits.hpp"
+#include "../utils/triemap.hpp"
 #include "socketendpoint.hpp"
 #include "tcpprotocol.hpp"
 #include "websocketprotocol.hpp"
-#include "../utils/triemap.hpp"
+#include "../internal/passkey.hpp"
 #include "../internal/polymorphichttpaction.hpp"
 
 namespace wamp
@@ -148,8 +149,7 @@ struct CPPWAMP_API Http
     constexpr Http() = default;
 };
 
-
-namespace internal { class HttpJob; }
+class HttpEndpoint;
 
 //------------------------------------------------------------------------------
 /** Wrapper that type-erases a polymorphic HTTP action. */
@@ -177,17 +177,21 @@ public:
     }
 
 private:
+    std::shared_ptr<internal::PolymorphicHttpActionInterface> action_;
+
+public: // Internal use only
+    void initialize(internal::PassKey, const HttpEndpoint& settings)
+    {
+        action_->initialize(settings);
+    }
+
     // Template needed to break circular dependency with HttpJob
     template <typename THttpJob>
-    void execute(THttpJob& job)
+    void execute(internal::PassKey, THttpJob& job)
     {
         assert(action_ != nullptr);
         action_->execute(job);
     };
-
-    std::shared_ptr<internal::PolymorphicHttpActionInterface> action_;
-
-    friend class internal::HttpJob;
 };
 
 
@@ -265,6 +269,74 @@ private:
 
 
 //------------------------------------------------------------------------------
+/** Function type used to associate MIME types with file extensions.
+    It should return an empty string if the extension unknown. */
+//------------------------------------------------------------------------------
+using MimeTypeMapper = std::function<std::string (const std::string& ext)>;
+
+
+//------------------------------------------------------------------------------
+/** Common options for serving static files via HTTP. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API HttpFileServingOptions
+{
+public:
+    using Parent = HttpFileServingOptions;
+
+    static std::string defaultMimeType(const std::string& extension);
+
+    /** Specifies the document root path for serving files. */
+    HttpFileServingOptions& withDocumentRoot(std::string root);
+
+    /** Specifies the charset to use when not specified by the MIME
+        type mapper. */
+    HttpFileServingOptions& withCharset(std::string charset);
+
+    /** Specifies the index file name. */
+    HttpFileServingOptions& withIndexFileName(std::string name);
+
+    /** Enables automatic directory listing. */
+    HttpFileServingOptions& withAutoIndex(bool enabled = true);
+
+    /** Specifies the mapping function for determining MIME type based on
+        file extension. */
+    HttpFileServingOptions& withMimeTypes(MimeTypeMapper f);
+
+    /** Obtains the document root path for serving files. */
+    const std::string& documentRoot() const;
+
+    /** Obtains the charset to use when not specified by the MIME
+        type mapper. */
+    const std::string& charset() const;
+
+    /** Obtains the index filename. */
+    const std::string& indexFileName() const;
+
+    /** Determines if automatic directory listing is enabled. */
+    bool autoIndex() const;
+
+    /** Determines if a mapping function was specified. */
+    bool hasMimeTypeMapper() const;
+
+    /** Obtains the MIME type associated with the given file extension. */
+    std::string lookupMimeType(const std::string& extension) const;
+
+    /** Applies the given options as defaults for members that are not set. */
+    void applyFallback(const HttpFileServingOptions& opts);
+
+private:
+    static char toLower(char c);
+
+    std::string documentRoot_;
+    std::string charset_;
+    std::string indexFileName_;
+    MimeTypeMapper mimeTypeMapper_;
+    bool hasAutoIndex_ = false;
+    bool autoIndex_ = false;
+};
+
+
+//------------------------------------------------------------------------------
 /** Contains HTTP host address information, as well as other socket options.
     Meets the requirements of @ref TransportSettings. */
 //------------------------------------------------------------------------------
@@ -273,7 +345,6 @@ class CPPWAMP_API HttpEndpoint
 {
 public:
     // TODO: Custom error page generator
-    // TODO: Custom charset field
 
     /// Transport protocol tag associated with these settings.
     using Protocol = Http;
@@ -287,15 +358,6 @@ public:
     /** Constructor taking an address string, port number. */
     HttpEndpoint(std::string address, unsigned short port);
 
-    /** Adds an action associated with an exact route. */
-    HttpEndpoint& addExactRoute(AnyHttpAction action);
-
-    /** Adds an action associated with a prefix match route. */
-    HttpEndpoint& addPrefixRoute(AnyHttpAction action);
-
-    /** Specifies the default document root path for serving files. */
-    HttpEndpoint& withDocumentRoot(std::string root);
-
     /** Specifies the default index file name. */
     HttpEndpoint& withIndexFileName(std::string name);
 
@@ -303,18 +365,24 @@ public:
         (default is Version::serverAgentString). */
     HttpEndpoint& withAgent(std::string agent);
 
-    /** Specifies the error page to show for the given HTTP response
-        status code. */
-    HttpEndpoint& withErrorPage(HttpErrorPage page);
+    /** Specifies the default file serving options. */
+    HttpEndpoint& withFileServingOptions(HttpFileServingOptions options);
 
     /** Specifies transport limits. */
     HttpEndpoint& withLimits(HttpServerLimits limits);
 
-    /** Obtains the default document root path for serving files. */
-    const std::string& documentRoot() const;
+    /** Specifies the error page to show for the given HTTP response
+        status code. */
+    HttpEndpoint& addErrorPage(HttpErrorPage page);
 
-    /** Obtains the default index file name. */
-    const std::string& indexFileName() const;
+    /** Adds an action associated with an exact route. */
+    HttpEndpoint& addExactRoute(AnyHttpAction action);
+
+    /** Adds an action associated with a prefix match route. */
+    HttpEndpoint& addPrefixRoute(AnyHttpAction action);
+
+    /** Obtains default file serving options. */
+    const HttpFileServingOptions& fileServingOptions() const;
 
     /** Obtains the custom agent string. */
     const std::string& agent() const;
@@ -351,20 +419,26 @@ private:
     using Base = SocketEndpoint<HttpEndpoint, Http, TcpOptions,
                                 HttpServerLimits>;
 
+    static const HttpFileServingOptions& defaultFileServingOptions();
+
     AnyHttpAction* doFindAction(const char* route);
 
-    // TODO: HTTP server names and aliases
+    // TODO: HTTP "virtual" server names and aliases
     utils::TrieMap<AnyHttpAction> actionsByExactKey_;
     utils::TrieMap<AnyHttpAction> actionsByPrefixKey_;
     std::map<HttpStatus, HttpErrorPage> errorPages_;
-#ifdef _WIN32
-    std::string documentRoot_ = "C:/web/html";
-#else
-    std::string documentRoot_ = "/var/wwww/html";
-#endif
-    std::string indexFileName_ = "index.html";
+    HttpFileServingOptions fileServingOptions_;
     std::string agent_;
     HttpServerLimits limits_;
+
+public: // Internal use only
+    void initialize(internal::PassKey)
+    {
+        for (auto& a: actionsByExactKey_)
+            a.initialize({}, *this);
+        for (auto& a: actionsByPrefixKey_)
+            a.initialize({}, *this);
+    }
 };
 
 } // namespace wamp
