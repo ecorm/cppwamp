@@ -5,8 +5,11 @@
 ------------------------------------------------------------------------------*/
 
 #include "../transports/httpserver.hpp"
+#include <algorithm>
 #include <iomanip>
 #include <sstream>
+#include <tuple>
+#include <vector>
 #include <boost/filesystem.hpp>
 #include "httplistener.hpp"
 #include "timeformatting.hpp"
@@ -158,18 +161,25 @@ public:
 
         auto page = startDirectoryListing(job);
         boost::system::error_code sysEc;
+        std::vector<Row> rows;
+        Row row;
 
         for (const auto& entry : fs::directory_iterator(absolutePath, sysEc))
         {
             if (sysEc)
                 break;
-            sysEc = addDirectoryEntry(job, page.body(), entry);
+            sysEc = computeRow(job, entry, row);
+            rows.emplace_back(std::move(row));
             if (sysEc)
                 break;
         }
 
         if (sysEc)
             return sysEc;
+
+        std::sort(rows.begin(), rows.end());
+        for (const auto& r: rows)
+            page.body() += r.text;
 
         finishDirectoryListing(page);
         job.respond(std::move(page));
@@ -182,6 +192,17 @@ private:
     using StringResponse = boost::beast::http::response<StringBody>;
     using EmptyBody      = boost::beast::http::empty_body;
     using EmptyResponse  = boost::beast::http::response<EmptyBody>;
+
+    struct Row
+    {
+        std::string text;
+        bool isFile;
+
+        bool operator<(const Row& rhs) const
+        {
+            return std::tie(isFile, text) < std::tie(rhs.isFile, rhs.text);
+        }
+    };
 
     static bool checkTrailingSlashInDirectoryPath(HttpJob& job)
     {
@@ -244,9 +265,9 @@ private:
         return res;
     }
 
-    static std::error_code addDirectoryEntry(const HttpJob& job,
-                                             std::string& body,
-                                             const DirectoryEntry& entry)
+    static std::error_code computeRow(const HttpJob& job,
+                                      const DirectoryEntry& entry,
+                                      Row& row)
     {
         namespace fs = boost::filesystem;
 
@@ -295,7 +316,8 @@ private:
         }
 
         oss << "\n";
-        body += oss.str();
+        row.text = oss.str();
+        row.isFile = !isDirectory;
         return {};
     }
 
