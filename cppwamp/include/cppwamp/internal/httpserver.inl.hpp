@@ -208,6 +208,8 @@ private:
     using FileBody       = boost::beast::http::file_body::value_type;
     using StringBody     = boost::beast::http::string_body;
     using StringResponse = boost::beast::http::response<StringBody>;
+    using EmptyBody      = boost::beast::http::empty_body;
+    using EmptyResponse  = boost::beast::http::response<EmptyBody>;
 
     bool checkRequest(HttpJob& job)
     {
@@ -323,11 +325,13 @@ private:
 
     void listDirectory(HttpJob& job)
     {
+        if (!checkTrailingSlashInDirectoryPath(job))
+            return;
+
         namespace fs = boost::filesystem;
-
         auto page = startDirectoryListing(job);
-
         boost::system::error_code sysEc;
+
         for (const auto& entry : fs::directory_iterator(absolutePath_, sysEc))
         {
             if (sysEc)
@@ -342,6 +346,23 @@ private:
 
         finishDirectoryListing(page);
         job.respond(std::move(page));
+    }
+
+    bool checkTrailingSlashInDirectoryPath(HttpJob& job)
+    {
+        auto path = job.target().path();
+        bool pathIsMissingTrailingSlash = !path.empty() && path.back() != '/';
+        if (!pathIsMissingTrailingSlash)
+            return true;
+
+        namespace http = boost::beast::http;
+        EmptyResponse res{http::status::moved_permanently,
+                          job.request().version()};
+        res.base().set(http::field::location, path + '/');
+        res.base().set(http::field::server, job.settings().agent());
+        res.prepare_payload();
+        job.respond(std::move(res));
+        return false;
     }
 
     StringResponse startDirectoryListing(HttpJob& job)
