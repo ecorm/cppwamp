@@ -141,6 +141,211 @@ namespace internal
 {
 
 //******************************************************************************
+// HttpServeDirectoryListing
+//******************************************************************************
+
+class HttpServeDirectoryListing
+{
+public:
+    using Path = boost::filesystem::path;
+
+    static boost::system::error_code list(HttpJob& job, Path absolutePath)
+    {
+        namespace fs = boost::filesystem;
+
+        if (!checkTrailingSlashInDirectoryPath(job))
+            return {};
+
+        auto page = startDirectoryListing(job);
+        boost::system::error_code sysEc;
+
+        for (const auto& entry : fs::directory_iterator(absolutePath, sysEc))
+        {
+            if (sysEc)
+                break;
+            sysEc = addDirectoryEntry(job, page.body(), entry);
+            if (sysEc)
+                break;
+        }
+
+        if (sysEc)
+            return sysEc;
+
+        finishDirectoryListing(page);
+        job.respond(std::move(page));
+        return {};
+    };
+
+private:
+    using DirectoryEntry = boost::filesystem::directory_entry;
+    using StringBody     = boost::beast::http::string_body;
+    using StringResponse = boost::beast::http::response<StringBody>;
+    using EmptyBody      = boost::beast::http::empty_body;
+    using EmptyResponse  = boost::beast::http::response<EmptyBody>;
+
+    static bool checkTrailingSlashInDirectoryPath(HttpJob& job)
+    {
+        auto path = job.target().path();
+        bool pathIsMissingTrailingSlash = !path.empty() && path.back() != '/';
+        if (!pathIsMissingTrailingSlash)
+            return true;
+
+        namespace http = boost::beast::http;
+        EmptyResponse res{http::status::moved_permanently,
+                          job.request().version()};
+        res.base().set(http::field::location, path + '/');
+        res.base().set(http::field::server, job.settings().agent());
+        res.prepare_payload();
+        job.respond(std::move(res));
+        return false;
+    }
+
+    static StringResponse startDirectoryListing(HttpJob& job)
+    {
+        namespace http = boost::beast::http;
+
+        // Remove empty segments not removed by boost::urls::url::normalize
+        std::string dirString;
+        const auto& segments = job.target().segments();
+        if (!segments.empty())
+        {
+            for (auto segment: segments)
+            {
+                if (!segment.empty())
+                {
+                    dirString += '/';
+                    dirString += segment;
+                }
+            }
+        }
+
+        std::string body{
+            "<html>\n"
+            "<head><title>Index of " + dirString + "</title></head>\n"
+            "<body>\n"
+            "<h1>Index of " + dirString + "/</h1>\n"
+            "<hr>\n"
+            "<pre>\n"};
+
+        if (!dirString.empty())
+        {
+            boost::filesystem::path path{dirString};
+            auto parent = path.parent_path().string();
+            if (parent.back() != '/')
+                parent += '/';
+            body += "<a href=\"" + parent + "\">../</a>\n";
+        }
+
+        const auto& req = job.request();
+        StringResponse res{http::status::ok, req.version(), std::move(body)};
+        res.base().set(http::field::server, job.settings().agent());
+        res.set(http::field::content_type, "text/html; charset=utf-8");
+        res.keep_alive(req.keep_alive());
+        return res;
+    }
+
+    static std::error_code addDirectoryEntry(const HttpJob& job,
+                                             std::string& body,
+                                             const DirectoryEntry& entry)
+    {
+        namespace fs = boost::filesystem;
+
+        auto status = entry.status();
+        std::ostringstream oss;
+        oss.imbue(std::locale::classic());
+        bool isDirectory = fs::is_directory(status);
+
+        // Name column
+        auto name = entry.path().filename().string();
+        if (isDirectory)
+            name += "/";
+        auto link = fs::path{job.request().target()} / name;
+        oss << "<a href=\"" << link.generic_string() << "\">";
+        auto nameLength = countUtf8CodePoints(name);
+        if (nameLength > autoindexNameWidth_)
+        {
+            name = trimUtf8(name, autoindexNameWidth_ - 3);
+            name += "..>";
+            nameLength = autoindexNameWidth_;
+        }
+
+        const auto paddingLength = autoindexNameWidth_ - nameLength + 1;
+        oss << name << "</a>" << std::string(paddingLength, ' ');
+
+        // Timestamp column
+        boost::system::error_code sysEc;
+        auto time = fs::last_write_time(entry.path(), sysEc);
+        if (sysEc)
+            return sysEc;
+        outputFileTimestamp(time, oss);
+
+        // Size column
+        oss << " " << std::right << std::setfill(' ')
+            << std::setw(autoindexSizeWidth_);
+        if (isDirectory)
+        {
+            oss << '-';
+        }
+        else
+        {
+            auto size = fs::file_size(entry.path(), sysEc);
+            if (sysEc)
+                return sysEc;
+            oss << size;
+        }
+
+        oss << "\n";
+        body += oss.str();
+        return {};
+    }
+
+    static std::size_t countUtf8CodePoints(const std::string& utf8)
+    {
+        std::size_t count = 0;
+        for (auto c: utf8)
+            count += !isUtf8MultiByteContinuation(c);
+        return count;
+    }
+
+    static std::string trimUtf8(std::string& utf8, std::size_t limit)
+    {
+        std::string result;
+        std::size_t count = 0;
+
+        for (auto c: utf8)
+        {
+            count += !isUtf8MultiByteContinuation(c);
+            if (count == (limit + 1))
+                break;
+            result += c;
+        }
+
+        return result;
+    }
+
+    static bool isUtf8MultiByteContinuation(char c)
+    {
+        return (c & 0xc0) == 0x80;
+    }
+
+    static void finishDirectoryListing(StringResponse& page)
+    {
+        page.body() += "</pre>\n"
+                       "<hr>\n"
+                       "</body>\n"
+                       "</html>";
+        page.prepare_payload();
+    }
+
+    static constexpr unsigned autoindexLineWidth_ = 79;
+    static constexpr unsigned autoindexSizeWidth_ = 19; // Up to 2^63
+    static constexpr unsigned autoindexTimestampWidth_ = 16; // YYYY-MM-DD HH:MM
+    static constexpr unsigned autoindexNameWidth_ =
+        autoindexLineWidth_ - autoindexSizeWidth_ -
+        autoindexTimestampWidth_ - 2;
+};
+
+//******************************************************************************
 // HttpServeStaticFiles
 //******************************************************************************
 
@@ -187,7 +392,9 @@ public:
                 if (!autoIndex())
                     return job.balk(HttpStatus::notFound);
                 absolutePath_.remove_filename();
-                return listDirectory(job);
+                auto ec = HttpServeDirectoryListing::list(job, absolutePath_);
+                check(job, ec, "list directory");
+                return;
             }
 
             // Fall through if directory/index.html exists.
@@ -323,186 +530,6 @@ private:
         return check(job, netEc, "file open");
     }
 
-    void listDirectory(HttpJob& job)
-    {
-        if (!checkTrailingSlashInDirectoryPath(job))
-            return;
-
-        namespace fs = boost::filesystem;
-        auto page = startDirectoryListing(job);
-        boost::system::error_code sysEc;
-
-        for (const auto& entry : fs::directory_iterator(absolutePath_, sysEc))
-        {
-            if (sysEc)
-                break;
-            sysEc = addDirectoryEntry(job, page.body(), entry);
-            if (sysEc)
-                break;
-        }
-
-        if (!check(job, sysEc, "list directory"))
-            return;
-
-        finishDirectoryListing(page);
-        job.respond(std::move(page));
-    }
-
-    bool checkTrailingSlashInDirectoryPath(HttpJob& job)
-    {
-        auto path = job.target().path();
-        bool pathIsMissingTrailingSlash = !path.empty() && path.back() != '/';
-        if (!pathIsMissingTrailingSlash)
-            return true;
-
-        namespace http = boost::beast::http;
-        EmptyResponse res{http::status::moved_permanently,
-                          job.request().version()};
-        res.base().set(http::field::location, path + '/');
-        res.base().set(http::field::server, job.settings().agent());
-        res.prepare_payload();
-        job.respond(std::move(res));
-        return false;
-    }
-
-    StringResponse startDirectoryListing(HttpJob& job)
-    {
-        namespace http = boost::beast::http;
-
-        // Remove empty segments not removed by boost::urls::url::normalize
-        std::string dirString;
-        const auto& segments = job.target().segments();
-        if (!segments.empty())
-        {
-            for (auto segment: segments)
-            {
-                if (!segment.empty())
-                {
-                    dirString += '/';
-                    dirString += segment;
-                }
-            }
-        }
-
-        std::string body{
-            "<html>\n"
-            "<head><title>Index of " + dirString + "</title></head>\n"
-            "<body>\n"
-            "<h1>Index of " + dirString + "/</h1>\n"
-            "<hr>\n"
-            "<pre>\n"};
-
-        if (!dirString.empty())
-        {
-            boost::filesystem::path path{dirString};
-            auto parent = path.parent_path().string();
-            if (parent.back() != '/')
-                parent += '/';
-            body += "<a href=\"" + parent + "\">../</a>\n";
-        }
-
-        const auto& req = job.request();
-        StringResponse res{http::status::ok, req.version(), std::move(body)};
-        res.base().set(http::field::server, job.settings().agent());
-        res.set(http::field::content_type, "text/html; charset=utf-8");
-        res.keep_alive(req.keep_alive());
-        return res;
-    }
-
-    std::error_code addDirectoryEntry(
-        const HttpJob& job,
-        std::string& body,
-        const boost::filesystem::directory_entry& entry) const
-    {
-        namespace fs = boost::filesystem;
-
-        auto status = entry.status();
-        std::ostringstream oss;
-        oss.imbue(std::locale::classic());
-        bool isDirectory = fs::is_directory(status);
-
-        // Name column
-        auto name = entry.path().filename().string();
-        if (isDirectory)
-            name += "/";
-        auto link = fs::path{job.request().target()} / name;
-        oss << "<a href=\"" << link.generic_string() << "\">";
-        auto nameLength = countUtf8CodePoints(name);
-        if (nameLength > autoindexNameWidth_)
-        {
-            name = trimUtf8(name, autoindexNameWidth_ - 3);
-            name += "..>";
-            nameLength = autoindexNameWidth_;
-        }
-
-        const auto paddingLength = autoindexNameWidth_ - nameLength + 1;
-        oss << name << "</a>" << std::string(paddingLength, ' ');
-
-        // Timestamp column
-        boost::system::error_code sysEc;
-        auto time = fs::last_write_time(entry.path(), sysEc);
-        if (sysEc)
-            return sysEc;
-        outputFileTimestamp(time, oss);
-
-        // Size column
-        oss << " " << std::right << std::setfill(' ')
-            << std::setw(autoindexSizeWidth_);
-        if (isDirectory)
-        {
-            oss << '-';
-        }
-        else
-        {
-            auto size = fs::file_size(entry.path(), sysEc);
-            if (sysEc)
-                return sysEc;
-            oss << size;
-        }
-
-        oss << "\n";
-        body += oss.str();
-        return {};
-    }
-
-    static std::size_t countUtf8CodePoints(const std::string& utf8)
-    {
-        std::size_t count = 0;
-        for (auto c: utf8)
-            count += !isUtf8MultiByteContinuation(c);
-        return count;
-    }
-
-    static std::string trimUtf8(std::string& utf8, std::size_t limit)
-    {
-        std::string result;
-        std::size_t count = 0;
-
-        for (auto c: utf8)
-        {
-            count += !isUtf8MultiByteContinuation(c);
-            if (count == (limit + 1))
-                break;
-            result += c;
-        }
-
-        return result;
-    }
-
-    static bool isUtf8MultiByteContinuation(char c)
-    {
-        return (c & 0xc0) == 0x80;
-    }
-
-    static void finishDirectoryListing(StringResponse& page)
-    {
-        page.body() += "</pre>\n"
-                       "<hr>\n"
-                       "</body>\n"
-                       "</html>";
-        page.prepare_payload();
-    }
-
     void respondToHeadRequest(HttpJob& job, FileBody& body)
     {
         namespace http = boost::beast::http;
@@ -530,7 +557,8 @@ private:
         job.respond(std::move(res));
     }
 
-    bool check(HttpJob& job, boost::system::error_code sysEc, const char* operation)
+    bool check(HttpJob& job, boost::system::error_code sysEc,
+               const char* operation)
     {
         if (!sysEc)
             return true;
@@ -545,16 +573,15 @@ private:
             "An error occurred on the server while processing the request.",
             false, {}, AdmitResult::failed(ec, operation));
     }
-    static constexpr unsigned autoindexLineWidth_ = 79;
-    static constexpr unsigned autoindexSizeWidth_ = 19; // Up to 2^63
-    static constexpr unsigned autoindexTimestampWidth_ = 16; // YYYY-MM-DD HH:MM
-    static constexpr unsigned autoindexNameWidth_ =
-        autoindexLineWidth_ - autoindexSizeWidth_ -
-        autoindexTimestampWidth_ - 2;
 
     HttpServeStaticFiles properties_;
     Path absolutePath_;
 };
+
+
+//******************************************************************************
+// HttpAction<HttpServeStaticFiles>
+//******************************************************************************
 
 CPPWAMP_INLINE
 HttpAction<HttpServeStaticFiles>::HttpAction(HttpServeStaticFiles properties)
