@@ -427,13 +427,15 @@ private:
             name += "/";
         auto link = fs::path{job.request().target()} / name;
         oss << "<a href=\"" << link.generic_string() << "\">";
-        if (name.length() > autoindexNameWidth_)
+        auto nameLength = countUtf8CodePoints(name);
+        if (nameLength > autoindexNameWidth_)
         {
-            name.resize(autoindexNameWidth_ - 3);
+            name = trimUtf8(name, autoindexNameWidth_ - 3);
             name += "..>";
+            nameLength = autoindexNameWidth_;
         }
 
-        const auto paddingLength = autoindexNameWidth_ - name.length() + 1;
+        const auto paddingLength = autoindexNameWidth_ - nameLength + 1;
         oss << name << "</a>" << std::string(paddingLength, ' ');
 
         // Timestamp column
@@ -461,6 +463,35 @@ private:
         oss << "\n";
         body += oss.str();
         return {};
+    }
+
+    static std::size_t countUtf8CodePoints(const std::string& utf8)
+    {
+        std::size_t count = 0;
+        for (auto c: utf8)
+            count += !isUtf8MultiByteContinuation(c);
+        return count;
+    }
+
+    static std::string trimUtf8(std::string& utf8, std::size_t limit)
+    {
+        std::string result;
+        std::size_t count = 0;
+
+        for (auto c: utf8)
+        {
+            count += !isUtf8MultiByteContinuation(c);
+            if (count == (limit + 1))
+                break;
+            result += c;
+        }
+
+        return result;
+    }
+
+    static bool isUtf8MultiByteContinuation(char c)
+    {
+        return (c & 0xc0) == 0x80;
     }
 
     static void finishDirectoryListing(StringResponse& page)
