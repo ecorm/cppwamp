@@ -60,6 +60,10 @@ target_link_libraries(cppwamp-test
     PRIVATE
         "$<TARGET_NAME_IF_EXISTS:Catch2::Catch2>"
         "$<TARGET_NAME_IF_EXISTS:jsoncons>"
+        "$<TARGET_NAME_IF_EXISTS:Boost::beast>"
+        "$<TARGET_NAME_IF_EXISTS:Boost::url>"
+        "$<TARGET_NAME_IF_EXISTS:Boost::system>"
+        "$<TARGET_NAME_IF_EXISTS:Threads::Threads>"
         CppWAMP::core-headers
         CppWAMP::coro-usage)
 target_compile_options(cppwamp-test PRIVATE

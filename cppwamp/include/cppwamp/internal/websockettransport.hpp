@@ -27,6 +27,7 @@
 #include "../traits.hpp"
 #include "../transports/websocketprotocol.hpp"
 #include "../wampdefs.hpp"
+#include "httpurlvalidator.hpp"
 #include "tcptraits.hpp"
 
 namespace wamp
@@ -537,9 +538,19 @@ private:
                           AdmitResult::rejected(TransportErrc::badSerializer));
         }
 
-        // Store the request-target string
-        // TODO: Validate like in HttpJob::normalizeAndCheckTargetPath
-        target_ = request.target();
+        // Validate and store the request-target string
+        auto normalized =
+            HttpUrlValidator::interpretAndNormalize(
+                request.target(),
+                boost::beast::http::verb::get);
+        if (!normalized)
+        {
+            return reject("Invalid request-target",
+                          HttpStatus::bad_request,
+                          AdmitResult::rejected(TransportErrc::badHandshake));
+        }
+
+        target_ = normalized->buffer();
 
         // Transfer the TCP socket to a new websocket stream
         websocket_.emplace(std::move(tcpSocket_));

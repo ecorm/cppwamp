@@ -88,6 +88,7 @@ set(HEADERS
     include/cppwamp/internal/hashcombine.hpp
     include/cppwamp/internal/httplistener.hpp
     include/cppwamp/internal/httptransport.hpp
+    include/cppwamp/internal/httpurlvalidator.hpp
     include/cppwamp/internal/invocationpolicyoption.hpp
     include/cppwamp/internal/lrucache.hpp
     include/cppwamp/internal/matchpolicyoption.hpp
