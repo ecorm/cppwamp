@@ -79,11 +79,23 @@ struct LoopbackFixture
         lstn->observe(
             [&](ListenResult result)
             {
+                if (!result.ok())
+                {
+                    FAIL("LoopbackFixture ListenResult::error: "
+                         << result.error());
+                }
                 auto transport = lstn->take();
                 server = std::move(transport);
                 server->admit(
                     [this](AdmitResult result)
                     {
+                        auto s = result.status();
+                        if (s != AdmitStatus::responded &&
+                            s != AdmitStatus::wamp)
+                        {
+                            FAIL("LoopbackFixture AdmitResult::error: "
+                                 << result.error());
+                        }
                         if (result.status() == AdmitStatus::wamp)
                             serverCodec = result.codecId();
                     });
@@ -93,6 +105,11 @@ struct LoopbackFixture
         cnct->establish(
             [&](ErrorOr<Transporting::Ptr> transportOrError)
             {
+                if (!transportOrError)
+                {
+                    FAIL("LoopbackFixture ListenResult::error: "
+                         << transportOrError.error());
+                }
                 auto transport = transportOrError.value();
                 clientCodec = transport->info().codecId();
                 client = std::move(transport);
@@ -1010,8 +1027,43 @@ SECTION( "a Msgpack client and a JSON server" )
 }
 
 //------------------------------------------------------------------------------
+TEST_CASE( "Invalid Websocket request-target", "[Transport][Websocket][thisone]" )
+{
+    auto host = wsHost;
+    host.withTarget("/foo^bar");
+    LoopbackFixture f(host, jsonId, wsEndpoint, {jsonId}, false);
+    std::error_code serverEc;
+    std::error_code clientEc;
+
+    f.lstn->observe(
+        [&](ListenResult result)
+        {
+            REQUIRE( result.ok() );
+            f.server = f.lstn->take();
+            f.server->admit(
+                [&](AdmitResult result)
+                {
+                    serverEc = result.error();
+                    f.server->close();
+                });
+        });
+    f.lstn->establish();
+
+    f.cnct->establish(
+        [&](ErrorOr<Transporting::Ptr> transport)
+        {
+            if (!transport.has_value())
+                clientEc = transport.error();
+        });
+
+    f.run();
+    CHECK( serverEc == TransportErrc::badHandshake );
+    CHECK( clientEc == HttpStatus::badRequest );
+}
+
+//------------------------------------------------------------------------------
 TEST_CASE( "Peer sending a websocket message longer than maximum",
-           "[Transport][Websocket]" )
+           "[Transport][Websocket][thisone]" )
 {
     LoopbackFixture f;
     Transporting::Ptr client = f.client;
@@ -1025,6 +1077,7 @@ TEST_CASE( "Peer sending a websocket message longer than maximum",
         {
             REQUIRE( !message );
             clientError = message.error();
+            client->close();
         },
         nullptr);
 
@@ -1033,6 +1086,7 @@ TEST_CASE( "Peer sending a websocket message longer than maximum",
         {
             REQUIRE( !message );
             serverError = message.error();
+            server->close();
         },
         nullptr);
 

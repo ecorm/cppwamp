@@ -9,6 +9,7 @@
 #include <boost/beast/websocket/option.hpp>
 #include "../api.hpp"
 #include "../version.hpp"
+#include "httpurlvalidator.hpp"
 
 namespace wamp
 {
@@ -244,6 +245,11 @@ CPPWAMP_INLINE std::size_t WebsocketClientLimits::headerSize() const
 // WebsocketHost
 //******************************************************************************
 
+CPPWAMP_INLINE bool WebsocketHost::targetIsValid(const std::string& target)
+{
+    return !internal::HttpUrlValidator::validateForWebsocket(target);
+}
+
 CPPWAMP_INLINE WebsocketHost::WebsocketHost(std::string address,
                                             std::string serviceName)
     : Base(std::move(address), std::move(serviceName))
@@ -259,7 +265,6 @@ CPPWAMP_INLINE WebsocketHost::WebsocketHost(std::string address, Port port)
 
 CPPWAMP_INLINE WebsocketHost& WebsocketHost::withTarget(std::string target)
 {
-    // TODO: Validate target path
     target_ = std::move(target);
     return *this;
 }

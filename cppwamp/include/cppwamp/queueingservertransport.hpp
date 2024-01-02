@@ -212,7 +212,7 @@ private:
                 break;
 
             default:
-                // Do nothings
+                // Do nothing
                 break;
             }
 

@@ -201,6 +201,9 @@ class CPPWAMP_API WebsocketHost
                         WebsocketClientLimits>
 {
 public:
+    /** Determines if the given request-target is valid. */
+    static bool targetIsValid(const std::string& target);
+
     /** Constructor taking an URL/IP and a service string. */
     WebsocketHost(std::string address, std::string serviceName);
 

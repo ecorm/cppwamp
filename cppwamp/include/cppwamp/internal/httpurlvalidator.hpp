@@ -46,6 +46,14 @@ public:
         return url;
     }
 
+    static std::error_code validateForWebsocket(StringView target)
+    {
+        auto result = boost::urls::parse_uri_reference(target);
+        if (result.has_error())
+            return static_cast<std::error_code>(result.error());
+        return {};
+    }
+
     static bool isValid(const UrlView& url, Verb verb)
     {
         using V = Verb;
