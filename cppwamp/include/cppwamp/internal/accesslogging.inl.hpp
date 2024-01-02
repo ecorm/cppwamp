@@ -6,6 +6,7 @@
 
 #include "../accesslogging.hpp"
 #include <array>
+#include <set>
 #include <sstream>
 #include <utility>
 #include "../api.hpp"
@@ -22,6 +23,7 @@ CPPWAMP_INLINE void outputAccessLogEntry(
     std::ostream& out, const AccessLogEntry& entry, bool colored)
 {
     static constexpr const char* red = "\x1b[1;31m";
+    static constexpr const char* green = "\x1b[1;32m";
     static constexpr const char* plain = "\x1b[0m";
 
     struct PutField
@@ -47,7 +49,18 @@ CPPWAMP_INLINE void outputAccessLogEntry(
     AccessLogEntry::outputTime(out, entry.when);
     PutField{out} << c.server();
     out << " | " << c.serverSessionNumber();
-    PutField{out} << c.endpoint() << s.realmUri() << s.auth().id() << s.agent();
+    PutField{out} << c.endpoint();
+
+    if (entry.isHttp)
+    {
+        const auto& h = entry.http;
+        PutField{out} << h.host << std::string{} << h.agent;
+    }
+    else
+    {
+        PutField{out} << s.realmUri() << s.auth().id() << s.agent();
+    }
+
     if (a.requestId == nullId())
         out << " | -";
     else
@@ -57,11 +70,26 @@ CPPWAMP_INLINE void outputAccessLogEntry(
 
     out << " | ";
     if (a.errorUri.empty())
+    {
         out << "-";
+    }
     else if (colored)
-        out << red << a.errorUri << plain;
+    {
+        if (entry.isHttp)
+        {
+            auto firstDigit = a.errorUri.front();
+            bool isError = firstDigit == '4' || firstDigit == '5';
+            out << (isError ? red : green) << a.errorUri << plain;
+        }
+        else
+        {
+            out << red << a.errorUri << plain;
+        }
+    }
     else
+    {
         out << a.errorUri;
+    }
 
     if (a.options.empty())
         out << " | -";
@@ -78,7 +106,7 @@ CPPWAMP_INLINE void outputAccessLogEntry(
 
 CPPWAMP_INLINE const std::string& accessActionLabel(AccessAction action)
 {
-    static const std::array<std::string, 31> labels{
+    static const std::array<std::string, 40> labels{
     {
          "client-connect",
          "client-disconnect",
@@ -95,6 +123,15 @@ CPPWAMP_INLINE const std::string& accessActionLabel(AccessAction action)
          "client-register",
          "client-unregister",
          "client-yield",
+         "client-http-get",
+         "client-http-head",
+         "client-http-post",
+         "client-http-put",
+         "client-http-delete",
+         "client-http-connect",
+         "client-http-options",
+         "client-http-trace",
+         "client-http-other",
          "server-reject",
          "server-disconnect",
          "server-welcome",
@@ -200,6 +237,19 @@ CPPWAMP_INLINE Object AccessActionInfo::optionsWithErrorDesc(
 
 
 //******************************************************************************
+// HttpAccessInfo
+//******************************************************************************
+
+CPPWAMP_INLINE HttpAccessInfo::HttpAccessInfo() = default;
+
+CPPWAMP_INLINE HttpAccessInfo::HttpAccessInfo(std::string host,
+                                              std::string agent)
+    : host(std::move(host)),
+      agent(std::move(agent))
+{}
+
+
+//******************************************************************************
 // AccessLogEntry
 //******************************************************************************
 
@@ -214,12 +264,32 @@ CPPWAMP_INLINE std::ostream& AccessLogEntry::outputTime(std::ostream& out,
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AccessLogEntry::AccessLogEntry(ConnectionInfo connection,
+                                              AccessActionInfo action)
+    : connection(std::move(connection)),
+      action(std::move(action)),
+      when(std::chrono::system_clock::now()),
+      isHttp(false)
+{}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE AccessLogEntry::AccessLogEntry(ConnectionInfo connection,
                                               SessionInfo session,
                                               AccessActionInfo action)
     : connection(std::move(connection)),
       session(std::move(session)),
       action(std::move(action)),
-      when(std::chrono::system_clock::now())
+      when(std::chrono::system_clock::now()),
+      isHttp(false)
+{}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE AccessLogEntry::AccessLogEntry(
+    ConnectionInfo connection, HttpAccessInfo http, AccessActionInfo action)
+    : connection(std::move(connection)),
+      http(std::move(http)),
+      action(std::move(action)),
+      when(std::chrono::system_clock::now()),
+      isHttp(true)
 {}
 
 //------------------------------------------------------------------------------
@@ -231,6 +301,9 @@ CPPWAMP_INLINE AccessLogEntry::AccessLogEntry(ConnectionInfo connection,
     transport endpoint | realm URI | authid | agent |
     request ID | action | target URI | error URI | {action options}
     ```
+    If the entry corresponds to an HTTP request, then the Host field is used
+    as the realm URI, and the response status code is used as the error URI.
+
     @note This function uses `std::gmtime` on platforms where `gmtime_r` is not
           available, where the former may not be thread-safe. */
 //------------------------------------------------------------------------------

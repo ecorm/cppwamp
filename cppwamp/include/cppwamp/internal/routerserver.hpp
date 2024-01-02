@@ -1080,7 +1080,7 @@ private:
 
     void report(const Transporting& transport, AccessActionInfo&& info)
     {
-        logger_->log(AccessLogEntry{transport.connectionInfo(), {},
+        logger_->log(AccessLogEntry{transport.connectionInfo(),
                                     std::move(info)});
     }
 

@@ -61,32 +61,6 @@ private:
     friend class internal::RouterImpl;
 };
 
-//------------------------------------------------------------------------------
-class AdmissionLogger
-{
-public:
-    using Ptr = std::shared_ptr<AdmissionLogger>;
-
-    AdmissionLogger() = default;
-
-    explicit AdmissionLogger(ConnectionInfo i, RouterLogger::Ptr l)
-        : info_(std::move(i)),
-          logger_(std::move(l))
-    {}
-
-    LogLevel level() const {return !logger_ ? LogLevel::off : logger_->level();}
-
-    void report(AccessActionInfo action)
-    {
-        if (logger_)
-            logger_->log(AccessLogEntry{info_, {}, action});
-    }
-
-private:
-    ConnectionInfo info_;
-    RouterLogger::Ptr logger_;
-};
-
 } // namespace wamp
 
 #endif // CPPWAMP_ROUTER_LOGGER_HPP

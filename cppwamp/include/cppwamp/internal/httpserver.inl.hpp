@@ -446,7 +446,7 @@ private:
         namespace http = beast::http;
 
         // Reject proxying requests
-        // TODO: Check if absolute URI matches server name or alias
+        // TODO: Check if absolute URI domain matches server name or alias
         const auto& target = job.target();
         if (target.has_scheme() || target.has_authority())
         {

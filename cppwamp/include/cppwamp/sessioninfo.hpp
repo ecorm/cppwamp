@@ -12,14 +12,13 @@
     @brief Contains facilities for reporting session information. */
 //------------------------------------------------------------------------------
 
-#include <cstdint>
 #include <memory>
 #include "api.hpp"
 #include "authinfo.hpp"
 #include "connectioninfo.hpp"
 #include "features.hpp"
 #include "wampdefs.hpp"
-#include "variant.hpp"
+#include "variantdefs.hpp"
 #include "internal/passkey.hpp"
 
 namespace wamp

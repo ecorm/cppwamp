@@ -64,18 +64,28 @@ public:
         return parser_->get();
     }
 
+    std::string fieldOr(Field field, std::string fallback)
+    {
+        const auto& req = request();
+        auto iter = req.find(field);
+        return (iter == req.end()) ? fallback : std::string{iter->value()};
+    }
+
     const HttpEndpoint& settings() const {return *settings_;}
 
-    void respond(AnyMessage response)
+    void respond(AnyMessage response, HttpStatus status = HttpStatus::ok)
     {
         bool keepAlive = response.keep_alive();
         auto self = shared_from_this();
         boost::beast::async_write(
             tcpSocket_, std::move(response),
-            [this, self, keepAlive](boost::beast::error_code netEc, std::size_t)
+            [this, self, keepAlive, status](boost::beast::error_code netEc,
+                                            std::size_t)
             {
                 if (!check(netEc, "socket write"))
                     return;
+
+                report(status);
 
                 if (keepAlive)
                     start();
@@ -132,19 +142,14 @@ public:
         sendGeneratedError(responseStatus, what, fields, result);
     }
 
-    void report(AccessActionInfo action)
-    {
-        if (logger_)
-            logger_->log(AccessLogEntry{connectionInfo_, {},
-                                        std::move(action)});
-    }
-
 private:
     using Base = HttpJob;
     using Parser = boost::beast::http::request_parser<Body>;
+    using Verb = boost::beast::http::verb;
 
     void process(bool isShedding, Handler handler)
     {
+        reportConnection({AccessAction::clientConnect});
         isShedding_ = isShedding;
         handler_ = std::move(handler);
         start();
@@ -191,9 +196,10 @@ private:
             tcpSocket_, buffer_, *parser_,
             [this, self] (const boost::beast::error_code& netEc, std::size_t)
             {
-                if (netEc == boost::beast::http::error::end_of_stream)
-                    finish(AdmitResult::responded());
                 timer_.cancel();
+                if (netEc == boost::beast::http::error::end_of_stream)
+                    return finish(AdmitResult::responded());
+                // TODO: Distinguish between parsing and socket errors
                 if (check(netEc, "socket read"))
                     onRequest();
             });
@@ -258,6 +264,54 @@ private:
         return !netEc;
     }
 
+    void report(HttpStatus status)
+    {
+        if (!logger_)
+            return;
+
+        const auto& req = request();
+        auto action = actionFromRequestVerb(req.base().method());
+        auto statusStr = std::to_string(static_cast<unsigned>(status));
+        AccessActionInfo info{action, req.target(), {}, std::move(statusStr)};
+
+        if (action == AccessAction::clientHttpOther)
+        {
+            info.options.emplace("method",
+                                 std::string{req.base().method_string()});
+        }
+
+        HttpAccessInfo httpInfo{fieldOr(Field::host, {}),
+                                fieldOr(Field::user_agent, {})};
+        logger_->log(AccessLogEntry{connectionInfo_, std::move(httpInfo),
+                                    std::move(info)});
+    }
+
+    void reportConnection(AccessActionInfo info)
+    {
+        if (!logger_)
+            return;
+
+        logger_->log(AccessLogEntry{connectionInfo_, std::move(info)});
+    }
+
+    static AccessAction actionFromRequestVerb(Verb verb)
+    {
+        switch (verb)
+        {
+        case Verb::delete_: return AccessAction::clientHttpDelete;
+        case Verb::get:     return AccessAction::clientHttpGet;
+        case Verb::head:    return AccessAction::clientHttpHead;
+        case Verb::post:    return AccessAction::clientHttpPost;
+        case Verb::put:     return AccessAction::clientHttpPut;
+        case Verb::connect: return AccessAction::clientHttpConnect;
+        case Verb::options: return AccessAction::clientHttpOptions;
+        case Verb::trace:   return AccessAction::clientHttpTrace;
+        default: break;
+        }
+
+        return AccessAction::clientHttpOther;
+    }
+
     void sendSimpleError(HttpStatus status, std::string&& what,
                          FieldList fields, AdmitResult result)
     {
@@ -271,7 +325,7 @@ private:
             response.set(pair.first, pair.second);
 
         response.prepare_payload();
-        sendAndFinish(std::move(response), result);
+        sendErrorResponseAndFinish(std::move(response), status, result);
     }
 
     void sendGeneratedError(HttpStatus status, const std::string& what,
@@ -289,7 +343,7 @@ private:
             response.set(pair.first, pair.second);
 
         response.prepare_payload();
-        sendAndFinish(std::move(response), result);
+        sendErrorResponseAndFinish(std::move(response), status, result);
     }
 
     void sendCustomGeneratedError(const HttpErrorPage& page,
@@ -312,7 +366,7 @@ private:
             response.set(pair.first, pair.second);
 
         response.prepare_payload();
-        sendAndFinish(std::move(response), result);
+        sendErrorResponseAndFinish(std::move(response), page.status(), result);
     }
 
     std::string generateErrorPage(wamp::HttpStatus status,
@@ -350,7 +404,7 @@ private:
             response.set(pair.first, pair.second);
 
         response.prepare_payload();
-        sendAndFinish(std::move(response), result);
+        sendErrorResponseAndFinish(std::move(response), page.status(), result);
     }
 
     void sendErrorFromFile(const HttpErrorPage& page, const std::string& what,
@@ -385,19 +439,22 @@ private:
         for (auto pair: fields)
             response.set(pair.first, pair.second);
         response.prepare_payload();
-        sendAndFinish(std::move(response), result);
+        sendErrorResponseAndFinish(std::move(response), page.status(), result);
     }
 
-    void sendAndFinish(boost::beast::http::message_generator&& response,
-                       AdmitResult result)
+    void sendErrorResponseAndFinish(AnyMessage&& response, HttpStatus status,
+                                    AdmitResult result)
     {
         auto self = shared_from_this();
         boost::beast::async_write(
             tcpSocket_, std::move(response),
-            [this, self, result](boost::beast::error_code netEc, std::size_t)
+            [this, self, status, result](boost::beast::error_code netEc,
+                                         std::size_t)
             {
-                if (check(netEc, "socket write"))
-                    finish(result);
+                if (!check(netEc, "socket write"))
+                    return;
+                report(status);
+                finish(result);
             });
     }
 
@@ -405,6 +462,15 @@ private:
     {
         if (result.status() != AdmitStatus::wamp)
         {
+            if (logger_)
+            {
+                using AA = AccessAction;
+                if (result.status() == AdmitStatus::responded)
+                    reportConnection({AA::clientDisconnect});
+                else
+                    reportConnection({AA::serverReject, result.error()});
+            }
+
             boost::system::error_code ec;
             tcpSocket_.shutdown(boost::asio::ip::tcp::socket::shutdown_send,
                                 ec);

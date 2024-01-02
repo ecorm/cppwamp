@@ -15,7 +15,6 @@
 #include <chrono>
 #include <functional>
 #include <ostream>
-#include <set>
 #include <string>
 #include "api.hpp"
 #include "errorcodes.hpp"
@@ -45,6 +44,15 @@ enum class AccessAction
     clientRegister,
     clientUnregister,
     clientYield,
+    clientHttpGet,
+    clientHttpHead,
+    clientHttpPost,
+    clientHttpPut,
+    clientHttpDelete,
+    clientHttpConnect,
+    clientHttpOptions,
+    clientHttpTrace,
+    clientHttpOther,
     serverReject,
     serverDisconnect,
     serverWelcome,
@@ -108,30 +116,63 @@ private:
 
 
 //------------------------------------------------------------------------------
+/** Contains access logging HTTP request information. */
+//------------------------------------------------------------------------------
+struct CPPWAMP_API HttpAccessInfo
+{
+    /** Default constructor. */
+    HttpAccessInfo();
+
+    /** Constructor. */
+    HttpAccessInfo(std::string host, std::string agent);
+
+    /** The client host field string. */
+    std::string host;
+
+    /** The client user agent string. */
+    std::string agent;
+};
+
+
+//------------------------------------------------------------------------------
 /** Contains access logging information. */
 //------------------------------------------------------------------------------
 struct CPPWAMP_API AccessLogEntry
 {
+    /// Type used for timestamps.
     using TimePoint = std::chrono::system_clock::time_point;
 
     /** Outputs a timestamp in RFC3339 format. */
     static std::ostream& outputTime(std::ostream& out, TimePoint when);
 
     /** Constructor. */
+    AccessLogEntry(ConnectionInfo connection, AccessActionInfo action);
+
+    /** Constructor taking WAMP session information. */
     AccessLogEntry(ConnectionInfo connection, SessionInfo session,
+                   AccessActionInfo action);
+
+    /** Constructor taking HTTP request information. */
+    AccessLogEntry(ConnectionInfo connection, HttpAccessInfo http,
                    AccessActionInfo action);
 
     /** The connection information. */
     ConnectionInfo connection;
 
-    /** The session information. */
+    /** The WAMP session information. */
     SessionInfo session;
+
+    /** The HTTP request information. */
+    HttpAccessInfo http;
 
     /** The action information. */
     AccessActionInfo action;
 
     /** Timestamp. */
     TimePoint when;
+
+    /** Determines if the entry corresponds to an HTTP request. */
+    bool isHttp;
 };
 
 /** Obtains a formatted log entry string combining all available information.

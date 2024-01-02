@@ -211,7 +211,7 @@ CPPWAMP_INLINE HttpErrorPage::HttpErrorPage(HttpStatus key, std::string uri,
 
     if (status_ == HttpStatus::none)
     {
-        status_ = (uri_.front() == '/') ? status : HttpStatus::found;
+        status_ = (uri_.front() == '/') ? key : HttpStatus::movedPermanently;
         return;
     }
 
