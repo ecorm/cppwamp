@@ -18,13 +18,9 @@ class HttpEndpoint;
 namespace internal
 {
 
+// Forward declarations
 class HttpJob;
-
-//------------------------------------------------------------------------------
-// TODO: Make this non-internal
-template <typename TOptions>
-class HttpAction
-{};
+template <typename TOptions> class HttpAction;
 
 //------------------------------------------------------------------------------
 class PolymorphicHttpActionInterface
