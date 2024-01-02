@@ -241,11 +241,43 @@ CPPWAMP_INLINE HttpErrorPage::HttpErrorPage(HttpStatus key, HttpStatus status)
                         "'status' must be an error code");
 }
 
+CPPWAMP_INLINE HttpErrorPage::HttpErrorPage(HttpStatus key, Generator generator,
+                                            HttpStatus status)
+    : generator_(std::move(generator)),
+      key_(key),
+      status_(status)
+{
+    if (status_ == HttpStatus::none)
+        status_ = key;
+
+    CPPWAMP_LOGIC_CHECK(static_cast<unsigned>(key) >= 400,
+                        "'key' must be an error code");
+
+    CPPWAMP_LOGIC_CHECK(static_cast<unsigned>(key) >= 400,
+                        "'status' must be an error code");
+}
+
+CPPWAMP_INLINE HttpErrorPage& HttpErrorPage::withCharset(std::string charset)
+{
+    charset_ = charset;
+    return *this;
+}
+
 CPPWAMP_INLINE HttpStatus HttpErrorPage::key() const {return key_;}
 
 CPPWAMP_INLINE HttpStatus HttpErrorPage::status() const {return status_;}
 
 CPPWAMP_INLINE const std::string& HttpErrorPage::uri() const {return uri_;}
+
+CPPWAMP_INLINE const std::string& HttpErrorPage::charset() const
+{
+    return charset_;
+}
+
+CPPWAMP_INLINE const HttpErrorPage::Generator& HttpErrorPage::generator() const
+{
+    return generator_;
+}
 
 CPPWAMP_INLINE bool HttpErrorPage::isRedirect() const
 {

@@ -12,6 +12,7 @@
     @brief Contains basic HTTP protocol definitions. */
 //------------------------------------------------------------------------------
 
+#include <functional>
 #include <string>
 #include <system_error>
 #include "../api.hpp"
@@ -248,6 +249,9 @@ private:
 class CPPWAMP_API HttpErrorPage
 {
 public:
+    using Generator = std::function<std::string (HttpStatus status,
+                                                 const std::string& what)>;
+
     HttpErrorPage();
 
     /** Specifies a file path or redirect URL to be associated with the given
@@ -260,6 +264,14 @@ public:
         status code. */
     HttpErrorPage(HttpStatus key, HttpStatus status);
 
+    /** Specifies a function that generates an HTML page for the given HTTP
+        status code, with the key status optionally substituted with
+        the given status. */
+    HttpErrorPage(HttpStatus key, Generator generator,
+                  HttpStatus status = HttpStatus::none);
+
+    HttpErrorPage& withCharset(std::string charset);
+
     HttpStatus key() const;
 
     HttpStatus status() const;
@@ -268,10 +280,14 @@ public:
 
     const std::string& charset() const;
 
+    const Generator& generator() const;
+
     bool isRedirect() const;
 
 private:
     std::string uri_;
+    std::string charset_;
+    Generator generator_;
     HttpStatus key_ = HttpStatus::none;
     HttpStatus status_ = HttpStatus::none;
 };
@@ -353,8 +369,6 @@ class CPPWAMP_API HttpEndpoint
     : public SocketEndpoint<HttpEndpoint, Http, TcpOptions, HttpServerLimits>
 {
 public:
-    // TODO: Custom error page generator
-
     /// Transport protocol tag associated with these settings.
     using Protocol = Http;
 

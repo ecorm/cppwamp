@@ -100,9 +100,9 @@ public:
             [this, self](AdmitResult result) {finish(result);});
     }
 
-    void balk(
-        HttpStatus status, std::string what = {}, bool simple = false,
-        FieldList fields = {}, AdmitResult result = AdmitResult::responded())
+    void balk(HttpStatus status, std::string what = {}, bool simple = false,
+              FieldList fields = {},
+              AdmitResult result = AdmitResult::responded())
     {
         // Don't send full HTML error page if request was a Websocket upgrade
         if (simple)
@@ -111,20 +111,25 @@ public:
         namespace http = boost::beast::http;
 
         auto page = settings().findErrorPage(status);
+        bool found = page != nullptr;
+        HttpStatus responseStatus = status;
 
-        if (page == nullptr)
-            return sendGeneratedError(status, std::move(what), fields, result);
-
-        if (page->uri().empty())
+        if (found)
         {
-            return sendGeneratedError(page->status(), std::move(what), fields,
-                                      result);
+            if (page->isRedirect())
+                return redirectError(*page, fields, result);
+
+            if (page->generator() != nullptr)
+                return sendCustomGeneratedError(*page, what, fields, result);
+
+            if (!page->uri().empty())
+                return sendErrorFromFile(*page, what, fields, result);
+
+            responseStatus = page->status();
+            // Fall through
         }
 
-        if (page->isRedirect())
-            return redirectError(*page, fields, result);
-
-        return sendErrorFromFile(*page, std::move(what), fields, result);
+        sendGeneratedError(responseStatus, what, fields, result);
     }
 
     void report(AccessActionInfo action)
@@ -269,7 +274,7 @@ private:
         sendAndFinish(std::move(response), result);
     }
 
-    void sendGeneratedError(HttpStatus status, std::string&& what,
+    void sendGeneratedError(HttpStatus status, const std::string& what,
                             FieldList fields, AdmitResult result)
     {
         namespace http = boost::beast::http;
@@ -280,6 +285,29 @@ private:
 
         response.set(Field::server, settings().agent());
         response.set(Field::content_type, "text/html; charset=utf-8");
+        for (auto pair: fields)
+            response.set(pair.first, pair.second);
+
+        response.prepare_payload();
+        sendAndFinish(std::move(response), result);
+    }
+
+    void sendCustomGeneratedError(const HttpErrorPage& page,
+                                  const std::string& what,
+                                  FieldList fields, AdmitResult result)
+    {
+        namespace http = boost::beast::http;
+
+        http::response<http::string_body> response{
+            static_cast<http::status>(page.status()), request().version(),
+            page.generator()(page.status(), what)};
+
+        response.set(Field::server, settings().agent());
+
+        std::string mime{"text/html; charset="};
+        mime += page.charset().empty() ? std::string{"utf-8"} : page.charset();
+        response.set(Field::content_type, std::move(mime));
+
         for (auto pair: fields)
             response.set(pair.first, pair.second);
 
@@ -325,7 +353,7 @@ private:
         sendAndFinish(std::move(response), result);
     }
 
-    void sendErrorFromFile(const HttpErrorPage& page, std::string&& what,
+    void sendErrorFromFile(const HttpErrorPage& page, const std::string& what,
                            FieldList fields, AdmitResult result)
     {
         namespace beast = boost::beast;
@@ -342,14 +370,18 @@ private:
         {
             auto ec = static_cast<std::error_code>(netEc);
             return sendGeneratedError(
-                page.status(), std::move(what), fields,
+                page.status(), what, fields,
                 AdmitResult::failed(ec, "error file read"));
         }
 
         http::response<http::file_body> response{
             http::status::ok, request().version(), std::move(body)};
         response.set(Field::server, settings().agent());
-        response.set(Field::content_type, "text/html; charset=utf-8");
+
+        std::string mime{"text/html; charset="};
+        mime += page.charset().empty() ? std::string{"utf-8"} : page.charset();
+        response.set(Field::content_type, std::move(mime));
+
         for (auto pair: fields)
             response.set(pair.first, pair.second);
         response.prepare_payload();
