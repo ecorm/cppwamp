@@ -154,7 +154,7 @@ protected:
     {
         if (admitter_ != nullptr)
             admitter_->close();
-        else
+        else if (queue_ != nullptr)
             queue_->close();
     }
 

@@ -565,8 +565,10 @@ private:
         assert(requestParser_.has_value());
         if (!requestParser_->upgrade())
         {
-            return finish(AdmitResult::rejected(
-                boost::beast::websocket::error::no_connection_upgrade));
+            auto errc = boost::beast::websocket::error::no_connection_upgrade;
+            return reject("Websocket protocol required",
+                          HttpStatus::upgrade_required,
+                          AdmitResult::rejected(errc));
         }
 
         // Send an error response if the server connection limit
@@ -659,12 +661,12 @@ private:
         if (!netEc)
             return true;
 
-        auto ec = websocketErrorCodeToStandard(netEc);
-        const auto& cat =
+        const auto& websocketErrorCat =
             make_error_code(boost::beast::websocket::error::closed).category();
-        bool dueToClient = netEc.category() == cat;
+        bool isWebsocketError = netEc.category() == websocketErrorCat;
+        auto ec = websocketErrorCodeToStandard(netEc);
 
-        if (dueToClient)
+        if (isWebsocketError || isHttpParseErrorDueToClient(netEc))
         {
             reject("Bad request", HttpStatus::bad_request,
                    AdmitResult::rejected(ec));
@@ -682,8 +684,10 @@ private:
         response_.result(status);
         response_.body() = std::move(msg);
         auto self = shared_from_this();
+        TcpSocket* socket = websocket_.has_value() ? &websocket_->next_layer()
+                                                   : &tcpSocket_;
         http::async_write(
-            tcpSocket_, response_,
+            *socket, response_,
             [this, self, result](boost::beast::error_code netEc, std::size_t)
             {
                 if (checkRejectWrite(netEc))

@@ -13,7 +13,6 @@
 #include <cppwamp/internal/websocketlistener.hpp>
 #include <cppwamp/transports/websocketclient.hpp>
 #include <cppwamp/transports/websocketserver.hpp>
-#include "silentclient.hpp"
 
 #if defined(CPPWAMP_TEST_HAS_CORO)
 #include <cppwamp/session.hpp>
@@ -151,6 +150,208 @@ struct LoopbackFixture
     int serverCodec;
     Transporting::Ptr client;
     Transporting::Ptr server;
+};
+
+//------------------------------------------------------------------------------
+class MockWebsocketClient
+    : public std::enable_shared_from_this<MockWebsocketClient>
+{
+public:
+    using Ptr = std::shared_ptr<MockWebsocketClient>;
+
+    template <typename E>
+    static Ptr create(E&& exec, uint16_t port, std::string request)
+    {
+        return Ptr(new MockWebsocketClient(std::forward<E>(exec), port,
+                                           std::move(request)));
+    }
+
+    void connect()
+    {
+        auto self = shared_from_this();
+        resolver_.async_resolve(
+            "localhost",
+            std::to_string(port_),
+            [this, self](boost::system::error_code ec,
+                         Resolver::results_type endpoints)
+            {
+                if (check(ec))
+                    onResolved(endpoints);
+            });
+    }
+
+    void close()
+    {
+        socket_.close();
+        connectCompleted_ = false;
+    }
+
+    bool connectCompleted() const {return connectCompleted_;}
+
+    const std::string& response() const {return response_;}
+
+    boost::system::error_code readError() const {return readError_;}
+
+private:
+    using Resolver = boost::asio::ip::tcp::resolver;
+    using Socket = boost::asio::ip::tcp::socket;
+
+    template <typename E>
+    MockWebsocketClient(E&& exec, uint16_t port, std::string request)
+        : resolver_(boost::asio::make_strand(exec)),
+          socket_(resolver_.get_executor()),
+          request_(std::move(request)),
+          port_(port)
+    {}
+
+    bool check(boost::system::error_code ec, bool reading = true)
+    {
+        if (!ec)
+            return true;
+
+        connectCompleted_ = true;
+
+        if (reading)
+            readError_ = ec;
+
+        namespace error = boost::asio::error;
+        if (ec == error::eof ||
+            ec == error::operation_aborted ||
+            ec == error::connection_reset )
+        {
+            return false;
+        }
+
+        throw std::system_error{ec};
+        return false;
+    }
+
+    void onResolved(const Resolver::results_type& endpoints)
+    {
+        auto self = shared_from_this();
+        boost::asio::async_connect(
+            socket_,
+            endpoints,
+            [this, self](boost::system::error_code ec, Socket::endpoint_type)
+            {
+                if (check(ec))
+                    onConnected();
+            });
+    }
+
+    void onConnected()
+    {
+        auto self = shared_from_this();
+        boost::asio::async_write(
+            socket_,
+            boost::asio::const_buffer(&request_.front(), request_.size()),
+            [this, self](boost::system::error_code ec, std::size_t)
+            {
+                if (check(ec))
+                    onRequestWritten();
+            });
+    }
+
+    void flush()
+    {
+        buffer_.clear();
+        auto self = shared_from_this();
+
+        boost::asio::async_read(
+            socket_,
+            boost::asio::dynamic_buffer(buffer_),
+            [this, self](boost::system::error_code ec, std::size_t)
+            {
+                if (check(ec))
+                    return flush();
+                socket_.close();
+                connectCompleted_ = true;
+            });
+    }
+
+    void onRequestWritten()
+    {
+        response_.clear();
+        auto self = shared_from_this();
+
+        boost::asio::async_read(
+            socket_,
+            boost::asio::dynamic_buffer(response_),
+            [this, self](boost::system::error_code ec, std::size_t)
+            {
+                if (check(ec))
+                    flush();
+            });
+    }
+
+    Resolver resolver_;
+    Socket socket_;
+    std::string request_;
+    std::string response_;
+    std::string buffer_;
+    boost::system::error_code readError_;
+    uint16_t port_ = 0;
+    bool connectCompleted_;
+};
+
+//------------------------------------------------------------------------------
+struct MalformedWebsocketUpgradeTestVector
+{
+    template <typename TErrc>
+    MalformedWebsocketUpgradeTestVector(std::string info, TErrc errc,
+                                        unsigned status, std::string request)
+        : info(std::move(info)),
+          request(std::move(request)),
+          expectedError(make_error_code(errc)),
+          expectedStatus(status)
+    {}
+
+    void run() const
+    {
+        INFO("Test case: " << info);
+
+        IoContext ioctx;
+        auto exec = ioctx.get_executor();
+        auto strand = boost::asio::make_strand(exec);
+
+        Transporting::Ptr server;
+        auto lstn = std::make_shared<WebsocketListener>(
+            exec, strand, wsEndpoint, CodecIdSet{jsonId});
+        AdmitResult admitResult;
+        lstn->observe(
+            [&](ListenResult result)
+            {
+                REQUIRE( result.ok() );
+                server = lstn->take();
+                server->admit(
+                    [&](AdmitResult r)
+                    {
+                        admitResult = r;
+                        server->close();
+                    } );
+            });
+        lstn->establish();
+
+        auto client = MockWebsocketClient::create(ioctx, tcpTestPort, request);
+        client->connect();
+
+        ioctx.run();
+
+        INFO("Response:\n" << client->response());
+
+        CHECK( admitResult.status() == AdmitStatus::rejected );
+        CHECK( admitResult.error() == expectedError );
+        CHECK( client->connectCompleted() );
+
+        auto status = std::to_string(expectedStatus);
+        bool statusFound = client->response().find(status) != std::string::npos;
+        CHECK( statusFound );
+    }
+
+    std::string info;
+    std::string request;
+    std::error_code expectedError;
+    unsigned expectedStatus;
 };
 
 //------------------------------------------------------------------------------
@@ -1157,6 +1358,198 @@ TEST_CASE( "Websocket heartbeat", "[Transport][Websocket]" )
     CHECK(!clientError);
     CHECK(!serverError);
 }
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Malformed Websocket Upgrade Request", "[Transport][Websocket]" )
+{
+    using HE = boost::beast::http::error;
+    using WE = boost::beast::websocket::error;
+    using TE = TransportErrc;
+
+    std::vector<MalformedWebsocketUpgradeTestVector> testVectors =
+    {
+        {
+            "Random garbage", HE::bad_method, 400,
+            "a8gpsn3-g=bdsao;fdbgvmvii9fs\r\n"
+            "\r\n"
+        },
+        {
+            "Non-existent method", WE::bad_method, 400,
+            "BAD / HTTP/1.1\r\n"
+            "Host: localhost:9090\r\n"
+            "Connection: Upgrade\r\n"
+            "Upgrade: websocket\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "Sec-WebSocket-Key: QUFBQUFBQUFBQUFBQUFBQQ==\r\n"
+            "Sec-WebSocket-Protocol: wamp.2.json\r\n"
+            "\r\n"
+        },
+        {
+            "Invalid method", WE::bad_method, 400,
+            "POST / HTTP/1.1\r\n"
+            "Host: localhost:9090\r\n"
+            "Connection: Upgrade\r\n"
+            "Upgrade: websocket\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "Sec-WebSocket-Key: QUFBQUFBQUFBQUFBQUFBQQ==\r\n"
+            "Sec-WebSocket-Protocol: wamp.2.json\r\n"
+            "Content-Length: 0\r\n"
+            "\r\n"
+        },
+        {
+            "Bad HTTP version label", HE::bad_version, 400,
+            "GET / BOGUS/1.1\r\n"
+            "Host: localhost:9090\r\n"
+            "Connection: Upgrade\r\n"
+            "Upgrade: bogus\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "Sec-WebSocket-Key: QUFBQUFBQUFBQUFBQUFBQQ==\r\n"
+            "Sec-WebSocket-Protocol: wamp.2.json\r\n"
+            "\r\n"
+        },
+        {
+            "Bad HTTP version number", WE::bad_http_version, 400,
+            "GET / HTTP/1.0\r\n"
+            "Host: localhost:9090\r\n"
+            "Connection: Upgrade\r\n"
+            "Upgrade: bogus\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "Sec-WebSocket-Key: QUFBQUFBQUFBQUFBQUFBQQ==\r\n"
+            "Sec-WebSocket-Protocol: wamp.2.json\r\n"
+            "\r\n"
+        },
+        {
+            "No Host field", WE::no_host, 400,
+            "GET / HTTP/1.1\r\n"
+            "Connection: Upgrade\r\n"
+            "Upgrade: websocket\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "Sec-WebSocket-Key: QUFBQUFBQUFBQUFBQUFBQQ==\r\n"
+            "Sec-WebSocket-Protocol: wamp.2.json\r\n"
+            "\r\n"
+        },
+        {
+            "No Connection field", WE::no_connection_upgrade, 426,
+            "GET / HTTP/1.1\r\n"
+            "Host: localhost:9090\r\n"
+            "Upgrade: bogus\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "Sec-WebSocket-Key: QUFBQUFBQUFBQUFBQUFBQQ==\r\n"
+            "Sec-WebSocket-Protocol: wamp.2.json\r\n"
+            "\r\n"
+        },
+        {
+            "Bad Connection field", WE::no_connection_upgrade, 426,
+            "GET / HTTP/1.1\r\n"
+            "Host: localhost:9090\r\n"
+            "Connection: keep-alive\r\n"
+            "Upgrade: bogus\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "Sec-WebSocket-Key: QUFBQUFBQUFBQUFBQUFBQQ==\r\n"
+            "Sec-WebSocket-Protocol: wamp.2.json\r\n"
+            "\r\n"
+        },
+        {
+            "No Upgrade field", WE::no_upgrade, 400,
+            "GET / HTTP/1.1\r\n"
+            "Host: localhost:9090\r\n"
+            "Connection: Upgrade\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "Sec-WebSocket-Key: QUFBQUFBQUFBQUFBQUFBQQ==\r\n"
+            "Sec-WebSocket-Protocol: wamp.2.json\r\n"
+            "\r\n"
+        },
+        {
+            "Bad Upgrade field", WE::no_upgrade_websocket, 400,
+            "GET / HTTP/1.1\r\n"
+            "Host: localhost:9090\r\n"
+            "Connection: Upgrade\r\n"
+            "Upgrade: HTTP/2\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "Sec-WebSocket-Key: QUFBQUFBQUFBQUFBQUFBQQ==\r\n"
+            "Sec-WebSocket-Protocol: wamp.2.json\r\n"
+            "\r\n"
+        },
+        {
+            "No Sec-WebSocket-Version", WE::no_sec_version, 400,
+            "GET / HTTP/1.1\r\n"
+            "Host: localhost:9090\r\n"
+            "Connection: Upgrade\r\n"
+            "Upgrade: websocket\r\n"
+            "Sec-WebSocket-Key: QUFBQUFBQUFBQUFBQUFBQQ==\r\n"
+            "Sec-WebSocket-Protocol: wamp.2.json\r\n"
+            "\r\n"
+        },
+        {
+            "Bad Sec-WebSocket-Version", WE::bad_sec_version, 400,
+            "GET / HTTP/1.1\r\n"
+            "Host: localhost:9090\r\n"
+            "Connection: Upgrade\r\n"
+            "Upgrade: websocket\r\n"
+            "Sec-WebSocket-Version: bogus\r\n"
+            "Sec-WebSocket-Key: QUFBQUFBQUFBQUFBQUFBQQ==\r\n"
+            "Sec-WebSocket-Protocol: wamp.2.json\r\n"
+            "\r\n"
+        },
+        {
+            "Obsolete Sec-WebSocket-Version", WE::bad_sec_version, 400,
+            "GET / HTTP/1.1\r\n"
+            "Host: localhost:9090\r\n"
+            "Connection: Upgrade\r\n"
+            "Upgrade: websocket\r\n"
+            "Sec-WebSocket-Version: 12\r\n"
+            "Sec-WebSocket-Key: QUFBQUFBQUFBQUFBQUFBQQ==\r\n"
+            "Sec-WebSocket-Protocol: wamp.2.json\r\n"
+            "\r\n"
+        },
+        {
+            "No Sec-WebSocket-Key", WE::no_sec_key, 400,
+            "GET / HTTP/1.1\r\n"
+            "Host: localhost:9090\r\n"
+            "Connection: Upgrade\r\n"
+            "Upgrade: websocket\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "Sec-WebSocket-Protocol: wamp.2.json\r\n"
+            "\r\n"
+        },
+        {
+            "Bad Sec-WebSocket-Key", WE::bad_sec_key, 400,
+            "GET / HTTP/1.1\r\n"
+            "Host: localhost:9090\r\n"
+            "Connection: Upgrade\r\n"
+            "Upgrade: websocket\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQdGhlIHNhbXBsZSBub25jZQ==\r\n"
+            "Sec-WebSocket-Protocol: wamp.2.json\r\n"
+            "\r\n"
+        },
+        {
+            "No Sec-WebSocket-Protocol", TE::noSerializer, 400,
+            "GET / HTTP/1.1\r\n"
+            "Host: localhost:9090\r\n"
+            "Connection: Upgrade\r\n"
+            "Upgrade: websocket\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "Sec-WebSocket-Key: QUFBQUFBQUFBQUFBQUFBQQ==\r\n"
+            "\r\n"
+        },
+        {
+            "Bad Sec-WebSocket-Protocol", TE::badSerializer, 400,
+            "GET / HTTP/1.1\r\n"
+            "Host: localhost:9090\r\n"
+            "Connection: Upgrade\r\n"
+            "Upgrade: websocket\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "Sec-WebSocket-Key: QUFBQUFBQUFBQUFBQUFBQQ==\r\n"
+            "Sec-WebSocket-Protocol: bogus\r\n"
+            "\r\n"
+        },
+    };
+
+    for (const auto& vec: testVectors)
+        vec.run();
+}
+
 
 #if defined(CPPWAMP_TEST_HAS_CORO)
 
