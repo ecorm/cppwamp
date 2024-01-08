@@ -444,7 +444,7 @@ public:
             tcpSocket_, buffer_, *requestParser_,
             [this, self] (const boost::beast::error_code& netEc, std::size_t)
             {
-                if (check(netEc, "socket read"))
+                if (checkReadRequest(netEc))
                     acceptHandshake();
             });
     }
@@ -540,6 +540,25 @@ private:
         return 0;
     }
 
+    bool checkReadRequest(boost::system::error_code netEc)
+    {
+        if (!netEc)
+            return true;
+
+        auto ec = websocketErrorCodeToStandard(netEc);
+
+        if (isHttpParseErrorDueToClient(netEc))
+        {
+            reject("Bad request", HttpStatus::bad_request,
+                   AdmitResult::rejected(ec));
+        }
+        else
+        {
+            fail(ec, "request read");
+        }
+        return false;
+    }
+
     void acceptHandshake()
     {
         // Check that we actually received a websocket upgrade request
@@ -613,7 +632,7 @@ private:
             request,
             [this, self](boost::beast::error_code netEc)
             {
-                if (check(netEc, "handshake accepted write"))
+                if (checkAccept(netEc))
                     complete();
             });
     }
@@ -635,6 +654,28 @@ private:
         websocket_->set_option(pd);
     }
 
+    bool checkAccept(boost::system::error_code netEc)
+    {
+        if (!netEc)
+            return true;
+
+        auto ec = websocketErrorCodeToStandard(netEc);
+        const auto& cat =
+            make_error_code(boost::beast::websocket::error::closed).category();
+        bool dueToClient = netEc.category() == cat;
+
+        if (dueToClient)
+        {
+            reject("Bad request", HttpStatus::bad_request,
+                   AdmitResult::rejected(ec));
+        }
+        else
+        {
+            fail(ec, "handshake accept");
+        }
+        return false;
+    }
+
     void reject(std::string msg, HttpStatus status, AdmitResult result)
     {
         namespace http = boost::beast::http;
@@ -645,9 +686,16 @@ private:
             tcpSocket_, response_,
             [this, self, result](boost::beast::error_code netEc, std::size_t)
             {
-                if (check(netEc, "handshake rejected write"))
+                if (checkRejectWrite(netEc))
                     finish(result);
             });
+    }
+
+    bool checkRejectWrite(boost::system::error_code netEc)
+    {
+        if (netEc)
+            fail(websocketErrorCodeToStandard(netEc), "handshake reject");
+        return !netEc;
     }
 
     void complete()
@@ -664,13 +712,6 @@ private:
         transportInfo_ = TransportInfo{codecId_, txLimit, rxLimit};
 
         finish(AdmitResult::wamp(codecId_));
-    }
-
-    bool check(boost::system::error_code netEc, const char* operation)
-    {
-        if (netEc)
-            fail(websocketErrorCodeToStandard(netEc), operation);
-        return !netEc;
     }
 
     void fail(std::error_code ec, const char* operation)
