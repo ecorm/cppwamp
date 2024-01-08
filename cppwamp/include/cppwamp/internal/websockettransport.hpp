@@ -14,6 +14,7 @@
 #include <boost/asio/read.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/beast/core/flat_buffer.hpp>
+#include <boost/beast/http/error.hpp>
 #include <boost/beast/http/parser.hpp>
 #include <boost/beast/websocket/option.hpp>
 #include <boost/beast/websocket/rfc6455.hpp>
@@ -37,6 +38,49 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
+inline bool isHttpParseErrorDueToClient(boost::system::error_code netEc)
+{
+    using E = boost::beast::http::error;
+    const auto& cat = make_error_code(E::end_of_stream).category();
+    if (netEc.category() != cat)
+        return false;
+
+    auto code = static_cast<E>(netEc.value());
+    switch (code)
+    {
+    case E::end_of_stream:           return true;
+    case E::partial_message:         return true;
+    case E::need_more:               return false;
+    case E::unexpected_body:         return true;
+    case E::need_buffer:             return false;
+    case E::end_of_chunk:            return false;
+    case E::buffer_overflow:         return false;
+    case E::header_limit:            return true;
+    case E::body_limit:              return true;
+    case E::bad_alloc:               return false;
+    case E::bad_line_ending:         return true;
+    case E::bad_method:              return true;
+    case E::bad_target:              return true;
+    case E::bad_version:             return true;
+    case E::bad_status:              return true;
+    case E::bad_reason:              return true;
+    case E::bad_field:               return true;
+    case E::bad_value:               return true;
+    case E::bad_content_length:      return true;
+    case E::bad_transfer_encoding:   return true;
+    case E::bad_chunk:               return true;
+    case E::bad_chunk_extension:     return true;
+    case E::bad_obs_fold:            return false;
+    case E::multiple_content_length: return true;
+    case E::stale_parser:            return false;
+    case E::short_read:              return false;
+    default:                         break;
+    }
+
+    return false;
+}
+
+//------------------------------------------------------------------------------
 inline std::error_code websocketErrorCodeToStandard(
     boost::system::error_code netEc)
 {
@@ -44,16 +88,17 @@ inline std::error_code websocketErrorCodeToStandard(
         return {};
 
     namespace AE = boost::asio::error;
-    using WE = boost::beast::websocket::error;
     bool disconnected = netEc == AE::broken_pipe ||
                         netEc == AE::connection_reset ||
                         netEc == AE::eof;
     if (disconnected)
         return make_error_code(TransportErrc::disconnected);
-    if (netEc == boost::beast::websocket::error::closed)
-        return make_error_code(TransportErrc::ended);
     if (netEc == AE::operation_aborted)
         return make_error_code(TransportErrc::aborted);
+
+    using WE = boost::beast::websocket::error;
+    if (netEc == WE::closed)
+        return make_error_code(TransportErrc::ended);
     if (netEc == WE::buffer_overflow || netEc == WE::message_too_big)
         return make_error_code(TransportErrc::inboundTooLong);
 

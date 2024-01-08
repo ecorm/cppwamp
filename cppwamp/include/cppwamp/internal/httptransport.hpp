@@ -82,7 +82,7 @@ public:
             [this, self, keepAlive, status](boost::beast::error_code netEc,
                                             std::size_t)
             {
-                if (!check(netEc, "socket write"))
+                if (!checkWrite(netEc))
                     return;
 
                 report(status);
@@ -147,6 +147,30 @@ private:
     using Parser = boost::beast::http::request_parser<Body>;
     using Verb = boost::beast::http::verb;
 
+    static std::error_code httpErrorCodeToStandard(
+        boost::system::error_code netEc)
+    {
+        if (!netEc)
+            return {};
+
+        namespace AE = boost::asio::error;
+        bool disconnected = netEc == AE::broken_pipe ||
+                            netEc == AE::connection_reset ||
+                            netEc == AE::eof;
+        if (disconnected)
+            return make_error_code(TransportErrc::disconnected);
+        if (netEc == AE::operation_aborted)
+            return make_error_code(TransportErrc::aborted);
+
+        using HE = boost::beast::http::error;
+        if (netEc == HE::end_of_stream || netEc == HE::partial_message)
+            return make_error_code(TransportErrc::ended);
+        if (netEc == HE::buffer_overflow || netEc == HE::body_limit)
+            return make_error_code(TransportErrc::inboundTooLong);
+
+        return static_cast<std::error_code>(netEc);
+    }
+
     void process(bool isShedding, Handler handler)
     {
         reportConnection({AccessAction::clientConnect});
@@ -199,8 +223,7 @@ private:
                 timer_.cancel();
                 if (netEc == boost::beast::http::error::end_of_stream)
                     return finish(AdmitResult::responded());
-                // TODO: Distinguish between parsing and socket errors
-                if (check(netEc, "socket read"))
+                if (checkRead(netEc))
                     onRequest();
             });
     }
@@ -254,12 +277,29 @@ private:
         return true;
     }
 
-    bool check(boost::system::error_code netEc, const char* operation)
+    bool checkRead(boost::system::error_code netEc)
+    {
+        if (!netEc)
+            return true;
+
+        if (isHttpParseErrorDueToClient(netEc))
+        {
+            finish(AdmitResult::rejected(httpErrorCodeToStandard(netEc)));
+        }
+        else
+        {
+            finish(AdmitResult::failed(httpErrorCodeToStandard(netEc),
+                                       "socket read"));
+        }
+        return false;
+    }
+
+    bool checkWrite(boost::system::error_code netEc)
     {
         if (netEc)
         {
-            finish(AdmitResult::failed(websocketErrorCodeToStandard(netEc),
-                                       operation));
+            finish(AdmitResult::failed(httpErrorCodeToStandard(netEc),
+                                       "socket write"));
         }
         return !netEc;
     }
@@ -451,7 +491,7 @@ private:
             [this, self, status, result](boost::beast::error_code netEc,
                                          std::size_t)
             {
-                if (!check(netEc, "socket write"))
+                if (!checkWrite(netEc))
                     return;
                 report(status);
                 finish(result);
