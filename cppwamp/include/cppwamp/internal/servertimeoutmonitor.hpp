@@ -213,6 +213,64 @@ private:
     bool isWriting_ = false;
 };
 
+//------------------------------------------------------------------------------
+template <typename TSettings>
+class HttpServerTimeoutMonitor
+{
+public:
+    using Settings = TSettings;
+    using SettingsPtr = std::shared_ptr<Settings>;
+    using TimePoint = std::chrono::steady_clock::time_point;
+
+    explicit HttpServerTimeoutMonitor(SettingsPtr settings)
+        : settings_(std::move(settings))
+    {}
+
+    void startRequest(TimePoint now)
+    {
+        auto timeout = settings_->limits().handshakeTimeout();
+        if (internal::timeoutIsDefinite(timeout))
+            requestDeadline_ = now + timeout;
+    }
+
+    void endRequest() {requestDeadline_ = TimePoint::max();}
+
+    void startResponse(TimePoint now)
+    {
+        responseDeadline_.start(settings_->limits().responseTimeout(), now);
+    }
+
+    void updateResponse(TimePoint now, std::size_t bytesWritten)
+    {
+        responseDeadline_.update(settings_->limits().writeTimeout(),
+                                 bytesWritten);
+    }
+
+    void endResponse(TimePoint now, bool bumpLoiter)
+    {
+        responseDeadline_.reset();
+    }
+
+    std::error_code check(TimePoint now) const
+    {
+        return make_error_code(checkForTimeouts(now));
+    }
+
+private:
+    TransportErrc checkForTimeouts(TimePoint now) const
+    {
+        if (now >= requestDeadline_)
+            return TransportErrc::readTimeout;
+        if (now >= responseDeadline_.due())
+            return TransportErrc::writeTimeout;
+        return TransportErrc::success;
+    }
+
+    internal::ProgressiveDeadline responseDeadline_;
+    TimePoint requestDeadline_ = TimePoint::max();
+    SettingsPtr settings_;
+};
+
 } // namespace internal
 
 } // namespace wamp

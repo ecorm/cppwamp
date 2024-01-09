@@ -182,7 +182,7 @@ public:
             page.body() += r.text;
 
         finishDirectoryListing(page);
-        job.respond(std::move(page));
+        job.respond(page);
         return {};
     };
 
@@ -215,9 +215,7 @@ private:
         EmptyResponse res{http::status::moved_permanently,
                           job.request().version()};
         res.base().set(http::field::location, path + '/');
-        res.base().set(http::field::server, job.settings().agent());
-        res.prepare_payload();
-        job.respond(std::move(res));
+        job.respond(res);
         return false;
     }
 
@@ -259,9 +257,7 @@ private:
 
         const auto& req = job.request();
         StringResponse res{http::status::ok, req.version(), std::move(body)};
-        res.base().set(http::field::server, job.settings().agent());
         res.set(http::field::content_type, "text/html; charset=utf-8");
-        res.keep_alive(req.keep_alive());
         return res;
     }
 
@@ -356,7 +352,6 @@ private:
                        "<hr>\n"
                        "</body>\n"
                        "</html>";
-        page.prepare_payload();
     }
 
     static constexpr unsigned autoindexLineWidth_ = 79;
@@ -558,11 +553,9 @@ private:
 
         const auto& req = job.request();
         http::response<http::empty_body> res{http::status::ok, req.version()};
-        res.set(http::field::server, job.settings().agent());
         res.set(http::field::content_type, buildMimeType());
         res.content_length(body.size());
-        res.keep_alive(req.keep_alive());
-        job.respond(std::move(res));
+        job.respond(res);
     }
 
     void respondToGetRequest(HttpJob& job, FileBody& body)
@@ -572,11 +565,8 @@ private:
         const auto& req = job.request();
         http::response<http::file_body> res{http::status::ok, req.version(),
                                             std::move(body)};
-        res.set(http::field::server, job.settings().agent());
         res.set(http::field::content_type, buildMimeType());
-        res.prepare_payload();
-        res.keep_alive(req.keep_alive());
-        job.respond(std::move(res));
+        job.respond(res);
     }
 
     bool check(HttpJob& job, boost::system::error_code sysEc,

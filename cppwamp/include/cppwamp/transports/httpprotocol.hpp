@@ -221,15 +221,17 @@ public:
 
     HttpServerLimits& withResponseTimeout(ProgressiveTimeout t);
 
+    HttpServerLimits& withKeepaliveTimeout(Timeout t);
+
     std::size_t headerSize() const;
 
     std::size_t bodySize() const;
 
     Timeout requestTimeout() const;
 
-    const ProgressiveTimeout& bodyTimeout() const;
-
     const ProgressiveTimeout& responseTimeout() const;
+
+    Timeout keepaliveTimeout() const;
 
     WebsocketServerLimits toWebsocket() const;
 
@@ -238,6 +240,10 @@ private:
 
     ProgressiveTimeout responseTimeout_;
     Timeout requestTimeout_ = neverTimeout;
+
+    // Default for Firefox: 115 seconds
+    Timeout keepaliveTimeout_ = neverTimeout;
+
     std::size_t bodySize_  = 1024*1024; // Default for Boost.Beast and NGINX
 };
 

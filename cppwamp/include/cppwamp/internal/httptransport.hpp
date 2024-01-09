@@ -20,6 +20,7 @@
 #include "../routerlogger.hpp"
 #include "../transports/httpprotocol.hpp"
 #include "httpurlvalidator.hpp"
+#include "servertimeoutmonitor.hpp"
 #include "tcptraits.hpp"
 #include "websockettransport.hpp"
 
@@ -40,7 +41,6 @@ public:
     using Handler     = AnyCompletionHandler<void (AdmitResult)>;
     using Body        = boost::beast::http::string_body;
     using Request     = boost::beast::http::request<Body>;
-    using AnyMessage  = boost::beast::http::message_generator;
     using Field       = boost::beast::http::field;
     using StringView  = boost::beast::string_view;
     using FieldList   = std::initializer_list<std::pair<Field, StringView>>;
@@ -49,11 +49,11 @@ public:
     HttpJob(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
             ConnectionInfo i, RouterLogger::Ptr l)
         : tcpSocket_(std::move(t)),
-          timer_(tcpSocket_.get_executor()),
           codecIds_(c),
           connectionInfo_(std::move(i)),
           settings_(std::move(s)),
-          logger_(std::move(l))
+          logger_(std::move(l)),
+          monitor_(std::make_shared<Monitor>(settings_))
     {}
 
     const Url& target() const {return target_;}
@@ -73,27 +73,11 @@ public:
 
     const HttpEndpoint& settings() const {return *settings_;}
 
-    void respond(AnyMessage response, HttpStatus status = HttpStatus::ok)
+    template <typename R>
+    void respond(R&& response, HttpStatus status = HttpStatus::ok)
     {
-        // TODO: Response timeout
-        // TODO: Keepalive timeout
-        bool keepAlive = response.keep_alive();
-        auto self = shared_from_this();
-        boost::beast::async_write(
-            tcpSocket_, std::move(response),
-            [this, self, keepAlive, status](boost::beast::error_code netEc,
-                                            std::size_t)
-            {
-                if (!checkWrite(netEc))
-                    return;
-
-                report(status);
-
-                if (keepAlive)
-                    start();
-                else
-                    finish(AdmitResult::responded());
-            });
+        sendResponse(std::forward<R>(response), status,
+                     AdmitResult::responded());
     }
 
     void websocketUpgrade(WebsocketOptions options,
@@ -148,6 +132,7 @@ private:
     using Base = HttpJob;
     using Parser = boost::beast::http::request_parser<Body>;
     using Verb = boost::beast::http::verb;
+    using Monitor = internal::HttpServerTimeoutMonitor<Settings>;
 
     static std::error_code httpErrorCodeToStandard(
         boost::system::error_code netEc)
@@ -201,14 +186,6 @@ private:
     {
         auto self = shared_from_this();
 
-        auto timeout = settings_->limits().requestTimeout().min();
-        if (timeoutIsDefinite(timeout))
-        {
-            timer_.expires_after(timeout);
-            timer_.async_wait(
-                [this, self](boost::system::error_code ec) {onTimeout(ec);});
-        }
-
         parser_.emplace();
         const auto headerLimit = settings().limits().headerSize();
         const auto bodyLimit = settings().limits().bodySize();
@@ -221,7 +198,6 @@ private:
             tcpSocket_, buffer_, *parser_,
             [this, self] (const boost::beast::error_code& netEc, std::size_t)
             {
-                timer_.cancel();
                 if (netEc == boost::beast::http::error::end_of_stream)
                     return finish(AdmitResult::responded());
                 if (checkRead(netEc))
@@ -364,9 +340,7 @@ private:
 
         for (auto pair: fields)
             response.set(pair.first, pair.second);
-
-        response.prepare_payload();
-        sendErrorResponseAndFinish(std::move(response), status, result);
+        sendResponse(response, status, result);
     }
 
     void sendGeneratedError(HttpStatus status, const std::string& what,
@@ -378,13 +352,12 @@ private:
             static_cast<http::status>(status), request().version(),
             generateErrorPage(status, what)};
 
-        response.set(Field::server, settings().agent());
         response.set(Field::content_type, "text/html; charset=utf-8");
         for (auto pair: fields)
             response.set(pair.first, pair.second);
 
         response.prepare_payload();
-        sendErrorResponseAndFinish(std::move(response), status, result);
+        sendResponse(std::move(response), status, result);
     }
 
     void sendCustomGeneratedError(const HttpErrorPage& page,
@@ -397,17 +370,12 @@ private:
             static_cast<http::status>(page.status()), request().version(),
             page.generator()(page.status(), what)};
 
-        response.set(Field::server, settings().agent());
-
         std::string mime{"text/html; charset="};
         mime += page.charset().empty() ? std::string{"utf-8"} : page.charset();
         response.set(Field::content_type, std::move(mime));
-
         for (auto pair: fields)
             response.set(pair.first, pair.second);
-
-        response.prepare_payload();
-        sendErrorResponseAndFinish(std::move(response), page.status(), result);
+        sendResponse(std::move(response), page.status(), result);
     }
 
     std::string generateErrorPage(wamp::HttpStatus status,
@@ -439,13 +407,10 @@ private:
         http::response<http::empty_body> response{
             static_cast<http::status>(page.status()), request().version()};
 
-        response.set(Field::server, settings().agent());
         response.set(Field::location, page.uri());
         for (auto pair: fields)
             response.set(pair.first, pair.second);
-
-        response.prepare_payload();
-        sendErrorResponseAndFinish(std::move(response), page.status(), result);
+        sendResponse(std::move(response), page.status(), result);
     }
 
     void sendErrorFromFile(const HttpErrorPage& page, const std::string& what,
@@ -471,32 +436,51 @@ private:
 
         http::response<http::file_body> response{
             http::status::ok, request().version(), std::move(body)};
-        response.set(Field::server, settings().agent());
 
         std::string mime{"text/html; charset="};
         mime += page.charset().empty() ? std::string{"utf-8"} : page.charset();
         response.set(Field::content_type, std::move(mime));
-
         for (auto pair: fields)
             response.set(pair.first, pair.second);
-        response.prepare_payload();
-        sendErrorResponseAndFinish(std::move(response), page.status(), result);
+        sendResponse(std::move(response), page.status(), result);
     }
 
-    void sendErrorResponseAndFinish(AnyMessage&& response, HttpStatus status,
-                                    AdmitResult result)
+    template <typename R>
+    void sendResponse(R&& response, HttpStatus status, AdmitResult result)
     {
+        bool keepAlive = request().keep_alive() &&
+                         result.status() == AdmitStatus::responded;
+        // Beast will adjust the Connection field automatically depending on
+        // the HTTP version.
+        // https://datatracker.ietf.org/doc/html/rfc7230#section-6.3
+        response.keep_alive(keepAlive);
+
+        response.set(boost::beast::http::field::server, settings_->agent());
+        response.prepare_payload();
+
         // TODO: Response timeout
+        // TODO: Keepalive timeout
+
+        // This is needed to transfer ownership of the response to the
+        // async_write operation.
+        boost::beast::http::message_generator message{std::move(response)};
+
         auto self = shared_from_this();
         boost::beast::async_write(
-            tcpSocket_, std::move(response),
-            [this, self, status, result](boost::beast::error_code netEc,
-                                         std::size_t)
+            tcpSocket_, std::move(message),
+            [this, self, keepAlive, status, result](
+                                      boost::beast::error_code netEc,
+                                      std::size_t)
             {
                 if (!checkWrite(netEc))
                     return;
+
                 report(status);
-                finish(result);
+
+                if (keepAlive)
+                    start();
+                else
+                    finish(result);
             });
     }
 
@@ -525,7 +509,6 @@ private:
     }
 
     TcpSocket tcpSocket_;
-    boost::asio::steady_timer timer_;
     CodecIdSet codecIds_;
     TransportInfo transportInfo_;
     boost::beast::flat_buffer buffer_;
@@ -536,6 +519,7 @@ private:
     WebsocketServerTransport::Ptr upgradedTransport_;
     SettingsPtr settings_;
     RouterLogger::Ptr logger_;
+    std::shared_ptr<Monitor> monitor_;
     bool isShedding_ = false;
 
     friend class HttpServerTransport;
