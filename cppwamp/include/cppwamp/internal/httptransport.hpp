@@ -75,6 +75,8 @@ public:
 
     void respond(AnyMessage response, HttpStatus status = HttpStatus::ok)
     {
+        // TODO: Response timeout
+        // TODO: Keepalive timeout
         bool keepAlive = response.keep_alive();
         auto self = shared_from_this();
         boost::beast::async_write(
@@ -199,8 +201,7 @@ private:
     {
         auto self = shared_from_this();
 
-        // TODO: Split header/body reading
-        auto timeout = settings_->limits().bodyTimeout().min();
+        auto timeout = settings_->limits().requestTimeout().min();
         if (timeoutIsDefinite(timeout))
         {
             timer_.expires_after(timeout);
@@ -485,6 +486,7 @@ private:
     void sendErrorResponseAndFinish(AnyMessage&& response, HttpStatus status,
                                     AdmitResult result)
     {
+        // TODO: Response timeout
         auto self = shared_from_this();
         boost::beast::async_write(
             tcpSocket_, std::move(response),

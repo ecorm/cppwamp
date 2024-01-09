@@ -135,16 +135,9 @@ CPPWAMP_INLINE HttpServerLimits& HttpServerLimits::withBodySize(std::size_t n)
     return *this;
 }
 
-CPPWAMP_INLINE HttpServerLimits& HttpServerLimits::withHeaderTimeout(Timeout t)
+CPPWAMP_INLINE HttpServerLimits& HttpServerLimits::withRequestTimeout(Timeout t)
 {
-    headerTimeout_ = internal::checkTimeout(t);
-    return *this;
-}
-
-CPPWAMP_INLINE HttpServerLimits&
-HttpServerLimits::withBodyTimeout(ProgressiveTimeout t)
-{
-    bodyTimeout_ = t.validate();
+    requestTimeout_ = internal::checkTimeout(t);
     return *this;
 }
 
@@ -165,14 +158,9 @@ CPPWAMP_INLINE std::size_t HttpServerLimits::bodySize() const
     return bodySize_;
 }
 
-CPPWAMP_INLINE Timeout HttpServerLimits::headerTimeout() const
+CPPWAMP_INLINE Timeout HttpServerLimits::requestTimeout() const
 {
-    return headerTimeout_;
-}
-
-CPPWAMP_INLINE const ProgressiveTimeout& HttpServerLimits::bodyTimeout() const
-{
-    return bodyTimeout_;
+    return requestTimeout_;
 }
 
 CPPWAMP_INLINE const ProgressiveTimeout&

@@ -9,7 +9,8 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains facilities for establishing HTTP transports. */
+    @brief Contains facilities for establishing HTTP server transports
+           and services. */
 //------------------------------------------------------------------------------
 
 #include <memory>
@@ -20,8 +21,8 @@
 
 // TODO: HTTPS
 // TODO: HTTP compression
-// TODO: HTTP chunked transfer
-// TODO: HTTP multi-part chunked transfer
+// TODO: HTTP range requests
+// TODO: HTTP caching: If-Modified-Since and Last-Modified
 
 namespace wamp
 {
@@ -102,8 +103,8 @@ private:
 namespace internal {class HttpListener;}
 
 //------------------------------------------------------------------------------
-/** Listener specialization that implememts an HTTP server.
-    Users do not  to use this class directly and should instead pass
+/** Listener specialization that implements an HTTP server.
+    Users should use this class directly and should instead pass
     wamp::HttpEndpoint to wamp::Router::openServer via wamp::ServerOptions. */
 //------------------------------------------------------------------------------
 template <>

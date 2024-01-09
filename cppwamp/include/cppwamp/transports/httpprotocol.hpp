@@ -206,7 +206,9 @@ public: // Internal use only
 
 
 //------------------------------------------------------------------------------
-/** Contains size limits for HTTP server transports. */
+/** Contains limits for HTTP server transports.
+    The size limits and timeouts inherited from WebsocketServerLimits apply
+    only to Websocket transports resulting from an upgrade request. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API HttpServerLimits : public WebsocketServerLimits
 {
@@ -215,9 +217,7 @@ public:
 
     HttpServerLimits& withBodySize(std::size_t n);
 
-    HttpServerLimits& withHeaderTimeout(Timeout t);
-
-    HttpServerLimits& withBodyTimeout(ProgressiveTimeout t);
+    HttpServerLimits& withRequestTimeout(Timeout t);
 
     HttpServerLimits& withResponseTimeout(ProgressiveTimeout t);
 
@@ -225,7 +225,7 @@ public:
 
     std::size_t bodySize() const;
 
-    Timeout headerTimeout() const;
+    Timeout requestTimeout() const;
 
     const ProgressiveTimeout& bodyTimeout() const;
 
@@ -236,9 +236,8 @@ public:
 private:
     using Base = WebsocketServerLimits;
 
-    ProgressiveTimeout bodyTimeout_;
     ProgressiveTimeout responseTimeout_;
-    Timeout headerTimeout_ = neverTimeout;
+    Timeout requestTimeout_ = neverTimeout;
     std::size_t bodySize_  = 1024*1024; // Default for Boost.Beast and NGINX
 };
 
