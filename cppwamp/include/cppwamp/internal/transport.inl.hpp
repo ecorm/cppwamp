@@ -171,11 +171,12 @@ CPPWAMP_INLINE void Transporting::send(MessageBuffer message)
         onSend(std::move(message));
 }
 
-CPPWAMP_INLINE void Transporting::abort(MessageBuffer abortMessage,
-                                        ShutdownHandler handler)
+CPPWAMP_INLINE void Transporting::abort(
+    MessageBuffer abortMessage, std::error_code reason, ShutdownHandler handler)
 {
     assert(state_ != State::initial);
     assert(state_ == State::running);
+    abortReason_ = reason;
     onAbort(std::move(abortMessage), std::move(handler));
     state_ = State::aborting;
 }
@@ -232,9 +233,11 @@ CPPWAMP_INLINE void Transporting::setReady(TransportInfo ti,
     state_ = State::ready;
 }
 
-CPPWAMP_INLINE void Transporting::setRejected()
+CPPWAMP_INLINE void Transporting::setRejected() {state_ = State::rejected;}
+
+CPPWAMP_INLINE std::error_code Transporting::abortReason() const
 {
-    state_ = State::rejected;
+    return abortReason_;
 }
 
 } // namespace wamp

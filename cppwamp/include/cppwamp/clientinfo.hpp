@@ -106,21 +106,24 @@ public:
         payload arguments. */
     template <typename... Ts>
     Abort(Uri uri, Ts&&... args)
-        : Abort(in_place, std::move(uri), Array{std::forward<Ts>(args)...})
-    {}
+        : Abort(in_place, {}, std::move(uri), Array{std::forward<Ts>(args)...})
+    {
+        errorCode_ = make_error_code(errorUriToCode(this->uri()));
+    }
 
     /** Converting constructor taking an error code, attempting to convert
         it to a reason URI, as well as optional positional payload arguments. */
     template <typename... Ts>
     Abort(std::error_code e, Ts&&... args)
-        : Abort(in_place, errorCodeToUri(e), Array{std::forward<Ts>(args)...})
+        : Abort(in_place, e, errorCodeToUri(e), Array{std::forward<Ts>(args)...})
     {}
 
     /** Converting constructor taking a WampErrc, attempting to convert
         it to a reason URI, as well as optional positional payload arguments. */
     template <typename... Ts>
     Abort(WampErrc e, Ts&&... args)
-        : Abort(in_place, errorCodeToUri(e), Array{std::forward<Ts>(args)...})
+        : Abort(in_place, make_error_code(e), errorCodeToUri(e),
+                Array{std::forward<Ts>(args)...})
     {}
 
     // NOLINTEND(google-explicit-constructor)
@@ -162,8 +165,9 @@ public:
     /** Moves the `message` member of the details dictionary. */
     ErrorOr<String> hint() &&;
 
-    /** Attempts to convert the reason URI to a known error code. */
-    WampErrc errorCode() const;
+    /** Obtains the error code given upon construction, or one that best
+        matches the reason URI given upon construction. */
+    std::error_code errorCode() const;
 
     /** Obtains information for the access log. */
     AccessActionInfo info(bool isServer) const;
@@ -171,9 +175,11 @@ public:
 private:
     static constexpr unsigned uriPos_ = 2;
 
+    std::error_code errorCode_;
+
     using Base = Payload<Abort, internal::MessageKind::abort>;
 
-    explicit Abort(in_place_t, Uri uri, Array args);
+    explicit Abort(in_place_t, std::error_code ec, Uri uri, Array args);
 
 public: // Internal use only
     Abort(internal::PassKey, internal::Message&& msg);

@@ -74,7 +74,7 @@ CPPWAMP_INLINE void Goodbye::setUri(internal::PassKey, Uri uri)
 // Abort
 //******************************************************************************
 
-CPPWAMP_INLINE Abort::Abort() : Abort(in_place, {}, {}) {}
+CPPWAMP_INLINE Abort::Abort() : Abort(in_place, {}, {}, {}) {}
 
 CPPWAMP_INLINE Abort::Abort(const error::BadType& e)
     : Abort(WampErrc::invalidArgument)
@@ -113,8 +113,9 @@ CPPWAMP_INLINE ErrorOr<String> Abort::hint() &&
     return std::move(*this).optionAs<String>("message");
 }
 
-/** @return WampErrc::unknown if the URI is unknown. */
-CPPWAMP_INLINE WampErrc Abort::errorCode() const {return errorUriToCode(uri());}
+/** If the error URI given upon construction was unknown, then
+    `make_error_code(WampErrc::unknown)` is returned. */
+CPPWAMP_INLINE std::error_code Abort::errorCode() const {return errorCode_;}
 
 CPPWAMP_INLINE AccessActionInfo Abort::info(bool isServer) const
 {
@@ -123,20 +124,26 @@ CPPWAMP_INLINE AccessActionInfo Abort::info(bool isServer) const
     return {action, uri(), options()};
 }
 
-CPPWAMP_INLINE Abort::Abort(in_place_t, Uri uri, Array args)
-    : Base(in_place, Object{}, std::move(uri), std::move(args), Object{})
+CPPWAMP_INLINE Abort::Abort(in_place_t, std::error_code ec, Uri uri,
+                            Array args)
+    : Base(in_place, Object{}, std::move(uri), std::move(args), Object{}),
+      errorCode_(ec)
 {}
 
 CPPWAMP_INLINE Abort::Abort(internal::PassKey, internal::Message&& msg)
     : Base(std::move(msg))
-{}
+{
+    errorCode_ = make_error_code(errorUriToCode(uri()));
+}
 
 CPPWAMP_INLINE Abort::Abort(internal::PassKey, WampErrc errc, Object opts)
-    : Base(in_place, std::move(opts), errorCodeToUri(errc))
+    : Base(in_place, std::move(opts), errorCodeToUri(errc)),
+      errorCode_(make_error_code(errc))
 {}
 
 CPPWAMP_INLINE Abort::Abort(internal::PassKey, std::error_code ec, Object opts)
-    : Base(in_place, std::move(opts), errorCodeToUri(ec))
+    : Base(in_place, std::move(opts), errorCodeToUri(ec)),
+      errorCode_(ec)
 {}
 
 
@@ -562,7 +569,7 @@ CPPWAMP_INLINE Incident::Incident(IncidentKind kind, const Goodbye& g)
 }
 
 CPPWAMP_INLINE Incident::Incident(IncidentKind kind, const Abort& reason)
-    : error_(make_error_code(reason.errorCode())),
+    : error_(reason.errorCode()),
       kind_(kind)
 {
     message_ = "With reason URI " + reason.uri();

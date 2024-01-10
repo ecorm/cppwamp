@@ -823,6 +823,7 @@ TEST_CASE( "Websocket client aborting", "[Transport][Websocket]" )
             {
                 f.client->abort(
                     abortMessage,
+                    make_error_code(WampErrc::authenticationDenied),
                     [&](std::error_code ec)
                     {
                         abortHandlerInvoked = true;
@@ -898,6 +899,7 @@ TEST_CASE( "Websocket server aborting", "[Transport][Websocket]" )
             {
                 f.server->abort(
                     abortMessage,
+                    make_error_code(WampErrc::authenticationDenied),
                     [&](std::error_code ec)
                     {
                         abortHandlerInvoked = true;

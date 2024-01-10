@@ -216,7 +216,7 @@ private:
         traceTx(msg);
 
         auto self = std::dynamic_pointer_cast<NetworkPeer>(shared_from_this());
-        transport_->abort(std::move(buffer),
+        transport_->abort(std::move(buffer), reason.errorCode(),
                           Aborted{std::move(handler), std::move(self)});
 
         if (!fits)

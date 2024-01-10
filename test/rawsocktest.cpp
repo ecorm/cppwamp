@@ -1276,6 +1276,7 @@ TEMPLATE_TEST_CASE( "Raw socket client aborting", "[Transport][Rawsock]",
             {
                 f.client->abort(
                     abortMessage,
+                    make_error_code(WampErrc::authenticationDenied),
                     [&](std::error_code ec)
                     {
                         abortHandlerInvoked = true;
@@ -1354,6 +1355,7 @@ TEMPLATE_TEST_CASE( "Raw socket server aborting", "[Transport][Rawsock]",
             {
                 f.server->abort(
                     abortMessage,
+                    make_error_code(WampErrc::authenticationDenied),
                     [&](std::error_code ec)
                     {
                         abortHandlerInvoked = true;

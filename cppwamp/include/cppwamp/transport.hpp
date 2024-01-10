@@ -238,7 +238,8 @@ public:
     /** Sends the given serialized ABORT message, placing it at the top of the
         queue, then gracefully shuts down the underlying socket.
         @pre this->state() != TransportState::initial */
-    void abort(MessageBuffer abortMessage, ShutdownHandler handler);
+    void abort(MessageBuffer abortMessage, std::error_code reason,
+               ShutdownHandler handler);
 
     /** Stops I/O operations and gracefully shuts down the underlying
         socket.
@@ -286,16 +287,22 @@ protected:
         in rejection. */
     void setRejected();
 
+    /** Posts the given handler to the transport's execution strand. */
     template <typename F, typename... Ts>
     void post(F&& handler, Ts&&... args)
     {
         postAny(strand_, std::forward<F>(handler), std::forward<Ts>(args)...);
     }
 
+    /** Obtains the error code that was associated with the last queued ABORT
+        message. */
+    std::error_code abortReason() const;
+
 private:
     IoStrand strand_;
     TransportInfo info_;
     ConnectionInfo connectionInfo_;
+    std::error_code abortReason_;
     State state_ = State::initial;
 };
 
