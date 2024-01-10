@@ -204,10 +204,9 @@ TEST_CASE( "Router transport timeouts", "[WAMP][Router]" )
         logEntries.clear();
         client->clear();
         client->inhibitLingeringClose(true);
-        client->load(
-        {
-            {"x"} // Malformed WAMP message
-        });
+
+        test::MockRawsockFrame frame{"x"}; // Malformed WAMP message
+        client->load({frame});
 
         spawn(ioctx, [&](YieldContext yield)
         {
@@ -221,6 +220,33 @@ TEST_CASE( "Router transport timeouts", "[WAMP][Router]" )
             CHECK(logEntries.back().action.errorUri ==
                 errorCodeToUri(make_error_code(TransportErrc::lingerTimeout)));
             CHECK(client->readError() == boost::asio::error::eof);
+            client->close();
+        });
+        ioctx.run();
+        ioctx.restart();
+    }
+
+    {
+        INFO("linger timeout via stalled abort")
+
+        logEntries.clear();
+        client->clear();
+
+        test::MockRawsockFrame frame{"x"}; // Malformed WAMP message
+        frame.readLimit = 1; // Stall reading of the ABORT message
+        client->load({frame});
+
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            client->connect();
+            while (!client->connected())
+                test::suspendCoro(yield);
+            client->start();
+
+            while (logEntries.size() < 2)
+              test::suspendCoro(yield);
+            CHECK(logEntries.back().action.errorUri ==
+                errorCodeToUri(make_error_code(TransportErrc::lingerTimeout)));
             client->close();
         });
         ioctx.run();

@@ -219,6 +219,10 @@ public:
         assert(stream_.isOpen());
         stream_.unobserveHeartbeats();
 
+        // Start the linger timeout countdown so that a stalled outbound
+        // message does not indefinitely prolong the connection lifetime.
+        startBouncer();
+
         auto frame = enframe(std::move(message));
         assert((frame.payload().size() <= txPayloadLimit_) &&
                "Outgoing message is longer than allowed by peer");

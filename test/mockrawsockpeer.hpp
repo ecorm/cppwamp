@@ -56,6 +56,7 @@ struct MockRawsockFrame
     Payload payload;
     Header header;
     Timeout delay;
+    std::size_t readLimit = 0; // Used to stall reading of the payload
 
 private:
     static Header computeHeader(const Payload& p, FrameKind k,
@@ -313,14 +314,18 @@ private:
     {
         auto length =
             wamp::internal::RawsockHeader::fromBigEndian(header_).length();
+        auto limit = outFrames_.at(frameIndex_).readLimit;
+        bool stalled = limit != 0;
+        length = stalled ? limit : length;
+
         buffer_.resize(length);
         auto self = shared_from_this();
         boost::asio::async_read(
             socket_,
             boost::asio::buffer(&(buffer_.front()), length),
-            [this, self](boost::system::error_code ec, std::size_t)
+            [this, self, stalled](boost::system::error_code ec, std::size_t)
             {
-                if (check(ec))
+                if (check(ec) && !stalled)
                     onPayloadRead();
             });
     }
