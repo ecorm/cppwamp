@@ -219,9 +219,9 @@ public:
 
     HttpServerLimits& withHeaderTimeout(Timeout t);
 
-    HttpServerLimits& withBodyTimeout(ProgressiveTimeout t);
+    HttpServerLimits& withBodyTimeout(IncrementalTimeout t);
 
-    HttpServerLimits& withResponseTimeout(ProgressiveTimeout t);
+    HttpServerLimits& withResponseTimeout(IncrementalTimeout t);
 
     HttpServerLimits& withKeepaliveTimeout(Timeout t);
 
@@ -231,9 +231,9 @@ public:
 
     Timeout headerTimeout() const;
 
-    const ProgressiveTimeout& bodyTimeout() const;
+    const IncrementalTimeout& bodyTimeout() const;
 
-    const ProgressiveTimeout& responseTimeout() const;
+    const IncrementalTimeout& responseTimeout() const;
 
     Timeout keepaliveTimeout() const;
 
@@ -245,10 +245,10 @@ private:
     Timeout headerTimeout_ = std::chrono::seconds(40);
         // Using Apache's maxinum RequestReadTimeout for headers
 
-    ProgressiveTimeout responseTimeout_ = {std::chrono::seconds{20}, 80*1024};
+    IncrementalTimeout responseTimeout_ = {std::chrono::seconds{20}, 80*1024};
         // Using Apache's RequestReadTimeout, with 1/8 of ADSL2 5Mbps rate
 
-    ProgressiveTimeout bodyTimeout_ = {std::chrono::seconds{20}, 24*1024};
+    IncrementalTimeout bodyTimeout_ = {std::chrono::seconds{20}, 24*1024};
         // Using Apache's RequestReadTimeout, with ~1/4 of ADSL2 0.8Mbps rate
 
     Timeout keepaliveTimeout_ = std::chrono::seconds(120);

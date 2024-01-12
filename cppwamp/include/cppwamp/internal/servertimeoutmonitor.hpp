@@ -31,7 +31,7 @@ public:
         bytesBanked_ = 0;
     }
 
-    void start(const ProgressiveTimeout& timeout, TimePoint now)
+    void start(const IncrementalTimeout& timeout, TimePoint now)
     {
         const bool minTimeoutUnspecifed = timeout.min() == unspecifiedTimeout;
         const bool maxTimeoutUnspecifed = timeout.max() == unspecifiedTimeout;
@@ -40,7 +40,7 @@ public:
         deadline_ = minTimeoutUnspecifed ? maxDeadline_ : now + timeout.min();
     }
 
-    void update(const ProgressiveTimeout& timeout, std::size_t bytesTransferred)
+    void update(const IncrementalTimeout& timeout, std::size_t bytesTransferred)
     {
         if (deadline_ == maxDeadline_)
             return;

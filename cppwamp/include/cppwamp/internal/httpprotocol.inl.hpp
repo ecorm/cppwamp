@@ -143,14 +143,14 @@ HttpServerLimits::withHeaderTimeout(Timeout t)
 }
 
 CPPWAMP_INLINE HttpServerLimits&
-HttpServerLimits::withBodyTimeout(ProgressiveTimeout t)
+HttpServerLimits::withBodyTimeout(IncrementalTimeout t)
 {
     bodyTimeout_ = t.validate();
     return *this;
 }
 
 CPPWAMP_INLINE HttpServerLimits&
-HttpServerLimits::withResponseTimeout(ProgressiveTimeout t)
+HttpServerLimits::withResponseTimeout(IncrementalTimeout t)
 {
     responseTimeout_ = t.validate();
     return *this;
@@ -178,13 +178,13 @@ CPPWAMP_INLINE Timeout HttpServerLimits::headerTimeout() const
     return headerTimeout_;
 }
 
-CPPWAMP_INLINE const ProgressiveTimeout&
+CPPWAMP_INLINE const IncrementalTimeout&
 HttpServerLimits::bodyTimeout() const
 {
     return bodyTimeout_;
 }
 
-CPPWAMP_INLINE const ProgressiveTimeout&
+CPPWAMP_INLINE const IncrementalTimeout&
 HttpServerLimits::responseTimeout() const
 {
     return responseTimeout_;

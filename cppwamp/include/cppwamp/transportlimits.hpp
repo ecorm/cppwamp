@@ -15,14 +15,14 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-class CPPWAMP_API ProgressiveTimeout
+class CPPWAMP_API IncrementalTimeout
 {
 public:
-    constexpr ProgressiveTimeout() = default;
+    constexpr IncrementalTimeout() = default;
 
-    constexpr ProgressiveTimeout(Timeout max) : max_(max) {}
+    constexpr IncrementalTimeout(Timeout max) : max_(max) {}
 
-    constexpr ProgressiveTimeout(Timeout min, std::size_t rate,
+    constexpr IncrementalTimeout(Timeout min, std::size_t rate,
                                  Timeout max = unspecifiedTimeout)
         : min_(min), max_(max), rate_(rate)
     {}
@@ -35,7 +35,7 @@ public:
         added to the mininum timeout. */
     constexpr std::size_t rate() const {return rate_;}
 
-    ProgressiveTimeout& validate()
+    IncrementalTimeout& validate()
     {
         internal::checkTimeout(min_);
         internal::checkTimeout(max_);
@@ -106,9 +106,9 @@ public:
 
     TDerived& withHandshakeTimeout(Timeout t) {return set(handshakeTimeout_, t);}
 
-    TDerived& withReadTimeout(ProgressiveTimeout t) {return set(readTimeout_, t);}
+    TDerived& withReadTimeout(IncrementalTimeout t) {return set(readTimeout_, t);}
 
-    TDerived& withWriteTimeout(ProgressiveTimeout t) {return set(writeTimeout_, t);}
+    TDerived& withWriteTimeout(IncrementalTimeout t) {return set(writeTimeout_, t);}
 
     TDerived& withSilenceTimeout(Timeout t) {return set(silenceTimeout_, t);}
 
@@ -129,9 +129,9 @@ public:
 
     Timeout handshakeTimeout() const {return handshakeTimeout_;}
 
-    const ProgressiveTimeout& readTimeout() const {return readTimeout_;}
+    const IncrementalTimeout& readTimeout() const {return readTimeout_;}
 
-    const ProgressiveTimeout& writeTimeout() const {return writeTimeout_;}
+    const IncrementalTimeout& writeTimeout() const {return writeTimeout_;}
 
     /** Obtains the maximum time of no data being transferred, including
         pings. */
@@ -162,7 +162,7 @@ private:
         return derived();
     }
 
-    TDerived& set(ProgressiveTimeout& member, ProgressiveTimeout t)
+    TDerived& set(IncrementalTimeout& member, IncrementalTimeout t)
     {
         member = t.validate();
         return derived();
@@ -170,8 +170,8 @@ private:
 
     TDerived& derived() {return static_cast<TDerived&>(*this);}
 
-    ProgressiveTimeout readTimeout_;
-    ProgressiveTimeout writeTimeout_;
+    IncrementalTimeout readTimeout_;
+    IncrementalTimeout writeTimeout_;
     Timeout handshakeTimeout_ = std::chrono::seconds{30};
         // Using ejabberd's negotiation_timeout
     Timeout silenceTimeout_ = std::chrono::seconds{300};
