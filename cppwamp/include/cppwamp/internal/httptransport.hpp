@@ -8,18 +8,17 @@
 #define CPPWAMP_INTERNAL_HTTPTRANSPORT_HPP
 
 #include <initializer_list>
-#include <boost/asio/steady_timer.hpp>
 #include <boost/beast/core/flat_buffer.hpp>
 #include <boost/beast/core/string_type.hpp>
 #include <boost/beast/http/buffer_body.hpp>
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/file_body.hpp>
-#include <boost/beast/http/message_generator.hpp>
 #include <boost/beast/http/parser.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/url.hpp>
 #include "../routerlogger.hpp"
 #include "../transports/httpprotocol.hpp"
+#include "anyhttpserializer.hpp"
 #include "httpurlvalidator.hpp"
 #include "servertimeoutmonitor.hpp"
 #include "tcptraits.hpp"
@@ -50,7 +49,7 @@ public:
             ConnectionInfo i, RouterLogger::Ptr l)
         : tcpSocket_(std::move(t)),
           codecIds_(c),
-          bodyBuffer_(s->bodyBufferSize(), '\0'),
+          bodyBuffer_(s->limits().bodyIncrement(), '\0'),
           monitor_(s),
           connectionInfo_(std::move(i)),
           settings_(std::move(s)),
@@ -453,7 +452,7 @@ private:
 
         for (auto pair: fields)
             response.set(pair.first, pair.second);
-        sendResponse(response, status, result);
+        sendResponse(std::move(response), status, result);
     }
 
     void sendGeneratedError(HttpStatus status, const std::string& what,
@@ -576,34 +575,40 @@ private:
         // TODO: Response timeout
         // TODO: Keepalive timeout
 
-        // This is needed to transfer ownership of the response to the
-        // async_write operation.
-        boost::beast::http::message_generator message{std::move(response)};
+        serializer_.reset(std::forward<R>(response),
+                          settings_->limits().writeIncrement());
+        result_ = result;
+        status_ = status;
+        keepAlive_ = keepAlive;
+        monitor_.startResponse(steadyTime());
+        sendMoreResponse();
+    }
 
+    void sendMoreResponse()
+    {
         auto self = shared_from_this();
-        boost::beast::async_write(
-            tcpSocket_, std::move(message),
-            [this, self, keepAlive, status, result](
-                                      boost::beast::error_code netEc,
-                                      std::size_t)
+        serializer_.asyncWriteSome(
+            tcpSocket_,
+            [this, self](boost::beast::error_code netEc, std::size_t n)
             {
+                auto now = steadyTime();
+
+                if (!serializer_.done())
+                {
+                    monitor_.updateResponse(now, n);
+                    return sendMoreResponse();
+                }
+
+                monitor_.endResponse(now, keepAlive_);
+
                 if (isAborting_)
-                    return onAbortResponseSent(netEc, status, result);
+                    return onAbortResponseSent(netEc);
 
-                if (!checkWrite(netEc))
-                    return;
-
-                report(status);
-
-                if (keepAlive)
-                    start();
-                else
-                    finish(result);
+                onResponseSent(netEc);
             });
     }
 
-    void onAbortResponseSent(boost::beast::error_code netEc, HttpStatus status,
-                             AdmitResult result)
+    void onAbortResponseSent(boost::beast::error_code netEc)
     {
         if (!checkWrite(netEc))
         {
@@ -612,9 +617,22 @@ private:
             return;
         }
 
-        report(status);
-        finish(result);
+        report(status_);
+        finish(result_);
         doShutdown();
+    }
+
+    void onResponseSent(boost::beast::error_code netEc)
+    {
+        if (!checkWrite(netEc))
+            return;
+
+        report(status_);
+
+        if (keepAlive_)
+            start();
+        else
+            finish(result_);
     }
 
     void finish(AdmitResult result)
@@ -655,12 +673,16 @@ private:
     AdmitHandler admitHandler_;
     ShutdownHandler shutdownHandler_;
     ConnectionInfo connectionInfo_;
+    AdmitResult result_;
+    AnyHttpSerializer serializer_;
     WebsocketServerTransport::Ptr upgradedTransport_;
     SettingsPtr settings_;
     RouterLogger::Ptr logger_;
+    HttpStatus status_ = HttpStatus::none;
     bool isShedding_ = false;
     bool isAborting_ = false;
     bool responseSent_ = false;
+    bool keepAlive_ = false;
 
     friend class HttpServerTransport;
 };

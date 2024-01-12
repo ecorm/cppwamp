@@ -136,6 +136,22 @@ CPPWAMP_INLINE HttpServerLimits& HttpServerLimits::withBodySize(std::size_t n)
 }
 
 CPPWAMP_INLINE HttpServerLimits&
+HttpServerLimits::withBodyIncrement(std::size_t n)
+{
+    bodyIncrement_ = n;
+    return *this;
+}
+
+/** @note Boost.Beast will clamp this to `BOOST_BEAST_FILE_BUFFER_SIZE=4096`
+          for `file_body` responses. */
+CPPWAMP_INLINE HttpServerLimits&
+HttpServerLimits::withWriteIncrement(std::size_t n)
+{
+    writeIncrement_ = n;
+    return *this;
+}
+
+CPPWAMP_INLINE HttpServerLimits&
 HttpServerLimits::withHeaderTimeout(Timeout t)
 {
     keepaliveTimeout_ = internal::checkTimeout(t);
@@ -171,6 +187,16 @@ CPPWAMP_INLINE std::size_t HttpServerLimits::headerSize() const
 CPPWAMP_INLINE std::size_t HttpServerLimits::bodySize() const
 {
     return bodySize_;
+}
+
+CPPWAMP_INLINE std::size_t HttpServerLimits::bodyIncrement() const
+{
+    return bodyIncrement_;
+}
+
+CPPWAMP_INLINE std::size_t HttpServerLimits::writeIncrement() const
+{
+    return writeIncrement_;
 }
 
 CPPWAMP_INLINE Timeout HttpServerLimits::headerTimeout() const
@@ -482,12 +508,6 @@ CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withLimits(HttpServerLimits limits)
     return *this;
 }
 
-CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withBodyBufferSize(std::size_t size)
-{
-    bodyBufferSize_ = size;
-    return *this;
-}
-
 /** @pre `static_cast<unsigned>(page) >= 400`
     @pre `!uri.empty` */
 CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::addErrorPage(HttpErrorPage page)
@@ -525,11 +545,6 @@ CPPWAMP_INLINE const HttpServerLimits& HttpEndpoint::limits() const
 }
 
 CPPWAMP_INLINE HttpServerLimits& HttpEndpoint::limits() {return limits_;}
-
-CPPWAMP_INLINE std::size_t HttpEndpoint::bodyBufferSize() const
-{
-    return bodyBufferSize_;
-}
 
 CPPWAMP_INLINE std::string HttpEndpoint::label() const
 {

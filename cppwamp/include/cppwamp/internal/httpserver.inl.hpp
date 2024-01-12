@@ -182,7 +182,7 @@ public:
             page.body() += r.text;
 
         finishDirectoryListing(page);
-        job.respond(page);
+        job.respond(std::move(page));
         return {};
     };
 
@@ -215,7 +215,7 @@ private:
         EmptyResponse res{http::status::moved_permanently,
                           job.header().version()};
         res.base().set(http::field::location, path + '/');
-        job.respond(res);
+        job.respond(std::move(res));
         return false;
     }
 
@@ -555,7 +555,7 @@ private:
                                              job.header().version()};
         res.set(http::field::content_type, buildMimeType());
         res.content_length(body.size());
-        job.respond(res);
+        job.respond(std::move(res));
     }
 
     void respondToGetRequest(HttpJob& job, FileBody& body)
@@ -565,7 +565,7 @@ private:
         http::response<http::file_body> res{
             http::status::ok, job.header().version(), std::move(body)};
         res.set(http::field::content_type, buildMimeType());
-        job.respond(res);
+        job.respond(std::move(res));
     }
 
     bool check(HttpJob& job, boost::system::error_code sysEc,

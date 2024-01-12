@@ -72,6 +72,7 @@ set(HEADERS
     include/cppwamp/codecs/cbor.hpp
     include/cppwamp/codecs/json.hpp
     include/cppwamp/codecs/msgpack.hpp
+    include/cppwamp/internal/anyhttpserializer.hpp
     include/cppwamp/internal/authorizationlistener.hpp
     include/cppwamp/internal/base64.hpp
     include/cppwamp/internal/broker.hpp

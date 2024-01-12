@@ -217,6 +217,10 @@ public:
 
     HttpServerLimits& withBodySize(std::size_t n);
 
+    HttpServerLimits& withBodyIncrement(std::size_t n);
+
+    HttpServerLimits& withWriteIncrement(std::size_t n);
+
     HttpServerLimits& withHeaderTimeout(Timeout t);
 
     HttpServerLimits& withBodyTimeout(IncrementalTimeout t);
@@ -228,6 +232,10 @@ public:
     std::size_t headerSize() const;
 
     std::size_t bodySize() const;
+
+    std::size_t bodyIncrement() const;
+
+    std::size_t writeIncrement() const;
 
     Timeout headerTimeout() const;
 
@@ -256,7 +264,11 @@ private:
         // Browser defaults: Firefox: 115s, IE: 60s, Chromium: never
         // 120s chosen as default so that Firefox/IE initiate the timeout.
 
-    std::size_t bodySize_  = 1024*1024; // Default for Boost.Beast and NGINX
+    std::size_t bodySize_ = 1024*1024; // Default for Boost.Beast and NGINX
+
+    std::size_t bodyIncrement_ = 4096; // Using Linux page size
+
+    std::size_t writeIncrement_ = 4096; // Using Linux page size
 };
 
 
@@ -411,10 +423,6 @@ public:
     /** Specifies transport limits. */
     HttpEndpoint& withLimits(HttpServerLimits limits);
 
-    /** Specifies the size of the request body buffer for incremental
-        reading. */
-    HttpEndpoint& withBodyBufferSize(std::size_t size);
-
     /** Specifies the error page to show for the given HTTP response
         status code. */
     HttpEndpoint& addErrorPage(HttpErrorPage page);
@@ -436,9 +444,6 @@ public:
 
     /** Accesses the transport limits. */
     HttpServerLimits& limits();
-
-    /** Obtains the size of the request body buffer for incremental reading. */
-    std::size_t bodyBufferSize() const;
 
     /** Generates a human-friendly string of the HTTP address/port. */
     std::string label() const;
@@ -477,7 +482,6 @@ private:
     HttpFileServingOptions fileServingOptions_;
     std::string agent_;
     HttpServerLimits limits_;
-    std::size_t bodyBufferSize_ = 8*1024; // From NGINX client_body_buffer_size
 
 public: // Internal use only
     void initialize(internal::PassKey)
