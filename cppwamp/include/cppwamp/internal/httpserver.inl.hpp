@@ -239,12 +239,12 @@ private:
         }
 
         std::string body{
-            "<html>\n"
-            "<head><title>Index of " + dirString + "</title></head>\n"
-            "<body>\n"
-            "<h1>Index of " + dirString + "/</h1>\n"
-            "<hr>\n"
-            "<pre>\n"};
+            "<html>\r\n"
+            "<head><title>Index of " + dirString + "</title></head>\r\n"
+            "<body>\r\n"
+            "<h1>Index of " + dirString + "/</h1>\r\n"
+            "<hr>\r\n"
+            "<pre>\r\n"};
 
         if (!dirString.empty())
         {
@@ -252,7 +252,7 @@ private:
             auto parent = path.parent_path().string();
             if (parent.back() != '/')
                 parent += '/';
-            body += "<a href=\"" + parent + "\">../</a>\n";
+            body += "<a href=\"" + parent + "\">../</a>\r\n";
         }
 
         StringResponse res{http::status::ok, job.header().version(),
@@ -311,7 +311,7 @@ private:
             oss << size;
         }
 
-        oss << "\n";
+        oss << "\r\n";
         row.text = oss.str();
         row.isFile = !isDirectory;
         return {};
@@ -348,9 +348,9 @@ private:
 
     static void finishDirectoryListing(StringResponse& page)
     {
-        page.body() += "</pre>\n"
-                       "<hr>\n"
-                       "</body>\n"
+        page.body() += "</pre>\r\n"
+                       "<hr>\r\n"
+                       "</body>\r\n"
                        "</html>";
     }
 

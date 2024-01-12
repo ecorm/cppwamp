@@ -495,15 +495,15 @@ private:
     {
         auto errorMessage = make_error_code(status).message();
         std::string body{
-            "<!DOCTYPE html><html>\n"
-            "<head><title>" + errorMessage + "</title></head>\n"
-            "<body>\n"
-            "<h1>" + errorMessage + "</h1>\n"};
+            "<!DOCTYPE html><html>\r\n"
+            "<head><title>" + errorMessage + "</title></head>\r\n"
+            "<body>\r\n"
+            "<h1>" + errorMessage + "</h1>\r\n"};
 
         if (!what.empty())
             body += "<p>" + what + "</p>";
 
-        body += "<hr>\n" +
+        body += "<hr>\r\n" +
                 settings().agent() +
                 "</body>"
                 "</html>";
