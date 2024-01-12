@@ -9,12 +9,13 @@
 
 #include <initializer_list>
 #include <boost/asio/steady_timer.hpp>
+#include <boost/beast/core/flat_buffer.hpp>
 #include <boost/beast/core/string_type.hpp>
+#include <boost/beast/http/buffer_body.hpp>
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/file_body.hpp>
 #include <boost/beast/http/message_generator.hpp>
 #include <boost/beast/http/parser.hpp>
-#include <boost/beast/http/string_body.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/url.hpp>
 #include "../routerlogger.hpp"
@@ -34,41 +35,45 @@ namespace internal
 class HttpJob : public std::enable_shared_from_this<HttpJob>
 {
 public:
-    using Ptr         = std::shared_ptr<HttpJob>;
-    using TcpSocket   = boost::asio::ip::tcp::socket;
-    using Settings    = HttpEndpoint;
-    using SettingsPtr = std::shared_ptr<Settings>;
-    using Handler     = AnyCompletionHandler<void (AdmitResult)>;
-    using Body        = boost::beast::http::string_body;
-    using Request     = boost::beast::http::request<Body>;
-    using Field       = boost::beast::http::field;
-    using StringView  = boost::beast::string_view;
-    using FieldList   = std::initializer_list<std::pair<Field, StringView>>;
-    using Url         = boost::urls::url;
+    using Ptr          = std::shared_ptr<HttpJob>;
+    using TcpSocket    = boost::asio::ip::tcp::socket;
+    using Settings     = HttpEndpoint;
+    using SettingsPtr  = std::shared_ptr<Settings>;
+    using AdmitHandler = AnyCompletionHandler<void (AdmitResult)>;
+    using Header       = boost::beast::http::request_header<>;
+    using Field        = boost::beast::http::field;
+    using StringView   = boost::beast::string_view;
+    using FieldList    = std::initializer_list<std::pair<Field, StringView>>;
+    using Url          = boost::urls::url;
 
     HttpJob(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
             ConnectionInfo i, RouterLogger::Ptr l)
         : tcpSocket_(std::move(t)),
           codecIds_(c),
+          bodyBuffer_(s->bodyBufferSize(), '\0'),
+          monitor_(s),
           connectionInfo_(std::move(i)),
           settings_(std::move(s)),
-          logger_(std::move(l)),
-          monitor_(std::make_shared<Monitor>(settings_))
+          logger_(std::move(l))
     {}
 
     const Url& target() const {return target_;}
 
-    const Request& request() const
+    const Header& header() const
     {
         assert(parser_.has_value());
-        return parser_->get();
+        return parser_->get().base();
     }
+
+    const std::string& body() const & {return body_;}
+
+    std::string&& body() && {return std::move(body_);}
 
     std::string fieldOr(Field field, std::string fallback)
     {
-        const auto& req = request();
-        auto iter = req.find(field);
-        return (iter == req.end()) ? fallback : std::string{iter->value()};
+        const auto& hdr = header();
+        auto iter = hdr.find(field);
+        return (iter == hdr.end()) ? fallback : std::string{iter->value()};
     }
 
     const HttpEndpoint& settings() const {return *settings_;}
@@ -76,6 +81,8 @@ public:
     template <typename R>
     void respond(R&& response, HttpStatus status = HttpStatus::ok)
     {
+        if (responseSent_)
+            return;
         sendResponse(std::forward<R>(response), status,
                      AdmitResult::responded());
     }
@@ -83,6 +90,9 @@ public:
     void websocketUpgrade(WebsocketOptions options,
                           const WebsocketServerLimits limits)
     {
+        if (responseSent_)
+            return;
+
         auto self = shared_from_this();
         auto settings = settings_->toWebsocket(std::move(options), limits);
         auto wsEndpoint =
@@ -100,6 +110,9 @@ public:
               FieldList fields = {},
               AdmitResult result = AdmitResult::responded())
     {
+        if (responseSent_)
+            return;
+
         // Don't send full HTML error page if request was a Websocket upgrade
         if (simple)
             return sendSimpleError(status, std::move(what), fields, result);
@@ -129,10 +142,16 @@ public:
     }
 
 private:
-    using Base = HttpJob;
-    using Parser = boost::beast::http::request_parser<Body>;
-    using Verb = boost::beast::http::verb;
-    using Monitor = internal::HttpServerTimeoutMonitor<Settings>;
+    using Base            = HttpJob;
+    using Body            = boost::beast::http::buffer_body;
+    using Request         = boost::beast::http::request<Body>;
+    using Parser          = boost::beast::http::request_parser<Body>;
+    using Verb            = boost::beast::http::verb;
+    using Monitor         = internal::HttpServerTimeoutMonitor<Settings>;
+    using TimePoint       = std::chrono::steady_clock::time_point;
+    using ShutdownHandler = AnyCompletionHandler<void (std::error_code)>;
+
+    static TimePoint steadyTime() {return std::chrono::steady_clock::now();}
 
     static std::error_code httpErrorCodeToStandard(
         boost::system::error_code netEc)
@@ -152,27 +171,79 @@ private:
         using HE = boost::beast::http::error;
         if (netEc == HE::end_of_stream || netEc == HE::partial_message)
             return make_error_code(TransportErrc::ended);
-        if (netEc == HE::buffer_overflow || netEc == HE::body_limit)
+        if (netEc == HE::buffer_overflow ||
+            netEc == HE::header_limit ||
+            netEc == HE::body_limit)
+        {
             return make_error_code(TransportErrc::inboundTooLong);
+        }
 
         return static_cast<std::error_code>(netEc);
     }
 
-    void process(bool isShedding, Handler handler)
+    static HttpStatus abortReasonToHttpStatus(std::error_code ec)
+    {
+        if (ec == TransportErrc::timeout)
+            return HttpStatus::requestTimeout;
+        if (ec == WampErrc::systemShutdown || ec == WampErrc::sessionKilled)
+            return HttpStatus::serviceUnavailable;
+        return HttpStatus::internalServerError;
+    }
+
+    static bool isEof(boost::beast::error_code netEc)
+    {
+        return netEc == boost::beast::http::error::end_of_stream ||
+               netEc == boost::beast::http::error::partial_message;
+    }
+
+    std::error_code monitor()
+    {
+        return {};
+        // TODO
+        // return monitor_.check(steadyTime());
+    }
+
+    void process(bool isShedding, AdmitHandler handler)
     {
         reportConnection({AccessAction::clientConnect});
         isShedding_ = isShedding;
-        handler_ = std::move(handler);
+        admitHandler_ = std::move(handler);
         start();
     }
 
-    template <typename F>
-    void shutdown(std::error_code /*reason*/, F&& callback)
+    void abort(std::error_code reason, ShutdownHandler handler)
     {
-        boost::system::error_code netEc;
-        tcpSocket_.shutdown(TcpSocket::shutdown_send, netEc);
-        auto ec = static_cast<std::error_code>(netEc);
-        postAny(tcpSocket_.get_executor(), std::forward<F>(callback), ec);
+        if (responseSent_)
+            return shutdown(reason, std::move(handler));
+
+        shutdownHandler_ = std::move(handler);
+        isAborting_ = true;
+        monitor_.startLinger(steadyTime());
+        balk(abortReasonToHttpStatus(reason), reason.message(), false, {},
+             AdmitResult::rejected(reason));
+    }
+
+    void shutdown(std::error_code /*reason*/, ShutdownHandler handler)
+    {
+        shutdownHandler_ = std::move(handler);
+        doShutdown();
+    }
+
+    void doShutdown()
+    {
+        // TODO: Lingering close: flush read buffer until EOF
+        if (tcpSocket_.is_open())
+        {
+            boost::system::error_code netEc;
+            tcpSocket_.shutdown(TcpSocket::shutdown_send, netEc);
+            auto ec = static_cast<std::error_code>(netEc);
+            post(std::move(shutdownHandler_), ec);
+        }
+        else
+        {
+            post(std::move(shutdownHandler_), std::error_code{});
+        }
+        shutdownHandler_ = nullptr;
     }
 
     void close() {tcpSocket_.close();}
@@ -184,8 +255,8 @@ private:
 
     void start()
     {
-        auto self = shared_from_this();
-
+        responseSent_ = false;
+        body_.clear();
         parser_.emplace();
         const auto headerLimit = settings().limits().headerSize();
         const auto bodyLimit = settings().limits().bodySize();
@@ -194,34 +265,76 @@ private:
         if (bodyLimit != 0)
             parser_->body_limit(bodyLimit);
 
-        boost::beast::http::async_read(
-            tcpSocket_, buffer_, *parser_,
-            [this, self] (const boost::beast::error_code& netEc, std::size_t)
+        monitor_.startHeader(steadyTime());
+
+        // TODO: Request timeout
+        auto self = shared_from_this();
+        boost::beast::http::async_read_header(
+            tcpSocket_, streamBuffer_, *parser_,
+            [this, self] (boost::beast::error_code netEc, std::size_t)
             {
-                if (netEc == boost::beast::http::error::end_of_stream)
-                    return finish(AdmitResult::responded());
-                if (checkRead(netEc))
-                    onRequest();
+                onHeaderRead(netEc);
             });
     }
 
-    void onTimeout(boost::system::error_code ec)
+    void onHeaderRead(boost::beast::error_code netEc)
     {
-        if (!ec)
-        {
-            return balk(HttpStatus::requestTimeout, {}, false, {},
-                        AdmitResult::rejected(HttpStatus::requestTimeout));
-        }
+        // TODO: Handle 100-continue
 
-        if (ec != boost::asio::error::operation_aborted)
+        monitor_.endHeader();
+
+        if (isEof(netEc))
+            return finish(AdmitResult::responded());
+
+        if (!checkRead(netEc))
+            return;
+
+        if (parser_->is_done())
         {
-            finish(AdmitResult::failed(static_cast<std::error_code>(ec),
-                                       "timer wait"));
+            onMessageRead();
+        }
+        else
+        {
+            monitor_.startBody(steadyTime());
+            readMoreBody();
         }
     }
 
-    void onRequest()
+    void readMoreBody()
     {
+        parser_->get().body().data = &bodyBuffer_.front();
+        parser_->get().body().size = bodyBuffer_.size();
+        auto self = shared_from_this();
+        boost::beast::http::async_read(
+            tcpSocket_, streamBuffer_, *parser_,
+            [this, self] (boost::beast::error_code netEc, std::size_t)
+            {
+                if (netEc == boost::beast::http::error::need_buffer)
+                    netEc = {};
+
+                if (!checkRead(netEc))
+                    return;
+
+                if (isEof(netEc))
+                    return finish(AdmitResult::responded());
+
+                assert(bodyBuffer_.size() >= parser_->get().body().size);
+                auto bytesParsed = bodyBuffer_.size() -
+                                   parser_->get().body().size;
+                body_.append(&bodyBuffer_.front(), bytesParsed);
+
+                if (parser_->is_done())
+                    return onMessageRead();
+
+                monitor_.updateBody(steadyTime(), bytesParsed);
+                return readMoreBody();
+            });
+    }
+
+    void onMessageRead()
+    {
+        monitor_.endBody();
+
         bool isUpgrade = parser_->upgrade();
 
         // Send an error response if the server connection limit
@@ -286,15 +399,15 @@ private:
         if (!logger_)
             return;
 
-        const auto& req = request();
-        auto action = actionFromRequestVerb(req.base().method());
+        const auto& hdr = header();
+        auto action = actionFromRequestVerb(hdr.method());
         auto statusStr = std::to_string(static_cast<unsigned>(status));
-        AccessActionInfo info{action, req.target(), {}, std::move(statusStr)};
+        AccessActionInfo info{action, hdr.target(), {}, std::move(statusStr)};
 
         if (action == AccessAction::clientHttpOther)
         {
             info.options.emplace("method",
-                                 std::string{req.base().method_string()});
+                                 std::string{hdr.method_string()});
         }
 
         HttpAccessInfo httpInfo{fieldOr(Field::host, {}),
@@ -335,7 +448,7 @@ private:
         namespace http = boost::beast::http;
 
         http::response<http::string_body> response{
-            static_cast<http::status>(status), request().version(),
+            static_cast<http::status>(status), header().version(),
             std::move(what)};
 
         for (auto pair: fields)
@@ -349,7 +462,7 @@ private:
         namespace http = boost::beast::http;
 
         http::response<http::string_body> response{
-            static_cast<http::status>(status), request().version(),
+            static_cast<http::status>(status), header().version(),
             generateErrorPage(status, what)};
 
         response.set(Field::content_type, "text/html; charset=utf-8");
@@ -367,7 +480,7 @@ private:
         namespace http = boost::beast::http;
 
         http::response<http::string_body> response{
-            static_cast<http::status>(page.status()), request().version(),
+            static_cast<http::status>(page.status()), header().version(),
             page.generator()(page.status(), what)};
 
         std::string mime{"text/html; charset="};
@@ -405,7 +518,7 @@ private:
         namespace http = boost::beast::http;
 
         http::response<http::empty_body> response{
-            static_cast<http::status>(page.status()), request().version()};
+            static_cast<http::status>(page.status()), header().version()};
 
         response.set(Field::location, page.uri());
         for (auto pair: fields)
@@ -435,7 +548,7 @@ private:
         }
 
         http::response<http::file_body> response{
-            http::status::ok, request().version(), std::move(body)};
+            http::status::ok, header().version(), std::move(body)};
 
         std::string mime{"text/html; charset="};
         mime += page.charset().empty() ? std::string{"utf-8"} : page.charset();
@@ -448,7 +561,9 @@ private:
     template <typename R>
     void sendResponse(R&& response, HttpStatus status, AdmitResult result)
     {
-        bool keepAlive = request().keep_alive() &&
+        responseSent_ = true;
+        assert(parser_.has_value());
+        bool keepAlive = parser_->keep_alive() &&
                          result.status() == AdmitStatus::responded;
         // Beast will adjust the Connection field automatically depending on
         // the HTTP version.
@@ -472,6 +587,9 @@ private:
                                       boost::beast::error_code netEc,
                                       std::size_t)
             {
+                if (isAborting_)
+                    return onAbortResponseSent(netEc, status, result);
+
                 if (!checkWrite(netEc))
                     return;
 
@@ -482,6 +600,21 @@ private:
                 else
                     finish(result);
             });
+    }
+
+    void onAbortResponseSent(boost::beast::error_code netEc, HttpStatus status,
+                             AdmitResult result)
+    {
+        if (!checkWrite(netEc))
+        {
+            post(std::move(shutdownHandler_), httpErrorCodeToStandard(netEc));
+            shutdownHandler_ = nullptr;
+            return;
+        }
+
+        report(status);
+        finish(result);
+        doShutdown();
     }
 
     void finish(AdmitResult result)
@@ -496,31 +629,38 @@ private:
                 else
                     reportConnection({AA::serverReject, result.error()});
             }
-
-            boost::system::error_code ec;
-            tcpSocket_.shutdown(boost::asio::ip::tcp::socket::shutdown_send,
-                                ec);
-            tcpSocket_.close();
         }
 
-        if (handler_)
-            handler_(result);
-        handler_ = nullptr;
+        if (admitHandler_)
+            admitHandler_(result);
+        admitHandler_ = nullptr;
+    }
+
+    template <typename F, typename... Ts>
+    void post(F&& handler, Ts&&... args)
+    {
+        postAny(tcpSocket_.get_executor(), std::forward<F>(handler),
+                std::forward<Ts>(args)...);
     }
 
     TcpSocket tcpSocket_;
     CodecIdSet codecIds_;
     TransportInfo transportInfo_;
-    boost::beast::flat_buffer buffer_;
+    boost::beast::flat_buffer streamBuffer_;
+    std::string body_;
+    std::string bodyBuffer_;
     boost::optional<Parser> parser_;
     boost::urls::url target_;
-    Handler handler_;
+    Monitor monitor_;
+    AdmitHandler admitHandler_;
+    ShutdownHandler shutdownHandler_;
     ConnectionInfo connectionInfo_;
     WebsocketServerTransport::Ptr upgradedTransport_;
     SettingsPtr settings_;
     RouterLogger::Ptr logger_;
-    std::shared_ptr<Monitor> monitor_;
     bool isShedding_ = false;
+    bool isAborting_ = false;
+    bool responseSent_ = false;
 
     friend class HttpServerTransport;
 };
@@ -594,6 +734,15 @@ private:
                       Processed{std::move(handler), std::move(self)});
     }
 
+    std::error_code onMonitor() override
+    {
+        if (job_)
+            return job_->monitor();
+        else if (transport_)
+            return transport_->monitor();
+        return {};
+    }
+
     void onStart(RxHandler r, TxErrorHandler t) override
     {
         assert(transport_ != nullptr);
@@ -608,6 +757,12 @@ private:
 
     void onAbort(MessageBuffer m, ShutdownHandler f) override
     {
+        if (job_ != nullptr)
+        {
+            job_->abort(Base::abortReason(), std::move(f));
+            return;
+        }
+
         assert(transport_ != nullptr);
         transport_->httpAbort({}, std::move(m), std::move(f));
     }
@@ -615,24 +770,30 @@ private:
     void onShutdown(std::error_code reason, ShutdownHandler f) override
     {
         if (job_ != nullptr)
+        {
             job_->shutdown(reason, std::move(f));
-        else if (transport_ != nullptr)
-            transport_->httpShutdown({}, reason, std::move(f));
+            return;
+        }
+
+        assert(transport_ != nullptr);
+        transport_->httpShutdown({}, reason, std::move(f));
     }
 
     void onClose() override
     {
         if (job_ != nullptr)
             job_->close();
-        if (transport_ != nullptr)
+        else if (transport_ != nullptr)
             transport_->httpClose({});
     }
 
     void onJobProcessed(AdmitResult result, AdmitHandler& handler)
     {
         if (result.status() == AdmitStatus::wamp)
+        {
             transport_ = job_->upgradedTransport();
-        job_.reset();
+            job_.reset();
+        }
         handler(result);
     }
 

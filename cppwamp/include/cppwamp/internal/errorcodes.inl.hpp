@@ -96,7 +96,7 @@ CPPWAMP_INLINE std::string WampCategory::message(int ev) const
 }
 
 CPPWAMP_INLINE bool WampCategory::equivalent(const std::error_code& code,
-                                                int condition) const noexcept
+                                             int condition) const noexcept
 {
     if (code.category() == wampCategory())
     {

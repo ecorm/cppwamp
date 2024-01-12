@@ -217,7 +217,9 @@ public:
 
     HttpServerLimits& withBodySize(std::size_t n);
 
-    HttpServerLimits& withRequestTimeout(Timeout t);
+    HttpServerLimits& withHeaderTimeout(Timeout t);
+
+    HttpServerLimits& withBodyTimeout(ProgressiveTimeout t);
 
     HttpServerLimits& withResponseTimeout(ProgressiveTimeout t);
 
@@ -227,7 +229,9 @@ public:
 
     std::size_t bodySize() const;
 
-    Timeout requestTimeout() const;
+    Timeout headerTimeout() const;
+
+    const ProgressiveTimeout& bodyTimeout() const;
 
     const ProgressiveTimeout& responseTimeout() const;
 
@@ -238,11 +242,19 @@ public:
 private:
     using Base = WebsocketServerLimits;
 
-    ProgressiveTimeout responseTimeout_;
-    Timeout requestTimeout_ = neverTimeout;
+    Timeout headerTimeout_ = std::chrono::seconds(40);
+        // Using Apache's maxinum RequestReadTimeout for headers
 
-    // Default for Firefox: 115 seconds
-    Timeout keepaliveTimeout_ = neverTimeout;
+    ProgressiveTimeout responseTimeout_ = {std::chrono::seconds{20}, 80*1024};
+        // Using Apache's RequestReadTimeout, with 1/8 of ADSL2 5Mbps rate
+
+    ProgressiveTimeout bodyTimeout_ = {std::chrono::seconds{20}, 24*1024};
+        // Using Apache's RequestReadTimeout, with ~1/4 of ADSL2 0.8Mbps rate
+
+    Timeout keepaliveTimeout_ = std::chrono::seconds(120);
+        // NGINX default: 75s, Apache default: 5s
+        // Browser defaults: Firefox: 115s, IE: 60s, Chromium: never
+        // 120s chosen as default so that Firefox/IE initiate the timeout.
 
     std::size_t bodySize_  = 1024*1024; // Default for Boost.Beast and NGINX
 };
@@ -399,6 +411,10 @@ public:
     /** Specifies transport limits. */
     HttpEndpoint& withLimits(HttpServerLimits limits);
 
+    /** Specifies the size of the request body buffer for incremental
+        reading. */
+    HttpEndpoint& withBodyBufferSize(std::size_t size);
+
     /** Specifies the error page to show for the given HTTP response
         status code. */
     HttpEndpoint& addErrorPage(HttpErrorPage page);
@@ -420,6 +436,9 @@ public:
 
     /** Accesses the transport limits. */
     HttpServerLimits& limits();
+
+    /** Obtains the size of the request body buffer for incremental reading. */
+    std::size_t bodyBufferSize() const;
 
     /** Generates a human-friendly string of the HTTP address/port. */
     std::string label() const;
@@ -458,6 +477,7 @@ private:
     HttpFileServingOptions fileServingOptions_;
     std::string agent_;
     HttpServerLimits limits_;
+    std::size_t bodyBufferSize_ = 8*1024; // From NGINX client_body_buffer_size
 
 public: // Internal use only
     void initialize(internal::PassKey)

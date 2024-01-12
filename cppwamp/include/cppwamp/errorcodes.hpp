@@ -44,8 +44,8 @@ CPPWAMP_API std::string detailedErrorCodeString(std::error_code ec);
 
     std::error_code                                 | Equivalent condition value
     ----------------------------------------------- | --------------------------
-    make_error_code(WampErrc::systemShutdown)       | sessionKilled
-    make_error_code(WampErrc::closeRealm)           | sessionKilled
+    make_error_code(WampErrc::closedNormally)       | goodbyeAndOut
+    make_error_code(WampErrc::goodbyeAndOut)        | closedNormally
     make_error_code(WampErrc::timeout)              | cancelled
     make_error_code(WampErrc::discloseMeDisallowed) | optionNotAllowed */
 //------------------------------------------------------------------------------

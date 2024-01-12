@@ -135,9 +135,17 @@ CPPWAMP_INLINE HttpServerLimits& HttpServerLimits::withBodySize(std::size_t n)
     return *this;
 }
 
-CPPWAMP_INLINE HttpServerLimits& HttpServerLimits::withRequestTimeout(Timeout t)
+CPPWAMP_INLINE HttpServerLimits&
+HttpServerLimits::withHeaderTimeout(Timeout t)
 {
-    requestTimeout_ = internal::checkTimeout(t);
+    keepaliveTimeout_ = internal::checkTimeout(t);
+    return *this;
+}
+
+CPPWAMP_INLINE HttpServerLimits&
+HttpServerLimits::withBodyTimeout(ProgressiveTimeout t)
+{
+    bodyTimeout_ = t.validate();
     return *this;
 }
 
@@ -145,6 +153,13 @@ CPPWAMP_INLINE HttpServerLimits&
 HttpServerLimits::withResponseTimeout(ProgressiveTimeout t)
 {
     responseTimeout_ = t.validate();
+    return *this;
+}
+
+CPPWAMP_INLINE HttpServerLimits&
+HttpServerLimits::withKeepaliveTimeout(Timeout t)
+{
+    keepaliveTimeout_ = internal::checkTimeout(t);
     return *this;
 }
 
@@ -158,15 +173,26 @@ CPPWAMP_INLINE std::size_t HttpServerLimits::bodySize() const
     return bodySize_;
 }
 
-CPPWAMP_INLINE Timeout HttpServerLimits::requestTimeout() const
+CPPWAMP_INLINE Timeout HttpServerLimits::headerTimeout() const
 {
-    return requestTimeout_;
+    return headerTimeout_;
+}
+
+CPPWAMP_INLINE const ProgressiveTimeout&
+HttpServerLimits::bodyTimeout() const
+{
+    return bodyTimeout_;
 }
 
 CPPWAMP_INLINE const ProgressiveTimeout&
 HttpServerLimits::responseTimeout() const
 {
     return responseTimeout_;
+}
+
+CPPWAMP_INLINE Timeout HttpServerLimits::keepaliveTimeout() const
+{
+    return headerTimeout_;
 }
 
 CPPWAMP_INLINE WebsocketServerLimits HttpServerLimits::toWebsocket() const
@@ -456,6 +482,12 @@ CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withLimits(HttpServerLimits limits)
     return *this;
 }
 
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withBodyBufferSize(std::size_t size)
+{
+    bodyBufferSize_ = size;
+    return *this;
+}
+
 /** @pre `static_cast<unsigned>(page) >= 400`
     @pre `!uri.empty` */
 CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::addErrorPage(HttpErrorPage page)
@@ -493,6 +525,11 @@ CPPWAMP_INLINE const HttpServerLimits& HttpEndpoint::limits() const
 }
 
 CPPWAMP_INLINE HttpServerLimits& HttpEndpoint::limits() {return limits_;}
+
+CPPWAMP_INLINE std::size_t HttpEndpoint::bodyBufferSize() const
+{
+    return bodyBufferSize_;
+}
 
 CPPWAMP_INLINE std::string HttpEndpoint::label() const
 {

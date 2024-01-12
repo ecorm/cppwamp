@@ -279,6 +279,7 @@ public:
     void readSome(MessageBuffer& buffer, F&& callback)
     {
         // Beast will choose 1536 as the read limit
+        // TODO: Use limit from settings
         doReadSome(buffer, 0, std::forward<F>(callback));
     }
 
@@ -414,8 +415,6 @@ public:
     using Settings        = WebsocketEndpoint;
     using SettingsPtr     = std::shared_ptr<Settings>;
     using Handler         = AnyCompletionHandler<void (AdmitResult)>;
-    using UpgradeRequest =
-        boost::beast::http::request<boost::beast::http::string_body>;
 
     WebsocketAdmitter(ListenerSocket&& t, SettingsPtr s, const CodecIdSet& c)
         : tcpSocket_(std::move(t)),
@@ -489,7 +488,8 @@ public:
             tcpSocket_.close();
     }
 
-    void upgrade(const UpgradeRequest& request, Handler handler)
+    template <typename TRequest>
+    void upgrade(const TRequest& request, Handler handler)
     {
         handler_ = std::move(handler);
         performUpgrade(request);

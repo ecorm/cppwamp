@@ -154,6 +154,9 @@ public:
         bumpSilenceDeadline(now);
     }
 
+    // This is only used by QueuingTransport when shutting down the admitter,
+    // as the TransportQueue has its own linger timeout mechanism via the
+    // Bouncer policy.
     void startLinger(TimePoint now)
     {
         auto timeout = settings_->limits().lingerTimeout();
@@ -226,14 +229,33 @@ public:
         : settings_(std::move(settings))
     {}
 
-    void startRequest(TimePoint now)
+    void startHeader(TimePoint now)
     {
-        auto timeout = settings_->limits().handshakeTimeout();
-        if (internal::timeoutIsDefinite(timeout))
-            requestDeadline_ = now + timeout;
+        auto timeout = settings_->limits().headerTimeout();
+        if (timeoutIsDefinite(timeout))
+            headerDeadline_ = now + timeout;
+        keepaliveDeadline_ = TimePoint::max();
     }
 
-    void endRequest() {requestDeadline_ = TimePoint::max();}
+    void endHeader()
+    {
+        headerDeadline_ = TimePoint::max();
+    }
+
+    void startBody(TimePoint now)
+    {
+        bodyDeadline_.start(settings_->limits().bodyTimeout(), now);
+    }
+
+    void updateBody(TimePoint now, std::size_t bytesRead)
+    {
+        bodyDeadline_.update(settings_->limits().bodyTimeout(), bytesRead);
+    }
+
+    void endBody()
+    {
+        bodyDeadline_.reset();
+    }
 
     void startResponse(TimePoint now)
     {
@@ -246,10 +268,26 @@ public:
                                  bytesWritten);
     }
 
-    void endResponse(TimePoint now, bool bumpLoiter)
+    void endResponse(TimePoint now, bool keepAlive)
     {
         responseDeadline_.reset();
+
+        if (keepAlive)
+        {
+            auto timeout = settings_->limits().headerTimeout();
+            if (timeoutIsDefinite(timeout))
+                keepaliveDeadline_ = now + timeout;
+        }
     }
+
+    void startLinger(TimePoint now)
+    {
+        auto timeout = settings_->limits().lingerTimeout();
+        if (internal::timeoutIsDefinite(timeout))
+            lingerDeadline_ = now + timeout;
+    }
+
+    void endLinger() {lingerDeadline_ = TimePoint::max();}
 
     std::error_code check(TimePoint now) const
     {
@@ -259,15 +297,24 @@ public:
 private:
     TransportErrc checkForTimeouts(TimePoint now) const
     {
-        if (now >= requestDeadline_)
+        if (now >= headerDeadline_)
+            return TransportErrc::readTimeout;
+        if (now >= bodyDeadline_.due())
             return TransportErrc::readTimeout;
         if (now >= responseDeadline_.due())
             return TransportErrc::writeTimeout;
+        if (now >= keepaliveDeadline_)
+            return TransportErrc::loiterTimeout;
+        if (now >= lingerDeadline_)
+            return TransportErrc::lingerTimeout;
         return TransportErrc::success;
     }
 
     internal::ProgressiveDeadline responseDeadline_;
-    TimePoint requestDeadline_ = TimePoint::max();
+    internal::ProgressiveDeadline bodyDeadline_;
+    TimePoint headerDeadline_ = TimePoint::max();
+    TimePoint keepaliveDeadline_ = TimePoint::max();
+    TimePoint lingerDeadline_ = TimePoint::max();
     SettingsPtr settings_;
 };
 

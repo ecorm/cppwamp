@@ -213,7 +213,7 @@ private:
 
         namespace http = boost::beast::http;
         EmptyResponse res{http::status::moved_permanently,
-                          job.request().version()};
+                          job.header().version()};
         res.base().set(http::field::location, path + '/');
         job.respond(res);
         return false;
@@ -255,8 +255,8 @@ private:
             body += "<a href=\"" + parent + "\">../</a>\n";
         }
 
-        const auto& req = job.request();
-        StringResponse res{http::status::ok, req.version(), std::move(body)};
+        StringResponse res{http::status::ok, job.header().version(),
+                           std::move(body)};
         res.set(http::field::content_type, "text/html; charset=utf-8");
         return res;
     }
@@ -276,7 +276,7 @@ private:
         auto name = entry.path().filename().string();
         if (isDirectory)
             name += "/";
-        auto link = fs::path{job.request().target()} / name;
+        auto link = fs::path{job.header().target()} / name;
         oss << "<a href=\"" << link.generic_string() << "\">";
         auto nameLength = countUtf8CodePoints(name);
         if (nameLength > autoindexNameWidth_)
@@ -421,7 +421,7 @@ public:
         if (!openFile(job, body))
             return;
 
-        if (job.request().method() == http::verb::head)
+        if (job.header().method() == http::verb::head)
             return respondToHeadRequest(job, body);
         respondToGetRequest(job, body);
     };
@@ -462,18 +462,18 @@ private:
         }
 
         // Check that request is not an HTTP upgrade request
-        const auto& req = job.request();
-        if (beast::websocket::is_upgrade(req))
+        const auto& hdr = job.header();
+        if (beast::websocket::is_upgrade(hdr))
         {
             job.balk(HttpStatus::badRequest, "Not a Websocket resource", true);
             return false;
         }
 
         // Check that request method is supported
-        if (req.method() != http::verb::get && req.method() != http::verb::head)
+        if (hdr.method() != http::verb::get && hdr.method() != http::verb::head)
         {
             job.balk(HttpStatus::methodNotAllowed,
-                     std::string(req.method_string()) +
+                     std::string(hdr.method_string()) +
                          " method not allowed on static files.");
             return false;
         }
@@ -551,8 +551,8 @@ private:
     {
         namespace http = boost::beast::http;
 
-        const auto& req = job.request();
-        http::response<http::empty_body> res{http::status::ok, req.version()};
+        http::response<http::empty_body> res{http::status::ok,
+                                             job.header().version()};
         res.set(http::field::content_type, buildMimeType());
         res.content_length(body.size());
         job.respond(res);
@@ -562,9 +562,8 @@ private:
     {
         namespace http = boost::beast::http;
 
-        const auto& req = job.request();
-        http::response<http::file_body> res{http::status::ok, req.version(),
-                                            std::move(body)};
+        http::response<http::file_body> res{
+            http::status::ok, job.header().version(), std::move(body)};
         res.set(http::field::content_type, buildMimeType());
         job.respond(res);
     }
@@ -639,8 +638,7 @@ HttpAction<HttpWebsocketUpgrade>::initialize(const HttpEndpoint& settings) {}
 
 CPPWAMP_INLINE void HttpAction<HttpWebsocketUpgrade>::execute(HttpJob& job)
 {
-    const auto& req = job.request();
-    if (!boost::beast::websocket::is_upgrade(req))
+    if (!boost::beast::websocket::is_upgrade(job.header()))
     {
         return job.balk(
             HttpStatus::upgradeRequired,

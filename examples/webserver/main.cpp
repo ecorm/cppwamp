@@ -51,6 +51,8 @@ int main()
                     wamp::HttpFileServingOptions{}
                         .withDocumentRoot("./www-alt"));
 
+        // TODO: Add Websocket route
+
         auto httpOptions = wamp::HttpEndpoint{8080}
             .withFileServingOptions(baseFileServerOptions)
             .addErrorPage({wamp::HttpStatus::notFound, "/notfound.html"})

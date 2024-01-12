@@ -138,6 +138,7 @@ private:
 
 //------------------------------------------------------------------------------
 /** Contains Websocket options. */
+// TODO: Read buffer size limit
 //------------------------------------------------------------------------------
 class CPPWAMP_API WebsocketOptions
 {
