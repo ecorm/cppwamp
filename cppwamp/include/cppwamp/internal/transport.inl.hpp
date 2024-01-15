@@ -119,6 +119,13 @@ CPPWAMP_INLINE const IoStrand& Transporting::strand() const {return strand_;}
 
 CPPWAMP_INLINE Transporting::State Transporting::state() const {return state_;}
 
+CPPWAMP_INLINE bool Transporting::canShutdown() const
+{
+    using S = State;
+    return state_ == S::accepting || state_ == S::rejected ||
+           state_ == S::ready || state_ == S::running;
+}
+
 CPPWAMP_INLINE const TransportInfo& Transporting::info() const {return info_;}
 
 CPPWAMP_INLINE const ConnectionInfo& Transporting::connectionInfo() const
@@ -174,7 +181,6 @@ CPPWAMP_INLINE void Transporting::send(MessageBuffer message)
 CPPWAMP_INLINE void Transporting::abort(
     MessageBuffer abortMessage, std::error_code reason, ShutdownHandler handler)
 {
-    assert(state_ != State::initial);
     assert(state_ == State::running);
     abortReason_ = reason;
     onAbort(std::move(abortMessage), std::move(handler));
@@ -184,12 +190,7 @@ CPPWAMP_INLINE void Transporting::abort(
 CPPWAMP_INLINE void Transporting::shutdown(std::error_code reason,
                                            ShutdownHandler handler)
 {
-    assert(state_ != State::initial);
-    assert(state_ != State::shedding);
-    assert(state_ != State::aborting);
-    assert(state_ != State::shutdown);
-    assert(state_ != State::closed);
-
+    assert(canShutdown());
     onShutdown(reason, std::move(handler));
     state_ = State::shutdown;
 }

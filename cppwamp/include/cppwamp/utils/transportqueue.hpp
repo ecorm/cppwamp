@@ -341,9 +341,9 @@ private:
 
         txFrame_ = std::move(txQueue_.front());
         txQueue_.pop_front();
-        bool bumpLoiter = txFrame_.kind() == TransportFrameKind::wamp;
+        bool bumpInactivity = txFrame_.kind() == TransportFrameKind::wamp;
         if (monitor_)
-            monitor_->startWrite(now(), bumpLoiter);
+            monitor_->startWrite(now(), bumpInactivity);
 
         switch (txFrame_.kind())
         {

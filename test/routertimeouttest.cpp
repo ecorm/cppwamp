@@ -57,7 +57,7 @@ TEST_CASE( "Router transport timeouts", "[WAMP][Router]" )
             .withHandshakeTimeout( milliseconds{100})
             .withReadTimeout({     milliseconds{100}})
             .withSilenceTimeout(   milliseconds{200})
-            .withLoiterTimeout(    milliseconds{300})
+            .withInactivityTimeout(milliseconds{300})
             .withLingerTimeout(    milliseconds{100}));
 
     router.openServer(
@@ -161,7 +161,7 @@ TEST_CASE( "Router transport timeouts", "[WAMP][Router]" )
     }
 
     {
-        INFO("loiter timeout")
+        INFO("inactivity timeout")
 
         logEntries.clear();
         client->clear();
@@ -186,7 +186,7 @@ TEST_CASE( "Router transport timeouts", "[WAMP][Router]" )
                 test::suspendCoro(yield);
             CHECK(logEntries.back().action.errorUri ==
                   errorCodeToUri(
-                      make_error_code(TransportErrc::loiterTimeout)));
+                      make_error_code(TransportErrc::inactivityTimeout)));
             CHECK(client->readError() == boost::asio::error::eof);
             REQUIRE(client->inFrames().size() >= 4);
             CHECK(client->inFrames().at(3).payload == "Heartbeat2");

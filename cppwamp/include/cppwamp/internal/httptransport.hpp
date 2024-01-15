@@ -180,7 +180,7 @@ private:
         return static_cast<std::error_code>(netEc);
     }
 
-    static HttpStatus abortReasonToHttpStatus(std::error_code ec)
+    static HttpStatus shutdownReasonToHttpStatus(std::error_code ec)
     {
         if (ec == TransportErrc::timeout)
             return HttpStatus::requestTimeout;
@@ -197,9 +197,7 @@ private:
 
     std::error_code monitor()
     {
-        return {};
-        // TODO
-        // return monitor_.check(steadyTime());
+        return monitor_.check(steadyTime());
     }
 
     void process(bool isShedding, AdmitHandler handler)
@@ -210,22 +208,19 @@ private:
         start();
     }
 
-    void abort(std::error_code reason, ShutdownHandler handler)
+    void shutdown(std::error_code reason, ShutdownHandler handler)
     {
-        if (responseSent_)
-            return shutdown(reason, std::move(handler));
-
         shutdownHandler_ = std::move(handler);
-        isAborting_ = true;
-        monitor_.startLinger(steadyTime());
-        balk(abortReasonToHttpStatus(reason), reason.message(), false, {},
+
+        if (responseSent_ || !reason)
+            return doShutdown();
+
+        isPoisoned_ = true;
+        auto what = errorCodeToUri(reason);
+        what += ": ";
+        what += reason.message();
+        balk(shutdownReasonToHttpStatus(reason), std::move(what), true, {},
              AdmitResult::rejected(reason));
-    }
-
-    void shutdown(std::error_code /*reason*/, ShutdownHandler handler)
-    {
-        shutdownHandler_ = std::move(handler);
-        doShutdown();
     }
 
     void doShutdown()
@@ -264,9 +259,37 @@ private:
         if (bodyLimit != 0)
             parser_->body_limit(bodyLimit);
 
+        // After the first request, hold off arming the read timeout until data
+        // is available to be read, as the keep-alive timeout is already in
+        // effect.
+        if (alreadyRequested_)
+            waitForHeader();
+        else
+            readHeader();
+    }
+
+    void waitForHeader()
+    {
+        auto self = shared_from_this();
+        tcpSocket_.async_wait(
+            TcpSocket::wait_read,
+            [this, self](boost::system::error_code netEc)
+            {
+                if (isEof(netEc))
+                    return finish(AdmitResult::responded());
+
+                if (!checkRead(netEc))
+                    return;
+
+                readHeader();
+            });
+    }
+
+    void readHeader()
+    {
+        alreadyRequested_ = true;
         monitor_.startHeader(steadyTime());
 
-        // TODO: Request timeout
         auto self = shared_from_this();
         boost::beast::http::async_read_header(
             tcpSocket_, streamBuffer_, *parser_,
@@ -449,6 +472,7 @@ private:
         http::response<http::string_body> response{
             static_cast<http::status>(status), header().version(),
             std::move(what)};
+        response.body() += "\r\n";
 
         for (auto pair: fields)
             response.set(pair.first, pair.second);
@@ -562,8 +586,8 @@ private:
     {
         responseSent_ = true;
         assert(parser_.has_value());
-        bool keepAlive = parser_->keep_alive() &&
-                         result.status() == AdmitStatus::responded;
+        bool keepAlive = result.status() == AdmitStatus::responded &&
+                         parser_->keep_alive();
         // Beast will adjust the Connection field automatically depending on
         // the HTTP version.
         // https://datatracker.ietf.org/doc/html/rfc7230#section-6.3
@@ -601,14 +625,14 @@ private:
 
                 monitor_.endResponse(now, keepAlive_);
 
-                if (isAborting_)
-                    return onAbortResponseSent(netEc);
+                if (isPoisoned_)
+                    return onShutdownResponseSent(netEc);
 
                 onResponseSent(netEc);
             });
     }
 
-    void onAbortResponseSent(boost::beast::error_code netEc)
+    void onShutdownResponseSent(boost::beast::error_code netEc)
     {
         if (!checkWrite(netEc))
         {
@@ -617,7 +641,6 @@ private:
             return;
         }
 
-        report(status_);
         finish(result_);
         doShutdown();
     }
@@ -637,18 +660,6 @@ private:
 
     void finish(AdmitResult result)
     {
-        if (result.status() != AdmitStatus::wamp)
-        {
-            if (logger_)
-            {
-                using AA = AccessAction;
-                if (result.status() == AdmitStatus::responded)
-                    reportConnection({AA::clientDisconnect});
-                else
-                    reportConnection({AA::serverReject, result.error()});
-            }
-        }
-
         if (admitHandler_)
             admitHandler_(result);
         admitHandler_ = nullptr;
@@ -680,9 +691,10 @@ private:
     RouterLogger::Ptr logger_;
     HttpStatus status_ = HttpStatus::none;
     bool isShedding_ = false;
-    bool isAborting_ = false;
+    bool isPoisoned_ = false;
     bool responseSent_ = false;
     bool keepAlive_ = false;
+    bool alreadyRequested_ = false;
 
     friend class HttpServerTransport;
 };
@@ -781,7 +793,7 @@ private:
     {
         if (job_ != nullptr)
         {
-            job_->abort(Base::abortReason(), std::move(f));
+            job_->shutdown(Base::abortReason(), std::move(f));
             return;
         }
 

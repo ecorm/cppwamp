@@ -27,9 +27,16 @@ struct UdsTraits
 
     static ConnectionInfo connectionInfo(const NetProtocol::socket& socket)
     {
+        boost::system::error_code ec;
         auto ep = socket.remote_endpoint();
+        if (ec)
+            ep = {};
+
         std::ostringstream oss;
-        oss << ep;
+        if (ec)
+            oss << "Error " << ec;
+        else
+            oss << ep;
 
         Object details
         {

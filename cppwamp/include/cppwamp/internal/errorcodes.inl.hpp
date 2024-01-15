@@ -397,7 +397,7 @@ CPPWAMP_INLINE std::string TransportCategory::message(int ev) const
         /* readTimeout       */ "Transport read operation timed out",
         /* writeTimeout      */ "Transport write operation timed out",
         /* silenceTimeout    */ "Transport timed out due to silence",
-        /* loiterTimeout     */ "Transport timed out due to inactivity",
+        /* inactivityTimeout */ "Transport timed out due to inactivity",
         /* lingerTimeout     */ "Peer transport close timed out",
         /* failed            */ "Transport operation failed",
         /* exhausted         */ "All transports failed during connection",

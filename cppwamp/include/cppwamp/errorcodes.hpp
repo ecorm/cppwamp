@@ -265,7 +265,7 @@ enum class TransportErrc
     readTimeout       = 6,  ///< Transport read operation timed out
     writeTimeout      = 7,  ///< Transport write operation timed out
     silenceTimeout    = 8,  ///< Transport timed out due to silence
-    loiterTimeout     = 9,  ///< Transport timed out due to inactivity
+    inactivityTimeout = 9,  ///< Transport timed out due to inactivity
     lingerTimeout     = 10, ///< Peer transport close timed out
     failed            = 11, ///< Transport operation failed
     exhausted         = 12, ///< All transports failed during connection

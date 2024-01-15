@@ -231,7 +231,7 @@ CPPWAMP_INLINE Object AccessActionInfo::optionsWithErrorDesc(
     Object options, std::error_code ec)
 {
     if (ec.category() != wampCategory())
-        options.emplace("error_description", ec.message());
+        options.emplace("what", ec.message());
     return options;
 }
 

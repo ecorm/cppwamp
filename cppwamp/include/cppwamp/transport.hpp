@@ -204,6 +204,10 @@ public:
     /** Obtains the current transport state. */
     State state() const;
 
+    /** Determines if the transport is in a state that allows it to be
+        shut down. */
+    bool canShutdown() const;
+
     /** Obtains information pertaining to this transport. */
     const TransportInfo& info() const;
 

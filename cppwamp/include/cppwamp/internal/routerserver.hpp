@@ -389,6 +389,7 @@ private:
         switch (result.status())
         {
         case S::responded:
+            Base::report({AccessAction::clientDisconnect});
             shutdownTransportThenRetire();
             break;
 
@@ -397,15 +398,24 @@ private:
             break;
 
         case S::rejected:
-            Base::report({AccessAction::serverReject, result.error()});
+            if (result.error() != TransportErrc::timeout &&
+                !timeoutReportAlreadyLogged_)
+            {
+                Base::report({AccessAction::serverReject, result.error()});
+            }
             shutdownTransportThenRetire(result.error());
             break;
 
         case S::failed:
-            Base::routerLog(
-                {LogLevel::error,
-                 std::string{"Handshake failure during "} + result.operation(),
-                 result.error()});
+            // Don't log failures due to cancellations
+            if (result.error() != TransportErrc::aborted)
+            {
+                Base::routerLog(
+                    {LogLevel::error,
+                     std::string{"Handshake failure during "} +
+                         result.operation(),
+                     result.error()});
+            }
             retire();
             break;
 
@@ -417,6 +427,13 @@ private:
 
     void shutdownTransportThenRetire(std::error_code reason = {})
     {
+        if (!transport_->canShutdown())
+        {
+            transport_->close();
+            retire();
+            return;
+        }
+
         auto self = shared_from_this();
         transport_->shutdown(
             reason,
@@ -497,7 +514,23 @@ private:
         if (!ec)
             return;
 
-        report({AccessAction::serverDisconnect, ec});
+        if (ec == TransportErrc::inactivityTimeout)
+        {
+            // Don't report as loudly for inactivity timeouts, which are
+            // ordinary occurrences.
+            report({AccessAction::serverDisconnect, {},
+                    Object{{"what", "Inactivity"}}});
+            timeoutReportAlreadyLogged_ = true;
+        }
+        else
+        {
+            report({AccessAction::serverReject, ec});
+            timeoutReportAlreadyLogged_ = true;
+        }
+
+        if (ec != TransportErrc::lingerTimeout)
+            return shutdownTransportThenRetire(ec);
+
         transport_->close();
         retire();
     }
@@ -699,6 +732,7 @@ private:
     TimePoint challengeDeadline_ = TimePoint::max();
     TimePoint overstayDeadline_ = TimePoint::max();
     bool alreadyStarted_ = false;
+    bool timeoutReportAlreadyLogged_ = false;
 };
 
 //------------------------------------------------------------------------------

@@ -32,9 +32,16 @@ struct TcpTraits
         static constexpr unsigned ipv4VersionNo = 4;
         static constexpr unsigned ipv6VersionNo = 6;
 
-        auto ep = socket.remote_endpoint();
+        boost::system::error_code ec;
+        auto ep = socket.remote_endpoint(ec);
+        if (ec)
+            ep = {};
+
         std::ostringstream oss;
-        oss << ep;
+        if (ec)
+            oss << "Error " << ec;
+        else
+            oss << ep;
         const auto addr = ep.address();
         const bool isIpv6 = addr.is_v6();
 

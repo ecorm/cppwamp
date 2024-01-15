@@ -112,7 +112,7 @@ public:
 
     TDerived& withSilenceTimeout(Timeout t) {return set(silenceTimeout_, t);}
 
-    TDerived& withLoiterTimeout(Timeout t) {return set(loiterTimeout_, t);}
+    TDerived& withInactivityTimeout(Timeout t) {return set(inactivityTimeout_, t);}
 
     TDerived& withLingerTimeout(Timeout t) {return set(lingerTimeout_, t);}
 
@@ -138,9 +138,9 @@ public:
     Timeout silenceTimeout() const {return silenceTimeout_;}
 
     /** Obtains the maximum time of no data being transferred, excluding
-        pings. This prevents clients indefinitely keeping a connection alive
-        by just sending pings. */
-    Timeout loiterTimeout() const {return loiterTimeout_;}
+        heartbeats. This prevents clients indefinitely keeping a connection
+        alive by just sending pings. */
+    Timeout inactivityTimeout() const {return inactivityTimeout_;}
 
     /** Obtains the maxiumum time the server will wait for a client to
         gracefully close the connection. */
@@ -176,7 +176,7 @@ private:
         // Using ejabberd's negotiation_timeout
     Timeout silenceTimeout_ = std::chrono::seconds{300};
         // Using ejabberd's websocket_timeout
-    Timeout loiterTimeout_ = std::chrono::minutes(60);
+    Timeout inactivityTimeout_ = std::chrono::minutes(60);
         // Using Nginx's keepalive_time
     Timeout lingerTimeout_ = std::chrono::seconds{30};
         // Using Nginx's lingering_time

@@ -94,7 +94,7 @@ public:
 
     void start(TimePoint now)
     {
-        bumpLoiterDeadline(now);
+        bumpInactivityDeadline(now);
     }
 
     void stop()
@@ -103,49 +103,49 @@ public:
         writeDeadline_.reset();
         handshakeDeadline_ = TimePoint::max();
         silenceDeadline_ = TimePoint::max();
-        loiterDeadline_ = TimePoint::max();
+        inactivityDeadline_ = TimePoint::max();
         lingerDeadline_ = TimePoint::max();
     }
 
     void startRead(TimePoint now)
     {
         readDeadline_.start(settings_->limits().readTimeout(), now);
-        bumpLoiterDeadline(now);
+        bumpInactivityDeadline(now);
         isReading_ = true;
     }
 
     void updateRead(TimePoint now, std::size_t bytesRead)
     {
         readDeadline_.update(settings_->limits().readTimeout(), bytesRead);
-        bumpLoiterDeadline(now);
+        bumpInactivityDeadline(now);
     }
 
     void endRead(TimePoint now)
     {
         readDeadline_.reset();
-        bumpLoiterDeadline(now);
+        bumpInactivityDeadline(now);
         isReading_ = false;
     }
 
-    void startWrite(TimePoint now, bool bumpLoiter)
+    void startWrite(TimePoint now, bool bumpInactivity)
     {
         writeDeadline_.start(settings_->limits().writeTimeout(), now);
-        if (bumpLoiter)
-            bumpLoiterDeadline(now);
+        if (bumpInactivity)
+            bumpInactivityDeadline(now);
         isWriting_ = true;
     }
 
     void updateWrite(TimePoint now, std::size_t bytesWritten)
     {
         writeDeadline_.update(settings_->limits().writeTimeout(), bytesWritten);
-        bumpLoiterDeadline(now);
+        bumpInactivityDeadline(now);
     }
 
-    void endWrite(TimePoint now, bool bumpLoiter)
+    void endWrite(TimePoint now, bool bumpInactivity)
     {
         writeDeadline_.reset();
-        if (bumpLoiter)
-            bumpLoiterDeadline(now);
+        if (bumpInactivity)
+            bumpInactivityDeadline(now);
         isWriting_ = false;
     }
 
@@ -172,13 +172,13 @@ public:
     }
 
 private:
-    void bumpLoiterDeadline(TimePoint now)
+    void bumpInactivityDeadline(TimePoint now)
     {
         bumpSilenceDeadline(now);
 
-        auto timeout = settings_->limits().loiterTimeout();
+        auto timeout = settings_->limits().inactivityTimeout();
         if (internal::timeoutIsDefinite(timeout))
-            loiterDeadline_ = now + timeout;
+            inactivityDeadline_ = now + timeout;
     }
 
     void bumpSilenceDeadline(TimePoint now)
@@ -196,8 +196,8 @@ private:
             return TransportErrc::writeTimeout;
         if (now >= silenceDeadline_)
             return TransportErrc::silenceTimeout;
-        if (now >= loiterDeadline_)
-            return TransportErrc::loiterTimeout;
+        if (now >= inactivityDeadline_)
+            return TransportErrc::inactivityTimeout;
         if (now >= handshakeDeadline_)
             return TransportErrc::handshakeTimeout;
         if (now >= lingerDeadline_)
@@ -209,7 +209,7 @@ private:
     internal::ProgressiveDeadline writeDeadline_;
     TimePoint handshakeDeadline_ = TimePoint::max();
     TimePoint silenceDeadline_ = TimePoint::max();
-    TimePoint loiterDeadline_ = TimePoint::max();
+    TimePoint inactivityDeadline_ = TimePoint::max();
     TimePoint lingerDeadline_ = TimePoint::max();
     SettingsPtr settings_;
     bool isReading_ = false;
@@ -274,7 +274,7 @@ public:
 
         if (keepAlive)
         {
-            auto timeout = settings_->limits().headerTimeout();
+            auto timeout = settings_->limits().keepaliveTimeout();
             if (timeoutIsDefinite(timeout))
                 keepaliveDeadline_ = now + timeout;
         }
@@ -304,7 +304,7 @@ private:
         if (now >= responseDeadline_.due())
             return TransportErrc::writeTimeout;
         if (now >= keepaliveDeadline_)
-            return TransportErrc::loiterTimeout;
+            return TransportErrc::inactivityTimeout;
         if (now >= lingerDeadline_)
             return TransportErrc::lingerTimeout;
         return TransportErrc::success;

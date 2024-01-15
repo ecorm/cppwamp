@@ -218,7 +218,7 @@ HttpServerLimits::responseTimeout() const
 
 CPPWAMP_INLINE Timeout HttpServerLimits::keepaliveTimeout() const
 {
-    return headerTimeout_;
+    return keepaliveTimeout_;
 }
 
 CPPWAMP_INLINE WebsocketServerLimits HttpServerLimits::toWebsocket() const

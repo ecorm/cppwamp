@@ -550,14 +550,14 @@ TEST_CASE( "ServerTimeoutMonitor", "[Transport]" )
         checkServerTimeoutMonitor(endpoint, testVectors);
     }
 
-    SECTION("Loiter timeouts")
+    SECTION("Inactivity timeouts")
     {
         auto endpoint = TcpEndpoint(tcpTestPort).withLimits(
             TcpEndpoint::Limits{}
-                .withReadTimeout( {  seconds{ 5}, 100, seconds{15}})
-                .withWriteTimeout({  seconds{10}, 100, seconds{20}})
-                .withSilenceTimeout( seconds{300})
-                .withLoiterTimeout(  seconds{600}));
+                .withReadTimeout( {    seconds{ 5}, 100, seconds{15}})
+                .withWriteTimeout({    seconds{10}, 100, seconds{20}})
+                .withSilenceTimeout(   seconds{300})
+                .withInactivityTimeout(seconds{600}));
 
         std::vector<ServerTimeoutMonitorTestVector> testVectors
         {
@@ -570,7 +570,7 @@ TEST_CASE( "ServerTimeoutMonitor", "[Transport]" )
             {200000, E::heartbeat},
             {500000, E::heartbeat},
             {602999, E::check,       ok},
-            {603000, E::check,       TransportErrc::loiterTimeout},
+            {603000, E::check,       TransportErrc::inactivityTimeout},
 
             // Delayed by write
             {     0, E::start},
@@ -581,7 +581,7 @@ TEST_CASE( "ServerTimeoutMonitor", "[Transport]" )
             {200000, E::heartbeat},
             {500000, E::heartbeat},
             {602999, E::check,       ok},
-            {603000, E::check,       TransportErrc::loiterTimeout}
+            {603000, E::check,       TransportErrc::inactivityTimeout}
         };
 
         checkServerTimeoutMonitor(endpoint, testVectors);

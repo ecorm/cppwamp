@@ -74,7 +74,6 @@ public:
     }
 
 private:
-    using Base = HttpSerializerBase;
     using Body = typename Response::body_type;
     using Fields = typename Response::fields_type;
     using Serializer = boost::beast::http::serializer<false, Body, Fields>;
