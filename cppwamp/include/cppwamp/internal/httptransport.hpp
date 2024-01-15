@@ -202,7 +202,6 @@ private:
 
     void process(bool isShedding, AdmitHandler handler)
     {
-        reportConnection({AccessAction::clientConnect});
         isShedding_ = isShedding;
         admitHandler_ = std::move(handler);
         start();
@@ -213,14 +212,23 @@ private:
         shutdownHandler_ = std::move(handler);
 
         if (responseSent_ || !reason)
-            return doShutdown();
+        {
+            if (admitHandler_)
+            {
+                post(std::move(admitHandler_), AdmitResult::cancelled(reason));
+                admitHandler_ = nullptr;
+            }
+
+            doShutdown();
+            return;
+        }
 
         isPoisoned_ = true;
         auto what = errorCodeToUri(reason);
         what += ": ";
         what += reason.message();
         balk(shutdownReasonToHttpStatus(reason), std::move(what), true, {},
-             AdmitResult::rejected(reason));
+             AdmitResult::cancelled(reason));
     }
 
     void doShutdown()
@@ -436,14 +444,6 @@ private:
                                 fieldOr(Field::user_agent, {})};
         logger_->log(AccessLogEntry{connectionInfo_, std::move(httpInfo),
                                     std::move(info)});
-    }
-
-    void reportConnection(AccessActionInfo info)
-    {
-        if (!logger_)
-            return;
-
-        logger_->log(AccessLogEntry{connectionInfo_, std::move(info)});
     }
 
     static AccessAction actionFromRequestVerb(Verb verb)

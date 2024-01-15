@@ -137,17 +137,14 @@ protected:
             }
         };
 
-        if (admitter_ != nullptr)
-        {
-            monitor_->startLinger(now());
-            auto self = std::dynamic_pointer_cast<QueueingServerTransport>(
-                shared_from_this());
-            admitter_->shutdown(reason, AdmitShutdown{std::move(handler),
-                                                      std::move(self)});
-            return;
-        }
+        if (admitter_ == nullptr)
+            return queue_->shutdown(reason, std::move(handler));
 
-        queue_->shutdown(reason, std::move(handler));
+        monitor_->startLinger(now());
+        auto self = std::dynamic_pointer_cast<QueueingServerTransport>(
+            shared_from_this());
+        admitter_->shutdown(reason,
+                            AdmitShutdown{std::move(handler), std::move(self)});
     }
 
     void onClose() override

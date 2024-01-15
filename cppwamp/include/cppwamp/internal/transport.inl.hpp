@@ -70,6 +70,11 @@ CPPWAMP_INLINE AdmitResult AdmitResult::rejected(std::error_code e)
     return AdmitResult{Status::rejected, e, nullptr};
 }
 
+CPPWAMP_INLINE AdmitResult AdmitResult::cancelled(std::error_code e)
+{
+    return AdmitResult{Status::cancelled, e, nullptr};
+}
+
 CPPWAMP_INLINE AdmitResult AdmitResult::failed(std::error_code e,
                                                const char* operation)
 {

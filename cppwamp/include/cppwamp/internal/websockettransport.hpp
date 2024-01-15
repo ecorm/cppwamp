@@ -418,6 +418,7 @@ public:
 
     WebsocketAdmitter(ListenerSocket&& t, SettingsPtr s, const CodecIdSet& c)
         : tcpSocket_(std::move(t)),
+          executor_(tcpSocket_.get_executor()),
           codecIds_(c),
           settings_(std::move(s))
     {
@@ -451,6 +452,12 @@ public:
     template <typename F>
     void shutdown(std::error_code reason, F&& callback)
     {
+        if (handler_)
+        {
+            post(std::move(handler_), AdmitResult::cancelled(reason));
+            handler_ = nullptr;
+        }
+
         if (!websocket_.has_value() || !websocket_->is_open())
         {
             TcpSocket* tcpSocket =
@@ -459,9 +466,8 @@ public:
             boost::system::error_code netEc;
             tcpSocket->shutdown(
                 boost::asio::ip::tcp::socket::shutdown_send, netEc);
-            postAny(tcpSocket->get_executor(),
-                    std::forward<F>(callback),
-                    static_cast<std::error_code>(netEc));
+            post(std::forward<F>(callback),
+                 static_cast<std::error_code>(netEc));
             return;
         }
 
@@ -737,8 +743,15 @@ private:
         handler_ = nullptr;
     }
 
+    template <typename F, typename... Ts>
+    void post(F&& handler, Ts&&... args)
+    {
+        postAny(executor_, std::forward<F>(handler), std::forward<Ts>(args)...);
+    }
+
     TcpSocket tcpSocket_;
     boost::optional<Socket> websocket_;
+    AnyIoExecutor executor_;
     CodecIdSet codecIds_;
     TransportInfo transportInfo_;
     SettingsPtr settings_;

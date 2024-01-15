@@ -370,6 +370,7 @@ private:
     {
         assert(!alreadyStarted_);
         alreadyStarted_ = true;
+        report({AccessAction::clientConnect});
 
         const std::weak_ptr<ServerSession> self = shared_from_this();
         transport_->admit(
@@ -398,12 +399,13 @@ private:
             break;
 
         case S::rejected:
-            if (result.error() != TransportErrc::timeout &&
-                !timeoutReportAlreadyLogged_)
-            {
-                Base::report({AccessAction::serverReject, result.error()});
-            }
+            Base::report({AccessAction::serverReject, result.error()});
             shutdownTransportThenRetire(result.error());
+            break;
+
+        case S::cancelled:
+            transport_->close();
+            retire();
             break;
 
         case S::failed:
@@ -416,6 +418,7 @@ private:
                          result.operation(),
                      result.error()});
             }
+            transport_->close();
             retire();
             break;
 
@@ -453,7 +456,6 @@ private:
         assert(static_cast<bool>(codec));
         peer_->connect(std::move(transport_), std::move(codec));
         peer_->establishSession();
-        report({AccessAction::clientConnect});
 
         auto now = steadyTime();
 
@@ -520,12 +522,10 @@ private:
             // ordinary occurrences.
             report({AccessAction::serverDisconnect, {},
                     Object{{"what", "Inactivity"}}});
-            timeoutReportAlreadyLogged_ = true;
         }
         else
         {
             report({AccessAction::serverReject, ec});
-            timeoutReportAlreadyLogged_ = true;
         }
 
         if (ec != TransportErrc::lingerTimeout)
@@ -552,13 +552,20 @@ private:
     {
         report(std::move(a));
 
-        auto self = shared_from_this();
-        peer_->abort(
-            std::move(reason),
-            [this, self](ErrorOr<bool> done)
-            {
-                retire();
-            });
+        if (transport_)
+        {
+            shutdownTransportThenRetire(reason.errorCode());
+        }
+        else
+        {
+            auto self = shared_from_this();
+            peer_->abort(
+                std::move(reason),
+                [this, self](ErrorOr<bool> done)
+                {
+                    retire();
+                });
+        }
 
         leaveRealm();
     }
@@ -732,7 +739,6 @@ private:
     TimePoint challengeDeadline_ = TimePoint::max();
     TimePoint overstayDeadline_ = TimePoint::max();
     bool alreadyStarted_ = false;
-    bool timeoutReportAlreadyLogged_ = false;
 };
 
 //------------------------------------------------------------------------------

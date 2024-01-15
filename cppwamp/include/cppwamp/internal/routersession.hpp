@@ -69,8 +69,6 @@ public:
 
     void abort(Abort reason)
     {
-        if (logger_)
-            report(reason.info(true));
         onRouterAbort(std::move(reason));
     }
 

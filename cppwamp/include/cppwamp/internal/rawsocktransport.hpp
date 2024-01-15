@@ -526,14 +526,20 @@ public:
             });
     }
 
-    void shutdown(std::error_code /*reason*/, ShutdownHandler handler)
+    void shutdown(std::error_code reason, ShutdownHandler handler)
     {
+        if (handler_)
+        {
+            post(std::move(handler_), AdmitResult::cancelled(reason));
+            handler_ = nullptr;
+        }
+
         boost::system::error_code netEc;
         socket_.shutdown(Socket::shutdown_send, netEc);
         auto ec = static_cast<std::error_code>(netEc);
         if (ec)
         {
-            postAny(socket_.get_executor(), std::move(handler), ec);
+            post(std::move(handler), ec);
             return;
         }
 
@@ -701,6 +707,13 @@ private:
                 socket_.close();
                 completeShutdown(netEc);
             });
+    }
+
+    template <typename F, typename... Ts>
+    void post(F&& handler, Ts&&... args)
+    {
+        postAny(socket_.get_executor(), std::forward<F>(handler),
+                std::forward<Ts>(args)...);
     }
 
     static constexpr std::size_t flushReadSize_ = 1536;
