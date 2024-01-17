@@ -193,7 +193,8 @@ public:
 
     template <typename S>
     explicit WebsocketStream(Socket&& ws, const std::shared_ptr<S>& settings)
-        : websocket_(std::move(ws))
+        : websocket_(std::move(ws)),
+          readIncrementSize_(settings->limits().websocketReadIncrement())
     {
         auto n = settings->limits().wampReadMsgSize();
         if (n != 0)
@@ -302,9 +303,7 @@ public:
     template <typename F>
     void readSome(MessageBuffer& buffer, F&& callback)
     {
-        // Beast will choose 1536 as the read limit
-        // TODO: Use limit from settings
-        doReadSome(buffer, 0, std::forward<F>(callback));
+        doReadSome(buffer, readIncrementSize_, std::forward<F>(callback));
     }
 
     template <typename F>
@@ -425,6 +424,7 @@ private:
 
     boost::optional<Socket> websocket_;
     boost::optional<DynamicBufferAdapter> rxBuffer_;
+    std::size_t readIncrementSize_ = 0;
 };
 
 //------------------------------------------------------------------------------
