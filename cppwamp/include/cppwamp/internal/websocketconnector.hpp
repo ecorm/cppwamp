@@ -8,7 +8,6 @@
 #define CPPWAMP_INTERNAL_WEBSOCKETCONNECTOR_HPP
 
 #include <array>
-#include <limits>
 #include <string>
 #include <memory>
 #include <boost/asio/connect.hpp>
@@ -16,7 +15,6 @@
 #include "../asiodefs.hpp"
 #include "../transports/httpprotocol.hpp"
 #include "../transports/websocketprotocol.hpp"
-#include "../traits.hpp"
 #include "websockettransport.hpp"
 
 namespace wamp
@@ -138,7 +136,7 @@ private:
         websocket_->set_option(boost::beast::websocket::stream_base::decorator(
             Decorator{settings_->options().agent(), subprotocol}));
 
-        setWebsocketOptions();
+        setWebsocketOptions(*websocket_, *settings_, false);
 
         // Perform the handshake
         auto self = shared_from_this();
@@ -157,31 +155,6 @@ private:
             });
     }
 
-    void setWebsocketOptions()
-    {
-        const auto& pmd = settings_->options().permessageDeflate();
-        if (pmd.enabled())
-        {
-            boost::beast::websocket::permessage_deflate pd;
-            pd.client_enable = true;
-            pd.client_max_window_bits = pmd.maxWindowBits();
-            pd.client_no_context_takeover = pmd.noContextTakeover();
-            pd.compLevel = pmd.compressionLevel();
-            pd.memLevel = pmd.memoryLevel();
-            pd.msg_size_threshold = pmd.threshold();
-
-            websocket_->set_option(pd);
-        }
-
-        const auto& opts = settings_->options();
-        if (websocket_->write_buffer_bytes() != opts.writeBufferSize())
-            websocket_->write_buffer_bytes(opts.writeBufferSize());
-
-        if (websocket_->auto_fragment() != opts.autoFragment())
-            websocket_->auto_fragment(opts.autoFragment());
-    }
-
-
     void complete()
     {
         assert(websocket_.has_value());
@@ -191,8 +164,8 @@ private:
         else
             websocket_->binary(true);
 
-        TransportInfo info{codecId_, settings_->limits().writeMsgSize(),
-                           settings_->limits().readMsgSize()};
+        TransportInfo info{codecId_, settings_->limits().wampWriteMsgSize(),
+                           settings_->limits().wampReadMsgSize()};
         Transporting::Ptr transport =
             std::make_shared<Transport>(std::move(*websocket_), settings_,
                                         std::move(info));

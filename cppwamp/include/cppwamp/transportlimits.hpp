@@ -51,21 +51,21 @@ private:
 };
 
 //------------------------------------------------------------------------------
-/** Contains general timeouts and size limits for client transports. */
+/** Contains basic timeouts and size limits for client transports. */
 //------------------------------------------------------------------------------
 template <typename TDerived>
 class BasicClientTransportLimits
 {
 public:
-    TDerived& withRxMsgSize(std::size_t n) {return set(readMsgSize_, n);}
+    TDerived& withWampReadMsgSize(std::size_t n) {return set(wampReadMsgSize_, n);}
 
-    TDerived& withTxMsgSize(std::size_t n) {return set(writeMsgSize_, n);}
+    TDerived& withWampWriteMsgSize(std::size_t n) {return set(wampWriteMsgSize_, n);}
 
     TDerived& withLingerTimeout(Timeout t) {return set(lingerTimeout_, t);}
 
-    std::size_t readMsgSize() const {return readMsgSize_;}
+    std::size_t wampReadMsgSize() const {return wampReadMsgSize_;}
 
-    std::size_t writeMsgSize() const {return writeMsgSize_;}
+    std::size_t wampWriteMsgSize() const {return wampWriteMsgSize_;}
 
     Timeout lingerTimeout() const {return lingerTimeout_;}
 
@@ -87,32 +87,32 @@ private:
 
     Timeout lingerTimeout_ = std::chrono::milliseconds{1000};
         // Using Gecko's kLingeringCloseTimeout
-    std::size_t readMsgSize_ = 16*1024*1024;
+    std::size_t wampReadMsgSize_ = 16*1024*1024;
         // Using WAMP's raw socket maximum payload length
-    std::size_t writeMsgSize_ = 16*1024*1024;
+    std::size_t wampWriteMsgSize_ = 16*1024*1024;
         // Using WAMP's raw socket maximum payload length
 };
 
 //------------------------------------------------------------------------------
-/** Contains general timeouts and size limits for server transports. */
+/** Contains basic timeouts and size limits for server transports. */
 //------------------------------------------------------------------------------
 template <typename TDerived>
 class BasicServerTransportLimits
 {
 public:
-    TDerived& withReadMsgSize(std::size_t n) {return set(readMsgSize_, n);}
+    TDerived& withWampReadMsgSize(std::size_t n) {return set(wampReadMsgSize_, n);}
 
-    TDerived& withWriteMsgSize(std::size_t n) {return set(writeMsgSize_, n);}
+    TDerived& withWampWriteMsgSize(std::size_t n) {return set(wampWriteMsgSize_, n);}
 
-    TDerived& withHandshakeTimeout(Timeout t) {return set(handshakeTimeout_, t);}
+    TDerived& withWampHandshakeTimeout(Timeout t) {return set(wampHandshakeTimeout_, t);}
 
-    TDerived& withReadTimeout(IncrementalTimeout t) {return set(readTimeout_, t);}
+    TDerived& withWampReadTimeout(IncrementalTimeout t) {return set(wampReadTimeout_, t);}
 
-    TDerived& withWriteTimeout(IncrementalTimeout t) {return set(writeTimeout_, t);}
+    TDerived& withWampWriteTimeout(IncrementalTimeout t) {return set(wampWriteTimeout_, t);}
 
-    TDerived& withSilenceTimeout(Timeout t) {return set(silenceTimeout_, t);}
+    TDerived& withWampSilenceTimeout(Timeout t) {return set(wampSilenceTimeout_, t);}
 
-    TDerived& withInactivityTimeout(Timeout t) {return set(inactivityTimeout_, t);}
+    TDerived& withWampInactivityTimeout(Timeout t) {return set(wampInactivityTimeout_, t);}
 
     TDerived& withLingerTimeout(Timeout t) {return set(lingerTimeout_, t);}
 
@@ -123,24 +123,24 @@ public:
         return derived();
     }
 
-    std::size_t readMsgSize() const {return readMsgSize_;}
+    std::size_t wampReadMsgSize() const {return wampReadMsgSize_;}
 
-    std::size_t writeMsgSize() const {return writeMsgSize_;}
+    std::size_t wampWriteMsgSize() const {return wampWriteMsgSize_;}
 
-    Timeout handshakeTimeout() const {return handshakeTimeout_;}
+    Timeout wampHandshakeTimeout() const {return wampHandshakeTimeout_;}
 
-    const IncrementalTimeout& readTimeout() const {return readTimeout_;}
+    const IncrementalTimeout& wampReadTimeout() const {return wampReadTimeout_;}
 
-    const IncrementalTimeout& writeTimeout() const {return writeTimeout_;}
+    const IncrementalTimeout& wampWriteTimeout() const {return wampWriteTimeout_;}
 
     /** Obtains the maximum time of no data being transferred, including
         pings. */
-    Timeout silenceTimeout() const {return silenceTimeout_;}
+    Timeout wampSilenceTimeout() const {return wampSilenceTimeout_;}
 
     /** Obtains the maximum time of no data being transferred, excluding
         heartbeats. This prevents clients indefinitely keeping a connection
         alive by just sending pings. */
-    Timeout inactivityTimeout() const {return inactivityTimeout_;}
+    Timeout wampInactivityTimeout() const {return wampInactivityTimeout_;}
 
     /** Obtains the maxiumum time the server will wait for a client to
         gracefully close the connection. */
@@ -170,19 +170,19 @@ private:
 
     TDerived& derived() {return static_cast<TDerived&>(*this);}
 
-    IncrementalTimeout readTimeout_;
-    IncrementalTimeout writeTimeout_;
-    Timeout handshakeTimeout_ = std::chrono::seconds{30};
+    IncrementalTimeout wampReadTimeout_;
+    IncrementalTimeout wampWriteTimeout_;
+    Timeout wampHandshakeTimeout_ = std::chrono::seconds{30};
         // Using ejabberd's negotiation_timeout
-    Timeout silenceTimeout_ = std::chrono::seconds{300};
+    Timeout wampSilenceTimeout_ = std::chrono::seconds{300};
         // Using ejabberd's websocket_timeout
-    Timeout inactivityTimeout_ = std::chrono::minutes(60);
+    Timeout wampInactivityTimeout_ = std::chrono::minutes(60);
         // Using Nginx's keepalive_time
     Timeout lingerTimeout_ = std::chrono::seconds{30};
         // Using Nginx's lingering_time
-    std::size_t readMsgSize_ = 16*1024*1024;
+    std::size_t wampReadMsgSize_ = 16*1024*1024;
         // Using WAMP's raw socket maximum payload length
-    std::size_t writeMsgSize_ = 16*1024*1024;
+    std::size_t wampWriteMsgSize_ = 16*1024*1024;
         // Using WAMP's raw socket maximum payload length
     int backlogCapacity_ = 0; // Use Asio's default by default
 };

@@ -175,26 +175,6 @@ CPPWAMP_INLINE WebsocketOptions& WebsocketOptions::withAgent(std::string agent)
     return *this;
 }
 
-/** @details
-    Sets the [boost::beast::websocket::stream::write_buffer_bytes]
-    (https://www.boost.org/doc/libs/release/libs/beast/doc/html/beast/ref/boost__beast__websocket__stream/write_buffer_bytes.html) option. */
-CPPWAMP_INLINE WebsocketOptions&
-WebsocketOptions::withWriteBufferSize(std::size_t bytes)
-{
-    writeBufferSize_ = bytes;
-    return *this;
-}
-
-/** @details
-    Sets the [boost::beast::websocket::stream::auto_fragment]
-    (https://www.boost.org/doc/libs/release/libs/beast/doc/html/beast/ref/boost__beast__websocket__stream/auto_fragment.html) option. */
-CPPWAMP_INLINE WebsocketOptions&
-WebsocketOptions::withAutoFragment(bool enabled)
-{
-    autoFragment_ = enabled;
-    return *this;
-}
-
 CPPWAMP_INLINE WebsocketOptions&
 WebsocketOptions::withPermessageDeflate(WebsocketPermessageDeflate options)
 {
@@ -205,16 +185,6 @@ WebsocketOptions::withPermessageDeflate(WebsocketPermessageDeflate options)
 CPPWAMP_INLINE const std::string& WebsocketOptions::agent() const
 {
     return agent_;
-}
-
-CPPWAMP_INLINE std::size_t WebsocketOptions::writeBufferSize() const
-{
-    return writeBufferSize_;
-}
-
-CPPWAMP_INLINE bool WebsocketOptions::autoFragment() const
-{
-    return autoFragment_;
 }
 
 CPPWAMP_INLINE const WebsocketPermessageDeflate&
@@ -229,15 +199,40 @@ WebsocketOptions::permessageDeflate() const
 //******************************************************************************
 
 CPPWAMP_INLINE WebsocketClientLimits&
-WebsocketClientLimits::withHeaderSize(std::size_t n)
+WebsocketClientLimits::withHttpRequestHeaderSize(std::size_t n)
 {
-    headerSize_ = n;
+    httpRequestHeaderSize_ = n;
     return *this;
 }
 
-CPPWAMP_INLINE std::size_t WebsocketClientLimits::headerSize() const
+CPPWAMP_INLINE WebsocketClientLimits&
+WebsocketClientLimits::withWebsocketWriteIncrement(std::size_t n)
 {
-    return headerSize_;
+    websocketWriteIncrement_ = n;
+    return *this;
+}
+
+CPPWAMP_INLINE WebsocketClientLimits&
+WebsocketClientLimits::withWebsocketReadIncrement(std::size_t n)
+{
+    websocketReadIncrement_ = n;
+    return *this;
+}
+
+CPPWAMP_INLINE std::size_t WebsocketClientLimits::httpRequestHeaderSize() const
+{
+    return httpRequestHeaderSize_;
+}
+
+CPPWAMP_INLINE std::size_t
+WebsocketClientLimits::websocketWriteIncrement() const
+{
+    return websocketWriteIncrement_;
+}
+
+CPPWAMP_INLINE std::size_t WebsocketClientLimits::websocketReadIncrement() const
+{
+    return websocketReadIncrement_;
 }
 
 
@@ -292,15 +287,40 @@ CPPWAMP_INLINE const WebsocketOptions& WebsocketHost::options() const
 //******************************************************************************
 
 CPPWAMP_INLINE WebsocketServerLimits&
-WebsocketServerLimits::withHeaderSize(std::size_t n)
+WebsocketServerLimits::withHttpRequestHeaderSize(std::size_t n)
 {
-    headerSize_ = n;
+    httpRequestHeaderSize_ = n;
     return *this;
 }
 
-CPPWAMP_INLINE std::size_t WebsocketServerLimits::headerSize() const
+CPPWAMP_INLINE WebsocketServerLimits&
+WebsocketServerLimits::withWebsocketWriteIncrement(std::size_t n)
 {
-    return headerSize_;
+    websocketWriteIncrement_ = n;
+    return *this;
+}
+
+CPPWAMP_INLINE WebsocketServerLimits&
+WebsocketServerLimits::withWebsocketReadIncrement(std::size_t n)
+{
+    websocketReadIncrement_ = n;
+    return *this;
+}
+
+CPPWAMP_INLINE std::size_t WebsocketServerLimits::httpRequestHeaderSize() const
+{
+    return httpRequestHeaderSize_;
+}
+
+CPPWAMP_INLINE std::size_t
+WebsocketServerLimits::websocketWriteIncrement() const
+{
+    return websocketWriteIncrement_;
+}
+
+CPPWAMP_INLINE std::size_t WebsocketServerLimits::websocketReadIncrement() const
+{
+    return websocketReadIncrement_;
 }
 
 

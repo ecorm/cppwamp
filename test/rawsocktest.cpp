@@ -34,11 +34,11 @@ constexpr const char udsTestPath[] = "cppwamptestuds";
 
 const auto tcpHost =
     TcpHost{tcpLoopbackAddr, tcpTestPort}.withLimits(
-        RawsockClientLimits{}.withRxMsgSize(64*1024));
+    RawsockClientLimits{}.withWampReadMsgSize(64*1024));
 
 const auto tcpEndpoint =
     TcpEndpoint{tcpTestPort}.withLimits(
-    RawsockServerLimits{}.withReadMsgSize(64*1024));
+    RawsockServerLimits{}.withWampReadMsgSize(64*1024));
 
 //------------------------------------------------------------------------------
 template <typename TConnector, typename TListener>
@@ -141,10 +141,10 @@ struct TcpLoopbackFixture : public LoopbackFixture<TcpConnector, TcpListener>
                 std::size_t serverLimit = 64*1024 )
         : LoopbackFixture(
               TcpHost{tcpLoopbackAddr, tcpTestPort}
-                .withLimits(RawsockClientLimits{}.withRxMsgSize(clientLimit)),
+                .withLimits(RawsockClientLimits{}.withWampReadMsgSize(clientLimit)),
               clientCodec,
               TcpEndpoint{tcpTestPort}
-                .withLimits(RawsockServerLimits{}.withReadMsgSize(serverLimit)),
+                .withLimits(RawsockServerLimits{}.withWampReadMsgSize(serverLimit)),
               serverCodecs,
               connected )
     {}
@@ -161,10 +161,10 @@ struct UdsLoopbackFixture : public LoopbackFixture<UdsConnector, UdsListener>
                 std::size_t serverLimit = 64*1024 )
         : LoopbackFixture(
               UdsHost{udsTestPath}
-                .withLimits(RawsockClientLimits{}.withRxMsgSize(clientLimit)),
+                .withLimits(RawsockClientLimits{}.withWampReadMsgSize(clientLimit)),
               clientCodec,
               UdsEndpoint{udsTestPath}
-                .withLimits(RawsockServerLimits{}.withReadMsgSize(serverLimit)),
+                .withLimits(RawsockServerLimits{}.withWampReadMsgSize(serverLimit)),
               serverCodecs,
               connected )
     {}
@@ -509,9 +509,9 @@ TEST_CASE( "ServerTimeoutMonitor", "[Transport]" )
     {
         auto endpoint = TcpEndpoint(tcpTestPort).withLimits(
             TcpEndpoint::Limits{}
-                .withReadTimeout( {  seconds{ 5}, 100, seconds{15}})
-                .withWriteTimeout({  seconds{10}, 100, seconds{20}})
-                .withSilenceTimeout( seconds{300}));
+                .withWampReadTimeout( {  seconds{ 5}, 100, seconds{15}})
+                .withWampWriteTimeout({  seconds{10}, 100, seconds{20}})
+                .withWampSilenceTimeout( seconds{300}));
 
         std::vector<ServerTimeoutMonitorTestVector> testVectors
         {
@@ -554,10 +554,10 @@ TEST_CASE( "ServerTimeoutMonitor", "[Transport]" )
     {
         auto endpoint = TcpEndpoint(tcpTestPort).withLimits(
             TcpEndpoint::Limits{}
-                .withReadTimeout( {    seconds{ 5}, 100, seconds{15}})
-                .withWriteTimeout({    seconds{10}, 100, seconds{20}})
-                .withSilenceTimeout(   seconds{300})
-                .withInactivityTimeout(seconds{600}));
+                .withWampReadTimeout( {    seconds{ 5}, 100, seconds{15}})
+                .withWampWriteTimeout({    seconds{10}, 100, seconds{20}})
+                .withWampSilenceTimeout(   seconds{300})
+                .withWampInactivityTimeout(seconds{600}));
 
         std::vector<ServerTimeoutMonitorTestVector> testVectors
         {
@@ -590,7 +590,7 @@ TEST_CASE( "ServerTimeoutMonitor", "[Transport]" )
     SECTION("Non-progressive read timeouts")
     {
         auto endpoint = TcpEndpoint(tcpTestPort).withLimits(
-            TcpEndpoint::Limits{}.withReadTimeout({seconds{5}}));
+            TcpEndpoint::Limits{}.withWampReadTimeout({seconds{5}}));
 
         std::vector<ServerTimeoutMonitorTestVector> testVectors
         {
@@ -626,7 +626,7 @@ TEST_CASE( "ServerTimeoutMonitor", "[Transport]" )
     {
         auto endpoint = TcpEndpoint(tcpTestPort).withLimits(
             TcpEndpoint::Limits{}
-                .withReadTimeout({seconds{5}, 100, seconds{15}}));
+                .withWampReadTimeout({seconds{5}, 100, seconds{15}}));
 
         std::vector<ServerTimeoutMonitorTestVector> testVectors
         {
@@ -669,7 +669,7 @@ TEST_CASE( "ServerTimeoutMonitor", "[Transport]" )
     SECTION("Non-progressive write timeouts")
     {
         auto endpoint = TcpEndpoint(tcpTestPort).withLimits(
-            TcpEndpoint::Limits{}.withWriteTimeout({seconds{10}}));
+            TcpEndpoint::Limits{}.withWampWriteTimeout({seconds{10}}));
 
         std::vector<ServerTimeoutMonitorTestVector> testVectors
         {
@@ -705,7 +705,7 @@ TEST_CASE( "ServerTimeoutMonitor", "[Transport]" )
     {
         auto endpoint = TcpEndpoint(tcpTestPort).withLimits(
             TcpEndpoint::Limits{}
-                .withWriteTimeout({seconds{10}, 100, seconds{20}}));
+                .withWampWriteTimeout({seconds{10}, 100, seconds{20}}));
 
         std::vector<ServerTimeoutMonitorTestVector> testVectors
         {
@@ -1827,8 +1827,8 @@ GIVEN ( "a mock server sending a message exceeding the client's limit" )
     auto server = test::MockRawsockServer::create(exec, tcpTestPort);
     server->load({{{tooLong}}});
     server->start();
-
-    auto limits = RawsockClientLimits{}.withRxMsgSize(tooLong.size() - 1);
+    
+    auto limits = RawsockClientLimits{}.withWampReadMsgSize(tooLong.size() - 1);
     auto host = tcpHost;
     host.withLimits(limits);
     auto cnct = std::make_shared<TcpConnector>(strand, host, jsonId);

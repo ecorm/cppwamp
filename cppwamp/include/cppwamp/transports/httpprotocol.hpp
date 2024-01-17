@@ -213,50 +213,50 @@ public: // Internal use only
 class CPPWAMP_API HttpServerLimits : public WebsocketServerLimits
 {
 public:
-    HttpServerLimits& withHeaderSize(std::size_t n);
+    HttpServerLimits& withHttpRequestHeaderSize(std::size_t n);
 
-    HttpServerLimits& withBodySize(std::size_t n);
+    HttpServerLimits& withHttpRequestBodySize(std::size_t n);
 
-    HttpServerLimits& withBodyIncrement(std::size_t n);
+    HttpServerLimits& withHttpRequestBodyIncrement(std::size_t n);
 
-    HttpServerLimits& withWriteIncrement(std::size_t n);
+    HttpServerLimits& withHttpResponseIncrement(std::size_t n);
 
-    HttpServerLimits& withHeaderTimeout(Timeout t);
+    HttpServerLimits& withHttpRequestHeaderTimeout(Timeout t);
 
-    HttpServerLimits& withBodyTimeout(IncrementalTimeout t);
+    HttpServerLimits& withHttpRequestBodyTimeout(IncrementalTimeout t);
 
-    HttpServerLimits& withResponseTimeout(IncrementalTimeout t);
+    HttpServerLimits& withHttpResponseTimeout(IncrementalTimeout t);
 
-    HttpServerLimits& withKeepaliveTimeout(Timeout t);
+    HttpServerLimits& withHttpKeepaliveTimeout(Timeout t);
 
-    std::size_t headerSize() const;
+    std::size_t httpRequestHeaderSize() const;
 
-    std::size_t bodySize() const;
+    std::size_t httpRequestBodySize() const;
 
-    std::size_t bodyIncrement() const;
+    std::size_t httpRequestBodyIncrement() const;
 
-    std::size_t writeIncrement() const;
+    std::size_t httpResponseIncrement() const;
 
-    Timeout headerTimeout() const;
+    Timeout httpRequestHeaderTimeout() const;
 
-    const IncrementalTimeout& bodyTimeout() const;
+    const IncrementalTimeout& httpBodyTimeout() const;
 
-    const IncrementalTimeout& responseTimeout() const;
+    const IncrementalTimeout& httpResponseTimeout() const;
 
-    Timeout keepaliveTimeout() const;
+    Timeout httpKeepaliveTimeout() const;
 
     WebsocketServerLimits toWebsocket() const;
 
 private:
     using Base = WebsocketServerLimits;
 
-    Timeout headerTimeout_ = std::chrono::seconds(40);
+    Timeout requestHeaderTimeout_ = std::chrono::seconds(40);
         // Using Apache's maxinum RequestReadTimeout for headers
 
     IncrementalTimeout responseTimeout_ = {std::chrono::seconds{20}, 80*1024};
         // Using Apache's RequestReadTimeout, with 1/8 of ADSL2 5Mbps rate
 
-    IncrementalTimeout bodyTimeout_ = {std::chrono::seconds{20}, 24*1024};
+    IncrementalTimeout requestBodyTimeout_ = {std::chrono::seconds{20}, 24*1024};
         // Using Apache's RequestReadTimeout, with ~1/4 of ADSL2 0.8Mbps rate
 
     Timeout keepaliveTimeout_ = std::chrono::seconds(120);
@@ -264,11 +264,12 @@ private:
         // Browser defaults: Firefox: 115s, IE: 60s, Chromium: never
         // 120s chosen as default so that Firefox/IE initiate the timeout.
 
-    std::size_t bodySize_ = 1024*1024; // Default for Boost.Beast and NGINX
+    std::size_t requestBodySize_ = 1024*1024;
+        // Default for Boost.Beast and NGINX
 
-    std::size_t bodyIncrement_ = 4096; // Using Linux page size
+    std::size_t requestBodyIncrement_ = 4096; // Using Linux page size
 
-    std::size_t writeIncrement_ = 4096; // Using Linux page size
+    std::size_t responseIncrement_ = 4096; // Using Linux page size
 };
 
 

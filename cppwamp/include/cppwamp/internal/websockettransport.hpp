@@ -149,6 +149,30 @@ errorCodeToWebsocketCloseCode(std::error_code ec)
 }
 
 //------------------------------------------------------------------------------
+template <typename TSocket, typename TSettings>
+void setWebsocketOptions(TSocket& socket, const TSettings& settings,
+                         bool isServer)
+{
+    const auto& pmd = settings.options().permessageDeflate();
+    if (pmd.enabled())
+    {
+        boost::beast::websocket::permessage_deflate pd;
+        pd.server_enable = true;
+        pd.server_max_window_bits = pmd.maxWindowBits();
+        pd.server_no_context_takeover = pmd.noContextTakeover();
+        pd.compLevel = pmd.compressionLevel();
+        pd.memLevel = pmd.memoryLevel();
+        pd.msg_size_threshold = pmd.threshold();
+
+        socket.set_option(pd);
+    }
+
+    const auto& limits = settings.limits();
+    socket.write_buffer_bytes(limits.websocketWriteIncrement());
+    socket.auto_fragment(true);
+}
+
+//------------------------------------------------------------------------------
 class WebsocketStream
 {
 public:
@@ -171,7 +195,7 @@ public:
     explicit WebsocketStream(Socket&& ws, const std::shared_ptr<S>& settings)
         : websocket_(std::move(ws))
     {
-        auto n = settings->limits().readMsgSize();
+        auto n = settings->limits().wampReadMsgSize();
         if (n != 0)
             websocket_->read_message_max(n);
     }
@@ -435,9 +459,9 @@ public:
         // it in boost::optional.
         // https://github.com/boostorg/beast/issues/971#issuecomment-356306911
         requestParser_.emplace();
-        const auto headerSizeLimit = settings_->limits().headerSize();
-        if (headerSizeLimit != 0)
-            requestParser_->header_limit(headerSizeLimit);
+        const auto httpRequestHeaderSizeLimit = settings_->limits().httpRequestHeaderSize();
+        if (httpRequestHeaderSizeLimit != 0)
+            requestParser_->header_limit(httpRequestHeaderSizeLimit);
 
         auto self = shared_from_this();
         boost::beast::http::async_read(
@@ -632,7 +656,7 @@ private:
         websocket_->set_option(boost::beast::websocket::stream_base::decorator(
             Decorator{settings_->options().agent(), subprotocol}));
 
-        setPermessageDeflateOptions();
+        setWebsocketOptions(*websocket_, *settings_, true);
 
         // Complete the handshake
         auto self = shared_from_this();
@@ -643,23 +667,6 @@ private:
                 if (checkAccept(netEc))
                     complete();
             });
-    }
-
-    void setPermessageDeflateOptions()
-    {
-        const auto& opts = settings_->options().permessageDeflate();
-        if (!opts.enabled())
-            return;
-
-        boost::beast::websocket::permessage_deflate pd;
-        pd.server_enable = true;
-        pd.server_max_window_bits = opts.maxWindowBits();
-        pd.server_no_context_takeover = opts.noContextTakeover();
-        pd.compLevel = opts.compressionLevel();
-        pd.memLevel = opts.memoryLevel();
-        pd.msg_size_threshold = opts.threshold();
-
-        websocket_->set_option(pd);
     }
 
     bool checkAccept(boost::system::error_code netEc)
@@ -717,8 +724,8 @@ private:
         else
             websocket_->binary(true);
 
-        const auto txLimit = settings_->limits().writeMsgSize();
-        const auto rxLimit = settings_->limits().readMsgSize();
+        const auto txLimit = settings_->limits().wampWriteMsgSize();
+        const auto rxLimit = settings_->limits().wampReadMsgSize();
         transportInfo_ = TransportInfo{codecId_, txLimit, rxLimit};
 
         finish(AdmitResult::wamp(codecId_));

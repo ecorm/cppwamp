@@ -54,11 +54,11 @@ TEST_CASE( "Router transport timeouts", "[WAMP][Router]" )
     // Not feasible to test write timeout without external software
     auto tcp = wamp::TcpEndpoint{45678}.withLimits(
         TcpEndpoint::Limits{}
-            .withHandshakeTimeout( milliseconds{100})
-            .withReadTimeout({     milliseconds{100}})
-            .withSilenceTimeout(   milliseconds{200})
-            .withInactivityTimeout(milliseconds{300})
-            .withLingerTimeout(    milliseconds{100}));
+            .withWampHandshakeTimeout( milliseconds{100})
+            .withWampReadTimeout({     milliseconds{100}})
+            .withWampSilenceTimeout(   milliseconds{200})
+            .withWampInactivityTimeout(milliseconds{300})
+            .withLingerTimeout(        milliseconds{100}));
 
     router.openServer(
         ServerOptions("tcp45678", tcp, wamp::json)

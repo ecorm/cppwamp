@@ -49,7 +49,7 @@ public:
             ConnectionInfo i, RouterLogger::Ptr l)
         : tcpSocket_(std::move(t)),
           codecIds_(c),
-          bodyBuffer_(s->limits().bodyIncrement(), '\0'),
+          bodyBuffer_(s->limits().httpRequestBodyIncrement(), '\0'),
           monitor_(s),
           connectionInfo_(std::move(i)),
           settings_(std::move(s)),
@@ -260,8 +260,8 @@ private:
         responseSent_ = false;
         body_.clear();
         parser_.emplace();
-        const auto headerLimit = settings().limits().headerSize();
-        const auto bodyLimit = settings().limits().bodySize();
+        const auto headerLimit = settings().limits().httpRequestHeaderSize();
+        const auto bodyLimit = settings().limits().httpRequestBodySize();
         if (headerLimit != 0)
             parser_->header_limit(headerLimit);
         if (bodyLimit != 0)
@@ -600,7 +600,7 @@ private:
         // TODO: Keepalive timeout
 
         serializer_.reset(std::forward<R>(response),
-                          settings_->limits().writeIncrement());
+                          settings_->limits().httpResponseIncrement());
         result_ = result;
         status_ = status;
         keepAlive_ = keepAlive;

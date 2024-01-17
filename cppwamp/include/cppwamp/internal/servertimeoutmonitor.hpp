@@ -85,7 +85,7 @@ public:
 
     void startHandshake(TimePoint now)
     {
-        auto timeout = settings_->limits().handshakeTimeout();
+        auto timeout = settings_->limits().wampHandshakeTimeout();
         if (internal::timeoutIsDefinite(timeout))
             handshakeDeadline_ = now + timeout;
     }
@@ -109,14 +109,14 @@ public:
 
     void startRead(TimePoint now)
     {
-        readDeadline_.start(settings_->limits().readTimeout(), now);
+        readDeadline_.start(settings_->limits().wampReadTimeout(), now);
         bumpInactivityDeadline(now);
         isReading_ = true;
     }
 
     void updateRead(TimePoint now, std::size_t bytesRead)
     {
-        readDeadline_.update(settings_->limits().readTimeout(), bytesRead);
+        readDeadline_.update(settings_->limits().wampReadTimeout(), bytesRead);
         bumpInactivityDeadline(now);
     }
 
@@ -129,7 +129,7 @@ public:
 
     void startWrite(TimePoint now, bool bumpInactivity)
     {
-        writeDeadline_.start(settings_->limits().writeTimeout(), now);
+        writeDeadline_.start(settings_->limits().wampWriteTimeout(), now);
         if (bumpInactivity)
             bumpInactivityDeadline(now);
         isWriting_ = true;
@@ -137,7 +137,7 @@ public:
 
     void updateWrite(TimePoint now, std::size_t bytesWritten)
     {
-        writeDeadline_.update(settings_->limits().writeTimeout(), bytesWritten);
+        writeDeadline_.update(settings_->limits().wampWriteTimeout(), bytesWritten);
         bumpInactivityDeadline(now);
     }
 
@@ -176,14 +176,14 @@ private:
     {
         bumpSilenceDeadline(now);
 
-        auto timeout = settings_->limits().inactivityTimeout();
+        auto timeout = settings_->limits().wampInactivityTimeout();
         if (internal::timeoutIsDefinite(timeout))
             inactivityDeadline_ = now + timeout;
     }
 
     void bumpSilenceDeadline(TimePoint now)
     {
-        auto timeout = settings_->limits().silenceTimeout();
+        auto timeout = settings_->limits().wampSilenceTimeout();
         if (internal::timeoutIsDefinite(timeout))
             silenceDeadline_ = now + timeout;
     }
@@ -231,7 +231,7 @@ public:
 
     void startHeader(TimePoint now)
     {
-        auto timeout = settings_->limits().headerTimeout();
+        auto timeout = settings_->limits().httpRequestHeaderTimeout();
         if (timeoutIsDefinite(timeout))
             headerDeadline_ = now + timeout;
         keepaliveDeadline_ = TimePoint::max();
@@ -244,12 +244,12 @@ public:
 
     void startBody(TimePoint now)
     {
-        bodyDeadline_.start(settings_->limits().bodyTimeout(), now);
+        bodyDeadline_.start(settings_->limits().httpBodyTimeout(), now);
     }
 
     void updateBody(TimePoint now, std::size_t bytesRead)
     {
-        bodyDeadline_.update(settings_->limits().bodyTimeout(), bytesRead);
+        bodyDeadline_.update(settings_->limits().httpBodyTimeout(), bytesRead);
     }
 
     void endBody()
@@ -259,12 +259,12 @@ public:
 
     void startResponse(TimePoint now)
     {
-        responseDeadline_.start(settings_->limits().responseTimeout(), now);
+        responseDeadline_.start(settings_->limits().httpResponseTimeout(), now);
     }
 
     void updateResponse(TimePoint now, std::size_t bytesWritten)
     {
-        responseDeadline_.update(settings_->limits().writeTimeout(),
+        responseDeadline_.update(settings_->limits().wampWriteTimeout(),
                                  bytesWritten);
     }
 
@@ -274,7 +274,7 @@ public:
 
         if (keepAlive)
         {
-            auto timeout = settings_->limits().keepaliveTimeout();
+            auto timeout = settings_->limits().httpKeepaliveTimeout();
             if (timeoutIsDefinite(timeout))
                 keepaliveDeadline_ = now + timeout;
         }

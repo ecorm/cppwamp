@@ -138,7 +138,6 @@ private:
 
 //------------------------------------------------------------------------------
 /** Contains Websocket options. */
-// TODO: Read buffer size limit
 //------------------------------------------------------------------------------
 class CPPWAMP_API WebsocketOptions
 {
@@ -147,23 +146,11 @@ public:
         Version::clientAgentString). */
     WebsocketOptions& withAgent(std::string agent);
 
-    /** Sets the write buffer size. */
-    WebsocketOptions& withWriteBufferSize(std::size_t bytes);
-
-    /** Sets the automatic fragmentation option. */
-    WebsocketOptions& withAutoFragment(bool enabled = true);
-
     /** Specifies the permessage-deflate extension options. */
     WebsocketOptions& withPermessageDeflate(WebsocketPermessageDeflate opts);
 
     /** Obtains the custom agent string. */
     const std::string& agent() const;
-
-    /** Obtains the write buffer size. */
-    std::size_t writeBufferSize() const;
-
-    /** Obtains the automatic fragmentation option. */
-    bool autoFragment() const;
 
     /** Obtains the permessage-deflate extension options. */
     const WebsocketPermessageDeflate& permessageDeflate() const;
@@ -171,8 +158,6 @@ public:
 private:
     std::string agent_;
     WebsocketPermessageDeflate permessageDeflate_;
-    std::size_t writeBufferSize_ = 4096;
-    bool autoFragment_ = true;
 };
 
 //------------------------------------------------------------------------------
@@ -182,12 +167,22 @@ class CPPWAMP_API WebsocketClientLimits
     : public BasicClientTransportLimits<WebsocketClientLimits>
 {
 public:
-    WebsocketClientLimits& withHeaderSize(std::size_t n);
+    WebsocketClientLimits& withHttpRequestHeaderSize(std::size_t n);
 
-    std::size_t headerSize() const;
+    WebsocketClientLimits& withWebsocketWriteIncrement(std::size_t n);
+
+    WebsocketClientLimits& withWebsocketReadIncrement(std::size_t n);
+
+    std::size_t httpRequestHeaderSize() const;
+
+    std::size_t websocketWriteIncrement() const;
+
+    std::size_t websocketReadIncrement() const;
 
 private:
-    size_t headerSize_ = 0;
+    std::size_t httpRequestHeaderSize_ = 8192;   // Default used by Boost.Beast
+    std::size_t websocketWriteIncrement_ = 4096; // Default used by Boost.Beast
+    std::size_t websocketReadIncrement_ = 4096;  // Using websocketWriteIncrement_
 };
 
 
@@ -233,18 +228,28 @@ private:
 
 
 //------------------------------------------------------------------------------
-/** Contains timeouts and size limits for Websocket client transports. */
+/** Contains timeouts and size limits for Websocket server transports. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API WebsocketServerLimits
     : public BasicServerTransportLimits<WebsocketServerLimits>
 {
 public:
-    WebsocketServerLimits& withHeaderSize(std::size_t n);
+    WebsocketServerLimits& withHttpRequestHeaderSize(std::size_t n);
 
-    std::size_t headerSize() const;
+    WebsocketServerLimits& withWebsocketWriteIncrement(std::size_t n);
+
+    WebsocketServerLimits& withWebsocketReadIncrement(std::size_t n);
+
+    std::size_t httpRequestHeaderSize() const;
+
+    std::size_t websocketWriteIncrement() const;
+
+    std::size_t websocketReadIncrement() const;
 
 private:
-    size_t headerSize_ = 8192; // Default used by Boost.Beast
+    std::size_t httpRequestHeaderSize_ = 8192;   // Default used by Boost.Beast
+    std::size_t websocketWriteIncrement_ = 4096; // Default used by Boost.Beast
+    std::size_t websocketReadIncrement_ = 4096;  // Using websocketWriteIncrement_
 };
 
 //------------------------------------------------------------------------------

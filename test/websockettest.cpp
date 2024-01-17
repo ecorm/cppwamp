@@ -65,10 +65,10 @@ struct LoopbackFixture
                     std::size_t serverLimit = 64*1024)
         : LoopbackFixture(
             wsHost.withLimits(
-                WebsocketClientLimits{}.withRxMsgSize(clientLimit)),
+                WebsocketClientLimits{}.withWampReadMsgSize(clientLimit)),
             clientCodec,
             wsEndpoint.withLimits(
-                WebsocketServerLimits{}.withReadMsgSize(serverLimit)),
+                WebsocketServerLimits{}.withWampReadMsgSize(serverLimit)),
             serverCodecs,
             connected)
     {}
@@ -388,7 +388,7 @@ void checkConnection(LoopbackFixture& f, int expectedCodec,
                 CHECK( transport->info().codecId() == expectedCodec );
                 CHECK( transport->info().receiveLimit() == serverMaxRxLength );
                 CHECK( transport->info().sendLimit() ==
-                      WebsocketServerLimits{}.writeMsgSize() );
+                       WebsocketServerLimits{}.wampWriteMsgSize() );
             });
     });
     f.lstn->establish();
@@ -401,7 +401,7 @@ void checkConnection(LoopbackFixture& f, int expectedCodec,
         CHECK( transport->info().codecId() == expectedCodec );
         CHECK( transport->info().receiveLimit() == clientMaxRxLength );
         CHECK( transport->info().sendLimit() ==
-               WebsocketClientLimits{}.writeMsgSize() );
+               WebsocketClientLimits{}.wampWriteMsgSize() );
         f.client = transport;
     });
 
@@ -651,7 +651,7 @@ TEST_CASE( "Normal websocket communications", "[Transport][Websocket]" )
                     CHECK( transport->info().codecId() == KnownCodecIds::json() );
                     CHECK( transport->info().receiveLimit() == 64*1024 );
                     CHECK( transport->info().sendLimit() ==
-                          WebsocketServerLimits{}.writeMsgSize() );
+                           WebsocketServerLimits{}.wampWriteMsgSize() );
                     f.sctx.stop();
                 });
         });
@@ -666,7 +666,7 @@ TEST_CASE( "Normal websocket communications", "[Transport][Websocket]" )
             CHECK( transport->info().codecId() == KnownCodecIds::json() );
             CHECK( transport->info().receiveLimit() == 64*1024 );
             CHECK( transport->info().sendLimit() ==
-                   WebsocketClientLimits{}.writeMsgSize() );
+                   WebsocketClientLimits{}.wampWriteMsgSize() );
             client2 = transport;
             f.cctx.stop();
         });

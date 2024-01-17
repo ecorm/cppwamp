@@ -72,7 +72,7 @@ public:
     template <typename S>
     explicit RawsockStream(Socket&& socket, const std::shared_ptr<S>& settings)
         : socket_(std::move(socket)),
-          wampPayloadLimit_(settings->limits().readMsgSize()),
+          wampPayloadLimit_(settings->limits().wampReadMsgSize()),
           heartbeatPayloadLimit_(settings->limits().heartbeatSize())
     {}
 
@@ -612,7 +612,7 @@ private:
         else if (codecIds_.count(peerCodec) != 0)
         {
             peerSizeLimit_ = hs.sizeLimit();
-            const auto rxLimit = settings_->limits().readMsgSize();
+            const auto rxLimit = settings_->limits().wampReadMsgSize();
             sendHandshake(Handshake().setCodecId(peerCodec)
                                      .setSizeLimit(rxLimit));
         }
@@ -662,9 +662,9 @@ private:
     {
         // Clamp send limit to smallest between settings limit and peer limit
         const auto codecId = hs.codecId();
-        auto txLimit = settings_->limits().writeMsgSize();
+        auto txLimit = settings_->limits().wampWriteMsgSize();
         txLimit = txLimit < peerSizeLimit_ ? txLimit : peerSizeLimit_;
-        const auto rxLimit = settings_->limits().readMsgSize();
+        const auto rxLimit = settings_->limits().wampReadMsgSize();
         transportInfo_ = TransportInfo{codecId, txLimit, rxLimit};
 
         finish(AdmitResult::wamp(codecId));

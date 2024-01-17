@@ -123,100 +123,102 @@ make_error_condition(HttpStatus errc)
 // HttpServerLimits
 //******************************************************************************
 
-CPPWAMP_INLINE HttpServerLimits& HttpServerLimits::withHeaderSize(std::size_t n)
+CPPWAMP_INLINE HttpServerLimits&
+HttpServerLimits::withHttpRequestHeaderSize(std::size_t n)
 {
-    Base::withHeaderSize(n);
-    return *this;
-}
-
-CPPWAMP_INLINE HttpServerLimits& HttpServerLimits::withBodySize(std::size_t n)
-{
-    bodySize_ = n;
+    Base::withHttpRequestHeaderSize(n);
     return *this;
 }
 
 CPPWAMP_INLINE HttpServerLimits&
-HttpServerLimits::withBodyIncrement(std::size_t n)
+HttpServerLimits::withHttpRequestBodySize(std::size_t n)
 {
-    bodyIncrement_ = n;
+    requestBodySize_ = n;
+    return *this;
+}
+
+CPPWAMP_INLINE HttpServerLimits&
+HttpServerLimits::withHttpRequestBodyIncrement(std::size_t n)
+{
+    requestBodyIncrement_ = n;
     return *this;
 }
 
 /** @note Boost.Beast will clamp this to `BOOST_BEAST_FILE_BUFFER_SIZE=4096`
           for `file_body` responses. */
 CPPWAMP_INLINE HttpServerLimits&
-HttpServerLimits::withWriteIncrement(std::size_t n)
+HttpServerLimits::withHttpResponseIncrement(std::size_t n)
 {
-    writeIncrement_ = n;
+    responseIncrement_ = n;
     return *this;
 }
 
 CPPWAMP_INLINE HttpServerLimits&
-HttpServerLimits::withHeaderTimeout(Timeout t)
+HttpServerLimits::withHttpRequestHeaderTimeout(Timeout t)
 {
     keepaliveTimeout_ = internal::checkTimeout(t);
     return *this;
 }
 
 CPPWAMP_INLINE HttpServerLimits&
-HttpServerLimits::withBodyTimeout(IncrementalTimeout t)
+HttpServerLimits::withHttpRequestBodyTimeout(IncrementalTimeout t)
 {
-    bodyTimeout_ = t.validate();
+    requestBodyTimeout_ = t.validate();
     return *this;
 }
 
 CPPWAMP_INLINE HttpServerLimits&
-HttpServerLimits::withResponseTimeout(IncrementalTimeout t)
+HttpServerLimits::withHttpResponseTimeout(IncrementalTimeout t)
 {
     responseTimeout_ = t.validate();
     return *this;
 }
 
 CPPWAMP_INLINE HttpServerLimits&
-HttpServerLimits::withKeepaliveTimeout(Timeout t)
+HttpServerLimits::withHttpKeepaliveTimeout(Timeout t)
 {
     keepaliveTimeout_ = internal::checkTimeout(t);
     return *this;
 }
 
-CPPWAMP_INLINE std::size_t HttpServerLimits::headerSize() const
+CPPWAMP_INLINE std::size_t HttpServerLimits::httpRequestHeaderSize() const
 {
-    return Base::headerSize();
+    return Base::httpRequestHeaderSize();
 }
 
-CPPWAMP_INLINE std::size_t HttpServerLimits::bodySize() const
+CPPWAMP_INLINE std::size_t HttpServerLimits::httpRequestBodySize() const
 {
-    return bodySize_;
+    return requestBodySize_;
 }
 
-CPPWAMP_INLINE std::size_t HttpServerLimits::bodyIncrement() const
+CPPWAMP_INLINE std::size_t HttpServerLimits::httpRequestBodyIncrement() const
 {
-    return bodyIncrement_;
+    return requestBodyIncrement_;
 }
 
-CPPWAMP_INLINE std::size_t HttpServerLimits::writeIncrement() const
+CPPWAMP_INLINE std::size_t HttpServerLimits::httpResponseIncrement() const
 {
-    return writeIncrement_;
+    return responseIncrement_;
 }
 
-CPPWAMP_INLINE Timeout HttpServerLimits::headerTimeout() const
+CPPWAMP_INLINE Timeout HttpServerLimits::httpRequestHeaderTimeout() const
 {
-    return headerTimeout_;
-}
-
-CPPWAMP_INLINE const IncrementalTimeout&
-HttpServerLimits::bodyTimeout() const
-{
-    return bodyTimeout_;
+    return requestHeaderTimeout_;
 }
 
 CPPWAMP_INLINE const IncrementalTimeout&
-HttpServerLimits::responseTimeout() const
+HttpServerLimits::httpBodyTimeout() const
+{
+    return requestBodyTimeout_;
+}
+
+CPPWAMP_INLINE const IncrementalTimeout&
+HttpServerLimits::httpResponseTimeout() const
 {
     return responseTimeout_;
 }
 
-CPPWAMP_INLINE Timeout HttpServerLimits::keepaliveTimeout() const
+CPPWAMP_INLINE Timeout HttpServerLimits::httpKeepaliveTimeout() const
 {
     return keepaliveTimeout_;
 }
