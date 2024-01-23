@@ -672,12 +672,17 @@ private:
 
     bool check(boost::system::error_code netEc, const char* operation)
     {
-        if (netEc)
-        {
-            socket_.close();
-            finish(AdmitResult::failed(rawsockErrorCodeToStandard(netEc),
-                                       operation));
-        }
+        if (!netEc)
+            return true;
+
+        socket_.close();
+
+        auto ec = rawsockErrorCodeToStandard(netEc);
+        if (ec == TransportErrc::disconnected)
+            finish(AdmitResult::disconnected());
+        else
+            finish(AdmitResult::failed(ec, operation));
+
         return !netEc;
     }
 

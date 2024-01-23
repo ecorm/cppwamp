@@ -48,7 +48,7 @@ inline bool isHttpParseErrorDueToClient(boost::system::error_code netEc)
     auto code = static_cast<E>(netEc.value());
     switch (code)
     {
-    case E::end_of_stream:           return true;
+    case E::end_of_stream:           return false;
     case E::partial_message:         return true;
     case E::need_more:               return false;
     case E::unexpected_body:         return true;

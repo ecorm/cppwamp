@@ -75,13 +75,14 @@ enum class TransportState
 //------------------------------------------------------------------------------
 enum class AdmitStatus
 {
-    unknown,   /// Result has not been set
-    responded, /// Request (e.g. HTTP GET) has been successfully responded to
-    wamp,      /// WAMP codec successfully negotiated
-    shedded,   /// Connection limit reached
-    rejected,  /// Rejected due to client protocol error
-    cancelled, /// Cancelled due to timeout or server shutdown
-    failed     /// Failed due to an I/O problem
+    unknown,      /// Result has not been set
+    responded,    /// Request (e.g. HTTP GET) has been successfully responded to
+    wamp,         /// WAMP codec successfully negotiated
+    shedded,      /// Connection limit reached
+    rejected,     /// Rejected due to client protocol error
+    cancelled,    /// Cancelled due to timeout or server shutdown
+    disconnected, /// Client disconnected
+    failed        /// Failed due to an I/O problem
 };
 
 //------------------------------------------------------------------------------
@@ -113,6 +114,9 @@ public:
 
     /** Constructs a result due to cancellation. */
     static AdmitResult cancelled(std::error_code e);
+
+    /** Constructs a result due to client disconnection. */
+    static AdmitResult disconnected();
 
     /** Constructs a result for a failed handshake I/O operation. */
     static AdmitResult failed(std::error_code e, const char* operation);

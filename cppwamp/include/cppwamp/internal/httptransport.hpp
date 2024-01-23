@@ -189,12 +189,6 @@ private:
         return HttpStatus::internalServerError;
     }
 
-    static bool isEof(boost::beast::error_code netEc)
-    {
-        return netEc == boost::beast::http::error::end_of_stream ||
-               netEc == boost::beast::http::error::partial_message;
-    }
-
     std::error_code monitor()
     {
         return monitor_.check(steadyTime());
@@ -233,13 +227,20 @@ private:
 
     void doShutdown()
     {
-        // TODO: Lingering close: flush read buffer until EOF
         if (tcpSocket_.is_open())
         {
             boost::system::error_code netEc;
             tcpSocket_.shutdown(TcpSocket::shutdown_send, netEc);
-            auto ec = static_cast<std::error_code>(netEc);
-            post(std::move(shutdownHandler_), ec);
+            if (netEc)
+            {
+                auto ec = static_cast<std::error_code>(netEc);
+                post(std::move(shutdownHandler_), ec);
+                tcpSocket_.close();
+            }
+            else
+            {
+                monitor_.startLinger(steadyTime());
+            }
         }
         else
         {
@@ -248,7 +249,11 @@ private:
         shutdownHandler_ = nullptr;
     }
 
-    void close() {tcpSocket_.close();}
+    void close()
+    {
+        monitor_.endLinger();
+        tcpSocket_.close();
+    }
 
     const WebsocketServerTransport::Ptr& upgradedTransport() const
     {
@@ -283,13 +288,8 @@ private:
             TcpSocket::wait_read,
             [this, self](boost::system::error_code netEc)
             {
-                if (isEof(netEc))
-                    return finish(AdmitResult::responded());
-
-                if (!checkRead(netEc))
-                    return;
-
-                readHeader();
+                if (checkRead(netEc))
+                    readHeader();
             });
     }
 
@@ -303,7 +303,8 @@ private:
             tcpSocket_, streamBuffer_, *parser_,
             [this, self] (boost::beast::error_code netEc, std::size_t)
             {
-                onHeaderRead(netEc);
+                if (checkRead(netEc))
+                    onHeaderRead(netEc);
             });
     }
 
@@ -312,12 +313,6 @@ private:
         // TODO: Handle 100-continue
 
         monitor_.endHeader();
-
-        if (isEof(netEc))
-            return finish(AdmitResult::responded());
-
-        if (!checkRead(netEc))
-            return;
 
         if (parser_->is_done())
         {
@@ -344,9 +339,6 @@ private:
 
                 if (!checkRead(netEc))
                     return;
-
-                if (isEof(netEc))
-                    return finish(AdmitResult::responded());
 
                 assert(bodyBuffer_.size() >= parser_->get().body().size);
                 auto bytesParsed = bodyBuffer_.size() -
@@ -402,26 +394,58 @@ private:
         if (!netEc)
             return true;
 
-        if (isHttpParseErrorDueToClient(netEc))
+        bool isEof = netEc == boost::beast::http::error::end_of_stream ||
+                     netEc == boost::beast::http::error::partial_message;
+
+        if (isEof)
         {
-            finish(AdmitResult::rejected(httpErrorCodeToStandard(netEc)));
+            if (shutdownHandler_ != nullptr)
+            {
+                close();
+                shutdownHandler_(std::error_code{});
+                shutdownHandler_ = nullptr;
+            }
+            finish(AdmitResult::responded());
+            return false;
+        }
+
+        auto ec = httpErrorCodeToStandard(netEc);
+
+        // Beast's http::async_read_header does not propagate client disconnect
+        // errors and will instead report beast::http::error::bad_method.
+        // https://github.com/boostorg/beast/issues/2806
+        if (ec == TransportErrc::disconnected)
+        {
+            close();
+            finish(AdmitResult::disconnected());
+        }
+        else if (isHttpParseErrorDueToClient(netEc))
+        {
+            finish(AdmitResult::rejected(ec));
         }
         else
         {
-            finish(AdmitResult::failed(httpErrorCodeToStandard(netEc),
-                                       "socket read"));
+            close();
+            finish(AdmitResult::failed(ec, "socket read"));
         }
+
         return false;
     }
 
     bool checkWrite(boost::system::error_code netEc)
     {
-        if (netEc)
-        {
-            finish(AdmitResult::failed(httpErrorCodeToStandard(netEc),
-                                       "socket write"));
-        }
-        return !netEc;
+        if (!netEc)
+            return true;
+
+        close();
+
+        auto ec = httpErrorCodeToStandard(netEc);
+
+        if (ec == TransportErrc::disconnected)
+            finish(AdmitResult::disconnected());
+        else
+            finish(AdmitResult::failed(ec, "socket write"));
+        return false;
     }
 
     void report(HttpStatus status)
@@ -595,9 +619,6 @@ private:
 
         response.set(boost::beast::http::field::server, settings_->agent());
         response.prepare_payload();
-
-        // TODO: Response timeout
-        // TODO: Keepalive timeout
 
         serializer_.reset(std::forward<R>(response),
                           settings_->limits().httpResponseIncrement());

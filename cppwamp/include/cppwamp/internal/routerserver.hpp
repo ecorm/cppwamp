@@ -408,6 +408,12 @@ private:
             retire();
             break;
 
+        case S::disconnected:
+            Base::report({AccessAction::clientDisconnect});
+            transport_->close();
+            retire();
+            break;
+
         case S::failed:
             // Don't log failures due to cancellations
             if (result.error() != TransportErrc::aborted)
@@ -418,6 +424,7 @@ private:
                          result.operation(),
                      result.error()});
             }
+
             transport_->close();
             retire();
             break;
