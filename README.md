@@ -3,6 +3,14 @@ CppWAMP
 
 C++11 client library for the [WAMP][wamp] protocol.
 
+**PROJECT RENAMING AND RELOCATION**
+
+(2024-01-24) **This project will be renamed and moved to a new repository.** I am planning a major release of this library in Q1 2024, and will perform the transition to the new repository at the same time. Please see the announcement in the Discussions tab for the reason why.
+
+Upon migration to the new repository, I will preserve this one for a reasonable grace period to give users the chance to migrate.
+
+I apologize in advance for any inconvenience this may cause.
+
 **Features**:
 
 - Supports the WAMP _Basic Profile_
@@ -74,12 +82,10 @@ Roadmap
 ### v1.0
 
 - Embedded router functionality
-- Remove all deprecated types and functions.
-- Aim for API stability until v2.0.
-
-### v1.1 (maybe)
-
+- Remove all deprecated types and functions
 - Websocket support via Boost.Beast
+- HTTP file server support via Boost.Beast
+- Aim for API stability until v2.0.
 
 ### v2.0 (maybe)
 
