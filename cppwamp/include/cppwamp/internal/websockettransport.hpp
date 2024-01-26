@@ -596,9 +596,10 @@ private:
         if (!requestParser_->upgrade())
         {
             auto errc = boost::beast::websocket::error::no_connection_upgrade;
-            return reject("Websocket protocol required",
-                          HttpStatus::upgrade_required,
-                          AdmitResult::rejected(errc));
+            return reject(
+                "This service requires use of the Websocket protocol.",
+                HttpStatus::upgrade_required,
+                AdmitResult::rejected(errc));
         }
 
         // Send an error response if the server connection limit
@@ -694,11 +695,20 @@ private:
     void reject(std::string msg, HttpStatus status, AdmitResult result)
     {
         namespace http = boost::beast::http;
+
         response_.result(status);
+
+        if (status == HttpStatus::upgrade_required)
+        {
+            response_.set(boost::beast::http::field::connection, "Upgrade");
+            response_.set(boost::beast::http::field::upgrade, "websocket");
+        }
+
         response_.body() = std::move(msg);
-        auto self = shared_from_this();
+
         TcpSocket* socket = websocket_.has_value() ? &websocket_->next_layer()
                                                    : &tcpSocket_;
+        auto self = shared_from_this();
         http::async_write(
             *socket, response_,
             [this, self, result](boost::beast::error_code netEc, std::size_t)

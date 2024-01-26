@@ -9,6 +9,7 @@
 
 #include <string>
 #include <utility>
+#include "../transports/httpstatus.hpp"
 
 namespace wamp
 {
@@ -32,6 +33,8 @@ public:
 
     virtual void initialize(const HttpEndpoint& settings) = 0;
 
+    virtual void expect(HttpJob& job) = 0;
+
     virtual void execute(HttpJob& job) = 0;
 };
 
@@ -52,6 +55,8 @@ public:
     {
         action_.initialize(settings);
     }
+
+    void expect(HttpJob& job) override {return action_.expect(job);}
 
     void execute(HttpJob& job) override {action_.execute(job);}
 

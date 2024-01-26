@@ -162,6 +162,8 @@ public:
 
     void initialize(const HttpEndpoint& settings);
 
+    void expect(HttpJob& job);
+
     void execute(HttpJob& job);
 
 private:
@@ -179,9 +181,13 @@ public:
 
     void initialize(const HttpEndpoint& settings);
 
+    void expect(HttpJob& job);
+
     void execute(HttpJob& job);
 
 private:
+    bool checkRequest(HttpJob& job);
+
     HttpWebsocketUpgrade properties_;
 };
 

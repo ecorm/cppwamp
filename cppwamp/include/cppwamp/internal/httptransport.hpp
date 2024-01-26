@@ -31,6 +31,7 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
+// TODO: Make HttpJob and HttpAction non-internal
 class HttpJob : public std::enable_shared_from_this<HttpJob>
 {
 public:
@@ -77,6 +78,31 @@ public:
 
     const HttpEndpoint& settings() const {return *settings_;}
 
+    void continueRequest()
+    {
+        namespace http = boost::beast::http;
+
+        assert(parser_.has_value());
+
+        http::response<http::empty_body> response{http::status::continue_,
+                                                  parser_->get().version()};
+
+        // Beast will adjust the Connection field automatically depending on
+        // the HTTP version.
+        // https://datatracker.ietf.org/doc/html/rfc7230#section-6.3
+        response.keep_alive(parser_->keep_alive());
+
+        response.set(boost::beast::http::field::server, settings_->agent());
+
+        response.prepare_payload();
+
+        serializer_.reset(std::move(response),
+                          settings_->limits().httpResponseIncrement());
+        status_ = HttpStatus::continueRequest;
+        monitor_.startResponse(steadyTime());
+        sendMoreResponse();
+    }
+
     template <typename R>
     void respond(R&& response, HttpStatus status = HttpStatus::ok)
     {
@@ -106,8 +132,8 @@ public:
     }
 
     void balk(HttpStatus status, std::string what = {}, bool simple = false,
-              FieldList fields = {},
-              AdmitResult result = AdmitResult::responded())
+              AdmitResult result = AdmitResult::responded(),
+              FieldList fields = {})
     {
         if (responseSent_)
             return;
@@ -221,7 +247,7 @@ private:
         auto what = errorCodeToUri(reason);
         what += ": ";
         what += reason.message();
-        balk(shutdownReasonToHttpStatus(reason), std::move(what), true, {},
+        balk(shutdownReasonToHttpStatus(reason), std::move(what), true,
              AdmitResult::cancelled(reason));
     }
 
@@ -263,6 +289,7 @@ private:
     void start()
     {
         responseSent_ = false;
+        expectationReceived_ = false;
         body_.clear();
         parser_.emplace();
         const auto headerLimit = settings().limits().httpRequestHeaderSize();
@@ -310,10 +337,55 @@ private:
 
     void onHeaderRead(boost::beast::error_code netEc)
     {
-        // TODO: Handle 100-continue
-
         monitor_.endHeader();
 
+        auto expectField =
+            parser_->get().find(boost::beast::http::field::expect);
+        if (expectField != parser_->get().end())
+            return onExpectationReceived(expectField->value());
+
+        readBody();
+    }
+
+    void onExpectationReceived(boost::beast::string_view expectField)
+    {
+        if (!boost::beast::iequals(expectField, "100-continue"))
+            return balk(HttpStatus::expectationFailed, {}, true);
+
+        auto bodyLength = parser_->content_length().value_or(0);
+
+        // Ignore 100-continue expectations if it's an HTTP/1.0 request, or if
+        // the request has no body.
+        if (parser_->get().version() < 11 || bodyLength == 0)
+            return readBody();
+
+        expectationReceived_ = true;
+
+        // If the request body exceeds the limit, mark the request as rejected
+        // so that keep-alive is disabled and the connection is shut down
+        // after sending the response. Otherwise, we would have to consume
+        // the large request body until the parser inevitably overflows.
+        const auto bodyLimit = settings().limits().httpRequestBodySize();
+        if (bodyLength > bodyLimit)
+        {
+            return balk(HttpStatus::payloadTooLarge, {}, true,
+                        AdmitResult::rejected(HttpStatus::payloadTooLarge));
+        }
+
+        if (!parseAndNormalizeTarget())
+            return balk(HttpStatus::badRequest, "Invalid request-target", true);
+
+        // Lookup the action associated with the normalized target path,
+        // and obtain the expected status code.
+        auto* action = settings_->findAction(target_.path());
+        if (action == nullptr)
+            return balk(HttpStatus::notFound, {}, true);
+
+        action->expect({}, *this);
+    }
+
+    void readBody()
+    {
         if (parser_->is_done())
         {
             onMessageRead();
@@ -464,6 +536,10 @@ private:
                                  std::string{hdr.method_string()});
         }
 
+        auto upgradeField = hdr.find(Field::upgrade);
+        if (upgradeField != hdr.end())
+            info.options.emplace("upgrade", std::string{upgradeField->value()});
+
         HttpAccessInfo httpInfo{fieldOr(Field::host, {}),
                                 fieldOr(Field::user_agent, {})};
         logger_->log(AccessLogEntry{connectionInfo_, std::move(httpInfo),
@@ -610,21 +686,27 @@ private:
     {
         responseSent_ = true;
         assert(parser_.has_value());
-        bool keepAlive = result.status() == AdmitStatus::responded &&
-                         parser_->keep_alive();
+        keepAlive_ = result.status() == AdmitStatus::responded &&
+                     parser_->keep_alive();
         // Beast will adjust the Connection field automatically depending on
         // the HTTP version.
         // https://datatracker.ietf.org/doc/html/rfc7230#section-6.3
-        response.keep_alive(keepAlive);
+        response.keep_alive(keepAlive_);
 
         response.set(boost::beast::http::field::server, settings_->agent());
+
+        // Set the Connection field to close if we intend to shut down the
+        // connection after sending the response.
+        // https://datatracker.ietf.org/doc/html/rfc9112#section-9.6
+        if (!keepAlive_ && result.status() != AdmitStatus::wamp)
+            response.set(boost::beast::http::field::connection, "close");
+
         response.prepare_payload();
 
         serializer_.reset(std::forward<R>(response),
                           settings_->limits().httpResponseIncrement());
         result_ = result;
         status_ = status;
-        keepAlive_ = keepAlive;
         monitor_.startResponse(steadyTime());
         sendMoreResponse();
     }
@@ -673,10 +755,38 @@ private:
 
         report(status_);
 
-        if (keepAlive_)
+        if (expectationReceived_)
+        {
+            expectationReceived_ = false;
+
+            /*  If we intend to keep the connection open, then the body
+                following a header containing 'Expect: 100-continue' must be
+                read and discarded/processed even if an intermediary response
+                other than 100 has been previously sent. We chose to process it.
+
+                Excerpt from https://curl.se/mail/lib-2004-08/0002.html :
+
+                    For this reason, the server has only two possible
+                    subsequent behaviours: read and discard the request body,
+                    or don't process any further input from that connection
+                    (i.e. close it, using TCP-safe lingering close). And the
+                    client has only two possible subsequent behaviours: send
+                    the request body to be discarded, or close the connection
+                    after receiving the error response.
+            */
+            if (result_.status() == AdmitStatus::rejected)
+                finish(result_);
+            else
+                readBody();
+        }
+        else if (keepAlive_)
+        {
             start();
+        }
         else
+        {
             finish(result_);
+        }
     }
 
     void finish(AdmitResult result)
@@ -716,6 +826,7 @@ private:
     bool responseSent_ = false;
     bool keepAlive_ = false;
     bool alreadyRequested_ = false;
+    bool expectationReceived_ = false;
 
     friend class HttpServerTransport;
 };

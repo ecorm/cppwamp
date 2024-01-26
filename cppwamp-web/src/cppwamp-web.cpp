@@ -12,6 +12,7 @@
 
 #include <cppwamp/internal/httpprotocol.inl.hpp>
 #include <cppwamp/internal/httpserver.inl.hpp>
+#include <cppwamp/internal/httpstatus.inl.hpp>
 #include <cppwamp/internal/websocketclient.inl.hpp>
 #include <cppwamp/internal/websocketprotocol.inl.hpp>
 #include <cppwamp/internal/websocketserver.inl.hpp>

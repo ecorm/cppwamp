@@ -84,7 +84,7 @@ int main()
             });
 
         ioctx.run();
-        logger({wamp::LogLevel::info, "CppWAMP example web server  exit"});
+        logger({wamp::LogLevel::info, "CppWAMP example web server exit"});
     }
     catch (const std::exception& e)
     {

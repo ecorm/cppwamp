@@ -382,10 +382,15 @@ public:
         properties_.applyFallbackOptions(settings.fileServingOptions());
     }
 
+    void expect(HttpJob& job)
+    {
+        if (checkRequest(job))
+            job.continueRequest();
+    }
+
     void execute(HttpJob& job)
     {
         namespace fs = boost::filesystem;
-        namespace http = boost::beast::http;
 
         if (!checkRequest(job))
             return;
@@ -421,7 +426,7 @@ public:
         if (!openFile(job, body))
             return;
 
-        if (job.header().method() == http::verb::head)
+        if (job.header().method() == boost::beast::http::verb::head)
             return respondToHeadRequest(job, body);
         respondToGetRequest(job, body);
     };
@@ -437,8 +442,23 @@ private:
 
     bool checkRequest(HttpJob& job)
     {
-        namespace beast = boost::beast;
-        namespace http = beast::http;
+        // Check that request is not an HTTP upgrade request
+        const auto& hdr = job.header();
+        if (boost::beast::websocket::is_upgrade(hdr))
+        {
+            job.balk(HttpStatus::badRequest, "Not a Websocket resource", true);
+            return false;
+        }
+
+        // Check that request method is supported
+        using Verb = boost::beast::http::verb;
+        if (hdr.method() != Verb::get && hdr.method() != Verb::head)
+        {
+            job.balk(HttpStatus::methodNotAllowed,
+                     std::string(hdr.method_string()) +
+                         " method not allowed on static files.");
+            return false;
+        }
 
         // Reject proxying requests
         // TODO: Check if absolute URI domain matches server name or alias
@@ -451,7 +471,7 @@ private:
         }
 
         // Reject target paths that contain dot-dot segments which can allow
-        // access file system access outside the document root.
+        // access filesystem access outside the document root.
         for (const auto& segment: target.segments())
         {
             if (segment == "..")
@@ -459,23 +479,6 @@ private:
                 job.balk(HttpStatus::badRequest, "Invalid target path", true);
                 return false;
             }
-        }
-
-        // Check that request is not an HTTP upgrade request
-        const auto& hdr = job.header();
-        if (beast::websocket::is_upgrade(hdr))
-        {
-            job.balk(HttpStatus::badRequest, "Not a Websocket resource", true);
-            return false;
-        }
-
-        // Check that request method is supported
-        if (hdr.method() != http::verb::get && hdr.method() != http::verb::head)
-        {
-            job.balk(HttpStatus::methodNotAllowed,
-                     std::string(hdr.method_string()) +
-                         " method not allowed on static files.");
-            return false;
         }
 
         return true;
@@ -582,7 +585,7 @@ private:
         job.balk(
             HttpStatus::internalServerError,
             "An error occurred on the server while processing the request.",
-            false, {}, AdmitResult::failed(ec, operation));
+            false, AdmitResult::failed(ec, operation));
     }
 
     HttpServeStaticFiles properties_;
@@ -612,6 +615,10 @@ HttpAction<HttpServeStaticFiles>::initialize(const HttpEndpoint& settings)
     impl_->init(settings);
 }
 
+CPPWAMP_INLINE void HttpAction<HttpServeStaticFiles>::expect(HttpJob& job)
+{
+    impl_->expect(job);
+}
 
 CPPWAMP_INLINE void HttpAction<HttpServeStaticFiles>::execute(HttpJob& job)
 {
@@ -636,19 +643,36 @@ CPPWAMP_INLINE std::string HttpAction<HttpWebsocketUpgrade>::route() const
 CPPWAMP_INLINE void
 HttpAction<HttpWebsocketUpgrade>::initialize(const HttpEndpoint& settings) {}
 
+CPPWAMP_INLINE void HttpAction<HttpWebsocketUpgrade>::expect(HttpJob& job)
+{
+    if (checkRequest(job))
+        job.continueRequest();
+}
+
 CPPWAMP_INLINE void HttpAction<HttpWebsocketUpgrade>::execute(HttpJob& job)
+{
+    if (checkRequest(job))
+        job.websocketUpgrade(properties_.options(), properties_.limits());
+};
+
+CPPWAMP_INLINE bool HttpAction<HttpWebsocketUpgrade>::checkRequest(HttpJob& job)
 {
     if (!boost::beast::websocket::is_upgrade(job.header()))
     {
-        return job.balk(
+        job.balk(
             HttpStatus::upgradeRequired,
-            "Upgrade field required for accessing Websocket resource.",
-            false,
-            {{boost::beast::http::field::upgrade, "websocket"}});
+            "This service requires use of the Websocket protocol.",
+            true,
+            AdmitResult::rejected(TransportErrc::badHandshake),
+            {
+                {boost::beast::http::field::connection, "Upgrade"},
+                {boost::beast::http::field::upgrade, "websocket"}
+            });
+        return false;
     }
 
-    job.websocketUpgrade(properties_.options(), properties_.limits());
-};
+    return true;
+}
 
 } // namespace internal
 

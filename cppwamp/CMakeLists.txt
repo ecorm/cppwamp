@@ -141,6 +141,7 @@ set(HEADERS
     include/cppwamp/internal/websockettransport.hpp
     include/cppwamp/transports/httpserver.hpp
     include/cppwamp/transports/httpprotocol.hpp
+    include/cppwamp/transports/httpstatus.hpp
     include/cppwamp/transports/rawsocklimits.hpp
     include/cppwamp/transports/socketendpoint.hpp
     include/cppwamp/transports/sockethost.hpp
@@ -196,6 +197,7 @@ set(INLINES
     include/cppwamp/internal/filelogger.inl.hpp
     include/cppwamp/internal/httpprotocol.inl.hpp
     include/cppwamp/internal/httpserver.inl.hpp
+    include/cppwamp/internal/httpstatus.inl.hpp
     include/cppwamp/internal/json.inl.hpp
     include/cppwamp/internal/logging.inl.hpp
     include/cppwamp/internal/messagetraits.inl.hpp
