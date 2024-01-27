@@ -9,18 +9,18 @@
 
 #include <string>
 #include <utility>
-#include "../transports/httpstatus.hpp"
 
 namespace wamp
 {
 
+// Forward declarations
 class HttpEndpoint;
+class HttpJob;
 
 namespace internal
 {
 
-// Forward declarations
-class HttpJob;
+// Forward declaration
 template <typename TOptions> class HttpAction;
 
 //------------------------------------------------------------------------------

@@ -17,6 +17,7 @@ class DirectRouterLink;
 class Error;
 class Event;
 class HttpEndpoint;
+class HttpJob;
 class Outcome;
 class Session;
 class Transporting;
@@ -34,6 +35,7 @@ namespace internal
         friend class wamp::Error;
         friend class wamp::Event;
         friend class wamp::HttpEndpoint;
+        friend class wamp::HttpJob;
         friend class wamp::Outcome;
         friend class wamp::Session;
         friend class wamp::Transporting;
@@ -50,7 +52,6 @@ namespace internal
         friend class DealerJobMap;
         friend class DirectPeer;
         friend class DirectRouterSession;
-        friend class HttpJob;
         friend class MatchUri;
         template <typename> friend class RawsockListener;
         template <typename> friend class RealmMetaProcedures;

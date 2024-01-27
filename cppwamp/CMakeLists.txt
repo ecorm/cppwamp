@@ -139,6 +139,7 @@ set(HEADERS
     include/cppwamp/internal/websocketconnector.hpp
     include/cppwamp/internal/websocketlistener.hpp
     include/cppwamp/internal/websockettransport.hpp
+    include/cppwamp/transports/httpjob.hpp
     include/cppwamp/transports/httpserver.hpp
     include/cppwamp/transports/httpprotocol.hpp
     include/cppwamp/transports/httpstatus.hpp
@@ -195,6 +196,7 @@ set(INLINES
     include/cppwamp/internal/exceptions.inl.hpp
     include/cppwamp/internal/features.inl.hpp
     include/cppwamp/internal/filelogger.inl.hpp
+    include/cppwamp/internal/httpjob.inl.hpp
     include/cppwamp/internal/httpprotocol.inl.hpp
     include/cppwamp/internal/httpserver.inl.hpp
     include/cppwamp/internal/httpstatus.inl.hpp

@@ -27,7 +27,7 @@
 namespace wamp
 {
 
-namespace internal { class HttpJob; }
+class HttpJob;
 
 //------------------------------------------------------------------------------
 /** Options for serving static files via HTTP. */

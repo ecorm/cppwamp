@@ -10,6 +10,7 @@
 
 #include <cppwamp/config.hpp>
 
+#include <cppwamp/internal/httpjob.inl.hpp>
 #include <cppwamp/internal/httpprotocol.inl.hpp>
 #include <cppwamp/internal/httpserver.inl.hpp>
 #include <cppwamp/internal/httpstatus.inl.hpp>
