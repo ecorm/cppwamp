@@ -152,10 +152,10 @@ private:
     IncrementalTimeout requestBodyTimeout_ = {std::chrono::seconds{20}, 24*1024};
         // Using Apache's RequestReadTimeout, with ~1/4 of ADSL2 0.8Mbps rate
 
-    Timeout keepaliveTimeout_ = std::chrono::seconds(120);
+    Timeout keepaliveTimeout_ = std::chrono::seconds(75);
         // NGINX default: 75s, Apache default: 5s
         // Browser defaults: Firefox: 115s, IE: 60s, Chromium: never
-        // 120s chosen as default so that Firefox/IE initiate the timeout.
+        // Using NGINX's keepalive_timeout
 
     std::size_t requestBodySize_ = 1024*1024;
         // Default for Boost.Beast and NGINX
