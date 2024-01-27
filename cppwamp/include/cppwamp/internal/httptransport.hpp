@@ -266,6 +266,8 @@ private:
             else
             {
                 monitor_.startLinger(steadyTime());
+                if (!isReading_)
+                    flush();
             }
         }
         else
@@ -273,6 +275,36 @@ private:
             post(std::move(shutdownHandler_), std::error_code{});
         }
         shutdownHandler_ = nullptr;
+    }
+
+    void flush()
+    {
+        bodyBuffer_.resize(+flushReadSize_);
+        tcpSocket_.async_read_some(
+            boost::asio::buffer(&bodyBuffer_.front(), +flushReadSize_),
+            [this](boost::system::error_code netEc, size_t n)
+            {
+                if (!netEc)
+                    return flush();
+                onFlushComplete(netEc);
+            });
+    }
+
+    void onFlushComplete(boost::system::error_code netEc)
+    {
+        monitor_.endLinger();
+        tcpSocket_.close();
+
+        bool isEof = netEc == boost::beast::http::error::end_of_stream ||
+                     netEc == boost::beast::http::error::partial_message;
+        if (isEof)
+            netEc = {};
+
+        if (shutdownHandler_ != nullptr)
+        {
+            shutdownHandler_(httpErrorCodeToStandard(netEc));
+            shutdownHandler_ = nullptr;
+        }
     }
 
     void close()
@@ -324,12 +356,15 @@ private:
     {
         alreadyRequested_ = true;
         monitor_.startHeader(steadyTime());
+        isReading_ = true;
 
         auto self = shared_from_this();
         boost::beast::http::async_read_header(
             tcpSocket_, streamBuffer_, *parser_,
             [this, self] (boost::beast::error_code netEc, std::size_t)
             {
+                isReading_ = false;
+                monitor_.endHeader();
                 if (checkRead(netEc))
                     onHeaderRead(netEc);
             });
@@ -337,8 +372,6 @@ private:
 
     void onHeaderRead(boost::beast::error_code netEc)
     {
-        monitor_.endHeader();
-
         auto expectField =
             parser_->get().find(boost::beast::http::field::expect);
         if (expectField != parser_->get().end())
@@ -401,16 +434,20 @@ private:
     {
         parser_->get().body().data = &bodyBuffer_.front();
         parser_->get().body().size = bodyBuffer_.size();
+        isReading_ = true;
+
         auto self = shared_from_this();
         boost::beast::http::async_read(
             tcpSocket_, streamBuffer_, *parser_,
             [this, self] (boost::beast::error_code netEc, std::size_t)
             {
+                isReading_ = false;
+
                 if (netEc == boost::beast::http::error::need_buffer)
                     netEc = {};
 
                 if (!checkRead(netEc))
-                    return;
+                    return monitor_.endBody();
 
                 assert(bodyBuffer_.size() >= parser_->get().body().size);
                 auto bytesParsed = bodyBuffer_.size() -
@@ -477,7 +514,7 @@ private:
                 shutdownHandler_(std::error_code{});
                 shutdownHandler_ = nullptr;
             }
-            finish(AdmitResult::responded());
+            finish(AdmitResult::disconnected());
             return false;
         }
 
@@ -509,9 +546,17 @@ private:
         if (!netEc)
             return true;
 
+        monitor_.endResponse(steadyTime(), false);
         close();
 
         auto ec = httpErrorCodeToStandard(netEc);
+
+        if (isPoisoned_ && shutdownHandler_ != nullptr)
+        {
+            post(std::move(shutdownHandler_), ec);
+            shutdownHandler_ = nullptr;
+            return false;
+        }
 
         if (ec == TransportErrc::disconnected)
             finish(AdmitResult::disconnected());
@@ -718,6 +763,9 @@ private:
             tcpSocket_,
             [this, self](boost::beast::error_code netEc, std::size_t n)
             {
+                if (!checkWrite(netEc))
+                    return;
+
                 auto now = steadyTime();
 
                 if (!serializer_.done())
@@ -729,30 +777,20 @@ private:
                 monitor_.endResponse(now, keepAlive_);
 
                 if (isPoisoned_)
-                    return onShutdownResponseSent(netEc);
-
-                onResponseSent(netEc);
+                    onShutdownResponseSent();
+                else
+                    onResponseSent();
             });
     }
 
-    void onShutdownResponseSent(boost::beast::error_code netEc)
+    void onShutdownResponseSent()
     {
-        if (!checkWrite(netEc))
-        {
-            post(std::move(shutdownHandler_), httpErrorCodeToStandard(netEc));
-            shutdownHandler_ = nullptr;
-            return;
-        }
-
         finish(result_);
         doShutdown();
     }
 
-    void onResponseSent(boost::beast::error_code netEc)
+    void onResponseSent()
     {
-        if (!checkWrite(netEc))
-            return;
-
         report(status_);
 
         if (expectationReceived_)
@@ -803,6 +841,8 @@ private:
                 std::forward<Ts>(args)...);
     }
 
+    static constexpr std::size_t flushReadSize_ = 1536;
+
     TcpSocket tcpSocket_;
     CodecIdSet codecIds_;
     TransportInfo transportInfo_;
@@ -823,6 +863,7 @@ private:
     HttpStatus status_ = HttpStatus::none;
     bool isShedding_ = false;
     bool isPoisoned_ = false;
+    bool isReading_ = false;
     bool responseSent_ = false;
     bool keepAlive_ = false;
     bool alreadyRequested_ = false;
