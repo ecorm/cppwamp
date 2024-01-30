@@ -5,6 +5,7 @@
 ------------------------------------------------------------------------------*/
 
 #include "../transports/httpjob.hpp"
+#include <array>
 #include <boost/filesystem/path.hpp>
 #include "httpurlvalidator.hpp"
 #include "websockettransport.hpp"
@@ -367,21 +368,17 @@ void HttpJob::onHeaderRead(boost::beast::error_code netEc)
                     AdmitResult::rejected(HttpStatus::payloadTooLarge));
     }
 
-    // Send an error response if the server connection limit
+    // Send an error response and disconnect if the server connection limit
     // has been reached.
     if (isShedding_)
     {
         return balk(HttpStatus::serviceUnavailable,
-                    "Connection limit exceeded");
+                    "Connection limit exceeded", true, AdmitResult::shedded());
     }
 
-    // Send an error response if the hostname is invalid.
-    if (routingStatus == RoutingStatus::badTarget || serverBlock_ == nullptr)
-        return balk(HttpStatus::badRequest, "Invalid request-target");
-
-    // Send an error response if the request-target is invalid.
-    if (routingStatus == RoutingStatus::badHost)
-        return balk(HttpStatus::badRequest, "Invalid hostname");
+    // Send an error response if the routing information was invalid.
+    if (routingStatus != RoutingStatus::ok)
+        return sendRoutingError(routingStatus);
 
     // Check if a 100-continue expectation was received
     auto expectField = parser_->get().find(Field::expect);
@@ -463,8 +460,9 @@ void HttpJob::onRequestRead()
 {
     monitor_.endBody();
 
-    // If we already sent a response, discard the request.
-    if (status_ != HttpStatus::none)
+    // If we already sent a response other than 100-continue, discard the
+    // request.
+    if (status_ != HttpStatus::none && status_ != HttpStatus::continueRequest)
     {
         if (keepAlive_)
             start();
@@ -508,10 +506,10 @@ HttpJob::RoutingStatus HttpJob::interpretRoutingInformation()
     if (target_.has_scheme())
     {
         if (target_.scheme_id() != boost::urls::scheme::http)
-                return RoutingStatus::badTarget;
+                return RoutingStatus::badScheme;
 
         if (target_.has_port() && target_.port_number() != settings_->port())
-            return RoutingStatus::badTarget;
+            return RoutingStatus::badPort;
 
         if (target_.has_authority())
             hostName_ = std::string{target_.authority().encoded_host_name()};
@@ -528,11 +526,33 @@ HttpJob::RoutingStatus HttpJob::interpretRoutingInformation()
         return RoutingStatus::badHost;
 
     if (result->has_port() && result->port_number() != settings_->port())
-        return RoutingStatus::badHost;
+        return RoutingStatus::badPort;
 
     hostName_ = std::string{result->encoded_host_name()};
 
     return RoutingStatus::ok;
+}
+
+void HttpJob::sendRoutingError(RoutingStatus s)
+{
+    switch (s)
+    {
+    case RoutingStatus::badHost:
+        return balk(HttpStatus::badRequest, "Invalid hostname");
+
+    case RoutingStatus::badTarget:
+        return balk(HttpStatus::badRequest, "Invalid request-target");
+
+    case RoutingStatus::badScheme:
+        return balk(HttpStatus::misdirectedRequest, "Invalid scheme");
+
+    case RoutingStatus::badPort:
+        return balk(HttpStatus::misdirectedRequest, "Invalid port");
+
+    default:
+        assert(false && "Unexpected RoutingStatus enumerator");
+        break;
+    }
 }
 
 bool HttpJob::checkRead(boost::system::error_code netEc)
@@ -614,6 +634,9 @@ void HttpJob::report(HttpStatus status)
         info.options.emplace("method",
                              std::string{hdr.method_string()});
     }
+
+    if (status_ == HttpStatus::continueRequest)
+        info.options.emplace("Expect", "100-continue");
 
     auto upgradeField = hdr.find(Field::upgrade);
     if (upgradeField != hdr.end())

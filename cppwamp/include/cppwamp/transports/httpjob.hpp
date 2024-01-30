@@ -103,7 +103,10 @@ private:
     {
         ok,
         badHost,
-        badTarget
+        badTarget,
+        badScheme,
+        badPort,
+        count
     };
 
     static TimePoint steadyTime();
@@ -146,6 +149,8 @@ private:
     void onRequestRead();
 
     RoutingStatus interpretRoutingInformation();
+
+    void sendRoutingError(RoutingStatus s);
 
     bool checkRead(boost::system::error_code netEc);
 

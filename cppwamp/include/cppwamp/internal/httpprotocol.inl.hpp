@@ -107,8 +107,8 @@ CPPWAMP_INLINE const HttpServerTimeouts& HttpServerTimeouts::defaults()
 {
     using std::chrono::seconds;
 
-    static const auto limits = HttpServerTimeouts{}
-        // Using Apache's maxinum RequestReadTimeout for headers
+    static const auto timeouts = HttpServerTimeouts{}
+        // Using Apache's maximum RequestReadTimeout for headers
         .withRequestHeaderTimeout(seconds{40})
 
         // Using Apache's RequestReadTimeout, with 1/8 of ADSL2 5Mbps rate
@@ -122,13 +122,13 @@ CPPWAMP_INLINE const HttpServerTimeouts& HttpServerTimeouts::defaults()
         // Browser defaults: Firefox: 115s, IE: 60s, Chromium: never
         .withKeepaliveTimeout(seconds{75});
 
-    return limits;
+    return timeouts;
 }
 
 CPPWAMP_INLINE HttpServerTimeouts&
 HttpServerTimeouts::withRequestHeaderTimeout(Timeout t)
 {
-    keepaliveTimeout_ = internal::checkTimeout(t);
+    requestHeaderTimeout_ = internal::checkTimeout(t);
     return *this;
 }
 
@@ -458,6 +458,7 @@ CPPWAMP_INLINE const HttpServerOptions& HttpServerOptions::defaults()
     static const auto options = HttpServerOptions{}
         .withFileServingOptions(HttpFileServingOptions::defaults())
         .withLimits(HttpServerLimits::defaults())
+        .withTimeouts(HttpServerTimeouts::defaults())
         .withAgent(Version::serverAgentString());
 
     return options;
@@ -539,6 +540,7 @@ HttpServerOptions::merge(const HttpServerOptions& options)
 {
     fileServingOptions_.merge(options.fileServingOptions());
     limits_.merge(options.limits());
+    timeouts_.merge(options.timeouts());
     if (agent_.empty())
         agent_ = options.agent();
 }

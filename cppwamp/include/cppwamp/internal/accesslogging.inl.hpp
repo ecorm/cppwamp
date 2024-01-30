@@ -298,7 +298,7 @@ CPPWAMP_INLINE AccessLogEntry::AccessLogEntry(
     The following format is used:
     ```
     YYYY-MM-DDTHH:MM:SS.sss | server name | server session index |
-    transport endpoint | realm URI | authid | agent |
+    transport endpoint | realm URI (or hostname) | authid | agent |
     request ID | action | target URI | error URI | {action options}
     ```
     If the entry corresponds to an HTTP request, then the Host field is used
