@@ -459,9 +459,9 @@ public:
         // it in boost::optional.
         // https://github.com/boostorg/beast/issues/971#issuecomment-356306911
         requestParser_.emplace();
-        const auto httpRequestHeaderSizeLimit = settings_->limits().httpRequestHeaderSize();
-        if (httpRequestHeaderSizeLimit != 0)
-            requestParser_->header_limit(httpRequestHeaderSizeLimit);
+        const auto requestHeaderSizeLimit = settings_->limits().requestHeaderSize();
+        if (requestHeaderSizeLimit != 0)
+            requestParser_->header_limit(requestHeaderSizeLimit);
 
         auto self = shared_from_this();
         boost::beast::http::async_read(

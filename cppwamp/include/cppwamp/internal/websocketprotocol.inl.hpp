@@ -199,9 +199,9 @@ WebsocketOptions::permessageDeflate() const
 //******************************************************************************
 
 CPPWAMP_INLINE WebsocketClientLimits&
-WebsocketClientLimits::withHttpRequestHeaderSize(std::size_t n)
+WebsocketClientLimits::withRequestHeaderSize(std::size_t n)
 {
-    httpRequestHeaderSize_ = n;
+    requestHeaderSize_ = n;
     return *this;
 }
 
@@ -219,9 +219,9 @@ WebsocketClientLimits::withWebsocketReadIncrement(std::size_t n)
     return *this;
 }
 
-CPPWAMP_INLINE std::size_t WebsocketClientLimits::httpRequestHeaderSize() const
+CPPWAMP_INLINE std::size_t WebsocketClientLimits::requestHeaderSize() const
 {
-    return httpRequestHeaderSize_;
+    return requestHeaderSize_;
 }
 
 CPPWAMP_INLINE std::size_t
@@ -287,9 +287,9 @@ CPPWAMP_INLINE const WebsocketOptions& WebsocketHost::options() const
 //******************************************************************************
 
 CPPWAMP_INLINE WebsocketServerLimits&
-WebsocketServerLimits::withHttpRequestHeaderSize(std::size_t n)
+WebsocketServerLimits::withRequestHeaderSize(std::size_t n)
 {
-    httpRequestHeaderSize_ = n;
+    requestHeaderSize_ = n;
     return *this;
 }
 
@@ -307,9 +307,9 @@ WebsocketServerLimits::withWebsocketReadIncrement(std::size_t n)
     return *this;
 }
 
-CPPWAMP_INLINE std::size_t WebsocketServerLimits::httpRequestHeaderSize() const
+CPPWAMP_INLINE std::size_t WebsocketServerLimits::requestHeaderSize() const
 {
-    return httpRequestHeaderSize_;
+    return requestHeaderSize_;
 }
 
 CPPWAMP_INLINE std::size_t

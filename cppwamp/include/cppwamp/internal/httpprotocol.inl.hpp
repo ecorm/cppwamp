@@ -5,6 +5,7 @@
 ------------------------------------------------------------------------------*/
 
 #include "../transports/httpprotocol.hpp"
+#include <cctype>
 #include <utility>
 #include "../api.hpp"
 #include "../exceptions.hpp"
@@ -17,22 +18,35 @@ namespace wamp
 // HttpServerLimits
 //******************************************************************************
 
-CPPWAMP_INLINE HttpServerLimits&
-HttpServerLimits::withHttpRequestHeaderSize(std::size_t n)
+CPPWAMP_INLINE const HttpServerLimits& HttpServerLimits::defaults()
 {
-    Base::withHttpRequestHeaderSize(n);
+    using std::chrono::seconds;
+
+    static const auto limits = HttpServerLimits{}
+        .withRequestHeaderSize(8192)    // Default for Boost.Beast and NGINX
+        .withRequestBodySize(1024*1024) // Default for Boost.Beast and NGINX
+        .withRequestBodyIncrement(4096) // Using Linux page size
+        .withResponseIncrement(4096);   // Using Linux page size
+
+    return limits;
+}
+
+CPPWAMP_INLINE HttpServerLimits&
+HttpServerLimits::withRequestHeaderSize(std::size_t n)
+{
+    requestHeaderSize_ = n;
     return *this;
 }
 
 CPPWAMP_INLINE HttpServerLimits&
-HttpServerLimits::withHttpRequestBodySize(std::size_t n)
+HttpServerLimits::withRequestBodySize(std::size_t n)
 {
     requestBodySize_ = n;
     return *this;
 }
 
 CPPWAMP_INLINE HttpServerLimits&
-HttpServerLimits::withHttpRequestBodyIncrement(std::size_t n)
+HttpServerLimits::withRequestBodyIncrement(std::size_t n)
 {
     requestBodyIncrement_ = n;
     return *this;
@@ -41,86 +55,147 @@ HttpServerLimits::withHttpRequestBodyIncrement(std::size_t n)
 /** @note Boost.Beast will clamp this to `BOOST_BEAST_FILE_BUFFER_SIZE=4096`
           for `file_body` responses. */
 CPPWAMP_INLINE HttpServerLimits&
-HttpServerLimits::withHttpResponseIncrement(std::size_t n)
+HttpServerLimits::withResponseIncrement(std::size_t n)
 {
     responseIncrement_ = n;
     return *this;
 }
 
-CPPWAMP_INLINE HttpServerLimits&
-HttpServerLimits::withHttpRequestHeaderTimeout(Timeout t)
+CPPWAMP_INLINE std::size_t HttpServerLimits::requestHeaderSize() const
+{
+    return requestHeaderSize_;
+}
+
+CPPWAMP_INLINE std::size_t HttpServerLimits::requestBodySize() const
+{
+    return requestBodySize_;
+}
+
+CPPWAMP_INLINE std::size_t
+HttpServerLimits::requestBodyIncrement() const
+{
+    return requestBodyIncrement_;
+}
+
+CPPWAMP_INLINE std::size_t HttpServerLimits::responseIncrement() const
+{
+    return responseIncrement_;
+}
+
+CPPWAMP_INLINE void
+HttpServerLimits::merge(const HttpServerLimits& limits)
+{
+    doMerge(requestHeaderSize_,    limits.requestHeaderSize_,    0);
+    doMerge(requestBodySize_,      limits.requestBodySize_,      0);
+    doMerge(requestBodyIncrement_, limits.requestBodyIncrement_, 0);
+    doMerge(responseIncrement_,    limits.responseIncrement_,    0);
+}
+
+template <typename T, typename U>
+void HttpServerLimits::doMerge(T& member, T limit, U nullValue)
+{
+    if (member == nullValue)
+        member = limit;
+}
+
+
+//******************************************************************************
+// HttpServerTimeouts
+//******************************************************************************
+
+CPPWAMP_INLINE const HttpServerTimeouts& HttpServerTimeouts::defaults()
+{
+    using std::chrono::seconds;
+
+    static const auto limits = HttpServerTimeouts{}
+        // Using Apache's maxinum RequestReadTimeout for headers
+        .withRequestHeaderTimeout(seconds{40})
+
+        // Using Apache's RequestReadTimeout, with 1/8 of ADSL2 5Mbps rate
+        .withResponseTimeout({seconds{20}, 80*1024})
+
+        // Using Apache's RequestReadTimeout, with ~1/4 of ADSL2 0.8Mbps rate
+        .withRequestBodyTimeout({seconds{20}, 24*1024})
+
+        // NGINX's keepalive_timeout of 75s
+        // Apache default: 5s
+        // Browser defaults: Firefox: 115s, IE: 60s, Chromium: never
+        .withKeepaliveTimeout(seconds{75});
+
+    return limits;
+}
+
+CPPWAMP_INLINE HttpServerTimeouts&
+HttpServerTimeouts::withRequestHeaderTimeout(Timeout t)
 {
     keepaliveTimeout_ = internal::checkTimeout(t);
     return *this;
 }
 
-CPPWAMP_INLINE HttpServerLimits&
-HttpServerLimits::withHttpRequestBodyTimeout(IncrementalTimeout t)
+CPPWAMP_INLINE HttpServerTimeouts&
+HttpServerTimeouts::withRequestBodyTimeout(IncrementalTimeout t)
 {
     requestBodyTimeout_ = t.validate();
     return *this;
 }
 
-CPPWAMP_INLINE HttpServerLimits&
-HttpServerLimits::withHttpResponseTimeout(IncrementalTimeout t)
+CPPWAMP_INLINE HttpServerTimeouts&
+HttpServerTimeouts::withResponseTimeout(IncrementalTimeout t)
 {
     responseTimeout_ = t.validate();
     return *this;
 }
 
-CPPWAMP_INLINE HttpServerLimits&
-HttpServerLimits::withHttpKeepaliveTimeout(Timeout t)
+CPPWAMP_INLINE HttpServerTimeouts&
+HttpServerTimeouts::withKeepaliveTimeout(Timeout t)
 {
     keepaliveTimeout_ = internal::checkTimeout(t);
     return *this;
 }
 
-CPPWAMP_INLINE std::size_t HttpServerLimits::httpRequestHeaderSize() const
-{
-    return Base::httpRequestHeaderSize();
-}
-
-CPPWAMP_INLINE std::size_t HttpServerLimits::httpRequestBodySize() const
-{
-    return requestBodySize_;
-}
-
-CPPWAMP_INLINE std::size_t HttpServerLimits::httpRequestBodyIncrement() const
-{
-    return requestBodyIncrement_;
-}
-
-CPPWAMP_INLINE std::size_t HttpServerLimits::httpResponseIncrement() const
-{
-    return responseIncrement_;
-}
-
-CPPWAMP_INLINE Timeout HttpServerLimits::httpRequestHeaderTimeout() const
+CPPWAMP_INLINE Timeout HttpServerTimeouts::requestHeaderTimeout() const
 {
     return requestHeaderTimeout_;
 }
 
 CPPWAMP_INLINE const IncrementalTimeout&
-HttpServerLimits::httpBodyTimeout() const
+HttpServerTimeouts::requestBodyTimeout() const
 {
     return requestBodyTimeout_;
 }
 
 CPPWAMP_INLINE const IncrementalTimeout&
-HttpServerLimits::httpResponseTimeout() const
+HttpServerTimeouts::responseTimeout() const
 {
     return responseTimeout_;
 }
 
-CPPWAMP_INLINE Timeout HttpServerLimits::httpKeepaliveTimeout() const
+CPPWAMP_INLINE Timeout HttpServerTimeouts::keepaliveTimeout() const
 {
     return keepaliveTimeout_;
 }
 
-CPPWAMP_INLINE WebsocketServerLimits HttpServerLimits::toWebsocket() const
+CPPWAMP_INLINE Timeout HttpServerTimeouts::lingerTimeout() const
 {
-    // Intentionally slice
-    return static_cast<WebsocketServerLimits>(*this);
+    return lingerTimeout_;
+}
+
+CPPWAMP_INLINE void
+HttpServerTimeouts::merge(const HttpServerTimeouts& limits)
+{
+    if (!responseTimeout_.isSpecified())
+        responseTimeout_ = limits.responseTimeout_;
+    if (!requestBodyTimeout_.isSpecified())
+        responseTimeout_ = limits.requestBodyTimeout_;
+    doMerge(requestHeaderTimeout_, limits.requestHeaderTimeout_, unspecifiedTimeout);
+    doMerge(keepaliveTimeout_,     limits.keepaliveTimeout_,     unspecifiedTimeout);
+}
+
+template <typename T, typename U>
+void HttpServerTimeouts::doMerge(T& member, T limit, U nullValue)
+{
+    if (member == nullValue)
+        member = limit;
 }
 
 
@@ -226,33 +301,47 @@ CPPWAMP_INLINE bool HttpErrorPage::isRedirect() const
 // HttpFileServingOptions
 //******************************************************************************
 
+CPPWAMP_INLINE const HttpFileServingOptions& HttpFileServingOptions::defaults()
+{
+    static const auto options = HttpFileServingOptions{}
+            .withIndexFileName("index.html")
+            .withAutoIndex(false)
+#ifdef _WIN32
+            .withDocumentRoot("C:/web/html");
+#else
+            .withDocumentRoot("/var/wwww/html");
+#endif
+
+    return options;
+}
+
 CPPWAMP_INLINE std::string
 HttpFileServingOptions::defaultMimeType(const std::string& extension)
 {
     static const std::map<std::string, std::string> table =
-        {
-            {".bmp",  "image/bmp"},
-            {".css",  "text/css"},
-            {".flv",  "video/x-flv"},
-            {".gif",  "image/gif"},
-            {".htm",  "text/html"},
-            {".html", "text/html"},
-            {".ico",  "image/vnd.microsoft.icon"},
-            {".jpe",  "image/jpeg"},
-            {".jpeg", "image/jpeg"},
-            {".jpg",  "image/jpeg"},
-            {".js",   "application/javascript"},
-            {".json", "application/json"},
-            {".php",  "text/html"},
-            {".png",  "image/png"},
-            {".svg",  "image/svg+xml"},
-            {".svgz", "image/svg+xml"},
-            {".swf",  "application/x-shockwave-flash"},
-            {".tif",  "image/tiff"},
-            {".tiff", "image/tiff"},
-            {".txt",  "text/plain"},
-            {".xml",  "application/xml"}
-        };
+    {
+        {".bmp",  "image/bmp"},
+        {".css",  "text/css"},
+        {".flv",  "video/x-flv"},
+        {".gif",  "image/gif"},
+        {".htm",  "text/html"},
+        {".html", "text/html"},
+        {".ico",  "image/vnd.microsoft.icon"},
+        {".jpe",  "image/jpeg"},
+        {".jpeg", "image/jpeg"},
+        {".jpg",  "image/jpeg"},
+        {".js",   "application/javascript"},
+        {".json", "application/json"},
+        {".php",  "text/html"},
+        {".png",  "image/png"},
+        {".svg",  "image/svg+xml"},
+        {".svgz", "image/svg+xml"},
+        {".swf",  "application/x-shockwave-flash"},
+        {".tif",  "image/tiff"},
+        {".tiff", "image/tiff"},
+        {".txt",  "text/plain"},
+        {".xml",  "application/xml"}
+    };
 
     auto found = table.find(extension);
     if (found != table.end())
@@ -337,7 +426,7 @@ HttpFileServingOptions::lookupMimeType(const std::string& extension) const
 }
 
 CPPWAMP_INLINE void
-HttpFileServingOptions::applyFallback(const HttpFileServingOptions& opts)
+HttpFileServingOptions::merge(const HttpFileServingOptions& opts)
 {
     if (documentRoot_.empty())
         documentRoot_ = opts.documentRoot_;
@@ -359,120 +448,146 @@ CPPWAMP_INLINE char HttpFileServingOptions::toLower(char c)
     return c;
 }
 
+
 //******************************************************************************
-// HttpEndpoint
+// HttpServerOptions
 //******************************************************************************
 
-CPPWAMP_INLINE HttpEndpoint::HttpEndpoint(Port port)
-    : HttpEndpoint("", port)
-{}
-
-CPPWAMP_INLINE HttpEndpoint::HttpEndpoint(std::string address,
-                                          unsigned short port)
-    : Base(std::move(address), port),
-      fileServingOptions_(defaultFileServingOptions()),
-      agent_(Version::serverAgentString())
-
+CPPWAMP_INLINE const HttpServerOptions& HttpServerOptions::defaults()
 {
-    mutableAcceptorOptions().withReuseAddress(true);
-    fileServingOptions_.withIndexFileName("index.html")
-                       .withAutoIndex(false);
-#ifdef _WIN32
-    fileServingOptions_.withDocumentRoot("C:/web/html");
-#else
-    fileServingOptions_.withDocumentRoot("/var/wwww/html");
-#endif
+    static const auto options = HttpServerOptions{}
+        .withFileServingOptions(HttpFileServingOptions::defaults())
+        .withLimits(HttpServerLimits::defaults())
+        .withAgent(Version::serverAgentString());
+
+    return options;
 }
 
-CPPWAMP_INLINE HttpEndpoint&
-HttpEndpoint::withFileServingOptions(HttpFileServingOptions options)
-{
-    fileServingOptions_ = std::move(options);
-    fileServingOptions_.applyFallback(defaultFileServingOptions());
-    return *this;
-}
-
-CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withAgent(std::string agent)
+CPPWAMP_INLINE HttpServerOptions& HttpServerOptions::withAgent(std::string agent)
 {
     agent_ = std::move(agent);
     return *this;
 }
 
-CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::withLimits(HttpServerLimits limits)
+CPPWAMP_INLINE HttpServerOptions&
+HttpServerOptions::withFileServingOptions(HttpFileServingOptions options)
+{
+    fileServingOptions_ = std::move(options);
+    fileServingOptions_.merge(HttpFileServingOptions::defaults());
+    return *this;
+}
+
+CPPWAMP_INLINE HttpServerOptions&
+HttpServerOptions::withLimits(HttpServerLimits limits)
 {
     limits_ = limits;
     return *this;
 }
 
-/** @pre `static_cast<unsigned>(page) >= 400`
-    @pre `!uri.empty` */
-CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::addErrorPage(HttpErrorPage page)
+CPPWAMP_INLINE HttpServerOptions&
+HttpServerOptions::withTimeouts(HttpServerTimeouts timeouts)
+{
+    timeouts_ = timeouts;
+    return *this;
+}
+
+CPPWAMP_INLINE HttpServerOptions&
+HttpServerOptions::addErrorPage(HttpErrorPage page)
 {
     auto key = page.key();
     errorPages_[key] = std::move(page);
     return *this;
 }
 
-CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::addExactRoute(AnyHttpAction action)
+CPPWAMP_INLINE const std::string& HttpServerOptions::agent() const
+{
+    return agent_;
+}
+
+CPPWAMP_INLINE const HttpFileServingOptions&
+HttpServerOptions::fileServingOptions() const
+{
+    return fileServingOptions_;
+}
+
+CPPWAMP_INLINE const HttpServerLimits& HttpServerOptions::limits() const
+{
+    return limits_;
+}
+
+CPPWAMP_INLINE HttpServerLimits& HttpServerOptions::limits() {return limits_;}
+
+CPPWAMP_INLINE const HttpServerTimeouts& HttpServerOptions::timeouts() const
+{
+    return timeouts_;
+}
+
+CPPWAMP_INLINE HttpServerTimeouts& HttpServerOptions::timeouts()
+{
+    return timeouts_;
+}
+
+CPPWAMP_INLINE const HttpErrorPage*
+HttpServerOptions::findErrorPage(HttpStatus status) const
+{
+    auto found = errorPages_.find(status);
+    return found == errorPages_.end() ? nullptr : &(found->second);
+}
+
+CPPWAMP_INLINE void
+HttpServerOptions::merge(const HttpServerOptions& options)
+{
+    fileServingOptions_.merge(options.fileServingOptions());
+    limits_.merge(options.limits());
+    if (agent_.empty())
+        agent_ = options.agent();
+}
+
+
+//******************************************************************************
+// HttpServerBlock
+//******************************************************************************
+
+CPPWAMP_INLINE HttpServerBlock::HttpServerBlock(std::string hostName)
+    : hostName_(std::move(hostName))
+{}
+
+CPPWAMP_INLINE HttpServerBlock&
+HttpServerBlock::withOptions(HttpServerOptions options)
+{
+    options_ = std::move(options);
+    return *this;
+}
+
+CPPWAMP_INLINE HttpServerBlock&
+HttpServerBlock::addExactRoute(AnyHttpAction action)
 {
     auto key = action.route();
     actionsByExactKey_[std::move(key)] = std::move(action);
     return *this;
 }
 
-CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::addPrefixRoute(AnyHttpAction action)
+CPPWAMP_INLINE HttpServerBlock&
+HttpServerBlock::addPrefixRoute(AnyHttpAction action)
 {
     auto key = action.route();
     actionsByPrefixKey_[std::move(key)] = std::move(action);
     return *this;
 }
 
-CPPWAMP_INLINE const HttpFileServingOptions&
-HttpEndpoint::fileServingOptions() const
+CPPWAMP_INLINE const std::string& HttpServerBlock::hostName() const
 {
-    return fileServingOptions_;
+    return hostName_;
 }
 
-CPPWAMP_INLINE const std::string& HttpEndpoint::agent() const {return agent_;}
-
-CPPWAMP_INLINE const HttpServerLimits& HttpEndpoint::limits() const
+CPPWAMP_INLINE const HttpServerOptions& HttpServerBlock::options() const
 {
-    return limits_;
+    return options_;
 }
 
-CPPWAMP_INLINE HttpServerLimits& HttpEndpoint::limits() {return limits_;}
+CPPWAMP_INLINE HttpServerOptions& HttpServerBlock::options() {return options_;}
 
-CPPWAMP_INLINE std::string HttpEndpoint::label() const
-{
-    auto portString = std::to_string(port());
-    if (address().empty())
-        return "HTTP Port " + portString;
-    return "HTTP " + address() + ':' + portString;
-}
-
-CPPWAMP_INLINE const HttpErrorPage*
-HttpEndpoint::findErrorPage(HttpStatus status) const
-{
-    auto found = errorPages_.find(status);
-    return found == errorPages_.end() ? nullptr : &(found->second);
-}
-
-CPPWAMP_INLINE const HttpFileServingOptions&
-HttpEndpoint::defaultFileServingOptions()
-{
-    static const auto options = HttpFileServingOptions{}
-        .withIndexFileName("index.html")
-        .withAutoIndex(false)
-#ifdef _WIN32
-        .withDocumentRoot("C:/web/html");
-#else
-        .withDocumentRoot("/var/wwww/html");
-#endif
-
-    return options;
-}
-
-CPPWAMP_INLINE AnyHttpAction* HttpEndpoint::doFindAction(const char* target)
+CPPWAMP_INLINE AnyHttpAction* HttpServerBlock::doFindAction(const char* target)
 {
     {
         auto found = actionsByExactKey_.find(target);
@@ -487,6 +602,104 @@ CPPWAMP_INLINE AnyHttpAction* HttpEndpoint::doFindAction(const char* target)
     }
 
     return nullptr;
+}
+
+CPPWAMP_INLINE void HttpServerBlock::initialize(
+    internal::PassKey, const HttpServerOptions& parentOptions)
+{
+    options_.merge(parentOptions);
+    for (auto& a: actionsByExactKey_)
+        a.initialize({}, options_);
+    for (auto& a: actionsByPrefixKey_)
+        a.initialize({}, options_);
+}
+
+
+//******************************************************************************
+// HttpListenerLimits
+//******************************************************************************
+
+HttpListenerLimits& HttpListenerLimits::withBacklogCapacity(int capacity)
+{
+    backlogCapacity_ = capacity;
+    return *this;
+}
+
+int HttpListenerLimits::backlogCapacity() const {return backlogCapacity_;}
+
+
+//******************************************************************************
+// HttpEndpoint
+//******************************************************************************
+
+CPPWAMP_INLINE HttpEndpoint::HttpEndpoint(Port port)
+    : HttpEndpoint("", port)
+{}
+
+CPPWAMP_INLINE HttpEndpoint::HttpEndpoint(std::string address,
+                                          unsigned short port)
+    : Base(std::move(address), port)
+
+{
+    mutableAcceptorOptions().withReuseAddress(true);
+}
+
+CPPWAMP_INLINE HttpEndpoint&
+HttpEndpoint::withOptions(HttpServerOptions options)
+{
+    options_ = std::move(options);
+    return *this;
+}
+
+CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::addBlock(HttpServerBlock block)
+{
+    auto key = block.hostName();
+    toLowercase(key);
+    serverBlocks_[std::move(key)] = std::move(block);
+    return *this;
+}
+
+CPPWAMP_INLINE const HttpServerOptions& HttpEndpoint::options() const
+{
+    return options_;
+}
+
+CPPWAMP_INLINE HttpServerOptions& HttpEndpoint::options() {return options_;}
+
+CPPWAMP_INLINE HttpServerBlock* HttpEndpoint::findBlock(std::string hostName)
+{
+    toLowercase(hostName);
+    auto found = serverBlocks_.find(hostName);
+    if (found != serverBlocks_.end())
+        return &found->second;
+
+    static const std::string empty;
+    found = serverBlocks_.find(empty);
+    if (found != serverBlocks_.end())
+        return &found->second;
+
+    return nullptr;
+}
+
+CPPWAMP_INLINE std::string HttpEndpoint::label() const
+{
+    auto portString = std::to_string(port());
+    if (address().empty())
+        return "HTTP Port " + portString;
+    return "HTTP " + address() + ':' + portString;
+}
+
+CPPWAMP_INLINE void HttpEndpoint::toLowercase(std::string& str)
+{
+    for (auto& c: str)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+}
+
+CPPWAMP_INLINE void HttpEndpoint::initialize(internal::PassKey)
+{
+    options_.merge(HttpServerOptions::defaults());
+    for (auto& kv: serverBlocks_)
+        kv.second.initialize({}, options_);
 }
 
 } // namespace wamp

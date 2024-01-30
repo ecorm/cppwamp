@@ -18,6 +18,7 @@
 #include "../asiodefs.hpp"
 #include "../listener.hpp"
 #include "httpprotocol.hpp"
+#include "websocketprotocol.hpp"
 
 // TODO: HTTPS
 // TODO: HTTP compression
@@ -32,18 +33,18 @@ class HttpJob;
 //------------------------------------------------------------------------------
 /** Options for serving static files via HTTP. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API HttpServeStaticFiles
+class CPPWAMP_API HttpServeFiles
 {
 public:
     /** Constructor. */
-    explicit HttpServeStaticFiles(std::string route);
+    explicit HttpServeFiles(std::string route);
 
     /** Specifies that the route portion of the target path should be
         substituted with the given alias. */
-    HttpServeStaticFiles& withAlias(std::string alias);
+    HttpServeFiles& withAlias(std::string alias);
 
     /** Specifies the file serving options. */
-    HttpServeStaticFiles& withOptions(HttpFileServingOptions options);
+    HttpServeFiles& withOptions(HttpFileServingOptions options);
 
     /** Obtains the route associated with this action. */
     const std::string& route() const;
@@ -58,7 +59,7 @@ public:
     const HttpFileServingOptions& options() const;
 
     /** Applies the given options as default for members that are not set. */
-    void applyFallbackOptions(const HttpFileServingOptions& fallback);
+    void mergeOptions(const HttpFileServingOptions& fallback);
 
 private:
     std::string route_;
@@ -147,27 +148,27 @@ private:
 namespace internal
 {
 
-class HttpServeStaticFilesImpl;
+class HttpServeFilesImpl;
 
 //------------------------------------------------------------------------------
 template <>
-class HttpAction<HttpServeStaticFiles>
+class HttpAction<HttpServeFiles>
 {
 public:
-    explicit HttpAction(HttpServeStaticFiles properties);
+    explicit HttpAction(HttpServeFiles properties);
 
     ~HttpAction();
 
     std::string route() const;
 
-    void initialize(const HttpEndpoint& settings);
+    void initialize(const HttpServerOptions& options);
 
     void expect(HttpJob& job);
 
     void execute(HttpJob& job);
 
 private:
-    std::unique_ptr<HttpServeStaticFilesImpl> impl_;
+    std::unique_ptr<HttpServeFilesImpl> impl_;
 };
 
 //------------------------------------------------------------------------------
@@ -179,7 +180,7 @@ public:
 
     std::string route() const;
 
-    void initialize(const HttpEndpoint& settings);
+    void initialize(const HttpServerOptions& options);
 
     void expect(HttpJob& job);
 

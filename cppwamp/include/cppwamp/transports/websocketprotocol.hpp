@@ -167,20 +167,20 @@ class CPPWAMP_API WebsocketClientLimits
     : public BasicClientTransportLimits<WebsocketClientLimits>
 {
 public:
-    WebsocketClientLimits& withHttpRequestHeaderSize(std::size_t n);
+    WebsocketClientLimits& withRequestHeaderSize(std::size_t n);
 
     WebsocketClientLimits& withWebsocketWriteIncrement(std::size_t n);
 
     WebsocketClientLimits& withWebsocketReadIncrement(std::size_t n);
 
-    std::size_t httpRequestHeaderSize() const;
+    std::size_t requestHeaderSize() const;
 
     std::size_t websocketWriteIncrement() const;
 
     std::size_t websocketReadIncrement() const;
 
 private:
-    std::size_t httpRequestHeaderSize_ = 8192;   // Default used by Boost.Beast
+    std::size_t requestHeaderSize_ = 8192;   // Default used by Boost.Beast
     std::size_t websocketWriteIncrement_ = 4096; // Default used by Boost.Beast
     std::size_t websocketReadIncrement_ = 4096;  // Using websocketWriteIncrement_
 };
@@ -234,20 +234,20 @@ class CPPWAMP_API WebsocketServerLimits
     : public BasicServerTransportLimits<WebsocketServerLimits>
 {
 public:
-    WebsocketServerLimits& withHttpRequestHeaderSize(std::size_t n);
+    WebsocketServerLimits& withRequestHeaderSize(std::size_t n);
 
     WebsocketServerLimits& withWebsocketWriteIncrement(std::size_t n);
 
     WebsocketServerLimits& withWebsocketReadIncrement(std::size_t n);
 
-    std::size_t httpRequestHeaderSize() const;
+    std::size_t requestHeaderSize() const;
 
     std::size_t websocketWriteIncrement() const;
 
     std::size_t websocketReadIncrement() const;
 
 private:
-    std::size_t httpRequestHeaderSize_ = 8192;   // Default used by Boost.Beast
+    std::size_t requestHeaderSize_ = 8192;   // Default used by Boost.Beast
     std::size_t websocketWriteIncrement_ = 4096; // Default used by Boost.Beast
     std::size_t websocketReadIncrement_ = 4096;  // Using websocketWriteIncrement_
 };

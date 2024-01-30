@@ -18,52 +18,51 @@ namespace wamp
 {
 
 //******************************************************************************
-// HttpServeStaticFiles
+// HttpServeFiles
 //******************************************************************************
 
-CPPWAMP_INLINE HttpServeStaticFiles::HttpServeStaticFiles(std::string route)
+CPPWAMP_INLINE HttpServeFiles::HttpServeFiles(std::string route)
     : route_(std::move(route))
 {}
 
 /** @post `this->alias() == alias`
     @post `this->hasAlias() == true` */
-CPPWAMP_INLINE HttpServeStaticFiles&
-HttpServeStaticFiles::withAlias(std::string alias)
+CPPWAMP_INLINE HttpServeFiles&
+HttpServeFiles::withAlias(std::string alias)
 {
     alias_ = std::move(alias);
     hasAlias_ = true;
     return *this;
 }
 
-CPPWAMP_INLINE HttpServeStaticFiles&
-HttpServeStaticFiles::withOptions(HttpFileServingOptions options)
+CPPWAMP_INLINE HttpServeFiles&
+HttpServeFiles::withOptions(HttpFileServingOptions options)
 {
     options_ = std::move(options);
     return *this;
 }
 
-CPPWAMP_INLINE const std::string& HttpServeStaticFiles::route() const
+CPPWAMP_INLINE const std::string& HttpServeFiles::route() const
 {
     return route_;
 }
 
-CPPWAMP_INLINE bool HttpServeStaticFiles::hasAlias() const {return hasAlias_;}
+CPPWAMP_INLINE bool HttpServeFiles::hasAlias() const {return hasAlias_;}
 
-CPPWAMP_INLINE const std::string& HttpServeStaticFiles::alias() const
+CPPWAMP_INLINE const std::string& HttpServeFiles::alias() const
 {
     return alias_;
 }
 
-CPPWAMP_INLINE const HttpFileServingOptions&
-HttpServeStaticFiles::options() const
+CPPWAMP_INLINE const HttpFileServingOptions& HttpServeFiles::options() const
 {
     return options_;
 }
 
-CPPWAMP_INLINE void HttpServeStaticFiles::applyFallbackOptions(
-    const HttpFileServingOptions& fallback)
+CPPWAMP_INLINE void
+HttpServeFiles::mergeOptions(const HttpFileServingOptions& fallback)
 {
-    options_.applyFallback(fallback);
+    options_.merge(fallback);
 }
 
 
@@ -363,23 +362,23 @@ private:
 };
 
 //******************************************************************************
-// HttpServeStaticFiles
+// HttpServeFiles
 //******************************************************************************
 
-class HttpServeStaticFilesImpl
+class HttpServeFilesImpl
 {
 public:
-    using Properties = HttpServeStaticFiles;
+    using Properties = HttpServeFiles;
 
-    HttpServeStaticFilesImpl(const Properties& properties)
+    HttpServeFilesImpl(const Properties& properties)
         : properties_(properties)
     {}
 
     const Properties& properties() const {return properties_;}
 
-    void init(const HttpEndpoint& settings)
+    void init(const HttpServerOptions& options)
     {
-        properties_.applyFallbackOptions(settings.fileServingOptions());
+        properties_.mergeOptions(options.fileServingOptions());
     }
 
     void expect(HttpJob& job)
@@ -400,7 +399,7 @@ public:
         if (!stat(job, absolutePath_, status))
             return;
         if (!fs::exists(status))
-            return job.balk(HttpStatus::notFound);
+            return job.balk(HttpStatus::notFound, {}, false);
 
         bool isDirectory = fs::is_directory(status);
         if (isDirectory)
@@ -412,7 +411,7 @@ public:
             if (!fs::exists(status))
             {
                 if (!autoIndex())
-                    return job.balk(HttpStatus::notFound);
+                    return job.balk(HttpStatus::notFound, {}, false);
                 absolutePath_.remove_filename();
                 auto ec = HttpServeDirectoryListing::list(job, absolutePath_);
                 check(job, ec, "list directory");
@@ -446,7 +445,7 @@ private:
         const auto& hdr = job.header();
         if (boost::beast::websocket::is_upgrade(hdr))
         {
-            job.balk(HttpStatus::badRequest, "Not a Websocket resource", true);
+            job.balk(HttpStatus::badRequest, "Not a Websocket resource");
             return false;
         }
 
@@ -460,23 +459,13 @@ private:
             return false;
         }
 
-        // Reject proxying requests
-        // TODO: Check if absolute URI domain matches server name or alias
-        const auto& target = job.target();
-        if (target.has_scheme() || target.has_authority())
-        {
-            job.balk(HttpStatus::badRequest, "Not configured for proxying",
-                     true);
-            return false;
-        }
-
         // Reject target paths that contain dot-dot segments which can allow
-        // access filesystem access outside the document root.
-        for (const auto& segment: target.segments())
+        // filesystem access outside the document root.
+        for (const auto& segment: job.target().segments())
         {
             if (segment == "..")
             {
-                job.balk(HttpStatus::badRequest, "Invalid target path", true);
+                job.balk(HttpStatus::badRequest, "Invalid target path", false);
                 return false;
             }
         }
@@ -588,39 +577,39 @@ private:
             false, AdmitResult::failed(ec, operation));
     }
 
-    HttpServeStaticFiles properties_;
+    HttpServeFiles properties_;
     Path absolutePath_;
 };
 
 
 //******************************************************************************
-// HttpAction<HttpServeStaticFiles>
+// HttpAction<HttpServeFiles>
 //******************************************************************************
 
 CPPWAMP_INLINE
-HttpAction<HttpServeStaticFiles>::HttpAction(HttpServeStaticFiles properties)
-    : impl_(new HttpServeStaticFilesImpl(std::move(properties)))
+HttpAction<HttpServeFiles>::HttpAction(HttpServeFiles properties)
+    : impl_(new HttpServeFilesImpl(std::move(properties)))
 {}
 
-CPPWAMP_INLINE HttpAction<HttpServeStaticFiles>::~HttpAction() = default;
+CPPWAMP_INLINE HttpAction<HttpServeFiles>::~HttpAction() = default;
 
-CPPWAMP_INLINE std::string HttpAction<HttpServeStaticFiles>::route() const
+CPPWAMP_INLINE std::string HttpAction<HttpServeFiles>::route() const
 {
     return impl_->properties().route();
 }
 
 CPPWAMP_INLINE void
-HttpAction<HttpServeStaticFiles>::initialize(const HttpEndpoint& settings)
+HttpAction<HttpServeFiles>::initialize(const HttpServerOptions& options)
 {
-    impl_->init(settings);
+    impl_->init(options);
 }
 
-CPPWAMP_INLINE void HttpAction<HttpServeStaticFiles>::expect(HttpJob& job)
+CPPWAMP_INLINE void HttpAction<HttpServeFiles>::expect(HttpJob& job)
 {
     impl_->expect(job);
 }
 
-CPPWAMP_INLINE void HttpAction<HttpServeStaticFiles>::execute(HttpJob& job)
+CPPWAMP_INLINE void HttpAction<HttpServeFiles>::execute(HttpJob& job)
 {
     impl_->execute(job);
 }
@@ -630,8 +619,8 @@ CPPWAMP_INLINE void HttpAction<HttpServeStaticFiles>::execute(HttpJob& job)
 // HttpWebsocketUpgrade
 //******************************************************************************
 
-CPPWAMP_INLINE HttpAction<HttpWebsocketUpgrade>::HttpAction(
-    HttpWebsocketUpgrade properties)
+CPPWAMP_INLINE
+HttpAction<HttpWebsocketUpgrade>::HttpAction(HttpWebsocketUpgrade properties)
     : properties_(properties)
 {}
 
@@ -641,7 +630,8 @@ CPPWAMP_INLINE std::string HttpAction<HttpWebsocketUpgrade>::route() const
 }
 
 CPPWAMP_INLINE void
-HttpAction<HttpWebsocketUpgrade>::initialize(const HttpEndpoint& settings) {}
+HttpAction<HttpWebsocketUpgrade>::initialize(const HttpServerOptions&)
+{}
 
 CPPWAMP_INLINE void HttpAction<HttpWebsocketUpgrade>::expect(HttpJob& job)
 {

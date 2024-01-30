@@ -35,6 +35,8 @@ public:
         added to the mininum timeout. */
     constexpr std::size_t rate() const {return rate_;}
 
+    constexpr bool isSpecified() const {return max_ != unspecifiedTimeout;}
+
     IncrementalTimeout& validate()
     {
         internal::checkTimeout(min_);
@@ -46,7 +48,7 @@ public:
 
 private:
     Timeout min_ = unspecifiedTimeout;
-    Timeout max_ = std::chrono::seconds{15}; // Using ejabber's send_timeout
+    Timeout max_ = unspecifiedTimeout;
     std::size_t rate_ = 0;
 };
 
@@ -170,8 +172,10 @@ private:
 
     TDerived& derived() {return static_cast<TDerived&>(*this);}
 
-    IncrementalTimeout wampReadTimeout_;
-    IncrementalTimeout wampWriteTimeout_;
+    IncrementalTimeout wampReadTimeout_ = {std::chrono::seconds{15}};
+        // Using ejabber's send_timeout
+    IncrementalTimeout wampWriteTimeout_ = {std::chrono::seconds{15}};
+        // Using ejabber's send_timeout
     Timeout wampHandshakeTimeout_ = std::chrono::seconds{30};
         // Using ejabberd's negotiation_timeout
     Timeout wampSilenceTimeout_ = std::chrono::seconds{300};

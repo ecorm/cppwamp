@@ -20,7 +20,6 @@
 #include "httpstatus.hpp"
 #include "socketendpoint.hpp"
 #include "tcpprotocol.hpp"
-#include "websocketprotocol.hpp"
 #include "../internal/passkey.hpp"
 #include "../internal/polymorphichttpaction.hpp"
 
@@ -35,7 +34,7 @@ struct CPPWAMP_API Http
     constexpr Http() = default;
 };
 
-class HttpEndpoint;
+class HttpServerOptions;
 
 
 //------------------------------------------------------------------------------
@@ -75,9 +74,9 @@ private:
     std::shared_ptr<internal::PolymorphicHttpActionInterface> action_;
 
 public: // Internal use only
-    void initialize(internal::PassKey, const HttpEndpoint& settings)
+    void initialize(internal::PassKey, const HttpServerOptions& options)
     {
-        action_->initialize(settings);
+        action_->initialize(options);
     }
 
     // Template needed to break circular dependency with HttpJob
@@ -99,70 +98,82 @@ public: // Internal use only
 
 
 //------------------------------------------------------------------------------
-/** Contains limits for HTTP server transports.
-    The size limits and timeouts inherited from WebsocketServerLimits apply
-    only to Websocket transports resulting from an upgrade request. */
+/** Contains limits for HTTP server blocks. */
+// TODO: Keep-alive enable/disable
 //------------------------------------------------------------------------------
-class CPPWAMP_API HttpServerLimits : public WebsocketServerLimits
+class CPPWAMP_API HttpServerLimits
 {
 public:
-    HttpServerLimits& withHttpRequestHeaderSize(std::size_t n);
+    static const HttpServerLimits& defaults();
 
-    HttpServerLimits& withHttpRequestBodySize(std::size_t n);
+    HttpServerLimits& withRequestHeaderSize(std::size_t n);
 
-    HttpServerLimits& withHttpRequestBodyIncrement(std::size_t n);
+    HttpServerLimits& withRequestBodySize(std::size_t n);
 
-    HttpServerLimits& withHttpResponseIncrement(std::size_t n);
+    HttpServerLimits& withRequestBodyIncrement(std::size_t n);
 
-    HttpServerLimits& withHttpRequestHeaderTimeout(Timeout t);
+    HttpServerLimits& withResponseIncrement(std::size_t n);
 
-    HttpServerLimits& withHttpRequestBodyTimeout(IncrementalTimeout t);
+    std::size_t requestHeaderSize() const;
 
-    HttpServerLimits& withHttpResponseTimeout(IncrementalTimeout t);
+    std::size_t requestBodySize() const;
 
-    HttpServerLimits& withHttpKeepaliveTimeout(Timeout t);
+    std::size_t requestBodyIncrement() const;
 
-    std::size_t httpRequestHeaderSize() const;
+    std::size_t responseIncrement() const;
 
-    std::size_t httpRequestBodySize() const;
-
-    std::size_t httpRequestBodyIncrement() const;
-
-    std::size_t httpResponseIncrement() const;
-
-    Timeout httpRequestHeaderTimeout() const;
-
-    const IncrementalTimeout& httpBodyTimeout() const;
-
-    const IncrementalTimeout& httpResponseTimeout() const;
-
-    Timeout httpKeepaliveTimeout() const;
-
-    WebsocketServerLimits toWebsocket() const;
+    void merge(const HttpServerLimits& limits);
 
 private:
-    using Base = WebsocketServerLimits;
+    template <typename T, typename U>
+    void doMerge(T& member, T limit, U nullValue);
 
-    Timeout requestHeaderTimeout_ = std::chrono::seconds(40);
-        // Using Apache's maxinum RequestReadTimeout for headers
+    std::size_t requestHeaderSize_ = 0;
+    std::size_t requestBodySize_ = 0;
+    std::size_t requestBodyIncrement_ = 0;
+    std::size_t responseIncrement_ = 0;
+};
 
-    IncrementalTimeout responseTimeout_ = {std::chrono::seconds{20}, 80*1024};
-        // Using Apache's RequestReadTimeout, with 1/8 of ADSL2 5Mbps rate
 
-    IncrementalTimeout requestBodyTimeout_ = {std::chrono::seconds{20}, 24*1024};
-        // Using Apache's RequestReadTimeout, with ~1/4 of ADSL2 0.8Mbps rate
+//------------------------------------------------------------------------------
+/** Contains timeouts for HTTP server blocks. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API HttpServerTimeouts
+{
+public:
+    static const HttpServerTimeouts& defaults();
 
-    Timeout keepaliveTimeout_ = std::chrono::seconds(75);
-        // NGINX default: 75s, Apache default: 5s
-        // Browser defaults: Firefox: 115s, IE: 60s, Chromium: never
-        // Using NGINX's keepalive_timeout
+    HttpServerTimeouts& withRequestHeaderTimeout(Timeout t);
 
-    std::size_t requestBodySize_ = 1024*1024;
-        // Default for Boost.Beast and NGINX
+    HttpServerTimeouts& withRequestBodyTimeout(IncrementalTimeout t);
 
-    std::size_t requestBodyIncrement_ = 4096; // Using Linux page size
+    HttpServerTimeouts& withResponseTimeout(IncrementalTimeout t);
 
-    std::size_t responseIncrement_ = 4096; // Using Linux page size
+    HttpServerTimeouts& withKeepaliveTimeout(Timeout t);
+
+    HttpServerTimeouts& withLingerTimeout(Timeout t);
+
+    Timeout requestHeaderTimeout() const;
+
+    const IncrementalTimeout& requestBodyTimeout() const;
+
+    const IncrementalTimeout& responseTimeout() const;
+
+    Timeout keepaliveTimeout() const;
+
+    Timeout lingerTimeout() const;
+
+    void merge(const HttpServerTimeouts& limits);
+
+private:
+    template <typename T, typename U>
+    void doMerge(T& member, T limit, U nullValue);
+
+    IncrementalTimeout responseTimeout_;
+    IncrementalTimeout requestBodyTimeout_;
+    Timeout requestHeaderTimeout_ = unspecifiedTimeout;
+    Timeout keepaliveTimeout_ = unspecifiedTimeout;
+    Timeout lingerTimeout_ = unspecifiedTimeout;
 };
 
 
@@ -222,15 +233,17 @@ private:
 //------------------------------------------------------------------------------
 using MimeTypeMapper = std::function<std::string (const std::string& ext)>;
 
-
 //------------------------------------------------------------------------------
 /** Common options for serving static files via HTTP. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API HttpFileServingOptions
 {
 public:
-    using Parent = HttpFileServingOptions;
+    /** Obtains the default file serving options. */
+    static const HttpFileServingOptions& defaults();
 
+    /** Obtains the default MIME type associated with the given file
+        extension. */
     static std::string defaultMimeType(const std::string& extension);
 
     /** Specifies the document root path for serving files. */
@@ -270,26 +283,151 @@ public:
     std::string lookupMimeType(const std::string& extension) const;
 
     /** Applies the given options as defaults for members that are not set. */
-    void applyFallback(const HttpFileServingOptions& opts);
+    void merge(const HttpFileServingOptions& opts);
 
 private:
     static char toLower(char c);
 
+    std::map<HttpStatus, HttpErrorPage> errorPages_;
     std::string documentRoot_;
     std::string charset_;
     std::string indexFileName_;
     MimeTypeMapper mimeTypeMapper_;
-    bool hasAutoIndex_ = false;
     bool autoIndex_ = false;
+    bool hasAutoIndex_ = false;
+};
+
+class HttpEndpoint;
+
+//------------------------------------------------------------------------------
+/** Contains the settings for an HTTP server block ("virtual host"). */
+//------------------------------------------------------------------------------
+class CPPWAMP_API HttpServerOptions
+{
+public:
+    /** Obtains the default server options. */
+    static const HttpServerOptions& defaults();
+
+    /** Specifies the agent string to use for the HTTP response 'Server' field
+        (default is Version::serverAgentString). */
+    HttpServerOptions& withAgent(std::string agent);
+
+    /** Specifies the default file serving options. */
+    HttpServerOptions& withFileServingOptions(HttpFileServingOptions options);
+
+    /** Specifies HTTP message limits. */
+    HttpServerOptions& withLimits(HttpServerLimits limits);
+
+    /** Specifies HTTP message timeouts. */
+    HttpServerOptions& withTimeouts(HttpServerTimeouts timeouts);
+
+    /** Specifies the error page to show for the given HTTP response
+        status code. */
+    HttpServerOptions& addErrorPage(HttpErrorPage page);
+
+    /** Obtains the custom agent string. */
+    const std::string& agent() const;
+
+    /** Obtains default file serving options. */
+    const HttpFileServingOptions& fileServingOptions() const;
+
+    /** Accesses the default file serving options. */
+    HttpFileServingOptions& fileServingOptions();
+
+    /** Obtains the HTTP message limits. */
+    const HttpServerLimits& limits() const;
+
+    /** Accesses the HTTP message limits and timeouts. */
+    HttpServerLimits& limits();
+
+    /** Obtains the HTTP message timeouts. */
+    const HttpServerTimeouts& timeouts() const;
+
+    /** Accesses the HTTP message timeouts. */
+    HttpServerTimeouts& timeouts();
+
+    /** Finds the error page associated with the given HTTP status code. */
+    const HttpErrorPage* findErrorPage(HttpStatus status) const;
+
+    /** Merges the given options onto those that have not been set. */
+    void merge(const HttpServerOptions& options);
+
+private:
+    std::map<HttpStatus, HttpErrorPage> errorPages_;
+    HttpFileServingOptions fileServingOptions_;
+    HttpServerTimeouts timeouts_;
+    HttpServerLimits limits_;
+    std::string agent_;
+};
+
+//------------------------------------------------------------------------------
+/** Contains the settings of an HTTP server block ("virtual host"). */
+//------------------------------------------------------------------------------
+class CPPWAMP_API HttpServerBlock
+{
+public:
+    /** Constructor taking a host name. */
+    explicit HttpServerBlock(std::string hostName = {});
+
+    /** Specifies the server options at the block level. */
+    HttpServerBlock& withOptions(HttpServerOptions options);
+
+    /** Adds an action associated with an exact route. */
+    HttpServerBlock& addExactRoute(AnyHttpAction action);
+
+    /** Adds an action associated with a prefix match route. */
+    HttpServerBlock& addPrefixRoute(AnyHttpAction action);
+
+    /** Host name for this server block. */
+    const std::string& hostName() const;
+
+    /** Obtains the server options. */
+    const HttpServerOptions& options() const;
+
+    /** Accesses the server options. */
+    HttpServerOptions& options();
+
+    /** Finds the best matching action associated with the given target. */
+    template <typename TStringLike>
+    AnyHttpAction* findAction(const TStringLike& target)
+    {
+        return doFindAction(target.data());
+    }
+
+private:
+    AnyHttpAction* doFindAction(const char* route);
+
+    utils::TrieMap<AnyHttpAction> actionsByExactKey_;
+    utils::TrieMap<AnyHttpAction> actionsByPrefixKey_;
+    HttpServerOptions options_;
+    std::string hostName_;
+
+public: // Internal use only
+    void initialize(internal::PassKey, const HttpServerOptions& parentOptions);
 };
 
 
 //------------------------------------------------------------------------------
-/** Contains HTTP host address information, as well as other socket options.
+/** Contains limits for the HTTP server listener. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API HttpListenerLimits
+{
+public:
+    HttpListenerLimits& withBacklogCapacity(int capacity);
+
+    int backlogCapacity() const;
+
+private:
+    int backlogCapacity_ = 0; // Use Asio's default by default
+};
+
+
+//------------------------------------------------------------------------------
+/** Contains HTTP server address information, as well as other socket options.
     Meets the requirements of @ref TransportSettings. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API HttpEndpoint
-    : public SocketEndpoint<HttpEndpoint, Http, TcpOptions, HttpServerLimits>
+    : public SocketEndpoint<HttpEndpoint, Http, TcpOptions, HttpListenerLimits>
 {
 public:
     /// Transport protocol tag associated with these settings.
@@ -304,87 +442,35 @@ public:
     /** Constructor taking an address string, port number. */
     HttpEndpoint(std::string address, unsigned short port);
 
-    /** Specifies the default index file name. */
-    HttpEndpoint& withIndexFileName(std::string name);
+    /** Specifies the default server block options. */
+    HttpEndpoint& withOptions(HttpServerOptions options);
 
-    /** Specifies the agent string to use for the HTTP response 'Server' field
-        (default is Version::serverAgentString). */
-    HttpEndpoint& withAgent(std::string agent);
+    /** Adds a server block. */
+    HttpEndpoint& addBlock(HttpServerBlock block);
 
-    /** Specifies the default file serving options. */
-    HttpEndpoint& withFileServingOptions(HttpFileServingOptions options);
+    /** Obtains the endpoint-level server options. */
+    const HttpServerOptions& options() const;
 
-    /** Specifies transport limits. */
-    HttpEndpoint& withLimits(HttpServerLimits limits);
+    /** Accesses the endpoint-level server options. */
+    HttpServerOptions& options();
 
-    /** Specifies the error page to show for the given HTTP response
-        status code. */
-    HttpEndpoint& addErrorPage(HttpErrorPage page);
-
-    /** Adds an action associated with an exact route. */
-    HttpEndpoint& addExactRoute(AnyHttpAction action);
-
-    /** Adds an action associated with a prefix match route. */
-    HttpEndpoint& addPrefixRoute(AnyHttpAction action);
-
-    /** Obtains default file serving options. */
-    const HttpFileServingOptions& fileServingOptions() const;
-
-    /** Obtains the custom agent string. */
-    const std::string& agent() const;
-
-    /** Obtains the transport limits. */
-    const HttpServerLimits& limits() const;
-
-    /** Accesses the transport limits. */
-    HttpServerLimits& limits();
+    /** Finds the best-matching server block for the given host name. */
+    HttpServerBlock* findBlock(std::string hostName);
 
     /** Generates a human-friendly string of the HTTP address/port. */
     std::string label() const;
 
-    /** Finds the best matching action associated with the given target. */
-    template <typename TStringLike>
-    AnyHttpAction* findAction(const TStringLike& target)
-    {
-        return doFindAction(target.data());
-    }
-
-    /** Finds the error page associated with the given HTTP status code. */
-    const HttpErrorPage* findErrorPage(HttpStatus status) const;
-
-    /** Converts to settings for use in Websocket upgrade requests. */
-    WebsocketEndpoint toWebsocket(WebsocketOptions options,
-                                  WebsocketServerLimits limits) const
-    {
-        return WebsocketEndpoint{address(), port()}
-            .withOptions(std::move(options))
-            .withLimits(limits);
-    }
-
 private:
     using Base = SocketEndpoint<HttpEndpoint, Http, TcpOptions,
-                                HttpServerLimits>;
+                                HttpListenerLimits>;
 
-    static const HttpFileServingOptions& defaultFileServingOptions();
+    static void toLowercase(std::string& str);
 
-    AnyHttpAction* doFindAction(const char* route);
-
-    // TODO: HTTP "virtual" server names and aliases
-    utils::TrieMap<AnyHttpAction> actionsByExactKey_;
-    utils::TrieMap<AnyHttpAction> actionsByPrefixKey_;
-    std::map<HttpStatus, HttpErrorPage> errorPages_;
-    HttpFileServingOptions fileServingOptions_;
-    std::string agent_;
-    HttpServerLimits limits_;
+    std::map<std::string, HttpServerBlock> serverBlocks_;
+    HttpServerOptions options_;
 
 public: // Internal use only
-    void initialize(internal::PassKey)
-    {
-        for (auto& a: actionsByExactKey_)
-            a.initialize({}, *this);
-        for (auto& a: actionsByPrefixKey_)
-            a.initialize({}, *this);
-    }
+    void initialize(internal::PassKey);
 };
 
 } // namespace wamp

@@ -14,8 +14,8 @@ namespace wamp
 {
 
 // Forward declarations
-class HttpEndpoint;
 class HttpJob;
+class HttpServerOptions;
 
 namespace internal
 {
@@ -31,7 +31,7 @@ public:
 
     virtual std::string route() const = 0;
 
-    virtual void initialize(const HttpEndpoint& settings) = 0;
+    virtual void initialize(const HttpServerOptions& options) = 0;
 
     virtual void expect(HttpJob& job) = 0;
 
@@ -51,9 +51,9 @@ public:
 
     std::string route() const override {return action_.route();}
 
-    void initialize(const HttpEndpoint& settings) override
+    void initialize(const HttpServerOptions& options) override
     {
-        action_.initialize(settings);
+        action_.initialize(options);
     }
 
     void expect(HttpJob& job) override {return action_.expect(job);}

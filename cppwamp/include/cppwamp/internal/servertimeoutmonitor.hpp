@@ -217,23 +217,15 @@ private:
 };
 
 //------------------------------------------------------------------------------
-template <typename TSettings>
 class HttpServerTimeoutMonitor
 {
 public:
-    using Settings = TSettings;
-    using SettingsPtr = std::shared_ptr<Settings>;
     using TimePoint = std::chrono::steady_clock::time_point;
 
-    explicit HttpServerTimeoutMonitor(SettingsPtr settings)
-        : settings_(std::move(settings))
-    {}
-
-    void startHeader(TimePoint now)
+    void startHeader(TimePoint now, Timeout requestHeaderTimeout)
     {
-        auto timeout = settings_->limits().httpRequestHeaderTimeout();
-        if (timeoutIsDefinite(timeout))
-            headerDeadline_ = now + timeout;
+        if (timeoutIsDefinite(requestHeaderTimeout))
+            headerDeadline_ = now + requestHeaderTimeout;
         keepaliveDeadline_ = TimePoint::max();
     }
 
@@ -242,14 +234,15 @@ public:
         headerDeadline_ = TimePoint::max();
     }
 
-    void startBody(TimePoint now)
+    void startBody(TimePoint now, IncrementalTimeout bodyTimeout)
     {
-        bodyDeadline_.start(settings_->limits().httpBodyTimeout(), now);
+        currentIncrementalTimeout_ = bodyTimeout;
+        bodyDeadline_.start(bodyTimeout, now);
     }
 
     void updateBody(TimePoint now, std::size_t bytesRead)
     {
-        bodyDeadline_.update(settings_->limits().httpBodyTimeout(), bytesRead);
+        bodyDeadline_.update(currentIncrementalTimeout_, bytesRead);
     }
 
     void endBody()
@@ -257,34 +250,33 @@ public:
         bodyDeadline_.reset();
     }
 
-    void startResponse(TimePoint now)
+    void startResponse(TimePoint now, IncrementalTimeout responseTimeout)
     {
-        responseDeadline_.start(settings_->limits().httpResponseTimeout(), now);
+        currentIncrementalTimeout_ = responseTimeout;
+        responseDeadline_.start(responseTimeout, now);
     }
 
     void updateResponse(TimePoint now, std::size_t bytesWritten)
     {
-        responseDeadline_.update(settings_->limits().wampWriteTimeout(),
-                                 bytesWritten);
+        responseDeadline_.update(currentIncrementalTimeout_, bytesWritten);
     }
 
-    void endResponse(TimePoint now, bool keepAlive)
+    void endResponse(TimePoint now, bool keepAlive,
+                     Timeout keepaliveTimeout = unspecifiedTimeout)
     {
         responseDeadline_.reset();
 
         if (keepAlive)
         {
-            auto timeout = settings_->limits().httpKeepaliveTimeout();
-            if (timeoutIsDefinite(timeout))
-                keepaliveDeadline_ = now + timeout;
+            if (timeoutIsDefinite(keepaliveTimeout))
+                keepaliveDeadline_ = now + keepaliveTimeout;
         }
     }
 
-    void startLinger(TimePoint now)
+    void startLinger(TimePoint now, Timeout lingerTimeout)
     {
-        auto timeout = settings_->limits().lingerTimeout();
-        if (internal::timeoutIsDefinite(timeout))
-            lingerDeadline_ = now + timeout;
+        if (internal::timeoutIsDefinite(lingerTimeout))
+            lingerDeadline_ = now + lingerTimeout;
     }
 
     void endLinger() {lingerDeadline_ = TimePoint::max();}
@@ -312,10 +304,10 @@ private:
 
     internal::ProgressiveDeadline responseDeadline_;
     internal::ProgressiveDeadline bodyDeadline_;
+    IncrementalTimeout currentIncrementalTimeout_;
     TimePoint headerDeadline_ = TimePoint::max();
     TimePoint keepaliveDeadline_ = TimePoint::max();
     TimePoint lingerDeadline_ = TimePoint::max();
-    SettingsPtr settings_;
 };
 
 } // namespace internal

@@ -18,6 +18,7 @@ class Error;
 class Event;
 class HttpEndpoint;
 class HttpJob;
+class HttpServerBlock;
 class Outcome;
 class Session;
 class Transporting;
@@ -36,6 +37,7 @@ namespace internal
         friend class wamp::Event;
         friend class wamp::HttpEndpoint;
         friend class wamp::HttpJob;
+        friend class wamp::HttpServerBlock;
         friend class wamp::Outcome;
         friend class wamp::Session;
         friend class wamp::Transporting;

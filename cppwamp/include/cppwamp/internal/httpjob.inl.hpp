@@ -5,6 +5,7 @@
 ------------------------------------------------------------------------------*/
 
 #include "../transports/httpjob.hpp"
+#include <boost/filesystem/path.hpp>
 #include "httpurlvalidator.hpp"
 #include "websockettransport.hpp"
 
@@ -16,8 +17,6 @@ HttpJob::HttpJob(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
                  ConnectionInfo i, RouterLogger::Ptr l)
     : tcpSocket_(std::move(t)),
       codecIds_(c),
-      bodyBuffer_(s->limits().httpRequestBodyIncrement(), '\0'),
-      monitor_(s),
       connectionInfo_(std::move(i)),
       settings_(std::move(s)),
       logger_(std::move(l))
@@ -35,12 +34,14 @@ const std::string& HttpJob::body() const & {return body_;}
 
 std::string&& HttpJob::body() && {return std::move(body_);}
 
-std::string HttpJob::fieldOr(Field field, std::string fallback)
+std::string HttpJob::fieldOr(Field field, std::string fallback) const
 {
     const auto& hdr = header();
     auto iter = hdr.find(field);
     return (iter == hdr.end()) ? fallback : std::string{iter->value()};
 }
+
+const std::string& HttpJob::hostName() const {return hostName_;}
 
 const HttpEndpoint& HttpJob::settings() const {return *settings_;}
 
@@ -58,27 +59,46 @@ void HttpJob::continueRequest()
     // https://datatracker.ietf.org/doc/html/rfc7230#section-6.3
     response.keep_alive(parser_->keep_alive());
 
-    response.set(boost::beast::http::field::server, settings_->agent());
+    response.set(Field::server, blockOptions().agent());
 
     response.prepare_payload();
 
     serializer_.reset(std::move(response),
-                      settings_->limits().httpResponseIncrement());
+                      blockOptions().limits().responseIncrement());
     status_ = HttpStatus::continueRequest;
-    monitor_.startResponse(steadyTime());
+    monitor_.startResponse(steadyTime(),
+                           blockOptions().timeouts().responseTimeout());
     sendMoreResponse();
 }
 
+void HttpJob::respond(HeaderResponse&& response, HttpStatus status)
+{
+    if (!responseSent_)
+        sendResponse(std::move(response), status, AdmitResult::responded());
+}
+
+void HttpJob::respond(StringResponse&& response, HttpStatus status)
+{
+    if (!responseSent_)
+        sendResponse(std::move(response), status, AdmitResult::responded());
+}
+
+void HttpJob::respond(FileResponse&& response, HttpStatus status)
+{
+    if (!responseSent_)
+        sendResponse(std::move(response), status, AdmitResult::responded());
+}
+
 void HttpJob::websocketUpgrade(WebsocketOptions options,
-                               const WebsocketServerLimits limits)
+                               const WebsocketServerLimits& limits)
 {
     if (responseSent_)
         return;
 
     auto self = shared_from_this();
-    auto settings = settings_->toWebsocket(std::move(options), limits);
-    auto wsEndpoint =
-        std::make_shared<WebsocketEndpoint>(std::move(settings));
+    auto wsEndpoint = std::make_shared<WebsocketEndpoint>(settings_->address(),
+                                                          settings_->port());
+    wsEndpoint->withOptions(std::move(options)).withLimits(limits);
     auto t = std::make_shared<internal::WebsocketServerTransport>(
         std::move(tcpSocket_), std::move(wsEndpoint), codecIds_);
     upgradedTransport_ = std::move(t);
@@ -100,7 +120,7 @@ void HttpJob::balk(HttpStatus status, std::string what, bool simple,
 
     namespace http = boost::beast::http;
 
-    auto page = settings().findErrorPage(status);
+    auto page = blockOptions().findErrorPage(status);
     bool found = page != nullptr;
     HttpStatus responseStatus = status;
 
@@ -214,7 +234,8 @@ void HttpJob::doShutdown()
         }
         else
         {
-            monitor_.startLinger(steadyTime());
+            monitor_.startLinger(steadyTime(),
+                                 blockOptions().timeouts().lingerTimeout());
             if (!isReading_)
                 flush();
         }
@@ -269,16 +290,20 @@ const HttpJob::WebsocketServerTransportPtr& HttpJob::upgradedTransport() const
 
 void HttpJob::start()
 {
+    serverBlock_ = nullptr;
+    status_ = HttpStatus::none;
     responseSent_ = false;
     expectationReceived_ = false;
+    hostName_.clear();
+    target_.clear();
     body_.clear();
     parser_.emplace();
-    const auto headerLimit = settings().limits().httpRequestHeaderSize();
-    const auto bodyLimit = settings().limits().httpRequestBodySize();
-    if (headerLimit != 0)
-        parser_->header_limit(headerLimit);
-    if (bodyLimit != 0)
-        parser_->body_limit(bodyLimit);
+    const auto& limits = settings().options().limits();
+    parser_->header_limit(limits.requestHeaderSize());
+
+    // Only set the body limit after we parse the hostname and determine
+    // its associated server block.
+    parser_->body_limit(boost::none);
 
     // After the first request, hold off arming the read timeout until data
     // is available to be read, as the keep-alive timeout is already in
@@ -304,8 +329,9 @@ void HttpJob::waitForHeader()
 void HttpJob::readHeader()
 {
     alreadyRequested_ = true;
-    monitor_.startHeader(steadyTime());
     isReading_ = true;
+    monitor_.startHeader(steadyTime(),
+                         settings_->options().timeouts().requestHeaderTimeout());
 
     auto self = shared_from_this();
     boost::beast::http::async_read_header(
@@ -321,8 +347,44 @@ void HttpJob::readHeader()
 
 void HttpJob::onHeaderRead(boost::beast::error_code netEc)
 {
-    auto expectField =
-        parser_->get().find(boost::beast::http::field::expect);
+    auto routingStatus = interpretRoutingInformation();
+
+    // Find the server block associated with the interpreted hostname.
+    serverBlock_ =
+        hostName_.empty() ? nullptr
+                          : serverBlock_ = settings_->findBlock(hostName_);
+
+    // If the request body exceeds the limit, mark the request as rejected
+    // so that keep-alive is disabled and the connection is shut down
+    // after sending the response. Otherwise, we would have to consume
+    // the large request body until the parser inevitably overflows.
+    const auto bodyLength = parser_->content_length().value_or(0);
+    const auto bodyLimit = blockOptions().limits().requestBodySize();
+    parser_->body_limit(bodyLimit);
+    if (bodyLength > bodyLimit)
+    {
+        return balk(HttpStatus::payloadTooLarge, {}, true,
+                    AdmitResult::rejected(HttpStatus::payloadTooLarge));
+    }
+
+    // Send an error response if the server connection limit
+    // has been reached.
+    if (isShedding_)
+    {
+        return balk(HttpStatus::serviceUnavailable,
+                    "Connection limit exceeded");
+    }
+
+    // Send an error response if the hostname is invalid.
+    if (routingStatus == RoutingStatus::badTarget || serverBlock_ == nullptr)
+        return balk(HttpStatus::badRequest, "Invalid request-target");
+
+    // Send an error response if the request-target is invalid.
+    if (routingStatus == RoutingStatus::badHost)
+        return balk(HttpStatus::badRequest, "Invalid hostname");
+
+    // Check if a 100-continue expectation was received
+    auto expectField = parser_->get().find(Field::expect);
     if (expectField != parser_->get().end())
         return onExpectationReceived(expectField->value());
 
@@ -332,37 +394,21 @@ void HttpJob::onHeaderRead(boost::beast::error_code netEc)
 void HttpJob::onExpectationReceived(boost::beast::string_view expectField)
 {
     if (!boost::beast::iequals(expectField, "100-continue"))
-        return balk(HttpStatus::expectationFailed, {}, true);
-
-    auto bodyLength = parser_->content_length().value_or(0);
+        return balk(HttpStatus::expectationFailed);
 
     // Ignore 100-continue expectations if it's an HTTP/1.0 request, or if
     // the request has no body.
+    const auto bodyLength = parser_->content_length().value_or(0);
     if (parser_->get().version() < 11 || bodyLength == 0)
         return readBody();
 
     expectationReceived_ = true;
 
-    // If the request body exceeds the limit, mark the request as rejected
-    // so that keep-alive is disabled and the connection is shut down
-    // after sending the response. Otherwise, we would have to consume
-    // the large request body until the parser inevitably overflows.
-    const auto bodyLimit = settings().limits().httpRequestBodySize();
-    if (bodyLength > bodyLimit)
-    {
-        return balk(HttpStatus::payloadTooLarge, {}, true,
-                    AdmitResult::rejected(HttpStatus::payloadTooLarge));
-    }
-
-    if (!parseAndNormalizeTarget())
-        return balk(HttpStatus::badRequest, "Invalid request-target", true);
-
     // Lookup the action associated with the normalized target path,
-    // and obtain the expected status code.
-    auto* action = settings_->findAction(target_.path());
+    // and make it emit the expected status code.
+    auto* action = serverBlock_->findAction(target_.path());
     if (action == nullptr)
-        return balk(HttpStatus::notFound, {}, true);
-
+        return balk(HttpStatus::notFound);
     action->expect({}, *this);
 }
 
@@ -370,17 +416,19 @@ void HttpJob::readBody()
 {
     if (parser_->is_done())
     {
-        onMessageRead();
+        onRequestRead();
     }
     else
     {
-        monitor_.startBody(steadyTime());
+        monitor_.startBody(steadyTime(),
+                           blockOptions().timeouts().requestBodyTimeout());
         readMoreBody();
     }
 }
 
 void HttpJob::readMoreBody()
 {
+    bodyBuffer_.resize(blockOptions().limits().requestBodyIncrement());
     parser_->get().body().data = &bodyBuffer_.front();
     parser_->get().body().size = bodyBuffer_.size();
     isReading_ = true;
@@ -404,47 +452,87 @@ void HttpJob::readMoreBody()
             body_.append(&bodyBuffer_.front(), bytesParsed);
 
             if (parser_->is_done())
-                return onMessageRead();
+                return onRequestRead();
 
             monitor_.updateBody(steadyTime(), bytesParsed);
             return readMoreBody();
         });
 }
 
-void HttpJob::onMessageRead()
+void HttpJob::onRequestRead()
 {
     monitor_.endBody();
 
-    bool isUpgrade = parser_->upgrade();
-
-    // Send an error response if the server connection limit
-    // has been reached
-    if (isShedding_)
+    // If we already sent a response, discard the request.
+    if (status_ != HttpStatus::none)
     {
-        return balk(HttpStatus::serviceUnavailable,
-                    "Connection limit exceeded", isUpgrade, {});
+        if (keepAlive_)
+            start();
+        else
+            finish(result_);
+        return;
     }
-
-    if (!parseAndNormalizeTarget())
-        return balk(HttpStatus::badRequest, "Invalid request-target");
 
     // Lookup and execute the action associated with the normalized
     // target path.
-    auto* action = settings_->findAction(target_.path());
+    auto* action = serverBlock_->findAction(target_.path());
     if (action == nullptr)
-        return balk(HttpStatus::notFound, {}, isUpgrade, {});
+        return balk(HttpStatus::notFound);
     action->execute({}, *this);
 }
 
-bool HttpJob::parseAndNormalizeTarget()
+// Interprets the host and target information from the request header.
+HttpJob::RoutingStatus HttpJob::interpretRoutingInformation()
 {
-    auto normalized =
-        internal::HttpUrlValidator::interpretAndNormalize(
-            parser_->get().target(),parser_->get().method());
+    auto normalized = internal::HttpUrlValidator::interpretAndNormalize(
+            parser_->get().target(), parser_->get().method());
     if (!normalized)
-        return false;
+        return RoutingStatus::badTarget;
     target_ = std::move(*normalized);
-    return true;
+
+    /*  From RFC9112, subsection 3.2.2:
+        "When an origin server receives a request with an absolute-form of
+        request-target, the origin server MUST ignore the received Host
+        header field (if any) and instead use the host information of the
+        request-target. Note that if the request-target does not have an
+        authority component, an empty Host header field will be sent in this
+        case."
+
+        From RFC9110, subsection 7.4:
+        "Unless the connection is from a trusted gateway, an origin server MUST
+        reject a request if any scheme-specific requirements for the target URI
+        are not met. In particular, a request for an "https" resource MUST be
+        rejected unless it has been received over a connection that has been
+        secured via a certificate valid for that target URI's origin, as
+        defined by Section 4.2.2." */
+    if (target_.has_scheme())
+    {
+        if (target_.scheme_id() != boost::urls::scheme::http)
+                return RoutingStatus::badTarget;
+
+        if (target_.has_port() && target_.port_number() != settings_->port())
+            return RoutingStatus::badTarget;
+
+        if (target_.has_authority())
+            hostName_ = std::string{target_.authority().encoded_host_name()};
+
+        return RoutingStatus::ok;
+    }
+
+    auto hostField = parser_->get().find(Field::host);
+    if (hostField == parser_->get().end())
+        return RoutingStatus::badHost;
+
+    auto result = boost::urls::parse_authority(hostField->value());
+    if (!result.has_value() || result->has_userinfo())
+        return RoutingStatus::badHost;
+
+    if (result->has_port() && result->port_number() != settings_->port())
+        return RoutingStatus::badHost;
+
+    hostName_ = std::string{result->encoded_host_name()};
+
+    return RoutingStatus::ok;
 }
 
 bool HttpJob::checkRead(boost::system::error_code netEc)
@@ -469,9 +557,6 @@ bool HttpJob::checkRead(boost::system::error_code netEc)
 
     auto ec = httpErrorCodeToStandard(netEc);
 
-    // Beast's http::async_read_header does not propagate client disconnect
-    // errors and will instead report beast::http::error::bad_method.
-    // https://github.com/boostorg/beast/issues/2806
     if (ec == TransportErrc::disconnected)
     {
         close();
@@ -534,8 +619,7 @@ void HttpJob::report(HttpStatus status)
     if (upgradeField != hdr.end())
         info.options.emplace("upgrade", std::string{upgradeField->value()});
 
-    HttpAccessInfo httpInfo{fieldOr(Field::host, {}),
-                            fieldOr(Field::user_agent, {})};
+    HttpAccessInfo httpInfo{hostName_, fieldOr(Field::user_agent, {})};
     logger_->log(AccessLogEntry{connectionInfo_, std::move(httpInfo),
                                 std::move(info)});
 }
@@ -622,7 +706,7 @@ std::string HttpJob::generateErrorPage(wamp::HttpStatus status,
         body += "<p>" + what + "</p>";
 
     body += "<hr>\r\n" +
-            settings().agent() +
+            blockOptions().agent() +
             "</body>"
             "</html>";
 
@@ -652,7 +736,8 @@ void HttpJob::sendErrorFromFile(
 
     beast::error_code netEc;
     http::file_body::value_type body;
-    const auto& docRoot = settings().fileServingOptions().documentRoot();
+    const auto& docRoot =
+        blockOptions().fileServingOptions().documentRoot();
     boost::filesystem::path absolutePath{docRoot};
     absolutePath /= page.uri();
     body.open(absolutePath.c_str(), beast::file_mode::scan, netEc);
@@ -676,6 +761,37 @@ void HttpJob::sendErrorFromFile(
     sendResponse(std::move(response), page.status(), result);
 }
 
+template <typename R>
+void HttpJob::sendResponse(R&& response, HttpStatus status, AdmitResult result)
+{
+    responseSent_ = true;
+    assert(parser_.has_value());
+    keepAlive_ = result.status() == AdmitStatus::responded &&
+                 parser_->keep_alive();
+    // Beast will adjust the Connection field automatically depending on
+    // the HTTP version.
+    // https://datatracker.ietf.org/doc/html/rfc7230#section-6.3
+    response.keep_alive(keepAlive_);
+
+    response.set(Field::server, blockOptions().agent());
+
+    // Set the Connection field to close if we intend to shut down the
+    // connection after sending the response.
+    // https://datatracker.ietf.org/doc/html/rfc9112#section-9.6
+    if (!keepAlive_ && result.status() != AdmitStatus::wamp)
+        response.set(Field::connection, "close");
+
+    response.prepare_payload();
+
+    auto increment = blockOptions().limits().responseIncrement();
+    serializer_.reset(std::forward<R>(response), increment);
+    result_ = result;
+    status_ = status;
+    monitor_.startResponse(steadyTime(),
+                           blockOptions().timeouts().responseTimeout());
+    sendMoreResponse();
+}
+
 void HttpJob::sendMoreResponse()
 {
     auto self = shared_from_this();
@@ -694,7 +810,8 @@ void HttpJob::sendMoreResponse()
                 return sendMoreResponse();
             }
 
-            monitor_.endResponse(now, keepAlive_);
+            monitor_.endResponse(now, keepAlive_,
+                                 blockOptions().timeouts().keepaliveTimeout());
 
             if (isPoisoned_)
                 onShutdownResponseSent();
@@ -720,7 +837,7 @@ void HttpJob::onResponseSent()
         /*  If we intend to keep the connection open, then the body
             following a header containing 'Expect: 100-continue' must be
             read and discarded/processed even if an intermediary response
-            other than 100 has been previously sent. We chose to process it.
+            other than 100 has been previously sent.
 
             Excerpt from https://curl.se/mail/lib-2004-08/0002.html :
 
@@ -759,6 +876,11 @@ void HttpJob::post(F&& handler, Ts&&... args)
 {
     postAny(tcpSocket_.get_executor(), std::forward<F>(handler),
             std::forward<Ts>(args)...);
+}
+
+const HttpServerOptions& HttpJob::blockOptions() const
+{
+    return serverBlock_ ? serverBlock_->options() : settings_->options();
 }
 
 } // namespace wamp

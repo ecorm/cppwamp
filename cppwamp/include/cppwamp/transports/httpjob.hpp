@@ -11,12 +11,14 @@
 #include <boost/beast/core/flat_buffer.hpp>
 #include <boost/beast/core/string_type.hpp>
 #include <boost/beast/http/buffer_body.hpp>
+#include <boost/beast/http/empty_body.hpp>
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/file_body.hpp>
 #include <boost/beast/http/parser.hpp>
-#include <boost/filesystem/path.hpp>
+#include <boost/beast/http/string_body.hpp>
 #include <boost/url.hpp>
 #include "httpprotocol.hpp"
+#include "websocketprotocol.hpp"
 #include "../routerlogger.hpp"
 #include "../internal/anyhttpserializer.hpp"
 #include "../internal/servertimeoutmonitor.hpp"
@@ -45,6 +47,13 @@ public:
     using FieldList    = std::initializer_list<std::pair<Field, StringView>>;
     using Url          = boost::urls::url;
 
+    template <typename TBody>
+    using Response = boost::beast::http::response<TBody>;
+
+    using HeaderResponse = Response<boost::beast::http::empty_body>;
+    using StringResponse = Response<boost::beast::http::string_body>;
+    using FileResponse   = Response<boost::beast::http::file_body>;
+
     HttpJob(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
             ConnectionInfo i, RouterLogger::Ptr l);
 
@@ -56,25 +65,25 @@ public:
 
     std::string&& body() &&;
 
-    std::string fieldOr(Field field, std::string fallback);
+    std::string fieldOr(Field field, std::string fallback) const;
+
+    const std::string& hostName() const;
 
     const HttpEndpoint& settings() const;
 
     void continueRequest();
 
-    template <typename R>
-    void respond(R&& response, HttpStatus status = HttpStatus::ok)
-    {
-        if (responseSent_)
-            return;
-        sendResponse(std::forward<R>(response), status,
-                     AdmitResult::responded());
-    }
+    void respond(HeaderResponse&& response, HttpStatus status = HttpStatus::ok);
+
+    void respond(StringResponse&& response, HttpStatus status = HttpStatus::ok);
+
+    void respond(FileResponse&& response, HttpStatus status = HttpStatus::ok);
 
     void websocketUpgrade(WebsocketOptions options,
-                          const WebsocketServerLimits limits);
+                          const WebsocketServerLimits& limits);
 
-    void balk(HttpStatus status, std::string what = {}, bool simple = false,
+    // TODO: Replace 5 arguments with single object
+    void balk(HttpStatus status, std::string what = {}, bool simple = true,
               AdmitResult result = AdmitResult::responded(),
               FieldList fields = {});
 
@@ -84,11 +93,18 @@ private:
     using Request         = boost::beast::http::request<Body>;
     using Parser          = boost::beast::http::request_parser<Body>;
     using Verb            = boost::beast::http::verb;
-    using Monitor         = internal::HttpServerTimeoutMonitor<Settings>;
+    using Monitor         = internal::HttpServerTimeoutMonitor;
     using TimePoint       = std::chrono::steady_clock::time_point;
     using ShutdownHandler = AnyCompletionHandler<void (std::error_code)>;
     using WebsocketServerTransportPtr =
         std::shared_ptr<internal::WebsocketServerTransport>;
+
+    enum class RoutingStatus
+    {
+        ok,
+        badHost,
+        badTarget
+    };
 
     static TimePoint steadyTime();
 
@@ -127,9 +143,9 @@ private:
 
     void readMoreBody();
 
-    void onMessageRead();
+    void onRequestRead();
 
-    bool parseAndNormalizeTarget();
+    RoutingStatus interpretRoutingInformation();
 
     bool checkRead(boost::system::error_code netEc);
 
@@ -159,34 +175,7 @@ private:
                            FieldList fields, AdmitResult result);
 
     template <typename R>
-    void sendResponse(R&& response, HttpStatus status, AdmitResult result)
-    {
-        responseSent_ = true;
-        assert(parser_.has_value());
-        keepAlive_ = result.status() == AdmitStatus::responded &&
-                     parser_->keep_alive();
-        // Beast will adjust the Connection field automatically depending on
-        // the HTTP version.
-        // https://datatracker.ietf.org/doc/html/rfc7230#section-6.3
-        response.keep_alive(keepAlive_);
-
-        response.set(boost::beast::http::field::server, settings_->agent());
-
-        // Set the Connection field to close if we intend to shut down the
-        // connection after sending the response.
-        // https://datatracker.ietf.org/doc/html/rfc9112#section-9.6
-        if (!keepAlive_ && result.status() != AdmitStatus::wamp)
-            response.set(boost::beast::http::field::connection, "close");
-
-        response.prepare_payload();
-
-        serializer_.reset(std::forward<R>(response),
-                          settings_->limits().httpResponseIncrement());
-        result_ = result;
-        status_ = status;
-        monitor_.startResponse(steadyTime());
-        sendMoreResponse();
-    }
+    void sendResponse(R&& response, HttpStatus status, AdmitResult result);
 
     void sendMoreResponse();
 
@@ -198,6 +187,8 @@ private:
 
     template <typename F, typename... Ts>
     void post(F&& handler, Ts&&... args);
+
+    const HttpServerOptions& blockOptions() const;
 
     static constexpr std::size_t flushReadSize_ = 1536;
 
@@ -213,11 +204,13 @@ private:
     AdmitHandler admitHandler_;
     ShutdownHandler shutdownHandler_;
     ConnectionInfo connectionInfo_;
+    std::string hostName_;
     AdmitResult result_;
     internal::AnyHttpSerializer serializer_;
     WebsocketServerTransportPtr upgradedTransport_;
     SettingsPtr settings_;
     RouterLogger::Ptr logger_;
+    HttpServerBlock* serverBlock_ = nullptr;
     HttpStatus status_ = HttpStatus::none;
     bool isShedding_ = false;
     bool isPoisoned_ = false;
