@@ -17,8 +17,8 @@
 #include <cppwamp/transports/websocketclient.hpp>
 
 const std::string realm = "cppwamp.examples";
-const std::string address = "localhost";
-const short port = 23456u;
+const char* defaultAddress = "localhost";
+const char* defaultPort = "23456";
 
 //------------------------------------------------------------------------------
 namespace wamp
@@ -112,8 +112,11 @@ private:
 
 
 //------------------------------------------------------------------------------
-int main()
+int main(int argc, char* argv[])
 {
+    const char* port = argc >= 2 ? argv[1] : defaultPort;
+    const char* address = argc >= 3 ? argv[2] : defaultAddress;
+
     wamp::IoContext ioctx;
     auto client = TimeClient::create(ioctx.get_executor());
     client->start(wamp::WebsocketHost(address, port).withTarget("/time")

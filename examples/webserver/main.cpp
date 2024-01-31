@@ -43,21 +43,21 @@ int main()
             wamp::HttpFileServingOptions{}
                 .withDocumentRoot("./www-alt");
 
-        auto mainRouteOptions =
+        auto mainRoute =
             wamp::HttpServeFiles{"/"}
                 .withOptions(wamp::HttpFileServingOptions{}.withAutoIndex());
 
-        auto altRouteOptions =
+        auto altRoute =
             wamp::HttpServeFiles{"/alt"}
                 .withAlias("/") // Substitutes "/alt" with "/"
                                 // before appending to "./www-alt"
                 .withOptions(altFileServingOptions);
 
-        auto altBlockMainRouteOptions =
+        auto wsRoute = wamp::HttpWebsocketUpgrade{"/time"};
+
+        auto altBlockMainRoute =
             wamp::HttpServeFiles{"/"}
                 .withOptions(altFileServingOptions);
-
-        // TODO: Add Websocket route
 
         auto httpOptions =
             wamp::HttpServerOptions{}
@@ -65,12 +65,13 @@ int main()
                 .addErrorPage({wamp::HttpStatus::notFound, "/notfound.html"});
 
         auto mainBlock =
-            wamp::HttpServerBlock{}.addPrefixRoute(mainRouteOptions)
-                                   .addExactRoute(altRouteOptions);
+            wamp::HttpServerBlock{}.addPrefixRoute(mainRoute)
+                                   .addExactRoute(altRoute)
+                                   .addExactRoute(wsRoute);
 
         auto altBlock =
             wamp::HttpServerBlock{"alt.localhost"}
-                .addPrefixRoute(altBlockMainRouteOptions);
+                .addPrefixRoute(altBlockMainRoute);
 
         auto httpEndpoint =
             wamp::HttpEndpoint{8080}.withOptions(httpOptions)

@@ -49,7 +49,7 @@ void onTimeTick(std::tm time)
 //------------------------------------------------------------------------------
 // Command line usage: timeclientauth [username [password]]
 //------------------------------------------------------------------------------
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     const char* username = argc >= 2 ? argv[1] : "alice";
     const char* password = argc >= 3 ? argv[2] : "password123";
