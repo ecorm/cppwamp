@@ -22,6 +22,7 @@ CPPWAMP_INLINE std::string HttpStatusCategory::message(int ev) const
         case S::continueRequest:               return "100 Continue";
         case S::switchingProtocols:            return "101 Switching Protocols";
         case S::processing:                    return "102 Processing";
+        case S::earlyHints:                    return "103 Early Hints";
         case S::ok:                            return "200 OK";
         case S::created:                       return "201 Created";
         case S::accepted:                      return "202 Accepted";
@@ -62,6 +63,7 @@ CPPWAMP_INLINE std::string HttpStatusCategory::message(int ev) const
         case S::unprocessableEntity:           return "422 Unprocessable Entity";
         case S::locked:                        return "423 Locked";
         case S::failedDependency:              return "424 Failed Dependency";
+        case S::tooEarly:                      return "425 Too Early";
         case S::upgradeRequired:               return "426 Upgrade Required";
         case S::preconditionRequired:          return "428 Precondition Required";
         case S::tooManyRequests:               return "429 Too Many Requests";

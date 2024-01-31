@@ -19,7 +19,9 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** Standard HTTP status codes. */
+/** HTTP status codes assigned by IANA.
+    https://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml
+*/
 //------------------------------------------------------------------------------
 enum class HttpStatus : unsigned
 {
@@ -28,6 +30,7 @@ enum class HttpStatus : unsigned
     continueRequest               = 100,
     switchingProtocols            = 101,
     processing                    = 102,
+    earlyHints                    = 103,
 
     ok                            = 200,
     created                       = 201,
@@ -71,6 +74,7 @@ enum class HttpStatus : unsigned
     unprocessableEntity           = 422,
     locked                        = 423,
     failedDependency              = 424,
+    tooEarly                      = 425,
     upgradeRequired               = 426,
     preconditionRequired          = 428,
     tooManyRequests               = 429,
