@@ -62,7 +62,7 @@ enum class HttpStatus : unsigned
     gone                          = 410,
     lengthRequired                = 411,
     preconditionFailed            = 412,
-    payloadTooLarge               = 413,
+    contentTooLarge               = 413,
     uriTooLong                    = 414,
     unsupportedMediaType          = 415,
     rangeNotSatisfiable           = 416,

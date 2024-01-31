@@ -53,7 +53,7 @@ CPPWAMP_INLINE std::string HttpStatusCategory::message(int ev) const
         case S::gone:                          return "410 Gone";
         case S::lengthRequired:                return "411 Length Required";
         case S::preconditionFailed:            return "412 Precondition Failed";
-        case S::payloadTooLarge:               return "413 Payload Too Large";
+        case S::contentTooLarge:               return "413 Content Too Large";
         case S::uriTooLong:                    return "414 URI Too Long";
         case S::unsupportedMediaType:          return "415 Unsupported Media Type";
         case S::rangeNotSatisfiable:           return "416 Range Not Satisfiable";

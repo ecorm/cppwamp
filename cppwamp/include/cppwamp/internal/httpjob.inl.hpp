@@ -351,9 +351,8 @@ void HttpJob::onHeaderRead(boost::beast::error_code netEc)
     auto routingStatus = interpretRoutingInformation();
 
     // Find the server block associated with the interpreted hostname.
-    serverBlock_ =
-        hostName_.empty() ? nullptr
-                          : serverBlock_ = settings_->findBlock(hostName_);
+    if (routingStatus == RoutingStatus::ok)
+        serverBlock_ = settings_->findBlock(hostName_);
 
     // If the request body exceeds the limit, mark the request as rejected
     // so that keep-alive is disabled and the connection is shut down
@@ -364,8 +363,8 @@ void HttpJob::onHeaderRead(boost::beast::error_code netEc)
     parser_->body_limit(bodyLimit);
     if (bodyLength > bodyLimit)
     {
-        return balk(HttpStatus::payloadTooLarge, {}, true,
-                    AdmitResult::rejected(HttpStatus::payloadTooLarge));
+        return balk(HttpStatus::contentTooLarge, {}, true,
+                    AdmitResult::rejected(HttpStatus::contentTooLarge));
     }
 
     // Send an error response and disconnect if the server connection limit
@@ -379,6 +378,10 @@ void HttpJob::onHeaderRead(boost::beast::error_code netEc)
     // Send an error response if the routing information was invalid.
     if (routingStatus != RoutingStatus::ok)
         return sendRoutingError(routingStatus);
+
+    // Send an error response if a matching server block was not found.
+    if (serverBlock_ == nullptr)
+        return balk(HttpStatus::badRequest, "Invalid hostname");
 
     // Check if a 100-continue expectation was received
     auto expectField = parser_->get().find(Field::expect);
@@ -403,6 +406,7 @@ void HttpJob::onExpectationReceived(boost::beast::string_view expectField)
 
     // Lookup the action associated with the normalized target path,
     // and make it emit the expected status code.
+    assert(serverBlock_ != nullptr);
     auto* action = serverBlock_->findAction(target_.path());
     if (action == nullptr)
         return balk(HttpStatus::notFound);
@@ -473,6 +477,7 @@ void HttpJob::onRequestRead()
 
     // Lookup and execute the action associated with the normalized
     // target path.
+    assert(serverBlock_ != nullptr);
     auto* action = serverBlock_->findAction(target_.path());
     if (action == nullptr)
         return balk(HttpStatus::notFound);
@@ -482,6 +487,23 @@ void HttpJob::onRequestRead()
 // Interprets the host and target information from the request header.
 HttpJob::RoutingStatus HttpJob::interpretRoutingInformation()
 {
+    auto hostField = parser_->get().find(Field::host);
+    if (hostField == parser_->get().end())
+        return RoutingStatus::badHost;
+
+    auto result = boost::urls::parse_authority(hostField->value());
+    if (!result.has_value() || result->has_userinfo())
+    {
+        // Save the invalid host name anyway so that it's logged.
+        hostName_ = std::string{hostField->value()};
+        return RoutingStatus::badHost;
+    }
+
+    hostName_ = std::string{result->host()};
+
+    if (result->has_port() && result->port_number() != settings_->port())
+        return RoutingStatus::badPort;
+
     auto normalized = internal::HttpUrlValidator::interpretAndNormalize(
             parser_->get().target(), parser_->get().method());
     if (!normalized)
@@ -512,23 +534,8 @@ HttpJob::RoutingStatus HttpJob::interpretRoutingInformation()
             return RoutingStatus::badPort;
 
         if (target_.has_authority())
-            hostName_ = std::string{target_.authority().encoded_host_name()};
-
-        return RoutingStatus::ok;
+            hostName_ = std::string{target_.authority().host()};
     }
-
-    auto hostField = parser_->get().find(Field::host);
-    if (hostField == parser_->get().end())
-        return RoutingStatus::badHost;
-
-    auto result = boost::urls::parse_authority(hostField->value());
-    if (!result.has_value() || result->has_userinfo())
-        return RoutingStatus::badHost;
-
-    if (result->has_port() && result->port_number() != settings_->port())
-        return RoutingStatus::badPort;
-
-    hostName_ = std::string{result->encoded_host_name()};
 
     return RoutingStatus::ok;
 }
