@@ -19,6 +19,7 @@
 #include <boost/url.hpp>
 #include "httpprotocol.hpp"
 #include "websocketprotocol.hpp"
+#include "../api.hpp"
 #include "../routerlogger.hpp"
 #include "../internal/anyhttpserializer.hpp"
 #include "../internal/servertimeoutmonitor.hpp"
@@ -33,7 +34,52 @@ class WebsocketServerTransport;
 }
 
 //------------------------------------------------------------------------------
-class HttpJob : public std::enable_shared_from_this<HttpJob>
+class CPPWAMP_API HttpDenial
+{
+public:
+    using Field = boost::beast::http::field;
+
+    HttpDenial(HttpStatus status);
+
+    HttpDenial& setStatus(HttpStatus status);
+
+    HttpDenial& withMessage(std::string what);
+
+    HttpDenial& withResult(AdmitResult result);
+
+    HttpDenial withHtmlEnabled(bool enabled = true);
+
+    HttpDenial& withFields(
+        std::initializer_list<std::pair<const Field, std::string>> fields);
+
+    HttpStatus status() const;
+
+    const std::string& message() const &;
+
+    std::string&& message() &&;
+
+    AdmitResult result() const;
+
+    bool htmlEnabled() const;
+
+    template <typename TResponse>
+    void applyFieldsTo(TResponse& response) const
+    {
+        for (const auto& kv: fields_)
+            response.set(kv.first, kv.second);
+    }
+
+private:
+    std::map<Field, std::string> fields_;
+    std::string message_;
+    AdmitResult result_ = AdmitResult::responded();
+    HttpStatus status_;
+    bool htmlEnabled_;
+};
+
+
+//------------------------------------------------------------------------------
+class CPPWAMP_API HttpJob : public std::enable_shared_from_this<HttpJob>
 {
 public:
     using Ptr          = std::shared_ptr<HttpJob>;
@@ -82,10 +128,7 @@ public:
     void websocketUpgrade(WebsocketOptions options,
                           const WebsocketServerLimits& limits);
 
-    // TODO: Replace 5 arguments with single object
-    void balk(HttpStatus status, std::string what = {}, bool simple = true,
-              AdmitResult result = AdmitResult::responded(),
-              FieldList fields = {});
+    void deny(HttpDenial denial);
 
 private:
     using Base            = HttpJob;
@@ -160,24 +203,18 @@ private:
 
     static AccessAction actionFromRequestVerb(Verb verb);
 
-    void sendSimpleError(HttpStatus status, std::string&& what,
-                         FieldList fields, AdmitResult result);
+    void sendSimpleError(HttpDenial& denial);
 
-    void sendGeneratedError(HttpStatus status, const std::string& what,
-                            FieldList fields, AdmitResult result);
+    void sendGeneratedError(const HttpDenial& denial);
 
-    void sendCustomGeneratedError(const HttpErrorPage& page,
-                                  const std::string& what,
-                                  FieldList fields, AdmitResult result);
+    void sendCustomGeneratedError(const HttpDenial& denial,
+                                  const HttpErrorPage& page);
 
-    std::string generateErrorPage(wamp::HttpStatus status,
-                                  const std::string& what) const;
+    std::string generateErrorPage(const HttpDenial& denial) const;
 
-    void redirectError(const HttpErrorPage& page, FieldList fields,
-                       AdmitResult result);
+    void redirectError(HttpDenial& denial, const HttpErrorPage& page);
 
-    void sendErrorFromFile(const HttpErrorPage& page, const std::string& what,
-                           FieldList fields, AdmitResult result);
+    void sendErrorFromFile(HttpDenial& denial, const HttpErrorPage& page);
 
     template <typename R>
     void sendResponse(R&& response, HttpStatus status, AdmitResult result);

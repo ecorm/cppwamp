@@ -5,17 +5,77 @@
 ------------------------------------------------------------------------------*/
 
 #include "../transports/httpjob.hpp"
-#include <array>
 #include <boost/filesystem/path.hpp>
+#include "../api.hpp"
 #include "httpurlvalidator.hpp"
 #include "websockettransport.hpp"
 
 namespace wamp
 {
 
-//------------------------------------------------------------------------------
-HttpJob::HttpJob(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
-                 ConnectionInfo i, RouterLogger::Ptr l)
+//******************************************************************************
+// HttpDenial
+//******************************************************************************
+
+CPPWAMP_INLINE HttpDenial::HttpDenial(HttpStatus status)
+    : status_(status)
+{}
+
+CPPWAMP_INLINE HttpDenial& HttpDenial::setStatus(HttpStatus status)
+{
+    status_ = status;
+    return *this;
+}
+
+CPPWAMP_INLINE HttpDenial& HttpDenial::withMessage(std::string what)
+{
+    message_ = std::move(what);
+    return *this;
+}
+
+CPPWAMP_INLINE HttpDenial& HttpDenial::withResult(AdmitResult result)
+{
+    result_ = result;
+    return *this;
+}
+
+CPPWAMP_INLINE HttpDenial& HttpDenial::withFields(
+    std::initializer_list<std::pair<const Field, std::string>> fields)
+{
+    fields_ = std::move(fields);
+    return *this;
+}
+
+CPPWAMP_INLINE HttpDenial HttpDenial::withHtmlEnabled(bool enabled)
+{
+    htmlEnabled_ = enabled;
+    return *this;
+}
+
+CPPWAMP_INLINE HttpStatus HttpDenial::status() const {return status_;}
+
+CPPWAMP_INLINE const std::string& HttpDenial::message() const &
+{
+    return message_;
+}
+
+CPPWAMP_INLINE std::string&& HttpDenial::message() &&
+{
+    return std::move(message_);
+}
+
+CPPWAMP_INLINE AdmitResult HttpDenial::result() const {return result_;}
+
+CPPWAMP_INLINE bool HttpDenial::htmlEnabled() const {return htmlEnabled_;}
+
+
+//******************************************************************************
+// HttpJob
+//******************************************************************************
+
+CPPWAMP_INLINE HttpJob::HttpJob(TcpSocket&& t, SettingsPtr s,
+                                const CodecIdSet& c, ConnectionInfo i,
+                                RouterLogger::Ptr l)
     : tcpSocket_(std::move(t)),
       codecIds_(c),
       connectionInfo_(std::move(i)),
@@ -23,30 +83,34 @@ HttpJob::HttpJob(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
       logger_(std::move(l))
 {}
 
-const HttpJob::Url& HttpJob::target() const {return target_;}
+CPPWAMP_INLINE const HttpJob::Url& HttpJob::target() const {return target_;}
 
-const HttpJob::Header& HttpJob::header() const
+CPPWAMP_INLINE const HttpJob::Header& HttpJob::header() const
 {
     assert(parser_.has_value());
     return parser_->get().base();
 }
 
-const std::string& HttpJob::body() const & {return body_;}
+CPPWAMP_INLINE const std::string& HttpJob::body() const & {return body_;}
 
-std::string&& HttpJob::body() && {return std::move(body_);}
+CPPWAMP_INLINE std::string&& HttpJob::body() && {return std::move(body_);}
 
-std::string HttpJob::fieldOr(Field field, std::string fallback) const
+CPPWAMP_INLINE std::string
+HttpJob::fieldOr(Field field, std::string fallback) const
 {
     const auto& hdr = header();
     auto iter = hdr.find(field);
     return (iter == hdr.end()) ? fallback : std::string{iter->value()};
 }
 
-const std::string& HttpJob::hostName() const {return hostName_;}
+CPPWAMP_INLINE const std::string& HttpJob::hostName() const {return hostName_;}
 
-const HttpEndpoint& HttpJob::settings() const {return *settings_;}
+CPPWAMP_INLINE const HttpEndpoint& HttpJob::settings() const
+{
+    return *settings_;
+}
 
-void HttpJob::continueRequest()
+CPPWAMP_INLINE void HttpJob::continueRequest()
 {
     namespace http = boost::beast::http;
 
@@ -72,26 +136,28 @@ void HttpJob::continueRequest()
     sendMoreResponse();
 }
 
-void HttpJob::respond(HeaderResponse&& response, HttpStatus status)
+CPPWAMP_INLINE void HttpJob::respond(HeaderResponse&& response,
+                                     HttpStatus status)
 {
     if (!responseSent_)
         sendResponse(std::move(response), status, AdmitResult::responded());
 }
 
-void HttpJob::respond(StringResponse&& response, HttpStatus status)
+CPPWAMP_INLINE void HttpJob::respond(StringResponse&& response,
+                                     HttpStatus status)
 {
     if (!responseSent_)
         sendResponse(std::move(response), status, AdmitResult::responded());
 }
 
-void HttpJob::respond(FileResponse&& response, HttpStatus status)
+CPPWAMP_INLINE void HttpJob::respond(FileResponse&& response, HttpStatus status)
 {
     if (!responseSent_)
         sendResponse(std::move(response), status, AdmitResult::responded());
 }
 
-void HttpJob::websocketUpgrade(WebsocketOptions options,
-                               const WebsocketServerLimits& limits)
+CPPWAMP_INLINE void HttpJob::websocketUpgrade(
+    WebsocketOptions options, const WebsocketServerLimits& limits)
 {
     if (responseSent_)
         return;
@@ -109,46 +175,45 @@ void HttpJob::websocketUpgrade(WebsocketOptions options,
         [this, self](AdmitResult result) {finish(result);});
 }
 
-void HttpJob::balk(HttpStatus status, std::string what, bool simple,
-                   AdmitResult result, FieldList fields)
+CPPWAMP_INLINE void HttpJob::deny(HttpDenial denial)
 {
     if (responseSent_)
         return;
 
-    // Don't send full HTML error page if request was a Websocket upgrade
-    if (simple)
-        return sendSimpleError(status, std::move(what), fields, result);
+    if (!denial.htmlEnabled())
+        return sendSimpleError(denial);
 
     namespace http = boost::beast::http;
 
-    auto page = blockOptions().findErrorPage(status);
-    bool found = page != nullptr;
-    HttpStatus responseStatus = status;
+    auto page = blockOptions().findErrorPage(denial.status());
+    const bool found = page != nullptr;
+    auto responseStatus = denial.status();
 
     if (found)
     {
         if (page->isRedirect())
-            return redirectError(*page, fields, result);
+            return redirectError(denial, *page);
 
         if (page->generator() != nullptr)
-            return sendCustomGeneratedError(*page, what, fields, result);
+            return sendCustomGeneratedError(denial, *page);
 
         if (!page->uri().empty())
-            return sendErrorFromFile(*page, what, fields, result);
+            return sendErrorFromFile(denial, *page);
 
         responseStatus = page->status();
         // Fall through
     }
 
-    sendGeneratedError(responseStatus, what, fields, result);
+    denial.setStatus(responseStatus);
+    sendGeneratedError(denial);
 }
 
-HttpJob::TimePoint HttpJob::steadyTime()
+CPPWAMP_INLINE HttpJob::TimePoint HttpJob::steadyTime()
 {
     return std::chrono::steady_clock::now();
 }
 
-std::error_code HttpJob::httpErrorCodeToStandard(
+CPPWAMP_INLINE std::error_code HttpJob::httpErrorCodeToStandard(
     boost::system::error_code netEc)
 {
     if (!netEc)
@@ -176,7 +241,8 @@ std::error_code HttpJob::httpErrorCodeToStandard(
     return static_cast<std::error_code>(netEc);
 }
 
-HttpStatus HttpJob::shutdownReasonToHttpStatus(std::error_code ec)
+CPPWAMP_INLINE HttpStatus
+HttpJob::shutdownReasonToHttpStatus(std::error_code ec)
 {
     if (ec == TransportErrc::timeout)
         return HttpStatus::requestTimeout;
@@ -185,19 +251,20 @@ HttpStatus HttpJob::shutdownReasonToHttpStatus(std::error_code ec)
     return HttpStatus::internalServerError;
 }
 
-std::error_code HttpJob::monitor()
+CPPWAMP_INLINE std::error_code HttpJob::monitor()
 {
     return monitor_.check(steadyTime());
 }
 
-void HttpJob::process(bool isShedding, AdmitHandler handler)
+CPPWAMP_INLINE void HttpJob::process(bool isShedding, AdmitHandler handler)
 {
     isShedding_ = isShedding;
     admitHandler_ = std::move(handler);
     start();
 }
 
-void HttpJob::shutdown(std::error_code reason, ShutdownHandler handler)
+CPPWAMP_INLINE void HttpJob::shutdown(std::error_code reason,
+                                      ShutdownHandler handler)
 {
     shutdownHandler_ = std::move(handler);
 
@@ -217,11 +284,12 @@ void HttpJob::shutdown(std::error_code reason, ShutdownHandler handler)
     auto what = errorCodeToUri(reason);
     what += ": ";
     what += reason.message();
-    balk(shutdownReasonToHttpStatus(reason), std::move(what), true,
-         AdmitResult::cancelled(reason));
+    deny(HttpDenial{shutdownReasonToHttpStatus(reason)}
+             .withMessage(std::move(what))
+             .withResult(AdmitResult::cancelled(reason)));
 }
 
-void HttpJob::doShutdown()
+CPPWAMP_INLINE void HttpJob::doShutdown()
 {
     if (tcpSocket_.is_open())
     {
@@ -248,7 +316,7 @@ void HttpJob::doShutdown()
     shutdownHandler_ = nullptr;
 }
 
-void HttpJob::flush()
+CPPWAMP_INLINE void HttpJob::flush()
 {
     bodyBuffer_.resize(+flushReadSize_);
     tcpSocket_.async_read_some(
@@ -261,7 +329,7 @@ void HttpJob::flush()
         });
 }
 
-void HttpJob::onFlushComplete(boost::system::error_code netEc)
+CPPWAMP_INLINE void HttpJob::onFlushComplete(boost::system::error_code netEc)
 {
     monitor_.endLinger();
     tcpSocket_.close();
@@ -278,18 +346,19 @@ void HttpJob::onFlushComplete(boost::system::error_code netEc)
     }
 }
 
-void HttpJob::close()
+CPPWAMP_INLINE void HttpJob::close()
 {
     monitor_.endLinger();
     tcpSocket_.close();
 }
 
-const HttpJob::WebsocketServerTransportPtr& HttpJob::upgradedTransport() const
+CPPWAMP_INLINE const HttpJob::WebsocketServerTransportPtr&
+HttpJob::upgradedTransport() const
 {
     return upgradedTransport_;
 }
 
-void HttpJob::start()
+CPPWAMP_INLINE void HttpJob::start()
 {
     serverBlock_ = nullptr;
     status_ = HttpStatus::none;
@@ -315,7 +384,7 @@ void HttpJob::start()
         readHeader();
 }
 
-void HttpJob::waitForHeader()
+CPPWAMP_INLINE void HttpJob::waitForHeader()
 {
     auto self = shared_from_this();
     tcpSocket_.async_wait(
@@ -327,7 +396,7 @@ void HttpJob::waitForHeader()
         });
 }
 
-void HttpJob::readHeader()
+CPPWAMP_INLINE void HttpJob::readHeader()
 {
     alreadyRequested_ = true;
     isReading_ = true;
@@ -346,7 +415,7 @@ void HttpJob::readHeader()
         });
 }
 
-void HttpJob::onHeaderRead(boost::beast::error_code netEc)
+CPPWAMP_INLINE void HttpJob::onHeaderRead(boost::beast::error_code netEc)
 {
     auto routingStatus = interpretRoutingInformation();
 
@@ -363,16 +432,17 @@ void HttpJob::onHeaderRead(boost::beast::error_code netEc)
     parser_->body_limit(bodyLimit);
     if (bodyLength > bodyLimit)
     {
-        return balk(HttpStatus::contentTooLarge, {}, true,
-                    AdmitResult::rejected(HttpStatus::contentTooLarge));
+        const auto s = HttpStatus::contentTooLarge;
+        return deny(HttpDenial{s}.withResult(AdmitResult::rejected(s)));
     }
 
     // Send an error response and disconnect if the server connection limit
     // has been reached.
     if (isShedding_)
     {
-        return balk(HttpStatus::serviceUnavailable,
-                    "Connection limit exceeded", true, AdmitResult::shedded());
+        return deny(HttpDenial{HttpStatus::serviceUnavailable}
+                        .withMessage("Connection limit exceeded")
+                        .withResult(AdmitResult::shedded()));
     }
 
     // Send an error response if the routing information was invalid.
@@ -381,7 +451,10 @@ void HttpJob::onHeaderRead(boost::beast::error_code netEc)
 
     // Send an error response if a matching server block was not found.
     if (serverBlock_ == nullptr)
-        return balk(HttpStatus::badRequest, "Invalid hostname");
+    {
+        return deny(HttpDenial{HttpStatus::badRequest}
+                        .withMessage("Invalid hostname"));
+    }
 
     // Check if a 100-continue expectation was received
     auto expectField = parser_->get().find(Field::expect);
@@ -391,10 +464,11 @@ void HttpJob::onHeaderRead(boost::beast::error_code netEc)
     readBody();
 }
 
-void HttpJob::onExpectationReceived(boost::beast::string_view expectField)
+CPPWAMP_INLINE void
+HttpJob::onExpectationReceived(boost::beast::string_view expectField)
 {
     if (!boost::beast::iequals(expectField, "100-continue"))
-        return balk(HttpStatus::expectationFailed);
+        return deny(HttpStatus::expectationFailed);
 
     // Ignore 100-continue expectations if it's an HTTP/1.0 request, or if
     // the request has no body.
@@ -409,11 +483,11 @@ void HttpJob::onExpectationReceived(boost::beast::string_view expectField)
     assert(serverBlock_ != nullptr);
     auto* action = serverBlock_->findAction(target_.path());
     if (action == nullptr)
-        return balk(HttpStatus::notFound);
+        return deny(HttpStatus::notFound);
     action->expect({}, *this);
 }
 
-void HttpJob::readBody()
+CPPWAMP_INLINE void HttpJob::readBody()
 {
     if (parser_->is_done())
     {
@@ -427,7 +501,7 @@ void HttpJob::readBody()
     }
 }
 
-void HttpJob::readMoreBody()
+CPPWAMP_INLINE void HttpJob::readMoreBody()
 {
     bodyBuffer_.resize(blockOptions().limits().requestBodyIncrement());
     parser_->get().body().data = &bodyBuffer_.front();
@@ -460,7 +534,7 @@ void HttpJob::readMoreBody()
         });
 }
 
-void HttpJob::onRequestRead()
+CPPWAMP_INLINE void HttpJob::onRequestRead()
 {
     monitor_.endBody();
 
@@ -480,12 +554,12 @@ void HttpJob::onRequestRead()
     assert(serverBlock_ != nullptr);
     auto* action = serverBlock_->findAction(target_.path());
     if (action == nullptr)
-        return balk(HttpStatus::notFound);
+        return deny(HttpStatus::notFound);
     action->execute({}, *this);
 }
 
 // Interprets the host and target information from the request header.
-HttpJob::RoutingStatus HttpJob::interpretRoutingInformation()
+CPPWAMP_INLINE HttpJob::RoutingStatus HttpJob::interpretRoutingInformation()
 {
     auto hostField = parser_->get().find(Field::host);
     if (hostField == parser_->get().end())
@@ -540,21 +614,24 @@ HttpJob::RoutingStatus HttpJob::interpretRoutingInformation()
     return RoutingStatus::ok;
 }
 
-void HttpJob::sendRoutingError(RoutingStatus s)
+CPPWAMP_INLINE void HttpJob::sendRoutingError(RoutingStatus s)
 {
+    using HD = HttpDenial;
+    using HS = HttpStatus;
+
     switch (s)
     {
     case RoutingStatus::badHost:
-        return balk(HttpStatus::badRequest, "Invalid hostname");
+        return deny(HD{HS::badRequest}.withMessage("Invalid hostname"));
 
     case RoutingStatus::badTarget:
-        return balk(HttpStatus::badRequest, "Invalid request-target");
+        return deny(HD{HS::badRequest}.withMessage("Invalid request-target"));
 
     case RoutingStatus::badScheme:
-        return balk(HttpStatus::misdirectedRequest, "Invalid scheme");
+        return deny(HD{HS::misdirectedRequest}.withMessage("Invalid scheme"));
 
     case RoutingStatus::badPort:
-        return balk(HttpStatus::misdirectedRequest, "Invalid port");
+        return deny(HD{HS::misdirectedRequest}.withMessage("Invalid port"));
 
     default:
         assert(false && "Unexpected RoutingStatus enumerator");
@@ -562,7 +639,7 @@ void HttpJob::sendRoutingError(RoutingStatus s)
     }
 }
 
-bool HttpJob::checkRead(boost::system::error_code netEc)
+CPPWAMP_INLINE bool HttpJob::checkRead(boost::system::error_code netEc)
 {
     if (!netEc)
         return true;
@@ -602,7 +679,7 @@ bool HttpJob::checkRead(boost::system::error_code netEc)
     return false;
 }
 
-bool HttpJob::checkWrite(boost::system::error_code netEc)
+CPPWAMP_INLINE bool HttpJob::checkWrite(boost::system::error_code netEc)
 {
     if (!netEc)
         return true;
@@ -626,7 +703,7 @@ bool HttpJob::checkWrite(boost::system::error_code netEc)
     return false;
 }
 
-void HttpJob::report(HttpStatus status)
+CPPWAMP_INLINE void HttpJob::report(HttpStatus status)
 {
     if (!logger_)
         return;
@@ -654,7 +731,7 @@ void HttpJob::report(HttpStatus status)
                                 std::move(info)});
 }
 
-AccessAction HttpJob::actionFromRequestVerb(Verb verb)
+CPPWAMP_INLINE AccessAction HttpJob::actionFromRequestVerb(Verb verb)
 {
     switch (verb)
     {
@@ -672,68 +749,64 @@ AccessAction HttpJob::actionFromRequestVerb(Verb verb)
     return AccessAction::clientHttpOther;
 }
 
-void HttpJob::sendSimpleError(HttpStatus status, std::string&& what,
-                              FieldList fields, AdmitResult result)
+CPPWAMP_INLINE void HttpJob::sendSimpleError(HttpDenial& denial)
 {
     namespace http = boost::beast::http;
 
     http::response<http::string_body> response{
-        static_cast<http::status>(status), header().version(),
-        std::move(what)};
+        static_cast<http::status>(denial.status()), header().version(),
+        std::move(denial).message()};
     response.body() += "\r\n";
 
-    for (auto pair: fields)
-        response.set(pair.first, pair.second);
-    sendResponse(std::move(response), status, result);
+    denial.applyFieldsTo(response);
+    sendResponse(std::move(response), denial.status(), denial.result());
 }
 
-void HttpJob::sendGeneratedError(HttpStatus status, const std::string& what,
-                                 FieldList fields, AdmitResult result)
+CPPWAMP_INLINE void HttpJob::sendGeneratedError(const HttpDenial& denial)
 {
     namespace http = boost::beast::http;
+    using Response = http::response<http::string_body>;
 
-    http::response<http::string_body> response{
-        static_cast<http::status>(status), header().version(),
-        generateErrorPage(status, what)};
+    auto status = static_cast<http::status>(denial.status());
+
+    Response response{status, header().version(), generateErrorPage(denial)};
 
     response.set(Field::content_type, "text/html; charset=utf-8");
-    for (auto pair: fields)
-        response.set(pair.first, pair.second);
+    denial.applyFieldsTo(response);
 
     response.prepare_payload();
-    sendResponse(std::move(response), status, result);
+    sendResponse(std::move(response), denial.status(), denial.result());
 }
 
-void HttpJob::sendCustomGeneratedError(const HttpErrorPage& page,
-                                       const std::string& what,
-                                       FieldList fields, AdmitResult result)
+CPPWAMP_INLINE void HttpJob::sendCustomGeneratedError(const HttpDenial& denial,
+                                                      const HttpErrorPage& page)
 {
     namespace http = boost::beast::http;
+    using StringBodyResponse = http::response<http::string_body>;
 
-    http::response<http::string_body> response{
-        static_cast<http::status>(page.status()), header().version(),
-        page.generator()(page.status(), what)};
+    std::string body = page.generator()(page.status(), denial.message());
+    auto status = static_cast<http::status>(page.status());
+    StringBodyResponse response{status, header().version(), std::move(body)};
 
     std::string mime{"text/html; charset="};
     mime += page.charset().empty() ? std::string{"utf-8"} : page.charset();
     response.set(Field::content_type, std::move(mime));
-    for (auto pair: fields)
-        response.set(pair.first, pair.second);
-    sendResponse(std::move(response), page.status(), result);
+    denial.applyFieldsTo(response);
+    sendResponse(std::move(response), page.status(), denial.result());
 }
 
-std::string HttpJob::generateErrorPage(wamp::HttpStatus status,
-                                       const std::string& what) const
+CPPWAMP_INLINE std::string
+HttpJob::generateErrorPage(const HttpDenial& denial) const
 {
-    auto errorMessage = make_error_code(status).message();
+    auto errorMessage = make_error_code(denial.status()).message();
     std::string body{
         "<!DOCTYPE html><html>\r\n"
         "<head><title>" + errorMessage + "</title></head>\r\n"
         "<body>\r\n"
         "<h1>" + errorMessage + "</h1>\r\n"};
 
-    if (!what.empty())
-        body += "<p>" + what + "</p>";
+    if (!denial.message().empty())
+        body += "<p>" + denial.message() + "</p>";
 
     body += "<hr>\r\n" +
             blockOptions().agent() +
@@ -743,8 +816,8 @@ std::string HttpJob::generateErrorPage(wamp::HttpStatus status,
     return body;
 }
 
-void HttpJob::redirectError(const HttpErrorPage& page, FieldList fields,
-                            AdmitResult result)
+CPPWAMP_INLINE void HttpJob::redirectError(HttpDenial& denial,
+                                           const HttpErrorPage& page)
 {
     namespace http = boost::beast::http;
 
@@ -752,14 +825,12 @@ void HttpJob::redirectError(const HttpErrorPage& page, FieldList fields,
         static_cast<http::status>(page.status()), header().version()};
 
     response.set(Field::location, page.uri());
-    for (auto pair: fields)
-        response.set(pair.first, pair.second);
-    sendResponse(std::move(response), page.status(), result);
+    denial.applyFieldsTo(response);
+    sendResponse(std::move(response), page.status(), denial.result());
 }
 
-void HttpJob::sendErrorFromFile(
-    const HttpErrorPage& page, const std::string& what, FieldList fields,
-    AdmitResult result)
+CPPWAMP_INLINE void HttpJob::sendErrorFromFile(HttpDenial& denial,
+                                               const HttpErrorPage& page)
 {
     namespace beast = boost::beast;
     namespace http = beast::http;
@@ -775,9 +846,9 @@ void HttpJob::sendErrorFromFile(
     if (netEc)
     {
         auto ec = static_cast<std::error_code>(netEc);
-        return sendGeneratedError(
-            page.status(), what, fields,
-            AdmitResult::failed(ec, "error file read"));
+        denial.setStatus(page.status());
+        denial.withResult(AdmitResult::failed(ec, "error file read"));
+        return sendGeneratedError(denial);
     }
 
     http::response<http::file_body> response{
@@ -786,13 +857,13 @@ void HttpJob::sendErrorFromFile(
     std::string mime{"text/html; charset="};
     mime += page.charset().empty() ? std::string{"utf-8"} : page.charset();
     response.set(Field::content_type, std::move(mime));
-    for (auto pair: fields)
-        response.set(pair.first, pair.second);
-    sendResponse(std::move(response), page.status(), result);
+    denial.applyFieldsTo(response);
+    sendResponse(std::move(response), page.status(), denial.result());
 }
 
 template <typename R>
-void HttpJob::sendResponse(R&& response, HttpStatus status, AdmitResult result)
+CPPWAMP_INLINE void HttpJob::sendResponse(R&& response, HttpStatus status,
+                                          AdmitResult result)
 {
     responseSent_ = true;
     assert(parser_.has_value());
@@ -822,7 +893,7 @@ void HttpJob::sendResponse(R&& response, HttpStatus status, AdmitResult result)
     sendMoreResponse();
 }
 
-void HttpJob::sendMoreResponse()
+CPPWAMP_INLINE void HttpJob::sendMoreResponse()
 {
     auto self = shared_from_this();
     serializer_.asyncWriteSome(
@@ -850,13 +921,13 @@ void HttpJob::sendMoreResponse()
         });
 }
 
-void HttpJob::onShutdownResponseSent()
+CPPWAMP_INLINE void HttpJob::onShutdownResponseSent()
 {
     finish(result_);
     doShutdown();
 }
 
-void HttpJob::onResponseSent()
+CPPWAMP_INLINE void HttpJob::onResponseSent()
 {
     report(status_);
 
@@ -894,7 +965,7 @@ void HttpJob::onResponseSent()
     }
 }
 
-void HttpJob::finish(AdmitResult result)
+CPPWAMP_INLINE void HttpJob::finish(AdmitResult result)
 {
     if (admitHandler_)
         admitHandler_(result);
@@ -902,13 +973,13 @@ void HttpJob::finish(AdmitResult result)
 }
 
 template <typename F, typename... Ts>
-void HttpJob::post(F&& handler, Ts&&... args)
+CPPWAMP_INLINE void HttpJob::post(F&& handler, Ts&&... args)
 {
     postAny(tcpSocket_.get_executor(), std::forward<F>(handler),
             std::forward<Ts>(args)...);
 }
 
-const HttpServerOptions& HttpJob::blockOptions() const
+CPPWAMP_INLINE const HttpServerOptions& HttpJob::blockOptions() const
 {
     return serverBlock_ ? serverBlock_->options() : settings_->options();
 }

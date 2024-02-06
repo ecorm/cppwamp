@@ -399,7 +399,7 @@ public:
         if (!stat(job, absolutePath_, status))
             return;
         if (!fs::exists(status))
-            return job.balk(HttpStatus::notFound, {}, false);
+            return job.deny(HttpDenial{HttpStatus::notFound}.withHtmlEnabled());
 
         bool isDirectory = fs::is_directory(status);
         if (isDirectory)
@@ -411,7 +411,10 @@ public:
             if (!fs::exists(status))
             {
                 if (!autoIndex())
-                    return job.balk(HttpStatus::notFound, {}, false);
+                {
+                    return job.deny(HttpDenial{HttpStatus::notFound}
+                                        .withHtmlEnabled());
+                }
                 absolutePath_.remove_filename();
                 auto ec = HttpServeDirectoryListing::list(job, absolutePath_);
                 check(job, ec, "list directory");
@@ -445,7 +448,8 @@ private:
         const auto& hdr = job.header();
         if (boost::beast::websocket::is_upgrade(hdr))
         {
-            job.balk(HttpStatus::badRequest, "Not a Websocket resource");
+            job.deny(HttpDenial{HttpStatus::badRequest}
+                         .withMessage("Not a Websocket resource"));
             return false;
         }
 
@@ -453,9 +457,9 @@ private:
         using Verb = boost::beast::http::verb;
         if (hdr.method() != Verb::get && hdr.method() != Verb::head)
         {
-            job.balk(HttpStatus::methodNotAllowed,
-                     std::string(hdr.method_string()) +
-                         " method not allowed on static files.");
+            job.deny(HttpDenial{HttpStatus::methodNotAllowed}
+                        .withMessage(std::string{hdr.method_string()} +
+                                     " method not allowed on static files."));
             return false;
         }
 
@@ -465,7 +469,9 @@ private:
         {
             if (segment == "..")
             {
-                job.balk(HttpStatus::badRequest, "Invalid target path", false);
+                job.deny(HttpDenial{HttpStatus::badRequest}
+                             .withMessage("Invalid target path")
+                             .withHtmlEnabled());
                 return false;
             }
         }
@@ -571,10 +577,12 @@ private:
 
     void fail(HttpJob& job, std::error_code ec, const char* operation)
     {
-        job.balk(
-            HttpStatus::internalServerError,
-            "An error occurred on the server while processing the request.",
-            false, AdmitResult::failed(ec, operation));
+        job.deny(
+            HttpDenial{HttpStatus::internalServerError}
+                .withMessage("An error occurred on the server "
+                             "while processing the request.")
+                .withHtmlEnabled()
+                .withResult(AdmitResult::failed(ec, operation)));
     }
 
     HttpServeFiles properties_;
@@ -647,17 +655,17 @@ CPPWAMP_INLINE void HttpAction<HttpWebsocketUpgrade>::execute(HttpJob& job)
 
 CPPWAMP_INLINE bool HttpAction<HttpWebsocketUpgrade>::checkRequest(HttpJob& job)
 {
+    using Field = boost::beast::http::field;
+
     if (!boost::beast::websocket::is_upgrade(job.header()))
     {
-        job.balk(
-            HttpStatus::upgradeRequired,
-            "This service requires use of the Websocket protocol.",
-            true,
-            AdmitResult::rejected(TransportErrc::badHandshake),
-            {
-                {boost::beast::http::field::connection, "Upgrade"},
-                {boost::beast::http::field::upgrade, "websocket"}
-            });
+        job.deny(
+            HttpDenial{HttpStatus::upgradeRequired}
+                .withMessage("This service requires use "
+                             "of the Websocket protocol.")
+                .withResult(AdmitResult::rejected(HttpStatus::upgradeRequired))
+                .withFields({{Field::connection, "Upgrade"},
+                             {Field::upgrade,    "websocket"}}));
         return false;
     }
 
