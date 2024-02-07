@@ -158,7 +158,7 @@ public:
         if (!checkTrailingSlashInDirectoryPath(job))
             return {};
 
-        auto page = startDirectoryListing(job);
+        auto body = startDirectoryListing(job);
         boost::system::error_code sysEc;
         std::vector<Row> rows;
         Row row;
@@ -178,19 +178,18 @@ public:
 
         std::sort(rows.begin(), rows.end());
         for (const auto& r: rows)
-            page.body() += r.text;
+            body += r.text;
 
-        finishDirectoryListing(page);
+        finishDirectoryListing(body);
+
+        HttpStringResponse page{HttpStatus::ok, std::move(body),
+                                {{"Content-type", "text/html; charset=utf-8"}}};
         job.respond(std::move(page));
         return {};
     };
 
 private:
     using DirectoryEntry = boost::filesystem::directory_entry;
-    using StringBody     = boost::beast::http::string_body;
-    using StringResponse = boost::beast::http::response<StringBody>;
-    using EmptyBody      = boost::beast::http::empty_body;
-    using EmptyResponse  = boost::beast::http::response<EmptyBody>;
 
     struct Row
     {
@@ -210,18 +209,14 @@ private:
         if (!pathIsMissingTrailingSlash)
             return true;
 
-        namespace http = boost::beast::http;
-        EmptyResponse res{http::status::moved_permanently,
-                          job.header().version()};
-        res.base().set(http::field::location, path + '/');
+        HttpResponse res{HttpStatus::movedPermanently,
+                         {{"Location", path + '/'}}};
         job.respond(std::move(res));
         return false;
     }
 
-    static StringResponse startDirectoryListing(HttpJob& job)
+    static std::string startDirectoryListing(HttpJob& job)
     {
-        namespace http = boost::beast::http;
-
         // Remove empty segments not removed by boost::urls::url::normalize
         std::string dirString;
         const auto& segments = job.target().segments();
@@ -254,10 +249,7 @@ private:
             body += "<a href=\"" + parent + "\">../</a>\r\n";
         }
 
-        StringResponse res{http::status::ok, job.header().version(),
-                           std::move(body)};
-        res.set(http::field::content_type, "text/html; charset=utf-8");
-        return res;
+        return body;
     }
 
     static std::error_code computeRow(const HttpJob& job,
@@ -345,12 +337,12 @@ private:
         return (c & 0xc0) == 0x80;
     }
 
-    static void finishDirectoryListing(StringResponse& page)
+    static void finishDirectoryListing(std::string& body)
     {
-        page.body() += "</pre>\r\n"
-                       "<hr>\r\n"
-                       "</body>\r\n"
-                       "</html>";
+        body += "</pre>\r\n"
+                "<hr>\r\n"
+                "</body>\r\n"
+                "</html>";
     }
 
     static constexpr unsigned autoindexLineWidth_ = 79;
@@ -424,23 +416,18 @@ public:
             // Fall through if directory/index.html exists.
         }
 
-        FileBody body;
-        if (!openFile(job, body))
+        HttpFile file;
+        if (!openFile(job, file))
             return;
 
         if (job.header().method() == boost::beast::http::verb::head)
-            return respondToHeadRequest(job, body);
-        respondToGetRequest(job, body);
+            return respondToHeadRequest(job, file);
+        respondToGetRequest(job, file);
     };
 
 private:
     using Path           = boost::filesystem::path;
     using FileStatus     = boost::filesystem::file_status;
-    using FileBody       = boost::beast::http::file_body::value_type;
-    using StringBody     = boost::beast::http::string_body;
-    using StringResponse = boost::beast::http::response<StringBody>;
-    using EmptyBody      = boost::beast::http::empty_body;
-    using EmptyResponse  = boost::beast::http::response<EmptyBody>;
 
     bool checkRequest(HttpJob& job)
     {
@@ -536,42 +523,39 @@ private:
         return properties_.options().indexFileName();
     }
 
-    bool openFile(HttpJob& job, FileBody& fileBody)
+    bool openFile(HttpJob& job, HttpFile& file)
     {
-        namespace beast = boost::beast;
-
-        beast::error_code netEc;
-        fileBody.open(absolutePath_.c_str(), beast::file_mode::scan, netEc);
-        return check(job, netEc, "file open");
+        auto ec = file.open(absolutePath_.c_str());
+        return check(job, ec, "file open");
     }
 
-    void respondToHeadRequest(HttpJob& job, FileBody& body)
+    void respondToHeadRequest(HttpJob& job, HttpFile& file)
     {
-        namespace http = boost::beast::http;
-
-        http::response<http::empty_body> res{http::status::ok,
-                                             job.header().version()};
-        res.set(http::field::content_type, buildMimeType());
-        res.content_length(body.size());
-        job.respond(std::move(res));
+        HttpResponse response{
+            HttpStatus::ok,
+            {{"Content-type", buildMimeType()},
+             {"Content-length", std::to_string(file.size())}}};
+        job.respond(std::move(response));
     }
 
-    void respondToGetRequest(HttpJob& job, FileBody& body)
+    void respondToGetRequest(HttpJob& job, HttpFile& file)
     {
-        namespace http = boost::beast::http;
-
-        http::response<http::file_body> res{
-            http::status::ok, job.header().version(), std::move(body)};
-        res.set(http::field::content_type, buildMimeType());
-        job.respond(std::move(res));
+        HttpFileResponse response{HttpStatus::ok, std::move(file),
+                                  {{"Content-type", buildMimeType()}}};
+        job.respond(std::move(response));
     }
 
     bool check(HttpJob& job, boost::system::error_code sysEc,
                const char* operation)
     {
-        if (!sysEc)
+        return check(job, static_cast<std::error_code>(sysEc), operation);
+    }
+
+    bool check(HttpJob& job, std::error_code ec, const char* operation)
+    {
+        if (!ec)
             return true;
-        fail(job, static_cast<std::error_code>(sysEc), operation);
+        fail(job, ec, operation);
         return false;
     }
 
@@ -655,8 +639,6 @@ CPPWAMP_INLINE void HttpAction<HttpWebsocketUpgrade>::execute(HttpJob& job)
 
 CPPWAMP_INLINE bool HttpAction<HttpWebsocketUpgrade>::checkRequest(HttpJob& job)
 {
-    using Field = boost::beast::http::field;
-
     if (!boost::beast::websocket::is_upgrade(job.header()))
     {
         job.deny(
@@ -664,8 +646,8 @@ CPPWAMP_INLINE bool HttpAction<HttpWebsocketUpgrade>::checkRequest(HttpJob& job)
                 .withMessage("This service requires use "
                              "of the Websocket protocol.")
                 .withResult(AdmitResult::rejected(HttpStatus::upgradeRequired))
-                .withFields({{Field::connection, "Upgrade"},
-                             {Field::upgrade,    "websocket"}}));
+                .withFields({{"Connection", "Upgrade"},
+                             {"Upgrade",    "websocket"}}));
         return false;
     }
 

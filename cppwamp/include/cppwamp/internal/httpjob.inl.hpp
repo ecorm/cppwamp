@@ -14,6 +14,134 @@ namespace wamp
 {
 
 //******************************************************************************
+// HttpResponse
+//******************************************************************************
+
+CPPWAMP_INLINE HttpResponse::HttpResponse(HttpStatus status,
+                                          const HttpFieldMap& fields)
+    : status_(status)
+{
+    namespace http = boost::beast::http;
+    using Response = http::response<http::empty_body>;
+    using Serializer = internal::HttpSerializer<Response>;
+
+    Response response;
+    response.result(static_cast<http::status>(status));
+    for (const auto& kv: fields)
+        response.set(kv.first, kv.second);
+    serializer_.reset(new Serializer(std::move(response)));
+}
+
+CPPWAMP_INLINE HttpStatus HttpResponse::status() const {return status_;}
+
+CPPWAMP_INLINE HttpResponse::HttpResponse(Access, HttpStatus status)
+    : status_(status)
+{}
+
+CPPWAMP_INLINE void
+HttpResponse::setSerializer(internal::HttpSerializerBase* serializer)
+{
+    serializer_.reset(serializer);
+}
+
+template <typename TResponse>
+TResponse& HttpResponse::responseAs()
+{
+    using Serializer = internal::HttpSerializer<TResponse>;
+    return dynamic_cast<Serializer&>(*serializer_).response();
+}
+
+CPPWAMP_INLINE std::unique_ptr<internal::HttpSerializerBase>&&
+HttpResponse::takeSerializer()
+{
+    return std::move(serializer_);
+}
+
+
+//******************************************************************************
+// HttpStringResponse
+//******************************************************************************
+
+CPPWAMP_INLINE HttpStringResponse::HttpStringResponse(
+    HttpStatus status, std::string body, const HttpFieldMap& fields)
+    : Base(Access{}, status)
+{
+    namespace http = boost::beast::http;
+    using Response = http::response<http::string_body>;
+    using Serializer = internal::HttpSerializer<Response>;
+
+    Response response;
+    response.body() = std::move(body);
+    response.result(static_cast<http::status>(status));
+    for (const auto& kv: fields)
+        response.set(kv.first, kv.second);
+    setSerializer(new Serializer(std::move(response)));
+}
+
+//******************************************************************************
+// HttpFile
+//******************************************************************************
+
+struct HttpFile::Impl
+{
+    boost::beast::http::file_body::value_type file;
+};
+
+CPPWAMP_INLINE std::error_code HttpFile::open(const std::string& filename)
+{
+    boost::beast::error_code netEc;
+    impl_->file.open(filename.c_str(), boost::beast::file_mode::scan, netEc);
+    return static_cast<std::error_code>(netEc);
+}
+
+CPPWAMP_INLINE void HttpFile::close()
+{
+    impl_->file.close();
+}
+
+CPPWAMP_INLINE bool HttpFile::isOpen() const
+{
+    return impl_->file.is_open();
+}
+
+CPPWAMP_INLINE uint64_t HttpFile::size() const
+{
+    return impl_->file.size();
+}
+
+
+//******************************************************************************
+// HttpFileResponse
+//******************************************************************************
+
+CPPWAMP_INLINE HttpFileResponse::HttpFileResponse(
+    HttpStatus status, HttpFile&& file, const HttpFieldMap& fields)
+    : Base(Access{}, status)
+{
+    namespace http = boost::beast::http;
+    using Response = http::response<http::file_body>;
+    using Serializer = internal::HttpSerializer<Response>;
+
+    Response response;
+    response.body() = std::move(file.impl_->file);
+    for (const auto& kv: fields)
+        response.set(kv.first, kv.second);
+    setSerializer(new Serializer(std::move(response)));
+}
+
+std::error_code HttpFileResponse::open(const std::string& filename)
+{
+    namespace beast = boost::beast;
+    namespace http = boost::beast::http;
+
+    auto& response = responseAs<http::response<http::file_body>>();
+    beast::error_code netEc;
+    response.body().open(filename.c_str(), beast::file_mode::scan, netEc);
+    return static_cast<std::error_code>(netEc);
+}
+
+
+//******************************************************************************
 // HttpDenial
 //******************************************************************************
 
@@ -39,8 +167,7 @@ CPPWAMP_INLINE HttpDenial& HttpDenial::withResult(AdmitResult result)
     return *this;
 }
 
-CPPWAMP_INLINE HttpDenial& HttpDenial::withFields(
-    std::initializer_list<std::pair<const Field, std::string>> fields)
+CPPWAMP_INLINE HttpDenial& HttpDenial::withFields(HttpFieldMap fields)
 {
     fields_ = std::move(fields);
     return *this;
@@ -67,6 +194,16 @@ CPPWAMP_INLINE std::string&& HttpDenial::message() &&
 CPPWAMP_INLINE AdmitResult HttpDenial::result() const {return result_;}
 
 CPPWAMP_INLINE bool HttpDenial::htmlEnabled() const {return htmlEnabled_;}
+
+CPPWAMP_INLINE const HttpFieldMap& HttpDenial::fields() const &
+{
+    return fields_;
+}
+
+CPPWAMP_INLINE HttpFieldMap&& HttpDenial::fields() &&
+{
+    return std::move(fields_);
+}
 
 
 //******************************************************************************
@@ -112,48 +249,23 @@ CPPWAMP_INLINE const HttpEndpoint& HttpJob::settings() const
 
 CPPWAMP_INLINE void HttpJob::continueRequest()
 {
-    namespace http = boost::beast::http;
-
     assert(parser_.has_value());
 
-    http::response<http::empty_body> response{http::status::continue_,
-                                              parser_->get().version()};
-
-    // Beast will adjust the Connection field automatically depending on
-    // the HTTP version.
-    // https://datatracker.ietf.org/doc/html/rfc7230#section-6.3
-    response.keep_alive(parser_->keep_alive());
-
-    response.set(Field::server, blockOptions().agent());
-
-    response.prepare_payload();
-
-    serializer_.reset(std::move(response),
-                      blockOptions().limits().responseIncrement());
+    HttpResponse response{HttpStatus::continueRequest};
+    serializer_ = response.takeSerializer();
+    serializer_->prepare(blockOptions().limits().responseIncrement(),
+                         parser_->get().version(), blockOptions().agent(),
+                         parser_->keep_alive());
     status_ = HttpStatus::continueRequest;
     monitor_.startResponse(steadyTime(),
                            blockOptions().timeouts().responseTimeout());
     sendMoreResponse();
 }
 
-CPPWAMP_INLINE void HttpJob::respond(HeaderResponse&& response,
-                                     HttpStatus status)
+CPPWAMP_INLINE void HttpJob::respond(HttpResponse&& response)
 {
     if (!responseSent_)
-        sendResponse(std::move(response), status, AdmitResult::responded());
-}
-
-CPPWAMP_INLINE void HttpJob::respond(StringResponse&& response,
-                                     HttpStatus status)
-{
-    if (!responseSent_)
-        sendResponse(std::move(response), status, AdmitResult::responded());
-}
-
-CPPWAMP_INLINE void HttpJob::respond(FileResponse&& response, HttpStatus status)
-{
-    if (!responseSent_)
-        sendResponse(std::move(response), status, AdmitResult::responded());
+        sendResponse(response, AdmitResult::responded());
 }
 
 CPPWAMP_INLINE void HttpJob::websocketUpgrade(
@@ -753,50 +865,37 @@ CPPWAMP_INLINE void HttpJob::sendSimpleError(HttpDenial& denial)
 {
     namespace http = boost::beast::http;
 
-    http::response<http::string_body> response{
-        static_cast<http::status>(denial.status()), header().version(),
-        std::move(denial).message()};
-    response.body() += "\r\n";
-
-    denial.applyFieldsTo(response);
-    sendResponse(std::move(response), denial.status(), denial.result());
+    std::string body{std::move(denial).message()};
+    body += "\r\n";
+    HttpStringResponse response{denial.status(), std::move(body),
+                                std::move(denial).fields()};
+    sendResponse(response, denial.result());
 }
 
-CPPWAMP_INLINE void HttpJob::sendGeneratedError(const HttpDenial& denial)
+CPPWAMP_INLINE void HttpJob::sendGeneratedError(HttpDenial& denial)
 {
-    namespace http = boost::beast::http;
-    using Response = http::response<http::string_body>;
-
-    auto status = static_cast<http::status>(denial.status());
-
-    Response response{status, header().version(), generateErrorPage(denial)};
-
-    response.set(Field::content_type, "text/html; charset=utf-8");
-    denial.applyFieldsTo(response);
-
-    response.prepare_payload();
-    sendResponse(std::move(response), denial.status(), denial.result());
+    HttpFieldMap fields{std::move(denial).fields()};
+    fields.emplace("Content-Type", "text/html; charset=utf-8");
+    HttpStringResponse response{denial.status(), generateErrorPage(denial),
+                                std::move(fields)};
+    sendResponse(response, denial.result());
 }
 
-CPPWAMP_INLINE void HttpJob::sendCustomGeneratedError(const HttpDenial& denial,
+CPPWAMP_INLINE void HttpJob::sendCustomGeneratedError(HttpDenial& denial,
                                                       const HttpErrorPage& page)
 {
-    namespace http = boost::beast::http;
-    using StringBodyResponse = http::response<http::string_body>;
-
-    std::string body = page.generator()(page.status(), denial.message());
-    auto status = static_cast<http::status>(page.status());
-    StringBodyResponse response{status, header().version(), std::move(body)};
-
     std::string mime{"text/html; charset="};
     mime += page.charset().empty() ? std::string{"utf-8"} : page.charset();
-    response.set(Field::content_type, std::move(mime));
-    denial.applyFieldsTo(response);
-    sendResponse(std::move(response), page.status(), denial.result());
+    HttpFieldMap fields{std::move(denial).fields()};
+    fields.emplace("Content-Type", std::move(mime));
+
+    std::string body = page.generator()(page.status(), denial.message());
+    HttpStringResponse response{page.status(), std::move(body),
+                                std::move(fields)};
+    sendResponse(response, denial.result());
 }
 
-CPPWAMP_INLINE std::string
-HttpJob::generateErrorPage(const HttpDenial& denial) const
+CPPWAMP_INLINE std::string HttpJob::generateErrorPage(HttpDenial& denial) const
 {
     auto errorMessage = make_error_code(denial.status()).message();
     std::string body{
@@ -819,14 +918,11 @@ HttpJob::generateErrorPage(const HttpDenial& denial) const
 CPPWAMP_INLINE void HttpJob::redirectError(HttpDenial& denial,
                                            const HttpErrorPage& page)
 {
-    namespace http = boost::beast::http;
+    HttpFieldMap fields{std::move(denial).fields()};
+    fields.emplace("Location", page.uri());
 
-    http::response<http::empty_body> response{
-        static_cast<http::status>(page.status()), header().version()};
-
-    response.set(Field::location, page.uri());
-    denial.applyFieldsTo(response);
-    sendResponse(std::move(response), page.status(), denial.result());
+    HttpResponse response{page.status(), std::move(fields)};
+    sendResponse(response, denial.result());
 }
 
 CPPWAMP_INLINE void HttpJob::sendErrorFromFile(HttpDenial& denial,
@@ -835,59 +931,46 @@ CPPWAMP_INLINE void HttpJob::sendErrorFromFile(HttpDenial& denial,
     namespace beast = boost::beast;
     namespace http = beast::http;
 
-    beast::error_code netEc;
-    http::file_body::value_type body;
-    const auto& docRoot =
-        blockOptions().fileServingOptions().documentRoot();
+    const auto& docRoot = blockOptions().fileServingOptions().documentRoot();
     boost::filesystem::path absolutePath{docRoot};
     absolutePath /= page.uri();
-    body.open(absolutePath.c_str(), beast::file_mode::scan, netEc);
 
-    if (netEc)
+    HttpFile file;
+    auto ec = file.open(absolutePath.c_str());
+    if (ec)
     {
-        auto ec = static_cast<std::error_code>(netEc);
+        file.close();
         denial.setStatus(page.status());
         denial.withResult(AdmitResult::failed(ec, "error file read"));
         return sendGeneratedError(denial);
     }
 
-    http::response<http::file_body> response{
-        http::status::ok, header().version(), std::move(body)};
-
     std::string mime{"text/html; charset="};
     mime += page.charset().empty() ? std::string{"utf-8"} : page.charset();
-    response.set(Field::content_type, std::move(mime));
-    denial.applyFieldsTo(response);
-    sendResponse(std::move(response), page.status(), denial.result());
+    HttpFieldMap fields{std::move(denial).fields()};
+    fields.emplace("Content-type", std::move(mime));
+    HttpFileResponse response{page.status(), std::move(file),
+                              std::move(fields)};
+    sendResponse(response, denial.result());
 }
 
-template <typename R>
-CPPWAMP_INLINE void HttpJob::sendResponse(R&& response, HttpStatus status,
+CPPWAMP_INLINE void HttpJob::sendResponse(HttpResponse& response,
                                           AdmitResult result)
 {
     responseSent_ = true;
     assert(parser_.has_value());
-    keepAlive_ = result.status() == AdmitStatus::responded &&
-                 parser_->keep_alive();
-    // Beast will adjust the Connection field automatically depending on
-    // the HTTP version.
-    // https://datatracker.ietf.org/doc/html/rfc7230#section-6.3
-    response.keep_alive(keepAlive_);
 
-    response.set(Field::server, blockOptions().agent());
-
-    // Set the Connection field to close if we intend to shut down the
-    // connection after sending the response.
-    // https://datatracker.ietf.org/doc/html/rfc9112#section-9.6
-    if (!keepAlive_ && result.status() != AdmitStatus::wamp)
-        response.set(Field::connection, "close");
-
-    response.prepare_payload();
+    using AS = AdmitStatus;
+    keepAlive_ = (result.status() == AS::wamp) ||
+                 (result.status() == AS::responded && parser_->keep_alive());
 
     auto increment = blockOptions().limits().responseIncrement();
-    serializer_.reset(std::forward<R>(response), increment);
+
+    serializer_ = response.takeSerializer();
+    serializer_->prepare(increment, parser_->get().version(),
+                         blockOptions().agent(), keepAlive_);
     result_ = result;
-    status_ = status;
+    status_ = response.status();
     monitor_.startResponse(steadyTime(),
                            blockOptions().timeouts().responseTimeout());
     sendMoreResponse();
@@ -896,7 +979,7 @@ CPPWAMP_INLINE void HttpJob::sendResponse(R&& response, HttpStatus status,
 CPPWAMP_INLINE void HttpJob::sendMoreResponse()
 {
     auto self = shared_from_this();
-    serializer_.asyncWriteSome(
+    serializer_->asyncWriteSome(
         tcpSocket_,
         [this, self](boost::beast::error_code netEc, std::size_t n)
         {
@@ -905,7 +988,7 @@ CPPWAMP_INLINE void HttpJob::sendMoreResponse()
 
             auto now = steadyTime();
 
-            if (!serializer_.done())
+            if (!serializer_->done())
             {
                 monitor_.updateResponse(now, n);
                 return sendMoreResponse();

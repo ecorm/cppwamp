@@ -8,6 +8,7 @@
 #define CPPWAMP_TRANSPORTS_HTTPJOB_HPP
 
 #include <initializer_list>
+#include <map>
 #include <boost/beast/core/flat_buffer.hpp>
 #include <boost/beast/core/string_type.hpp>
 #include <boost/beast/http/buffer_body.hpp>
@@ -20,8 +21,9 @@
 #include "httpprotocol.hpp"
 #include "websocketprotocol.hpp"
 #include "../api.hpp"
+#include "../erroror.hpp"
 #include "../routerlogger.hpp"
-#include "../internal/anyhttpserializer.hpp"
+#include "../internal/httpserializer.hpp"
 #include "../internal/servertimeoutmonitor.hpp"
 
 namespace wamp
@@ -33,12 +35,15 @@ class HttpServerTransport;
 class WebsocketServerTransport;
 }
 
+
+//------------------------------------------------------------------------------
+using HttpFieldMap = std::map<std::string, std::string>;
+
+
 //------------------------------------------------------------------------------
 class CPPWAMP_API HttpDenial
 {
 public:
-    using Field = boost::beast::http::field;
-
     HttpDenial(HttpStatus status);
 
     HttpDenial& setStatus(HttpStatus status);
@@ -49,8 +54,7 @@ public:
 
     HttpDenial withHtmlEnabled(bool enabled = true);
 
-    HttpDenial& withFields(
-        std::initializer_list<std::pair<const Field, std::string>> fields);
+    HttpDenial& withFields(HttpFieldMap fields);
 
     HttpStatus status() const;
 
@@ -62,19 +66,97 @@ public:
 
     bool htmlEnabled() const;
 
-    template <typename TResponse>
-    void applyFieldsTo(TResponse& response) const
-    {
-        for (const auto& kv: fields_)
-            response.set(kv.first, kv.second);
-    }
+    const HttpFieldMap& fields() const &;
+
+    HttpFieldMap&& fields() &&;
 
 private:
-    std::map<Field, std::string> fields_;
+    HttpFieldMap fields_;
     std::string message_;
     AdmitResult result_ = AdmitResult::responded();
     HttpStatus status_;
     bool htmlEnabled_;
+};
+
+
+//------------------------------------------------------------------------------
+class CPPWAMP_API HttpResponse
+{
+public:
+    explicit HttpResponse(HttpStatus status, const HttpFieldMap& fields = {});
+
+    HttpStatus status() const;
+
+protected:
+    struct Access {};
+
+    HttpResponse(Access, HttpStatus status);
+
+    void setSerializer(internal::HttpSerializerBase* serializer);
+
+    template <typename TResponse>
+    TResponse& responseAs();
+
+private:
+    using SerializerPtr = std::unique_ptr<internal::HttpSerializerBase>;
+
+    SerializerPtr&& takeSerializer();
+
+    SerializerPtr serializer_;
+    HttpStatus status_; // TODO: Remove if unused
+
+    friend class HttpJob;
+};
+
+
+//------------------------------------------------------------------------------
+class CPPWAMP_API HttpStringResponse : public HttpResponse
+{
+public:
+    HttpStringResponse(HttpStatus status, std::string body,
+                       const HttpFieldMap& fields = {});
+
+private:
+    using Base = HttpResponse;
+
+    friend class HttpJob;
+};
+
+
+//------------------------------------------------------------------------------
+class CPPWAMP_API HttpFile
+{
+public:
+    std::error_code open(const std::string& filename);
+
+    void close();
+
+    bool isOpen() const;
+
+    std::uint64_t size() const;
+
+private:
+    struct Impl;
+
+    std::unique_ptr<Impl> impl_;
+
+    friend class HttpFileResponse;
+};
+
+
+//------------------------------------------------------------------------------
+class CPPWAMP_API HttpFileResponse : public HttpResponse
+{
+public:
+    HttpFileResponse(HttpStatus status, HttpFile&& file,
+                     const HttpFieldMap& fields = {});
+
+    std::error_code open(const std::string& filename);
+
+private:
+    using Base = HttpResponse;
+
+    friend class HttpJob;
 };
 
 
@@ -96,7 +178,7 @@ public:
     template <typename TBody>
     using Response = boost::beast::http::response<TBody>;
 
-    using HeaderResponse = Response<boost::beast::http::empty_body>;
+    using EmptyResponse  = Response<boost::beast::http::empty_body>;
     using StringResponse = Response<boost::beast::http::string_body>;
     using FileResponse   = Response<boost::beast::http::file_body>;
 
@@ -119,11 +201,7 @@ public:
 
     void continueRequest();
 
-    void respond(HeaderResponse&& response, HttpStatus status = HttpStatus::ok);
-
-    void respond(StringResponse&& response, HttpStatus status = HttpStatus::ok);
-
-    void respond(FileResponse&& response, HttpStatus status = HttpStatus::ok);
+    void respond(HttpResponse&& response);
 
     void websocketUpgrade(WebsocketOptions options,
                           const WebsocketServerLimits& limits);
@@ -205,19 +283,18 @@ private:
 
     void sendSimpleError(HttpDenial& denial);
 
-    void sendGeneratedError(const HttpDenial& denial);
+    void sendGeneratedError(HttpDenial& denial);
 
-    void sendCustomGeneratedError(const HttpDenial& denial,
+    void sendCustomGeneratedError(HttpDenial& denial,
                                   const HttpErrorPage& page);
 
-    std::string generateErrorPage(const HttpDenial& denial) const;
+    std::string generateErrorPage(HttpDenial& denial) const;
 
     void redirectError(HttpDenial& denial, const HttpErrorPage& page);
 
     void sendErrorFromFile(HttpDenial& denial, const HttpErrorPage& page);
 
-    template <typename R>
-    void sendResponse(R&& response, HttpStatus status, AdmitResult result);
+    void sendResponse(HttpResponse& response, AdmitResult result);
 
     void sendMoreResponse();
 
@@ -248,7 +325,7 @@ private:
     ConnectionInfo connectionInfo_;
     std::string hostName_;
     AdmitResult result_;
-    internal::AnyHttpSerializer serializer_;
+    internal::HttpSerializerBase::Ptr serializer_;
     WebsocketServerTransportPtr upgradedTransport_;
     SettingsPtr settings_;
     RouterLogger::Ptr logger_;
