@@ -743,7 +743,7 @@ public:
             publisher->sendRouterCommand(Published{reqId, info.publicationId()},
                                          info.topicUri(), count);
         }
-        else
+        else if (count != 0)
         {
             publisher->report({AccessAction::serverEvent, reqId,
                                info.topicUri(), Object{{"count", count}}});

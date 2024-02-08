@@ -157,6 +157,8 @@ private:
         {
             transport_ = job_->upgradedTransport();
             job_.reset();
+            Base::setReady(transport_->info(),
+                           transport_->connectionInfo().target());
         }
         handler(result);
     }

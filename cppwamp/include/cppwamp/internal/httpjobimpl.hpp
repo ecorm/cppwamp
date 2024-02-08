@@ -21,6 +21,7 @@
 #include <boost/url.hpp>
 #include "../erroror.hpp"
 #include "../routerlogger.hpp"
+#include "../transports/httpjob.hpp"
 #include "../transports/httpprotocol.hpp"
 #include "../transports/httpresponse.hpp"
 #include "../transports/httpserveroptions.hpp"
