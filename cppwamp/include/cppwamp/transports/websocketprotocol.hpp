@@ -12,7 +12,6 @@
     @brief Contains basic Websocket protocol facilities. */
 //------------------------------------------------------------------------------
 
-#include <map>
 #include <system_error>
 #include "../api.hpp"
 #include "../transportlimits.hpp"

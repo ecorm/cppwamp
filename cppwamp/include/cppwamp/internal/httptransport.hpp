@@ -18,6 +18,7 @@
 #include "../routerlogger.hpp"
 #include "../transports/httpjob.hpp"
 #include "../transports/httpprotocol.hpp"
+#include "httpjobimpl.hpp"
 #include "tcptraits.hpp"
 #include "websockettransport.hpp"
 
@@ -40,8 +41,9 @@ public:
                         RouterLogger::Ptr l)
         : Base(boost::asio::make_strand(t.get_executor()),
                makeConnectionInfo(t)),
-          job_(std::make_shared<HttpJob>(std::move(t), std::move(s), c,
-                                         Base::connectionInfo(), std::move(l)))
+          job_(std::make_shared<HttpJobImpl>(std::move(t), std::move(s), c,
+                                             Base::connectionInfo(),
+                                             std::move(l)))
     {}
 
 private:
@@ -159,7 +161,7 @@ private:
         handler(result);
     }
 
-    HttpJob::Ptr job_;
+    HttpJobImpl::Ptr job_;
     WebsocketServerTransport::Ptr transport_;
 };
 

@@ -87,6 +87,7 @@ set(HEADERS
     include/cppwamp/internal/jsonencoding.hpp
     include/cppwamp/internal/hashcombine.hpp
     include/cppwamp/internal/httplistener.hpp
+    include/cppwamp/internal/httpjobimpl.hpp
     include/cppwamp/internal/httpserializer.hpp
     include/cppwamp/internal/httptransport.hpp
     include/cppwamp/internal/httpurlvalidator.hpp
@@ -140,7 +141,9 @@ set(HEADERS
     include/cppwamp/internal/websocketlistener.hpp
     include/cppwamp/internal/websockettransport.hpp
     include/cppwamp/transports/httpjob.hpp
+    include/cppwamp/transports/httpresponse.hpp
     include/cppwamp/transports/httpserver.hpp
+    include/cppwamp/transports/httpserveroptions.hpp
     include/cppwamp/transports/httpprotocol.hpp
     include/cppwamp/transports/httpstatus.hpp
     include/cppwamp/transports/rawsocklimits.hpp
@@ -198,7 +201,9 @@ set(INLINES
     include/cppwamp/internal/filelogger.inl.hpp
     include/cppwamp/internal/httpjob.inl.hpp
     include/cppwamp/internal/httpprotocol.inl.hpp
+    include/cppwamp/internal/httpresponse.inl.hpp
     include/cppwamp/internal/httpserver.inl.hpp
+    include/cppwamp/internal/httpserveroptions.inl.hpp
     include/cppwamp/internal/httpstatus.inl.hpp
     include/cppwamp/internal/json.inl.hpp
     include/cppwamp/internal/logging.inl.hpp

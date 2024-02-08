@@ -12,7 +12,9 @@
 
 #include <cppwamp/internal/httpjob.inl.hpp>
 #include <cppwamp/internal/httpprotocol.inl.hpp>
+#include <cppwamp/internal/httpresponse.inl.hpp>
 #include <cppwamp/internal/httpserver.inl.hpp>
+#include <cppwamp/internal/httpserveroptions.inl.hpp>
 #include <cppwamp/internal/httpstatus.inl.hpp>
 #include <cppwamp/internal/websocketclient.inl.hpp>
 #include <cppwamp/internal/websocketprotocol.inl.hpp>

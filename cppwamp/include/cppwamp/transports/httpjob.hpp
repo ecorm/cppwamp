@@ -7,195 +7,43 @@
 #ifndef CPPWAMP_TRANSPORTS_HTTPJOB_HPP
 #define CPPWAMP_TRANSPORTS_HTTPJOB_HPP
 
-#include <initializer_list>
-#include <map>
-#include <boost/beast/core/flat_buffer.hpp>
-#include <boost/beast/core/string_type.hpp>
-#include <boost/beast/http/buffer_body.hpp>
-#include <boost/beast/http/empty_body.hpp>
-#include <boost/beast/http/field.hpp>
-#include <boost/beast/http/file_body.hpp>
-#include <boost/beast/http/parser.hpp>
-#include <boost/beast/http/string_body.hpp>
 #include <boost/url.hpp>
-#include "httpprotocol.hpp"
+#include "../erroror.hpp"
+#include "httpresponse.hpp"
 #include "websocketprotocol.hpp"
 #include "../api.hpp"
-#include "../erroror.hpp"
-#include "../routerlogger.hpp"
-#include "../internal/httpserializer.hpp"
-#include "../internal/servertimeoutmonitor.hpp"
 
 namespace wamp
 {
 
-namespace internal
-{
-class HttpServerTransport;
-class WebsocketServerTransport;
-}
-
+namespace internal { class HttpJobImpl; }
 
 //------------------------------------------------------------------------------
-using HttpFieldMap = std::map<std::string, std::string>;
-
-
-//------------------------------------------------------------------------------
-class CPPWAMP_API HttpDenial
+class CPPWAMP_API HttpJob
 {
 public:
-    HttpDenial(HttpStatus status);
-
-    HttpDenial& setStatus(HttpStatus status);
-
-    HttpDenial& withMessage(std::string what);
-
-    HttpDenial& withResult(AdmitResult result);
-
-    HttpDenial withHtmlEnabled(bool enabled = true);
-
-    HttpDenial& withFields(HttpFieldMap fields);
-
-    HttpStatus status() const;
-
-    const std::string& message() const &;
-
-    std::string&& message() &&;
-
-    AdmitResult result() const;
-
-    bool htmlEnabled() const;
-
-    const HttpFieldMap& fields() const &;
-
-    HttpFieldMap&& fields() &&;
-
-private:
-    HttpFieldMap fields_;
-    std::string message_;
-    AdmitResult result_ = AdmitResult::responded();
-    HttpStatus status_;
-    bool htmlEnabled_;
-};
-
-
-//------------------------------------------------------------------------------
-class CPPWAMP_API HttpResponse
-{
-public:
-    explicit HttpResponse(HttpStatus status, const HttpFieldMap& fields = {});
-
-    HttpStatus status() const;
-
-protected:
-    struct Access {};
-
-    HttpResponse(Access, HttpStatus status);
-
-    void setSerializer(internal::HttpSerializerBase* serializer);
-
-    template <typename TResponse>
-    TResponse& responseAs();
-
-private:
-    using SerializerPtr = std::unique_ptr<internal::HttpSerializerBase>;
-
-    SerializerPtr&& takeSerializer();
-
-    SerializerPtr serializer_;
-    HttpStatus status_; // TODO: Remove if unused
-
-    friend class HttpJob;
-};
-
-
-//------------------------------------------------------------------------------
-class CPPWAMP_API HttpStringResponse : public HttpResponse
-{
-public:
-    HttpStringResponse(HttpStatus status, std::string body,
-                       const HttpFieldMap& fields = {});
-
-private:
-    using Base = HttpResponse;
-
-    friend class HttpJob;
-};
-
-
-//------------------------------------------------------------------------------
-class CPPWAMP_API HttpFile
-{
-public:
-    std::error_code open(const std::string& filename);
-
-    void close();
-
-    bool isOpen() const;
-
-    std::uint64_t size() const;
-
-private:
-    struct Impl;
-
-    std::unique_ptr<Impl> impl_;
-
-    friend class HttpFileResponse;
-};
-
-
-//------------------------------------------------------------------------------
-class CPPWAMP_API HttpFileResponse : public HttpResponse
-{
-public:
-    HttpFileResponse(HttpStatus status, HttpFile&& file,
-                     const HttpFieldMap& fields = {});
-
-    std::error_code open(const std::string& filename);
-
-private:
-    using Base = HttpResponse;
-
-    friend class HttpJob;
-};
-
-
-//------------------------------------------------------------------------------
-class CPPWAMP_API HttpJob : public std::enable_shared_from_this<HttpJob>
-{
-public:
-    using Ptr          = std::shared_ptr<HttpJob>;
-    using TcpSocket    = boost::asio::ip::tcp::socket;
-    using Settings     = HttpEndpoint;
-    using SettingsPtr  = std::shared_ptr<Settings>;
-    using AdmitHandler = AnyCompletionHandler<void (AdmitResult)>;
-    using Header       = boost::beast::http::request_header<>;
-    using Field        = boost::beast::http::field;
-    using StringView   = boost::beast::string_view;
-    using FieldList    = std::initializer_list<std::pair<Field, StringView>>;
-    using Url          = boost::urls::url;
+    using Url = boost::urls::url;
 
     template <typename TBody>
     using Response = boost::beast::http::response<TBody>;
 
-    using EmptyResponse  = Response<boost::beast::http::empty_body>;
-    using StringResponse = Response<boost::beast::http::string_body>;
-    using FileResponse   = Response<boost::beast::http::file_body>;
-
-    HttpJob(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
-            ConnectionInfo i, RouterLogger::Ptr l);
-
     const Url& target() const;
 
-    const Header& header() const;
+    std::string method() const;
 
     const std::string& body() const &;
 
     std::string&& body() &&;
 
-    std::string fieldOr(Field field, std::string fallback) const;
+    ErrorOr<std::string> field(const std::string& key) const;
+
+    std::string fieldOr(const std::string& key, std::string fallback) const;
 
     const std::string& hostName() const;
+
+    bool isUpgrade() const;
+
+    bool isWebsocketUpgrade() const;
 
     const HttpEndpoint& settings() const;
 
@@ -209,143 +57,17 @@ public:
     void deny(HttpDenial denial);
 
 private:
-    using Base            = HttpJob;
-    using Body            = boost::beast::http::buffer_body;
-    using Request         = boost::beast::http::request<Body>;
-    using Parser          = boost::beast::http::request_parser<Body>;
-    using Verb            = boost::beast::http::verb;
-    using Monitor         = internal::HttpServerTimeoutMonitor;
-    using TimePoint       = std::chrono::steady_clock::time_point;
-    using ShutdownHandler = AnyCompletionHandler<void (std::error_code)>;
-    using WebsocketServerTransportPtr =
-        std::shared_ptr<internal::WebsocketServerTransport>;
+    HttpJob(std::shared_ptr<internal::HttpJobImpl> impl);
 
-    enum class RoutingStatus
-    {
-        ok,
-        badHost,
-        badTarget,
-        badScheme,
-        badPort,
-        count
-    };
+    std::shared_ptr<internal::HttpJobImpl> impl_;
 
-    static TimePoint steadyTime();
-
-    static std::error_code httpErrorCodeToStandard(
-        boost::system::error_code netEc);
-
-    static HttpStatus shutdownReasonToHttpStatus(std::error_code ec);
-
-    std::error_code monitor();
-
-    void process(bool isShedding, AdmitHandler handler);
-
-    void shutdown(std::error_code reason, ShutdownHandler handler);
-
-    void doShutdown();
-
-    void flush();
-
-    void onFlushComplete(boost::system::error_code netEc);
-
-    void close();
-
-    const WebsocketServerTransportPtr& upgradedTransport() const;
-
-    void start();
-
-    void waitForHeader();
-
-    void readHeader();
-
-    void onHeaderRead(boost::beast::error_code netEc);
-
-    void onExpectationReceived(boost::beast::string_view expectField);
-
-    void readBody();
-
-    void readMoreBody();
-
-    void onRequestRead();
-
-    RoutingStatus interpretRoutingInformation();
-
-    void sendRoutingError(RoutingStatus s);
-
-    bool checkRead(boost::system::error_code netEc);
-
-    bool checkWrite(boost::system::error_code netEc);
-
-    void report(HttpStatus status);
-
-    static AccessAction actionFromRequestVerb(Verb verb);
-
-    void sendSimpleError(HttpDenial& denial);
-
-    void sendGeneratedError(HttpDenial& denial);
-
-    void sendCustomGeneratedError(HttpDenial& denial,
-                                  const HttpErrorPage& page);
-
-    std::string generateErrorPage(HttpDenial& denial) const;
-
-    void redirectError(HttpDenial& denial, const HttpErrorPage& page);
-
-    void sendErrorFromFile(HttpDenial& denial, const HttpErrorPage& page);
-
-    void sendResponse(HttpResponse& response, AdmitResult result);
-
-    void sendMoreResponse();
-
-    void onShutdownResponseSent();
-
-    void onResponseSent();
-
-    void finish(AdmitResult result);
-
-    template <typename F, typename... Ts>
-    void post(F&& handler, Ts&&... args);
-
-    const HttpServerOptions& blockOptions() const;
-
-    static constexpr std::size_t flushReadSize_ = 1536;
-
-    TcpSocket tcpSocket_;
-    CodecIdSet codecIds_;
-    TransportInfo transportInfo_;
-    boost::beast::flat_buffer streamBuffer_;
-    std::string body_;
-    std::string bodyBuffer_;
-    boost::optional<Parser> parser_;
-    boost::urls::url target_;
-    Monitor monitor_;
-    AdmitHandler admitHandler_;
-    ShutdownHandler shutdownHandler_;
-    ConnectionInfo connectionInfo_;
-    std::string hostName_;
-    AdmitResult result_;
-    internal::HttpSerializerBase::Ptr serializer_;
-    WebsocketServerTransportPtr upgradedTransport_;
-    SettingsPtr settings_;
-    RouterLogger::Ptr logger_;
-    HttpServerBlock* serverBlock_ = nullptr;
-    HttpStatus status_ = HttpStatus::none;
-    bool isShedding_ = false;
-    bool isPoisoned_ = false;
-    bool isReading_ = false;
-    bool responseSent_ = false;
-    bool keepAlive_ = false;
-    bool alreadyRequested_ = false;
-    bool expectationReceived_ = false;
-
-    friend class internal::HttpServerTransport;
+    friend class internal::HttpJobImpl;
 };
 
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "../internal/httpjob.inl.hpp
+#include "../internal/httpjob.inl.hpp"
 #endif
 
 #endif // CPPWAMP_TRANSPORTS_HTTPJOB_HPP

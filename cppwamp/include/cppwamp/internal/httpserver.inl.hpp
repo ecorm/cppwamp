@@ -267,7 +267,7 @@ private:
         auto name = entry.path().filename().string();
         if (isDirectory)
             name += "/";
-        auto link = fs::path{job.header().target()} / name;
+        auto link = fs::path{job.target().buffer()} / name;
         oss << "<a href=\"" << link.generic_string() << "\">";
         auto nameLength = countUtf8CodePoints(name);
         if (nameLength > autoindexNameWidth_)
@@ -373,13 +373,13 @@ public:
         properties_.mergeOptions(options.fileServingOptions());
     }
 
-    void expect(HttpJob& job)
+    void expect(HttpJob job)
     {
         if (checkRequest(job))
             job.continueRequest();
     }
 
-    void execute(HttpJob& job)
+    void execute(HttpJob job)
     {
         namespace fs = boost::filesystem;
 
@@ -417,10 +417,11 @@ public:
         }
 
         HttpFile file;
-        if (!openFile(job, file))
+        auto ec = file.open(absolutePath_.c_str());
+        if (!check(job, ec, "file open"))
             return;
 
-        if (job.header().method() == boost::beast::http::verb::head)
+        if (job.method() == "HEAD")
             return respondToHeadRequest(job, file);
         respondToGetRequest(job, file);
     };
@@ -431,22 +432,21 @@ private:
 
     bool checkRequest(HttpJob& job)
     {
-        // Check that request is not an HTTP upgrade request
-        const auto& hdr = job.header();
-        if (boost::beast::websocket::is_upgrade(hdr))
+        // Check that request method is supported
+        auto method = job.method();
+        if (method != "GET" && method != "HEAD")
         {
-            job.deny(HttpDenial{HttpStatus::badRequest}
-                         .withMessage("Not a Websocket resource"));
+            method += " method not allowed on static files.";
+            job.deny(HttpDenial{HttpStatus::methodNotAllowed}
+                         .withMessage(method));
             return false;
         }
 
-        // Check that request method is supported
-        using Verb = boost::beast::http::verb;
-        if (hdr.method() != Verb::get && hdr.method() != Verb::head)
+        // Check that request is not an upgrade request
+        if (job.isUpgrade())
         {
-            job.deny(HttpDenial{HttpStatus::methodNotAllowed}
-                        .withMessage(std::string{hdr.method_string()} +
-                                     " method not allowed on static files."));
+            job.deny(HttpDenial{HttpStatus::badRequest}
+                         .withMessage("Not a protocol upgrade resource"));
             return false;
         }
 
@@ -523,12 +523,6 @@ private:
         return properties_.options().indexFileName();
     }
 
-    bool openFile(HttpJob& job, HttpFile& file)
-    {
-        auto ec = file.open(absolutePath_.c_str());
-        return check(job, ec, "file open");
-    }
-
     void respondToHeadRequest(HttpJob& job, HttpFile& file)
     {
         HttpResponse response{
@@ -598,12 +592,12 @@ HttpAction<HttpServeFiles>::initialize(const HttpServerOptions& options)
 
 CPPWAMP_INLINE void HttpAction<HttpServeFiles>::expect(HttpJob& job)
 {
-    impl_->expect(job);
+    impl_->expect(std::move(job));
 }
 
 CPPWAMP_INLINE void HttpAction<HttpServeFiles>::execute(HttpJob& job)
 {
-    impl_->execute(job);
+    impl_->execute(std::move(job));
 }
 
 
@@ -639,7 +633,7 @@ CPPWAMP_INLINE void HttpAction<HttpWebsocketUpgrade>::execute(HttpJob& job)
 
 CPPWAMP_INLINE bool HttpAction<HttpWebsocketUpgrade>::checkRequest(HttpJob& job)
 {
-    if (!boost::beast::websocket::is_upgrade(job.header()))
+    if (!job.isWebsocketUpgrade())
     {
         job.deny(
             HttpDenial{HttpStatus::upgradeRequired}

@@ -18,6 +18,7 @@
 #include "../asiodefs.hpp"
 #include "../listener.hpp"
 #include "httpprotocol.hpp"
+#include "httpserveroptions.hpp"
 #include "websocketprotocol.hpp"
 
 // TODO: HTTPS
@@ -27,8 +28,6 @@
 
 namespace wamp
 {
-
-class HttpJob;
 
 //------------------------------------------------------------------------------
 /** Options for serving static files via HTTP. */
