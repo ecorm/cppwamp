@@ -264,7 +264,8 @@ public:
     // Internal use only
     Event(internal::PassKey, internal::Message&& msg);
 
-    Event(internal::PassKey, Pub&& pub, SubscriptionId sid, PublicationId pid);
+    Event(internal::PassKey, Pub&& pub, SubscriptionId sid, PublicationId pid,
+          Object propagatedOptions = {});
 
     void setExecutor(internal::PassKey, AnyCompletionExecutor exec);
 

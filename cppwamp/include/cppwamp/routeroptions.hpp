@@ -80,6 +80,9 @@ public:
 
     RealmOptions& withMetaTopicPublicationAllowed(bool allowed = true);
 
+    // https://github.com/wamp-proto/wamp-proto/issues/345
+    RealmOptions& withPropagateXOptionsEnabled(bool enabled = true);
+
     const Uri& uri() const;
 
     Authorizer::Ptr authorizer() const;
@@ -96,6 +99,8 @@ public:
 
     bool metaTopicPublicationAllowed() const;
 
+    bool propagateXOptionsEnabled() const;
+
 private:
     Uri uri_;
     Authorizer::Ptr authorizer_;
@@ -106,6 +111,7 @@ private:
     bool metaApiEnabled_ = false;
     bool metaProcedureRegistrationAllowed_ = false;
     bool metaTopicPublicationAllowed_ = false;
+    bool propagateXOptions_ = false;
 };
 
 namespace internal { class Challenger; } // Forward declaration
@@ -201,6 +207,7 @@ public:
     Backoff outageBackoff() const;
 
 private:
+    // TODO: Initialize magic numbers in source files
     String name_;
     String agent_;
     ListenerBuilder listenerBuilder_;

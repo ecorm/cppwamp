@@ -241,21 +241,36 @@ public:
     DealerJob() = default;
 
     Invocation makeInvocation(const RouterSession& caller, Rpc&& rpc,
-                              bool calleeTimeoutArmed) const
+                              bool calleeTimeoutArmed,
+                              bool propagateXOptions) const
     {
-        // TODO: WAMP - Propagate x_foo custom options?
-        // https://github.com/wamp-proto/wamp-proto/issues/345
-
         const auto trustLevel = rpc.trustLevel({});
         const bool callerDisclosed = rpc.discloseMe();
         const bool hasTrustLevel = rpc.hasTrustLevel({});
-        ErrorOr<Object> customOptions = rpc.optionAs<Object>("custom");
+
+        Object propagatedOptions;
+        auto found = rpc.options().find("custom");
+        if (found != rpc.options().end() && found->second.is<Object>())
+        {
+            propagatedOptions.emplace("custom",
+                                      std::move(found->second.as<Object>()));
+        }
+        if (propagateXOptions)
+        {
+            for (auto& kv: rpc.options())
+            {
+                const auto& key = kv.first;
+                if (key.size() >= 2 && key[0] == 'x' && key[1] == '_')
+                    propagatedOptions.emplace(key, std::move(kv.second));
+            }
+        }
 
         Variant timeout;
         if (calleeTimeoutArmed)
             timeout = rpc.optionByKey("timeout");
 
-        Invocation inv{{}, std::move(rpc), registrationId_};
+        Invocation inv{{}, std::move(rpc), registrationId_,
+                       std::move(propagatedOptions)};
 
         if (callerDisclosed)
         {
@@ -279,8 +294,8 @@ public:
         if (hasTrustLevel)
             inv.withOption("trust_level", trustLevel);
 
-        if (customOptions.has_value())
-            inv.withOption("custom", *std::move(customOptions));
+        if (!propagatedOptions.empty())
+            inv.withOption("custom", std::move(propagatedOptions));
 
         if (!timeout.is<Null>())
             inv.withOption("timeout", std::move(timeout));
@@ -626,7 +641,8 @@ public:
           metaProcedures_(std::move(metaProcedures)),
           metaTopics_(std::move(metaTopics)),
           authorizer_(opts.authorizer()),
-          callTimeoutForwardingRule_(opts.callTimeoutForwardingRule())
+          callTimeoutForwardingRule_(opts.callTimeoutForwardingRule()),
+          propagateXOptionsEnabled_(opts.propagateXOptionsEnabled())
     {}
 
     bool metaProceduresAreEnabled() const
@@ -839,7 +855,8 @@ private:
             return makeUnexpected(job.error());
         caller->setLastInsertedCallRequestId(rpc.requestId({}));
         auto inv = job->makeInvocation(*caller, std::move(rpc),
-                                       calleeTimeoutArmed);
+                                       calleeTimeoutArmed,
+                                       propagateXOptionsEnabled_);
         auto reqId = callee->sendInvocation(std::move(inv), std::move(uri));
         jobs_.insert(std::move(*job), reqId);
         return true;
@@ -905,6 +922,7 @@ private:
     MetaTopics::Ptr metaTopics_;
     Authorizer::Ptr authorizer_;
     CallTimeoutForwardingRule callTimeoutForwardingRule_ = {};
+    bool propagateXOptionsEnabled_ = false;
 };
 
 //------------------------------------------------------------------------------

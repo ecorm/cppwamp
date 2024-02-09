@@ -343,7 +343,7 @@ TEST_CASE( "Router meta API enable options", "[WAMP][Router]" )
     IoContext ioctx;
     Session s{ioctx};
 
-    SECTION("Meta API disabled)")
+    SECTION("Meta API disabled")
     {
         auto options = RealmOptions{testRealm}.withMetaApiEnabled(false);
         test::ScopedRealm realm{router.openRealm(options).value()};
@@ -360,7 +360,7 @@ TEST_CASE( "Router meta API enable options", "[WAMP][Router]" )
         ioctx.restart();
     }
 
-    SECTION("Meta API enabled)")
+    SECTION("Meta API enabled")
     {
         auto options = RealmOptions{testRealm}.withMetaApiEnabled(true);
         test::ScopedRealm realm{router.openRealm(options).value()};
@@ -374,6 +374,67 @@ TEST_CASE( "Router meta API enable options", "[WAMP][Router]" )
             REQUIRE(!result->args().empty());
             CHECK(result->args().at(0) == 1);
             s.disconnect();
+        });
+        ioctx.run();
+    }
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Router propagate x_ options", "[WAMP][Router]" )
+{
+    if (!test::RouterFixture::enabled())
+        return;
+
+    wamp::Router& router = test::RouterFixture::instance().router();
+    IoContext ioctx;
+    Session s1{ioctx};
+    Session s2{ioctx};
+
+    auto rpc = [](Invocation inv) { return Result{inv.options()}; };
+
+    SECTION("x_ options enabled")
+    {
+        auto options = RealmOptions{testRealm}
+                           .withPropagateXOptionsEnabled(true);
+        test::ScopedRealm realm{router.openRealm(options).value()};
+
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            s1.connect(withTcp, yield).value();
+            s1.join(testRealm, yield).value();
+            s1.enroll("rpc", rpc, yield).value();
+            s2.connect(withTcp, yield).value();
+            s2.join(testRealm, yield).value();
+            auto result =
+                s2.call(Rpc{"rpc"}.withOption("x_foo", 42), yield).value();
+            const auto& echoedOptions = result.args().at(0).as<Object>();
+            CHECK(echoedOptions.at("x_foo") == 42);
+            s2.disconnect();
+            s1.disconnect();
+        });
+        ioctx.run();
+        ioctx.restart();
+    }
+
+    SECTION("x_ options disabled")
+    {
+        auto options = RealmOptions{testRealm}
+                           .withPropagateXOptionsEnabled(false);
+        test::ScopedRealm realm{router.openRealm(options).value()};
+
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            s1.connect(withTcp, yield).value();
+            s1.join(testRealm, yield).value();
+            s1.enroll("rpc", rpc, yield).value();
+            s2.connect(withTcp, yield).value();
+            s2.join(testRealm, yield).value();
+            auto result =
+                s2.call(Rpc{"rpc"}.withOption("x_foo", 42), yield).value();
+            const auto& echoedOptions = result.args().at(0).as<Object>();
+            CHECK(echoedOptions.count("x_foo") == 0);
+            s2.disconnect();
+            s1.disconnect();
         });
         ioctx.run();
     }

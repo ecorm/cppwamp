@@ -302,13 +302,13 @@ CPPWAMP_INLINE Event::Event(internal::PassKey, internal::Message&& msg)
 {}
 
 CPPWAMP_INLINE Event::Event(internal::PassKey, Pub&& pub, SubscriptionId sid,
-                            PublicationId pid)
+                            PublicationId pid, Object propagatedOptions)
     : Base(std::move(pub.message({})))
 {
     message().setKind(internal::MessageKind::event);
     message().at(subscriptionIdPos_) = sid;
     message().at(publicationIdPos_) = pid;
-    message().at(optionsPos_) = Object{};
+    message().at(optionsPos_) = std::move(propagatedOptions);
 
     if (pub.hasTrustLevel({}))
         withOption("trustlevel", pub.trustLevel({}));

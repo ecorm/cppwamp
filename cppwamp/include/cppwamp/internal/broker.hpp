@@ -39,7 +39,8 @@ class BrokerPublication
 {
 public:
     BrokerPublication(Pub&& pub, PublicationId pid,
-                      const RouterSession::Ptr& publisher)
+                      const RouterSession::Ptr& publisher,
+                      bool propagateXOptions)
         : topicUri_(pub.uri()),
           eligibleSessions_(setOfSessionIds(pub, "eligible")),
           eligibleAuthIds_(setOfStrings(pub, "eligible_authid")),
@@ -51,16 +52,27 @@ public:
           publicationId_(pid),
           publisherExcluded_(pub.excludeMe())
     {
-        Object customOptions;
         const bool publisherDisclosed = pub.discloseMe();
 
-        // TODO: WAMP - Propagate x_foo custom options?
-        // https://github.com/wamp-proto/wamp-proto/issues/345
+        Object propagatedOptions;
         auto found = pub.options().find("custom");
         if (found != pub.options().end() && found->second.is<Object>())
-            customOptions = std::move(found->second.as<Object>());
+        {
+            propagatedOptions.emplace("custom",
+                                      std::move(found->second.as<Object>()));
+        }
+        if (propagateXOptions)
+        {
+            for (auto& kv: pub.options())
+            {
+                const auto& key = kv.first;
+                if (key.size() >= 2 && key[0] == 'x' && key[1] == '_')
+                    propagatedOptions.emplace(key, std::move(kv.second));
+            }
+        }
 
-        event_ = Event({}, std::move(pub), nullId(), pid);
+        event_ = Event({}, std::move(pub), nullId(), pid,
+                       std::move(propagatedOptions));
 
         if (publisherDisclosed)
         {
@@ -71,9 +83,6 @@ public:
             if (!info.auth().role().empty())
                 event_.withOption("publisher_authrole", info.auth().role());
         }
-
-        if (!customOptions.empty())
-            event_.withOption("custom", std::move(customOptions));
 
         hasEligibleList_ =
             !eligibleSessions_.empty() || !eligibleAuthIds_.empty() ||
@@ -652,10 +661,11 @@ class BrokerImpl
 {
 public:
     BrokerImpl(RandomNumberGenerator64 prng, MetaTopics::Ptr metaTopics,
-               Authorizer::Ptr authorizer)
+               Authorizer::Ptr authorizer, bool propagateXOptionsEnabled)
         : pubIdGenerator_(std::move(prng)),
           metaTopics_(std::move(metaTopics)),
-          authorizer_(std::move(authorizer))
+          authorizer_(std::move(authorizer)),
+          propagateXOptionsEnabled_(propagateXOptionsEnabled)
     {}
 
     const Authorizer::Ptr& authorizer() const {return authorizer_;}
@@ -733,7 +743,8 @@ public:
     {
         const auto reqId = pub.requestId({});
         const bool wantsAck = pub.wantsAck({});
-        BrokerPublication info{std::move(pub), pub.requestId({}), publisher};
+        BrokerPublication info{std::move(pub), pub.requestId({}), publisher,
+                               propagateXOptionsEnabled_};
         std::size_t count = 0;
         count += byExact_.publish(info);
         count += byPrefix_.publish(info);
@@ -893,6 +904,7 @@ private:
     RandomEphemeralIdGenerator pubIdGenerator_;
     MetaTopics::Ptr metaTopics_;
     Authorizer::Ptr authorizer_;
+    bool propagateXOptionsEnabled_ = false;
 };
 
 //------------------------------------------------------------------------------
@@ -903,10 +915,11 @@ public:
     using Ptr = std::shared_ptr<Broker>;
     using SharedStrand = std::shared_ptr<IoStrand>;
 
-    Broker(AnyIoExecutor exec, SharedStrand strand, RandomNumberGenerator64 prng,
-           MetaTopics::Ptr metaTopics, UriValidator::Ptr uriValidator,
-           const RealmOptions& opts)
-        : impl_(std::move(prng), std::move(metaTopics), opts.authorizer()),
+    Broker(AnyIoExecutor exec, SharedStrand strand,
+           RandomNumberGenerator64 prng, MetaTopics::Ptr metaTopics,
+           UriValidator::Ptr uriValidator, const RealmOptions& opts)
+        : impl_(std::move(prng), std::move(metaTopics), opts.authorizer(),
+                opts.propagateXOptionsEnabled()),
           executor_(std::move(exec)),
           strand_(std::move(strand)),
           uriValidator_(std::move(uriValidator)),

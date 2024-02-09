@@ -428,12 +428,13 @@ CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, internal::Message&& msg
 {}
 
 CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, Rpc&& rpc,
-                                      RegistrationId regId)
+                                      RegistrationId regId,
+                                      Object propagatedOptions)
     : Base(std::move(rpc))
 {
     message().setKind(internal::MessageKind::invocation);
     message().at(registrationIdPos_) = regId;
-    message().at(optionsPos_) = Object{};
+    message().at(optionsPos_) = std::move(propagatedOptions);
 }
 
 CPPWAMP_INLINE void Invocation::setCallee(internal::PassKey, Context callee)

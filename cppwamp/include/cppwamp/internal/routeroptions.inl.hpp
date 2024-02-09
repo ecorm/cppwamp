@@ -66,6 +66,12 @@ RealmOptions::withMetaTopicPublicationAllowed(bool allowed)
     return *this;
 }
 
+CPPWAMP_INLINE RealmOptions&
+RealmOptions::withPropagateXOptionsEnabled(bool enabled)
+{
+    propagateXOptions_ = enabled;
+    return *this;
+}
 
 CPPWAMP_INLINE const Uri& RealmOptions::uri() const {return uri_;}
 
@@ -103,6 +109,11 @@ CPPWAMP_INLINE bool RealmOptions::metaProcedureRegistrationAllowed() const
 CPPWAMP_INLINE bool RealmOptions::metaTopicPublicationAllowed() const
 {
     return metaTopicPublicationAllowed_;
+}
+
+CPPWAMP_INLINE bool RealmOptions::propagateXOptionsEnabled() const
+{
+    return propagateXOptions_;
 }
 
 

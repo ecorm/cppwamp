@@ -530,7 +530,8 @@ private:
 public:
     // Internal use only
     Invocation(internal::PassKey, internal::Message&& msg);
-    Invocation(internal::PassKey, Rpc&& rpc, RegistrationId regId);
+    Invocation(internal::PassKey, Rpc&& rpc, RegistrationId regId,
+               Object propagatedOptions = {});
     void setCallee(internal::PassKey, Context callee);
     void setExecutor(internal::PassKey, AnyCompletionExecutor userExec);
     Context callee(internal::PassKey) const;
