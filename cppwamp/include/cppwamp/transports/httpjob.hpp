@@ -27,6 +27,8 @@ public:
     template <typename TBody>
     using Response = boost::beast::http::response<TBody>;
 
+    explicit operator bool() const;
+
     const Url& target() const;
 
     std::string method() const;
@@ -51,10 +53,10 @@ public:
 
     void respond(HttpResponse&& response);
 
-    void websocketUpgrade(WebsocketOptions options,
-                          const WebsocketServerLimits& limits);
-
     void deny(HttpDenial denial);
+
+    void upgradeToWebsocket(WebsocketOptions options,
+                            const WebsocketServerLimits& limits);
 
 private:
     HttpJob(std::shared_ptr<internal::HttpJobImpl> impl);

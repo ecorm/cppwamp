@@ -15,6 +15,8 @@ namespace wamp
 // HttpJob
 //******************************************************************************
 
+CPPWAMP_INLINE HttpJob::operator bool() const {return impl_ != nullptr;}
+
 CPPWAMP_INLINE const HttpJob::Url& HttpJob::target() const
 {
     return impl_->target();
@@ -67,15 +69,15 @@ CPPWAMP_INLINE void HttpJob::respond(HttpResponse&& response)
     impl_->respond(std::move(response));
 }
 
-CPPWAMP_INLINE void HttpJob::websocketUpgrade(
-    WebsocketOptions options, const WebsocketServerLimits& limits)
-{
-    return impl_->websocketUpgrade(std::move(options), limits);
-}
-
 CPPWAMP_INLINE void HttpJob::deny(HttpDenial denial)
 {
     impl_->deny(std::move(denial));
+}
+
+CPPWAMP_INLINE void HttpJob::upgradeToWebsocket(
+    WebsocketOptions options, const WebsocketServerLimits& limits)
+{
+    return impl_->upgradeToWebsocket(std::move(options), limits);
 }
 
 CPPWAMP_INLINE HttpJob::HttpJob(std::shared_ptr<internal::HttpJobImpl> impl)

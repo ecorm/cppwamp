@@ -56,7 +56,8 @@ public:
 
     HttpJobImpl(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
                 ConnectionInfo i, RouterLogger::Ptr l)
-        : tcpSocket_(std::move(t)),
+        : strand_(t.get_executor()),
+          tcpSocket_(std::move(t)),
           codecIds_(c),
           connectionInfo_(std::move(i)),
           settings_(std::move(s)),
@@ -115,75 +116,55 @@ public:
 
     void continueRequest()
     {
-        assert(parser_.has_value());
+        struct Dispatched
+        {
+            Ptr self;
 
-        HttpResponse response{HttpStatus::continueRequest};
-        serializer_ = response.takeSerializer();
-        serializer_->prepare(blockOptions().limits().responseIncrement(),
-                             parser_->get().version(), blockOptions().agent(),
-                             parser_->keep_alive());
-        status_ = HttpStatus::continueRequest;
-        monitor_.startResponse(steadyTime(),
-                               blockOptions().timeouts().responseTimeout());
-        sendMoreResponse();
+            void operator()() {self->doContinueRequest();}
+        };
+
+        safelyDispatch<Dispatched>();
     }
 
     void respond(HttpResponse&& response)
     {
-        if (!responseSent_)
-            sendResponse(response, AdmitResult::responded());
+        struct Dispatched
+        {
+            Ptr self;
+            HttpResponse response;
+
+            void operator()() {self->doRespond(response);}
+        };
+
+        safelyDispatch<Dispatched>(std::move(response));
     }
 
-    void websocketUpgrade(WebsocketOptions options,
-                          const WebsocketServerLimits& limits)
+    void upgradeToWebsocket(WebsocketOptions options,
+                            const WebsocketServerLimits& limits)
     {
-        if (responseSent_)
-            return;
+        struct Dispatched
+        {
+            Ptr self;
+            WebsocketOptions options;
+            const WebsocketServerLimits& limits;
 
-        auto self = shared_from_this();
-        auto wsEndpoint = std::make_shared<WebsocketEndpoint>(settings_->address(),
-                                                              settings_->port());
-        wsEndpoint->withOptions(std::move(options)).withLimits(limits);
-        auto t = std::make_shared<internal::WebsocketServerTransport>(
-            std::move(tcpSocket_), std::move(wsEndpoint), codecIds_);
-        upgradedTransport_ = std::move(t);
-        assert(parser_.has_value());
-        upgradedTransport_->upgrade(
-            parser_->get(),
-            [this, self](AdmitResult result) {finish(result);});
+            void operator()() {self->doWebsocketUpgrade(options, limits);}
+        };
+
+        safelyDispatch<Dispatched>(std::move(options), limits);
     }
 
     void deny(HttpDenial denial)
     {
-        if (responseSent_)
-            return;
-
-        if (!denial.htmlEnabled())
-            return sendSimpleError(denial);
-
-        namespace http = boost::beast::http;
-
-        auto page = blockOptions().findErrorPage(denial.status());
-        const bool found = page != nullptr;
-        auto responseStatus = denial.status();
-
-        if (found)
+        struct Dispatched
         {
-            if (page->isRedirect())
-                return redirectError(denial, *page);
+            Ptr self;
+            HttpDenial denial;
 
-            if (page->generator() != nullptr)
-                return sendCustomGeneratedError(denial, *page);
+            void operator()() {self->doDeny(std::move(denial));}
+        };
 
-            if (!page->uri().empty())
-                return sendErrorFromFile(denial, *page);
-
-            responseStatus = page->status();
-            // Fall through
-        }
-
-        denial.setStatus(responseStatus);
-        sendGeneratedError(denial);
+        safelyDispatch<Dispatched>(std::move(denial));
     }
 
     std::error_code monitor()
@@ -218,7 +199,7 @@ public:
         auto what = errorCodeToUri(reason);
         what += ": ";
         what += reason.message();
-        deny(HttpDenial{shutdownReasonToHttpStatus(reason)}
+        doDeny(HttpDenial{shutdownReasonToHttpStatus(reason)}
                  .withMessage(std::move(what))
                  .withResult(AdmitResult::cancelled(reason)));
     }
@@ -292,6 +273,79 @@ private:
         if (ec == WampErrc::systemShutdown || ec == WampErrc::sessionKilled)
             return HttpStatus::serviceUnavailable;
         return HttpStatus::internalServerError;
+    }
+
+    void doContinueRequest()
+    {
+        assert(parser_.has_value());
+
+        HttpResponse response{HttpStatus::continueRequest};
+        serializer_ = response.takeSerializer();
+        serializer_->prepare(blockOptions().limits().responseIncrement(),
+                             parser_->get().version(), blockOptions().agent(),
+                             parser_->keep_alive());
+        status_ = HttpStatus::continueRequest;
+        monitor_.startResponse(steadyTime(),
+                               blockOptions().timeouts().responseTimeout());
+        sendMoreResponse();
+    }
+
+    void doRespond(HttpResponse& response)
+    {
+        if (!responseSent_)
+            sendResponse(response, AdmitResult::responded());
+    }
+
+    void doDeny(HttpDenial denial)
+    {
+        if (responseSent_)
+            return;
+
+        if (!denial.htmlEnabled())
+            return sendSimpleError(denial);
+
+        namespace http = boost::beast::http;
+
+        auto page = blockOptions().findErrorPage(denial.status());
+        const bool found = page != nullptr;
+        auto responseStatus = denial.status();
+
+        if (found)
+        {
+            if (page->isRedirect())
+                return redirectError(denial, *page);
+
+            if (page->generator() != nullptr)
+                return sendCustomGeneratedError(denial, *page);
+
+            if (!page->uri().empty())
+                return sendErrorFromFile(denial, *page);
+
+            responseStatus = page->status();
+            // Fall through
+        }
+
+        denial.setStatus(responseStatus);
+        sendGeneratedError(denial);
+    }
+
+    void doWebsocketUpgrade(WebsocketOptions& options,
+                            const WebsocketServerLimits& limits)
+    {
+        if (responseSent_)
+            return;
+
+        auto self = shared_from_this();
+        auto wsEndpoint = std::make_shared<WebsocketEndpoint>(settings_->address(),
+                                                              settings_->port());
+        wsEndpoint->withOptions(std::move(options)).withLimits(limits);
+        auto t = std::make_shared<internal::WebsocketServerTransport>(
+            std::move(tcpSocket_), std::move(wsEndpoint), codecIds_);
+        upgradedTransport_ = std::move(t);
+        assert(parser_.has_value());
+        upgradedTransport_->upgrade(
+            parser_->get(),
+            [this, self](AdmitResult result) {finish(result);});
     }
 
     void doShutdown()
@@ -427,14 +481,14 @@ private:
         if (bodyLength > bodyLimit)
         {
             const auto s = HttpStatus::contentTooLarge;
-            return deny(HttpDenial{s}.withResult(AdmitResult::rejected(s)));
+            return doDeny(HttpDenial{s}.withResult(AdmitResult::rejected(s)));
         }
 
         // Send an error response and disconnect if the server connection limit
         // has been reached.
         if (isShedding_)
         {
-            return deny(HttpDenial{HttpStatus::serviceUnavailable}
+            return doDeny(HttpDenial{HttpStatus::serviceUnavailable}
                             .withMessage("Connection limit exceeded")
                             .withResult(AdmitResult::shedded()));
         }
@@ -446,7 +500,7 @@ private:
         // Send an error response if a matching server block was not found.
         if (serverBlock_ == nullptr)
         {
-            return deny(HttpDenial{HttpStatus::badRequest}
+            return doDeny(HttpDenial{HttpStatus::badRequest}
                             .withMessage("Invalid hostname"));
         }
 
@@ -461,7 +515,7 @@ private:
     void onExpectationReceived(boost::beast::string_view expectField)
     {
         if (!boost::beast::iequals(expectField, "100-continue"))
-            return deny(HttpStatus::expectationFailed);
+            return doDeny(HttpStatus::expectationFailed);
 
         // Ignore 100-continue expectations if it's an HTTP/1.0 request, or if
         // the request has no body.
@@ -476,7 +530,7 @@ private:
         assert(serverBlock_ != nullptr);
         auto* action = serverBlock_->findAction(target_.path());
         if (action == nullptr)
-            return deny(HttpStatus::notFound);
+            return doDeny(HttpStatus::notFound);
         HttpJob job{shared_from_this()};
         action->expect({}, job);
     }
@@ -549,7 +603,7 @@ private:
         assert(serverBlock_ != nullptr);
         auto* action = serverBlock_->findAction(target_.path());
         if (action == nullptr)
-            return deny(HttpStatus::notFound);
+            return doDeny(HttpStatus::notFound);
         HttpJob job{shared_from_this()};
         action->execute({}, job);
     }
@@ -620,16 +674,20 @@ private:
         switch (s)
         {
         case RoutingStatus::badHost:
-            return deny(HD{HS::badRequest}.withMessage("Invalid hostname"));
+            return doDeny(HD{HS::badRequest}
+                              .withMessage("Invalid hostname"));
 
         case RoutingStatus::badTarget:
-            return deny(HD{HS::badRequest}.withMessage("Invalid request-target"));
+            return doDeny(HD{HS::badRequest}
+                              .withMessage("Invalid request-target"));
 
         case RoutingStatus::badScheme:
-            return deny(HD{HS::misdirectedRequest}.withMessage("Invalid scheme"));
+            return doDeny(HD{HS::misdirectedRequest}
+                              .withMessage("Invalid scheme"));
 
         case RoutingStatus::badPort:
-            return deny(HD{HS::misdirectedRequest}.withMessage("Invalid port"));
+            return doDeny(HD{HS::misdirectedRequest}
+                              .withMessage("Invalid port"));
 
         default:
             assert(false && "Unexpected RoutingStatus enumerator");
@@ -944,8 +1002,15 @@ private:
     template <typename F, typename... Ts>
     void post(F&& handler, Ts&&... args)
     {
-        postAny(tcpSocket_.get_executor(), std::forward<F>(handler),
-                std::forward<Ts>(args)...);
+        postAny(strand_, std::forward<F>(handler), std::forward<Ts>(args)...);
+    }
+
+    template <typename TFunctor, typename... Ts>
+    void safelyDispatch(Ts&&... args)
+    {
+        boost::asio::dispatch(
+            strand_,
+            TFunctor{shared_from_this(), std::forward<Ts>(args)...});
     }
 
     const HttpServerOptions& blockOptions() const
@@ -955,6 +1020,7 @@ private:
 
     static constexpr std::size_t flushReadSize_ = 1536;
 
+    IoStrand strand_;
     TcpSocket tcpSocket_;
     CodecIdSet codecIds_;
     TransportInfo transportInfo_;

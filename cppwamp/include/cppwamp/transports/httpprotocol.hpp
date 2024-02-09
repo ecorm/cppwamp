@@ -45,7 +45,6 @@ class HttpJob;
 
 //------------------------------------------------------------------------------
 /** Wrapper that type-erases a polymorphic HTTP action. */
-// TODO: Use executor for HTTP actions
 //------------------------------------------------------------------------------
 class CPPWAMP_API AnyHttpAction
 {

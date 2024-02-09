@@ -628,7 +628,7 @@ CPPWAMP_INLINE void HttpAction<HttpWebsocketUpgrade>::expect(HttpJob& job)
 CPPWAMP_INLINE void HttpAction<HttpWebsocketUpgrade>::execute(HttpJob& job)
 {
     if (checkRequest(job))
-        job.websocketUpgrade(properties_.options(), properties_.limits());
+        job.upgradeToWebsocket(properties_.options(), properties_.limits());
 };
 
 CPPWAMP_INLINE bool HttpAction<HttpWebsocketUpgrade>::checkRequest(HttpJob& job)
