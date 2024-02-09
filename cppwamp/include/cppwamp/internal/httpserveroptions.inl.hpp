@@ -458,6 +458,7 @@ CPPWAMP_INLINE const HttpServerOptions& HttpServerOptions::defaults()
         .withFileServingOptions(HttpFileServingOptions::defaults())
         .withLimits(HttpServerLimits::defaults())
         .withTimeouts(HttpServerTimeouts::defaults())
+        .withKeepAliveEnabled(true)
         .withAgent(Version::serverAgentString());
 
     return options;
@@ -488,6 +489,14 @@ CPPWAMP_INLINE HttpServerOptions&
 HttpServerOptions::withTimeouts(HttpServerTimeouts timeouts)
 {
     timeouts_ = timeouts;
+    return *this;
+}
+
+CPPWAMP_INLINE HttpServerOptions&
+HttpServerOptions::withKeepAliveEnabled(bool enabled)
+{
+    keepAliveHasValue_ = true;
+    keepAliveEnabled_ = enabled;
     return *this;
 }
 
@@ -527,6 +536,11 @@ CPPWAMP_INLINE HttpServerTimeouts& HttpServerOptions::timeouts()
     return timeouts_;
 }
 
+CPPWAMP_INLINE bool HttpServerOptions::keepAliveEnabled() const
+{
+    return keepAliveEnabled_;
+}
+
 CPPWAMP_INLINE const HttpErrorPage*
 HttpServerOptions::findErrorPage(HttpStatus status) const
 {
@@ -542,6 +556,8 @@ HttpServerOptions::merge(const HttpServerOptions& options)
     timeouts_.merge(options.timeouts());
     if (agent_.empty())
         agent_ = options.agent();
+    if (!keepAliveHasValue_)
+        keepAliveEnabled_ = options.keepAliveEnabled();
 }
 
 } // namespace wamp

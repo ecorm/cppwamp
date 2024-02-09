@@ -901,10 +901,11 @@ private:
         responseSent_ = true;
         assert(parser_.has_value());
 
-        using AS = AdmitStatus;
         keepAlive_ =
-            (result.status() == AS::wamp) ||
-            (result.status() == AS::responded && parser_->keep_alive());
+            (result.status() == AdmitStatus::wamp) ||
+            (result.status() == AdmitStatus::responded &&
+             blockOptions().keepAliveEnabled() &&
+             parser_->keep_alive());
 
         auto increment = blockOptions().limits().responseIncrement();
 

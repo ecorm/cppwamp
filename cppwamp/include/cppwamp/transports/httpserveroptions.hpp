@@ -13,6 +13,7 @@
 //------------------------------------------------------------------------------
 
 #include <functional>
+#include <map>
 #include <string>
 #include "../api.hpp"
 #include "../transportlimits.hpp"
@@ -24,7 +25,6 @@ namespace wamp
 
 //------------------------------------------------------------------------------
 /** Contains limits for HTTP server blocks. */
-// TODO: Keep-alive enable/disable
 //------------------------------------------------------------------------------
 class CPPWAMP_API HttpServerLimits
 {
@@ -244,6 +244,9 @@ public:
     /** Specifies HTTP message timeouts. */
     HttpServerOptions& withTimeouts(HttpServerTimeouts timeouts);
 
+    /** Enables or disables persistent HTTP connections. */
+    HttpServerOptions& withKeepAliveEnabled(bool enabled = true);
+
     /** Specifies the error page to show for the given HTTP response
         status code. */
     HttpServerOptions& addErrorPage(HttpErrorPage page);
@@ -269,6 +272,9 @@ public:
     /** Accesses the HTTP message timeouts. */
     HttpServerTimeouts& timeouts();
 
+    /** Determines if HTTP persistent connections are enabled. */
+    bool keepAliveEnabled() const;
+
     /** Finds the error page associated with the given HTTP status code. */
     const HttpErrorPage* findErrorPage(HttpStatus status) const;
 
@@ -281,6 +287,8 @@ private:
     HttpServerTimeouts timeouts_;
     HttpServerLimits limits_;
     std::string agent_;
+    bool keepAliveHasValue_ = false;
+    bool keepAliveEnabled_ = true;
 };
 
 } // namespace wamp

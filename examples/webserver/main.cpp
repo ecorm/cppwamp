@@ -5,7 +5,7 @@
 ------------------------------------------------------------------------------*/
 
 //******************************************************************************
-// HTTP + Websocket + WAMP support server example
+// HTTP + Websocket + WAMP server example
 //******************************************************************************
 
 #include <csignal>
@@ -144,11 +144,10 @@ wamp::ServerOptions serverOptions()
     // These options are inherited by all blocks
     auto baseFileServerOptions =
         wamp::HttpFileServingOptions{}.withDocumentRoot("./www")
-            .withCharset("utf-8");
+                                      .withCharset("utf-8");
 
     auto altFileServingOptions =
-        wamp::HttpFileServingOptions{}
-            .withDocumentRoot("./www-alt");
+        wamp::HttpFileServingOptions{}.withDocumentRoot("./www-alt");
 
     auto mainRoute =
         wamp::HttpServeFiles{"/"}
@@ -157,14 +156,13 @@ wamp::ServerOptions serverOptions()
     auto altRoute =
         wamp::HttpServeFiles{"/alt"}
             .withAlias("/") // Substitutes "/alt" with "/"
-            // before appending to "./www-alt"
+                            // before appending to "./www-alt"
             .withOptions(altFileServingOptions);
 
     auto wsRoute = wamp::HttpWebsocketUpgrade{"/time"};
 
     auto altBlockMainRoute =
-        wamp::HttpServeFiles{"/"}
-            .withOptions(altFileServingOptions);
+        wamp::HttpServeFiles{"/"}.withOptions(altFileServingOptions);
 
     auto httpOptions =
         wamp::HttpServerOptions{}
@@ -173,8 +171,8 @@ wamp::ServerOptions serverOptions()
 
     auto mainBlock =
         wamp::HttpServerBlock{}.addPrefixRoute(mainRoute)
-            .addExactRoute(altRoute)
-            .addExactRoute(wsRoute);
+                               .addExactRoute(altRoute)
+                               .addExactRoute(wsRoute);
 
     auto altBlock =
         wamp::HttpServerBlock{"alt.localhost"}
@@ -182,8 +180,8 @@ wamp::ServerOptions serverOptions()
 
     auto httpEndpoint =
         wamp::HttpEndpoint{8080}.withOptions(httpOptions)
-            .addBlock(mainBlock)
-            .addBlock(altBlock);
+                                .addBlock(mainBlock)
+                                .addBlock(altBlock);
 
     auto serverOptions =
         wamp::ServerOptions("http8080", std::move(httpEndpoint),
