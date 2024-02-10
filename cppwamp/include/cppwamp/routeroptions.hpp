@@ -41,7 +41,6 @@
 #include "routerlogger.hpp"
 #include "timeout.hpp"
 #include "uri.hpp"
-#include "version.hpp"
 #include "internal/passkey.hpp"
 
 namespace wamp
@@ -104,10 +103,9 @@ public:
 private:
     Uri uri_;
     Authorizer::Ptr authorizer_;
-    Disclosure callerDisclosure_ = Disclosure::producer;
-    Disclosure publisherDisclosure_ = Disclosure::producer;
-    CallTimeoutForwardingRule callTimeoutForwardingRule_ =
-        CallTimeoutForwardingRule::perRegistration;
+    Disclosure callerDisclosure_;
+    Disclosure publisherDisclosure_;
+    CallTimeoutForwardingRule callTimeoutForwardingRule_;
     bool metaApiEnabled_ = false;
     bool metaProcedureRegistrationAllowed_ = false;
     bool metaTopicPublicationAllowed_ = false;
@@ -152,7 +150,12 @@ public:
 
     template <typename S, typename F, typename... Fs>
     explicit ServerOptions(String name, S&& transportSettings, F&& format,
-                           Fs&&... extraFormats);
+                           Fs&&... extraFormats)
+        : ServerOptions(ConstructorDisambiguationTag{}, std::move(name),
+                        ListenerBuilder{std::forward<S>(transportSettings)},
+                        BufferCodecFactory{std::forward<F>(format),
+                                           std::forward<Fs>(extraFormats)...})
+    {}
 
     ServerOptions& withAuthenticator(Authenticator::Ptr a);
 
@@ -204,30 +207,26 @@ public:
 
     Backoff acceptBackoff() const;
 
-    Backoff outageBackoff() const;
-
 private:
-    // TODO: Initialize magic numbers in source files
+    struct ConstructorDisambiguationTag {};
+
+    ServerOptions(ConstructorDisambiguationTag, String name,
+                  ListenerBuilder listenerBuilder,
+                  BufferCodecFactory codecFactory);
+
     String name_;
     String agent_;
     ListenerBuilder listenerBuilder_;
     BufferCodecFactory codecFactory_;
     Authenticator::Ptr authenticator_;
-    std::size_t softConnectionLimit_ = 512; // Using Nginx's worker_connections
-    std::size_t hardConnectionLimit_ = 768; // // Using soft limit + 50%
-    Timeout monitoringInterval_ = std::chrono::seconds{1};
-        // Apache httpd RequestReadTimeout has a 1-second granularity
-    Timeout helloTimeout_ = std::chrono::seconds{30};
-        // Using ejabberd's negotiation_timeout
-    Timeout challengeTimeout_ = std::chrono::seconds{30};
-        // Using ejabberd's negotiation_timeout
-    Timeout staleTimeout_ = std::chrono::seconds{300};
-        // Using ejabberd's websocket_timeout
-    Timeout overstayTimeout_ = neverTimeout;
-    Backoff acceptBackoff_ = {std::chrono::milliseconds{625},
-                              std::chrono::seconds{10}};
-        // Starts from approximately Nginx's accept_mutex_delay and ends with
-        // an arbitrarily chosen max delay.
+    std::size_t softConnectionLimit_;
+    std::size_t hardConnectionLimit_;
+    Timeout monitoringInterval_;
+    Timeout helloTimeout_;
+    Timeout challengeTimeout_;
+    Timeout staleTimeout_;
+    Timeout overstayTimeout_;
+    Backoff acceptBackoff_;
 
 public: // Internal use only
     Listening::Ptr makeListener(internal::PassKey, AnyIoExecutor e,
@@ -235,15 +234,6 @@ public: // Internal use only
 
     AnyBufferCodec makeCodec(internal::PassKey, int id) const;
 };
-
-template <typename S, typename F, typename... Fs>
-ServerOptions::ServerOptions(String name, S&& transportSettings, F&& format,
-                             Fs&&... extraFormats)
-    : name_(std::move(name)),
-      agent_(Version::serverAgentString()),
-      listenerBuilder_(std::forward<S>(transportSettings)),
-      codecFactory_(format, extraFormats...)
-{}
 
 //------------------------------------------------------------------------------
 using RandomNumberGenerator64 = std::function<uint64_t ()>;

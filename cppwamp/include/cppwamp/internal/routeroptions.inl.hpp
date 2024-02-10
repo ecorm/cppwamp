@@ -6,6 +6,7 @@
 
 #include "../routeroptions.hpp"
 #include "../api.hpp"
+#include "../version.hpp"
 
 namespace wamp
 {
@@ -15,7 +16,10 @@ namespace wamp
 //******************************************************************************
 
 CPPWAMP_INLINE RealmOptions::RealmOptions(Uri uri)
-    : uri_(std::move(uri))
+    : uri_(std::move(uri)),
+      callerDisclosure_(Disclosure::producer),
+      publisherDisclosure_(Disclosure::producer),
+      callTimeoutForwardingRule_(CallTimeoutForwardingRule::perRegistration)
 {}
 
 CPPWAMP_INLINE RealmOptions&
@@ -263,6 +267,30 @@ CPPWAMP_INLINE ServerOptions::Backoff ServerOptions::acceptBackoff() const
 {
     return acceptBackoff_;
 }
+
+CPPWAMP_INLINE ServerOptions::ServerOptions(
+    ConstructorDisambiguationTag, String name, ListenerBuilder listenerBuilder,
+    BufferCodecFactory codecFactory)
+    : name_(std::move(name)),
+      agent_(Version::serverAgentString()),
+      listenerBuilder_(std::move(listenerBuilder)),
+      codecFactory_(std::move(codecFactory)),
+      softConnectionLimit_(512), // Using Nginx's worker_connections
+      hardConnectionLimit_(768), // Using soft limit + 50%
+      monitoringInterval_(std::chrono::seconds{1}),
+            // Apache httpd RequestReadTimeout has a 1-second granularity
+      helloTimeout_(std::chrono::seconds{30}),
+            // Using ejabberd's negotiation_timeout
+      challengeTimeout_(std::chrono::seconds{30}),
+            // Using ejabberd's negotiation_timeout
+      staleTimeout_(std::chrono::seconds{300}),
+            // Using ejabberd's websocket_timeout
+      overstayTimeout_(neverTimeout),
+      acceptBackoff_({std::chrono::milliseconds{625},
+                      std::chrono::seconds{10}})
+            // Starts from approximately Nginx's accept_mutex_delay and ends
+            // with an arbitrarily chosen max delay.
+{}
 
 CPPWAMP_INLINE Listening::Ptr ServerOptions::makeListener(
     internal::PassKey, AnyIoExecutor e, IoStrand s, RouterLogger::Ptr l) const
