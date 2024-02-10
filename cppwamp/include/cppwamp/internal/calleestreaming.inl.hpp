@@ -14,11 +14,16 @@ namespace wamp
 // Stream
 //******************************************************************************
 
-CPPWAMP_INLINE Stream::Stream(Uri uri): Base(std::move(uri)) {}
+CPPWAMP_INLINE Stream::Stream(Uri uri)
+    : Base(std::move(uri)),
+      invitationExpected_(false)
+{}
 
-CPPWAMP_INLINE Stream& Stream::withInvitationExpected(bool enabled)
+/** @details
+    If unspecified, it is treated as a chunk. */
+CPPWAMP_INLINE Stream& Stream::withInvitationExpected(bool expected)
 {
-    invitationExpected_ = enabled;
+    invitationExpected_ = expected;
     return *this;
 }
 

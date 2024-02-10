@@ -19,7 +19,8 @@ namespace wamp
 //******************************************************************************
 
 CPPWAMP_INLINE HttpDenial::HttpDenial(HttpStatus status)
-    : status_(status)
+    : result_(AdmitResult::responded()),
+      status_(status)
 {}
 
 CPPWAMP_INLINE HttpDenial& HttpDenial::setStatus(HttpStatus status)

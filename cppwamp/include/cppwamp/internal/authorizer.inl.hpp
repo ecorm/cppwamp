@@ -19,7 +19,10 @@ namespace wamp
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Authorization::Authorization() = default;
+CPPWAMP_INLINE Authorization::Authorization()
+    : decision_(Decision::granted),
+      disclosure_(Disclosure::preset)
+{}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Authorization Authorization::granted(Disclosure d)
@@ -95,6 +98,12 @@ CPPWAMP_INLINE Authorization::Authorization(
 //******************************************************************************
 // AuthorizationRequest
 //******************************************************************************
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE AuthorizationRequest::AuthorizationRequest()
+    : realmDisclosure_(Disclosure::preset),
+      consumerDisclosure_(false)
+{}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE const SessionInfo& AuthorizationRequest::info() const

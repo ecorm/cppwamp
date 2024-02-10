@@ -198,6 +198,12 @@ WebsocketOptions::permessageDeflate() const
 // WebsocketClientLimits
 //******************************************************************************
 
+CPPWAMP_INLINE WebsocketClientLimits::WebsocketClientLimits()
+    : requestHeaderSize_(8192),       // Default used by Boost.Beast
+      websocketWriteIncrement_(4096), // Default used by Boost.Beast
+      websocketReadIncrement_(4096)   // Using websocketWriteIncrement_
+{}
+
 CPPWAMP_INLINE WebsocketClientLimits&
 WebsocketClientLimits::withRequestHeaderSize(std::size_t n)
 {
@@ -247,16 +253,15 @@ CPPWAMP_INLINE bool WebsocketHost::targetIsValid(const std::string& target)
 
 CPPWAMP_INLINE WebsocketHost::WebsocketHost(std::string address,
                                             std::string serviceName)
-    : Base(std::move(address), std::move(serviceName))
+    : Base(std::move(address), std::move(serviceName)),
+      target_("/")
 {
     options_.withAgent(Version::clientAgentString());
 }
 
 CPPWAMP_INLINE WebsocketHost::WebsocketHost(std::string address, Port port)
     : WebsocketHost(std::move(address), std::to_string(port))
-{
-    options_.withAgent(Version::clientAgentString());
-}
+{}
 
 CPPWAMP_INLINE WebsocketHost& WebsocketHost::withTarget(std::string target)
 {
@@ -285,6 +290,12 @@ CPPWAMP_INLINE const WebsocketOptions& WebsocketHost::options() const
 //******************************************************************************
 // WebsocketServerLimits
 //******************************************************************************
+
+CPPWAMP_INLINE WebsocketServerLimits::WebsocketServerLimits()
+    : requestHeaderSize_(8192),       // Default used by Boost.Beast
+      websocketWriteIncrement_(4096), // Default used by Boost.Beast
+      websocketReadIncrement_(4096)   // Using websocketWriteIncrement_
+{}
 
 CPPWAMP_INLINE WebsocketServerLimits&
 WebsocketServerLimits::withRequestHeaderSize(std::size_t n)

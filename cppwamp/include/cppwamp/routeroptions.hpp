@@ -261,6 +261,8 @@ public:
     /// Type-erases an AccessLogEntry handler and its associated executor.
     using AccessLogHandler = AnyReusableHandler<void (AccessLogEntry)>;
 
+    RouterOptions();
+
     RouterOptions& withLogHandler(LogHandler f);
 
     RouterOptions& withLogLevel(LogLevel level);
@@ -286,7 +288,7 @@ private:
     AccessLogHandler accessLogHandler_;
     UriValidator::Ptr uriValidator_;
     RandomNumberGeneratorFactory rngFactory_;
-    LogLevel logLevel_ = LogLevel::warning;
+    LogLevel logLevel_;
 
 public:
     // Internal use only

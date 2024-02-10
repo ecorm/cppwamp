@@ -282,6 +282,8 @@ CPPWAMP_INLINE AnyBufferCodec ServerOptions::makeCodec(internal::PassKey,
 // RouterOptions
 //******************************************************************************
 
+CPPWAMP_INLINE RouterOptions::RouterOptions() : logLevel_(LogLevel::warning) {}
+
 CPPWAMP_INLINE RouterOptions& RouterOptions::withLogHandler(LogHandler f)
 {
     logHandler_ = std::move(f);

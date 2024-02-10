@@ -31,6 +31,8 @@ class CPPWAMP_API HttpServerLimits
 public:
     static const HttpServerLimits& defaults();
 
+    HttpServerLimits();
+
     HttpServerLimits& withRequestHeaderSize(std::size_t n);
 
     HttpServerLimits& withRequestBodySize(std::size_t n);
@@ -67,6 +69,8 @@ class CPPWAMP_API HttpServerTimeouts
 {
 public:
     static const HttpServerTimeouts& defaults();
+
+    HttpServerTimeouts();
 
     HttpServerTimeouts& withRequestHeaderTimeout(Timeout t);
 

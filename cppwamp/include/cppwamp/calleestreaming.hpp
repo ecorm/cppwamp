@@ -47,7 +47,7 @@ public:
     explicit Stream(Uri uri);
 
     /** Treats the initial invocation as an invitation instead of a chunk. */
-    Stream& withInvitationExpected(bool enabled = true);
+    Stream& withInvitationExpected(bool expected = true);
 
     /** Returns true if the initial invocation is to be treated as an invitation
         instead of a chunk. */
@@ -56,7 +56,7 @@ public:
 private:
     using Base = ProcedureLike<Stream>;
 
-    bool invitationExpected_ = false;
+    bool invitationExpected_ ;
 };
 
 

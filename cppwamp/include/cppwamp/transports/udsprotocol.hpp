@@ -144,7 +144,7 @@ private:
 
     using Base::port;
 
-    bool deletePathEnabled_ = true;
+    bool deletePathEnabled_;
 
 public: // Internal use only
     void initialize(internal::PassKey);

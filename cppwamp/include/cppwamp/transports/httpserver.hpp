@@ -21,6 +21,7 @@
 #include "httpserveroptions.hpp"
 #include "websocketprotocol.hpp"
 
+// TODO: Redirect action
 // TODO: HTTPS
 // TODO: HTTP compression
 // TODO: HTTP range requests

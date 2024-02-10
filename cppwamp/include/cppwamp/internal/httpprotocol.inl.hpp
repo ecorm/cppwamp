@@ -121,6 +121,8 @@ CPPWAMP_INLINE void HttpServerBlock::initialize(
 // HttpListenerLimits
 //******************************************************************************
 
+HttpListenerLimits::HttpListenerLimits() = default;
+
 HttpListenerLimits& HttpListenerLimits::withBacklogCapacity(int capacity)
 {
     backlogCapacity_ = capacity;

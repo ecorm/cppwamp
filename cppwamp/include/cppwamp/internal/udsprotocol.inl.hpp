@@ -59,7 +59,8 @@ CPPWAMP_INLINE UdsHost::UdsHost(std::string pathName)
 //******************************************************************************
 
 CPPWAMP_INLINE UdsEndpoint::UdsEndpoint(std::string pathName)
-    : Base(std::move(pathName), 0)
+    : Base(std::move(pathName), 0),
+      deletePathEnabled_(true)
 {}
 
 CPPWAMP_INLINE UdsEndpoint& UdsEndpoint::withDeletePath(bool enabled)

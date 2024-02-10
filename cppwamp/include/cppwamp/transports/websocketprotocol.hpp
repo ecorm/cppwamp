@@ -166,6 +166,8 @@ class CPPWAMP_API WebsocketClientLimits
     : public BasicClientTransportLimits<WebsocketClientLimits>
 {
 public:
+    WebsocketClientLimits();
+
     WebsocketClientLimits& withRequestHeaderSize(std::size_t n);
 
     WebsocketClientLimits& withWebsocketWriteIncrement(std::size_t n);
@@ -179,9 +181,9 @@ public:
     std::size_t websocketReadIncrement() const;
 
 private:
-    std::size_t requestHeaderSize_ = 8192;   // Default used by Boost.Beast
-    std::size_t websocketWriteIncrement_ = 4096; // Default used by Boost.Beast
-    std::size_t websocketReadIncrement_ = 4096;  // Using websocketWriteIncrement_
+    std::size_t requestHeaderSize_;
+    std::size_t websocketWriteIncrement_;
+    std::size_t websocketReadIncrement_;
 };
 
 
@@ -221,7 +223,7 @@ private:
     using Base = SocketHost<WebsocketHost, Websocket, TcpOptions,
                             WebsocketClientLimits>;
 
-    std::string target_ = "/";
+    std::string target_;
     WebsocketOptions options_;
 };
 
@@ -233,6 +235,8 @@ class CPPWAMP_API WebsocketServerLimits
     : public BasicServerTransportLimits<WebsocketServerLimits>
 {
 public:
+    WebsocketServerLimits();
+
     WebsocketServerLimits& withRequestHeaderSize(std::size_t n);
 
     WebsocketServerLimits& withWebsocketWriteIncrement(std::size_t n);
@@ -246,9 +250,9 @@ public:
     std::size_t websocketReadIncrement() const;
 
 private:
-    std::size_t requestHeaderSize_ = 8192;   // Default used by Boost.Beast
-    std::size_t websocketWriteIncrement_ = 4096; // Default used by Boost.Beast
-    std::size_t websocketReadIncrement_ = 4096;  // Using websocketWriteIncrement_
+    std::size_t requestHeaderSize_;
+    std::size_t websocketWriteIncrement_;
+    std::size_t websocketReadIncrement_;
 };
 
 //------------------------------------------------------------------------------

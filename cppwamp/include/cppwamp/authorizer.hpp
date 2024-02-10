@@ -101,8 +101,8 @@ private:
                            std::error_code ec);
 
     std::error_code errorCode_;
-    Decision decision_ = Decision::granted;
-    Disclosure disclosure_ = Disclosure::preset;
+    Decision decision_;
+    Disclosure disclosure_;
 };
 
 class Authorizer;
@@ -113,6 +113,9 @@ class Authorizer;
 class CPPWAMP_API AuthorizationRequest
 {
 public:
+    /** Default constructor. */
+    AuthorizationRequest();
+
     /** Accesses information on the originator. */
     const SessionInfo& info() const;
 
@@ -149,8 +152,8 @@ private:
     std::weak_ptr<Originator> originator_;
     std::weak_ptr<Authorizer> authorizer_;
     SessionInfo info_;
-    Disclosure realmDisclosure_ = Disclosure::preset;
-    bool consumerDisclosure_ = false;
+    Disclosure realmDisclosure_;
+    bool consumerDisclosure_;
 
 public: // Internal use only
     AuthorizationRequest(internal::PassKey,

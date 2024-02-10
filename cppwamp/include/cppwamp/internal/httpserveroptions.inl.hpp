@@ -30,6 +30,8 @@ CPPWAMP_INLINE const HttpServerLimits& HttpServerLimits::defaults()
     return limits;
 }
 
+CPPWAMP_INLINE HttpServerLimits::HttpServerLimits() = default;
+
 CPPWAMP_INLINE HttpServerLimits&
 HttpServerLimits::withRequestHeaderSize(std::size_t n)
 {
@@ -123,6 +125,8 @@ CPPWAMP_INLINE const HttpServerTimeouts& HttpServerTimeouts::defaults()
 
     return timeouts;
 }
+
+CPPWAMP_INLINE HttpServerTimeouts::HttpServerTimeouts() {}
 
 CPPWAMP_INLINE HttpServerTimeouts&
 HttpServerTimeouts::withRequestHeaderTimeout(Timeout t)

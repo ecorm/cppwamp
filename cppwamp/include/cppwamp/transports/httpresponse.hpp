@@ -56,9 +56,9 @@ public:
 private:
     HttpFieldMap fields_;
     std::string message_;
-    AdmitResult result_ = AdmitResult::responded();
-    HttpStatus status_;
-    bool htmlEnabled_;
+    AdmitResult result_;
+    HttpStatus status_ = HttpStatus::none;
+    bool htmlEnabled_ = false;
 };
 
 

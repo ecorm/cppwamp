@@ -130,6 +130,8 @@ public: // Internal use only
 class CPPWAMP_API HttpListenerLimits
 {
 public:
+    HttpListenerLimits();
+
     HttpListenerLimits& withBacklogCapacity(int capacity);
 
     int backlogCapacity() const;
