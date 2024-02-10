@@ -183,7 +183,7 @@ public:
     {
         shutdownHandler_ = std::move(handler);
 
-        if (responseSent_ || !reason)
+        if (isDone_ || !reason)
         {
             if (admitHandler_)
             {
@@ -196,6 +196,7 @@ public:
         }
 
         isPoisoned_ = true;
+        isDone_ = true;
         auto what = errorCodeToUri(reason);
         what += ": ";
         what += reason.message();
@@ -206,6 +207,7 @@ public:
 
     void close()
     {
+        isDone_ = true;
         monitor_.endLinger();
         tcpSocket_.close();
     }
@@ -277,10 +279,12 @@ private:
 
     void doContinueRequest()
     {
-        assert(parser_.has_value());
+        if (isDone_ || responseSent_)
+            return;
 
         HttpResponse response{HttpStatus::continueRequest};
         serializer_ = response.takeSerializer();
+        assert(parser_.has_value());
         serializer_->prepare(blockOptions().limits().responseIncrement(),
                              parser_->get().version(), blockOptions().agent(),
                              parser_->keep_alive());
@@ -292,13 +296,14 @@ private:
 
     void doRespond(HttpResponse& response)
     {
-        if (!responseSent_)
-            sendResponse(response, AdmitResult::responded());
+        if (isDone_ || responseSent_)
+            return;
+        sendResponse(response, AdmitResult::responded());
     }
 
     void doDeny(HttpDenial denial)
     {
-        if (responseSent_)
+        if (isDone_ || responseSent_)
             return;
 
         if (!denial.htmlEnabled())
@@ -332,7 +337,7 @@ private:
     void doWebsocketUpgrade(WebsocketOptions& options,
                             const WebsocketServerLimits& limits)
     {
-        if (responseSent_)
+        if (isDone_ || responseSent_)
             return;
 
         auto self = shared_from_this();
@@ -996,6 +1001,7 @@ private:
 
     void finish(AdmitResult result)
     {
+        isDone_ = true;
         if (admitHandler_)
             admitHandler_(result);
         admitHandler_ = nullptr;
@@ -1047,6 +1053,7 @@ private:
     bool isShedding_ = false;
     bool isPoisoned_ = false;
     bool isReading_ = false;
+    bool isDone_ = false;
     bool responseSent_ = false;
     bool keepAlive_ = false;
     bool alreadyRequested_ = false;
