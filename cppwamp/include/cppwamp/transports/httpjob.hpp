@@ -12,6 +12,7 @@
 #include "httpresponse.hpp"
 #include "websocketprotocol.hpp"
 #include "../api.hpp"
+#include "../traits.hpp"
 
 namespace wamp
 {
@@ -54,6 +55,27 @@ public:
     void respond(HttpResponse&& response);
 
     void deny(HttpDenial denial);
+
+    void reject(HttpDenial denial);
+
+    void reject(HttpDenial denial, std::error_code logErrorCode);
+
+    template <typename TErrc,
+             CPPWAMP_NEEDS(std::is_error_code_enum<TErrc>::value) = 0>
+    void reject(HttpDenial denial, TErrc logErrc)
+    {
+        reject(std::move(denial), make_error_code(logErrc));
+    }
+
+    void fail(HttpDenial denial, std::error_code logErrorCode,
+              const char* operation);
+
+    template <typename TErrc,
+             CPPWAMP_NEEDS(std::is_error_code_enum<TErrc>::value) = 0>
+    void fail(HttpDenial denial, TErrc logErrc, const char* operation)
+    {
+        fail(std::move(denial), make_error_code(logErrc), operation);
+    }
 
     void redirect(std::string location,
                   HttpStatus code = HttpStatus::temporaryRedirect);

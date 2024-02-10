@@ -615,12 +615,12 @@ private:
 
     void fail(HttpJob& job, std::error_code ec, const char* operation)
     {
-        job.deny(
+        job.fail(
             HttpDenial{HttpStatus::internalServerError}
                 .withMessage("An error occurred on the server "
                              "while processing the request.")
-                .withHtmlEnabled()
-                .withResult(AdmitResult::failed(ec, operation)));
+                .withHtmlEnabled(),
+            ec, operation);
     }
 
     HttpServeFiles properties_;
@@ -711,10 +711,8 @@ CPPWAMP_INLINE void HttpAction<HttpRedirect>::execute(HttpJob& job)
     }
     catch (const boost::system::system_error& e)
     {
-        job.deny(HttpDenial{HttpStatus::internalServerError}
-                     .withHtmlEnabled()
-                     .withResult(AdmitResult::failed(e.code(),
-                                                     "HttpRedirect")));
+        job.fail(HttpDenial{HttpStatus::internalServerError}.withHtmlEnabled(),
+                 e.code(), "HttpRedirect");
         return;
     }
 
@@ -756,13 +754,10 @@ CPPWAMP_INLINE bool HttpAction<HttpWebsocketUpgrade>::checkRequest(HttpJob& job)
 {
     if (!job.isWebsocketUpgrade())
     {
-        job.deny(
-            HttpDenial{HttpStatus::upgradeRequired}
-                .withMessage("This service requires use "
-                             "of the Websocket protocol.")
-                .withResult(AdmitResult::rejected(HttpStatus::upgradeRequired))
-                .withFields({{"Connection", "Upgrade"},
-                             {"Upgrade",    "websocket"}}));
+        auto denial = HttpDenial{HttpStatus::upgradeRequired}
+            .withMessage("This service requires use of the Websocket protocol.")
+            .withFields({{"Connection", "Upgrade"}, {"Upgrade", "websocket"}});
+        job.reject(std::move(denial));
         return false;
     }
 

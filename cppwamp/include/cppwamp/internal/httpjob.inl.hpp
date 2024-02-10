@@ -74,6 +74,26 @@ CPPWAMP_INLINE void HttpJob::deny(HttpDenial denial)
     impl_->deny(std::move(denial));
 }
 
+CPPWAMP_INLINE void HttpJob::reject(HttpDenial denial)
+{
+    auto status = denial.status();
+    reject(std::move(denial), make_error_code(status));
+}
+
+CPPWAMP_INLINE void HttpJob::reject(HttpDenial denial,
+                                    std::error_code logErrorCode)
+{
+    denial.withResult(AdmitResult::rejected(logErrorCode));
+    impl_->deny(std::move(denial));
+}
+
+CPPWAMP_INLINE void HttpJob::fail(
+    HttpDenial denial, std::error_code logErrorCode, const char* operation)
+{
+    denial.withResult(AdmitResult::failed(logErrorCode, operation));
+    impl_->deny(std::move(denial));
+}
+
 CPPWAMP_INLINE void HttpJob::redirect(std::string location, HttpStatus code)
 {
     deny(HttpDenial{code}.withFields({{"Location", std::move(location)}}));

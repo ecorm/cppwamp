@@ -33,8 +33,6 @@ public:
 
     HttpDenial& withMessage(std::string what);
 
-    HttpDenial& withResult(AdmitResult result);
-
     HttpDenial withHtmlEnabled(bool enabled = true);
 
     HttpDenial& withFields(HttpFieldMap fields);
@@ -45,8 +43,6 @@ public:
 
     std::string&& message() &&;
 
-    AdmitResult result() const;
-
     bool htmlEnabled() const;
 
     const HttpFieldMap& fields() const &;
@@ -54,11 +50,18 @@ public:
     HttpFieldMap&& fields() &&;
 
 private:
+    HttpDenial& withResult(AdmitResult result);
+
+    AdmitResult result() const;
+
     HttpFieldMap fields_;
     std::string message_;
     AdmitResult result_;
     HttpStatus status_ = HttpStatus::none;
     bool htmlEnabled_ = false;
+
+    friend class HttpJob;
+    friend class internal::HttpJobImpl;
 };
 
 

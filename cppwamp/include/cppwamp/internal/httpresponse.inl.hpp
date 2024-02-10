@@ -35,12 +35,6 @@ CPPWAMP_INLINE HttpDenial& HttpDenial::withMessage(std::string what)
     return *this;
 }
 
-CPPWAMP_INLINE HttpDenial& HttpDenial::withResult(AdmitResult result)
-{
-    result_ = result;
-    return *this;
-}
-
 CPPWAMP_INLINE HttpDenial& HttpDenial::withFields(HttpFieldMap fields)
 {
     fields_ = std::move(fields);
@@ -65,8 +59,6 @@ CPPWAMP_INLINE std::string&& HttpDenial::message() &&
     return std::move(message_);
 }
 
-CPPWAMP_INLINE AdmitResult HttpDenial::result() const {return result_;}
-
 CPPWAMP_INLINE bool HttpDenial::htmlEnabled() const {return htmlEnabled_;}
 
 CPPWAMP_INLINE const HttpFieldMap& HttpDenial::fields() const &
@@ -78,6 +70,14 @@ CPPWAMP_INLINE HttpFieldMap&& HttpDenial::fields() &&
 {
     return std::move(fields_);
 }
+
+CPPWAMP_INLINE HttpDenial& HttpDenial::withResult(AdmitResult result)
+{
+    result_ = result;
+    return *this;
+}
+
+CPPWAMP_INLINE AdmitResult HttpDenial::result() const {return result_;}
 
 
 //******************************************************************************
