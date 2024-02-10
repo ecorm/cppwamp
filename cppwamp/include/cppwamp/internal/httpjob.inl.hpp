@@ -74,6 +74,11 @@ CPPWAMP_INLINE void HttpJob::deny(HttpDenial denial)
     impl_->deny(std::move(denial));
 }
 
+CPPWAMP_INLINE void HttpJob::redirect(std::string location, HttpStatus code)
+{
+    deny(HttpDenial{code}.withFields({{"Location", std::move(location)}}));
+}
+
 CPPWAMP_INLINE void HttpJob::upgradeToWebsocket(
     WebsocketOptions options, const WebsocketServerLimits& limits)
 {

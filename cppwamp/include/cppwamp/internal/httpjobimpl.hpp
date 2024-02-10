@@ -811,6 +811,8 @@ private:
         namespace http = boost::beast::http;
 
         std::string body{std::move(denial).message()};
+        if (body.empty())
+            body = make_error_code(denial.status()).message();
         body += "\r\n";
         HttpStringResponse response{denial.status(), std::move(body),
                                     std::move(denial).fields()};

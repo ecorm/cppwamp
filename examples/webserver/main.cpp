@@ -159,6 +159,13 @@ wamp::ServerOptions serverOptions()
                             // before appending to "./www-alt"
             .withOptions(altFileServingOptions);
 
+    auto redirectRoute =
+        wamp::HttpRedirect{"/wikipedia"}
+            .withScheme("https")
+            .withAuthority("en.wikipedia.org")
+            .withAlias("/wiki") // Substitutes "/wikipedia" with "/wiki"
+            .withStatus(wamp::HttpStatus::temporaryRedirect);
+
     auto wsRoute = wamp::HttpWebsocketUpgrade{"/time"};
 
     auto altBlockMainRoute =
@@ -172,6 +179,7 @@ wamp::ServerOptions serverOptions()
     auto mainBlock =
         wamp::HttpServerBlock{}.addPrefixRoute(mainRoute)
                                .addExactRoute(altRoute)
+                               .addPrefixRoute(redirectRoute)
                                .addExactRoute(wsRoute);
 
     auto altBlock =

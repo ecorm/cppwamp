@@ -16,12 +16,10 @@ namespace wamp
 // Forward declarations
 class HttpJob;
 class HttpServerOptions;
+template <typename TOptions> class HttpAction;
 
 namespace internal
 {
-
-// Forward declaration
-template <typename TOptions> class HttpAction;
 
 //------------------------------------------------------------------------------
 class PolymorphicHttpActionInterface

@@ -11,6 +11,7 @@
 #include <tuple>
 #include <vector>
 #include <boost/filesystem.hpp>
+#include "../exceptions.hpp"
 #include "httplistener.hpp"
 #include "timeformatting.hpp"
 
@@ -64,6 +65,63 @@ HttpServeFiles::mergeOptions(const HttpFileServingOptions& fallback)
 {
     options_.merge(fallback);
 }
+
+
+//******************************************************************************
+// HttpRedirect
+//******************************************************************************
+
+CPPWAMP_INLINE HttpRedirect::HttpRedirect(std::string route)
+    : route_(std::move(route)),
+      status_(HttpStatus::temporaryRedirect)
+{}
+
+CPPWAMP_INLINE HttpRedirect& HttpRedirect::withScheme(std::string scheme)
+{
+    scheme_ = std::move(scheme);
+    return *this;
+}
+
+CPPWAMP_INLINE HttpRedirect& HttpRedirect::withAuthority(std::string authority)
+{
+    authority_ = std::move(authority);
+    return *this;
+}
+
+CPPWAMP_INLINE HttpRedirect& HttpRedirect::withAlias(std::string alias)
+{
+    alias_ = std::move(alias);
+    hasAlias_ = true;
+    return *this;
+}
+
+CPPWAMP_INLINE HttpRedirect& HttpRedirect::withStatus(HttpStatus s)
+{
+    using S = HttpStatus;
+    bool statusOk = s == S::movedPermanently ||
+                    s == S::found ||
+                    s == S::seeOther ||
+                    s == S::temporaryRedirect ||
+                    s == S::permanentRedirect;
+    CPPWAMP_LOGIC_CHECK(statusOk, "Invalid redirect status code");
+    status_ = s;
+    return *this;
+}
+
+CPPWAMP_INLINE const std::string& HttpRedirect::route() const {return route_;}
+
+CPPWAMP_INLINE bool HttpRedirect::hasAlias() const {return hasAlias_;}
+
+CPPWAMP_INLINE const std::string& HttpRedirect::scheme() const {return scheme_;}
+
+CPPWAMP_INLINE const std::string& HttpRedirect::authority() const
+{
+    return authority_;
+}
+
+CPPWAMP_INLINE const std::string& HttpRedirect::alias() const {return alias_;}
+
+CPPWAMP_INLINE HttpStatus HttpRedirect::status() const {return status_;}
 
 
 //******************************************************************************
@@ -353,8 +411,9 @@ private:
         autoindexTimestampWidth_ - 2;
 };
 
+
 //******************************************************************************
-// HttpServeFiles
+// HttpServeFilesImpl
 //******************************************************************************
 
 class HttpServeFilesImpl
@@ -408,7 +467,8 @@ public:
                                         .withHtmlEnabled());
                 }
                 absolutePath_.remove_filename();
-                auto ec = HttpServeDirectoryListing::list(job, absolutePath_);
+                auto ec = internal::HttpServeDirectoryListing::list(
+                    job, absolutePath_);
                 check(job, ec, "list directory");
                 return;
             }
@@ -567,6 +627,8 @@ private:
     Path absolutePath_;
 };
 
+} // namespace internal
+
 
 //******************************************************************************
 // HttpAction<HttpServeFiles>
@@ -574,7 +636,7 @@ private:
 
 CPPWAMP_INLINE
 HttpAction<HttpServeFiles>::HttpAction(HttpServeFiles properties)
-    : impl_(new HttpServeFilesImpl(std::move(properties)))
+    : impl_(new internal::HttpServeFilesImpl(std::move(properties)))
 {}
 
 CPPWAMP_INLINE HttpAction<HttpServeFiles>::~HttpAction() = default;
@@ -602,7 +664,66 @@ CPPWAMP_INLINE void HttpAction<HttpServeFiles>::execute(HttpJob& job)
 
 
 //******************************************************************************
-// HttpWebsocketUpgrade
+// HttpAction<HttpRedirect>
+//******************************************************************************
+
+CPPWAMP_INLINE
+HttpAction<HttpRedirect>::HttpAction(HttpRedirect properties)
+    : properties_(properties)
+{}
+
+CPPWAMP_INLINE std::string HttpAction<HttpRedirect>::route() const
+{
+    return properties_.route();
+}
+
+CPPWAMP_INLINE void
+HttpAction<HttpRedirect>::initialize(const HttpServerOptions&)
+{}
+
+CPPWAMP_INLINE void HttpAction<HttpRedirect>::expect(HttpJob& job)
+{
+    return execute(job);
+}
+
+CPPWAMP_INLINE void HttpAction<HttpRedirect>::execute(HttpJob& job)
+{
+    boost::urls::url location = job.target();
+
+    try
+    {
+        if (!properties_.scheme().empty())
+            location.set_scheme(properties_.scheme());
+
+        if (!properties_.authority().empty())
+            location.set_encoded_authority(properties_.authority());
+
+        if (properties_.hasAlias())
+        {
+            // Substitute the route portion of the target with the alias
+            auto routeLen = properties_.route().length();
+            auto path = job.target().encoded_path();
+            assert(path.length() >= routeLen);
+            std::string newPath = properties_.alias();
+            newPath += path.substr(routeLen, std::string::npos);
+            location.set_encoded_path(newPath);
+        }
+    }
+    catch (const boost::system::system_error& e)
+    {
+        job.deny(HttpDenial{HttpStatus::internalServerError}
+                     .withHtmlEnabled()
+                     .withResult(AdmitResult::failed(e.code(),
+                                                     "HttpRedirect")));
+        return;
+    }
+
+    job.redirect(location.buffer(), properties_.status());
+};
+
+
+//******************************************************************************
+// HttpAction<HttpWebsocketUpgrade>
 //******************************************************************************
 
 CPPWAMP_INLINE
@@ -647,7 +768,5 @@ CPPWAMP_INLINE bool HttpAction<HttpWebsocketUpgrade>::checkRequest(HttpJob& job)
 
     return true;
 }
-
-} // namespace internal
 
 } // namespace wamp

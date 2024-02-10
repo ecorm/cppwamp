@@ -21,7 +21,6 @@
 #include "httpserveroptions.hpp"
 #include "websocketprotocol.hpp"
 
-// TODO: Redirect action
 // TODO: HTTPS
 // TODO: HTTP compression
 // TODO: HTTP range requests
@@ -65,6 +64,56 @@ private:
     std::string route_;
     std::string alias_;
     HttpFileServingOptions options_;
+    bool hasAlias_ = false;
+};
+
+
+//------------------------------------------------------------------------------
+/** Options for redirecting an HTTP request. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API HttpRedirect
+{
+public:
+    /** Constructor. */
+    explicit HttpRedirect(std::string route);
+
+    /** Specifies the scheme to use in the redirect location. */
+    HttpRedirect& withScheme(std::string scheme);
+
+    /** Specifies the authority to use in the redirect location. */
+    HttpRedirect& withAuthority(std::string authority);
+
+    /** Specifies that the route portion of the target path should be
+        substituted with the given alias. */
+    HttpRedirect& withAlias(std::string alias);
+
+    /** Specifies the redirect status code. */
+    HttpRedirect& withStatus(HttpStatus status);
+
+    /** Obtains the route associated with this action. */
+    const std::string& route() const;
+
+    /** Determines if aliasing is enabled. */
+    bool hasAlias() const;
+
+    /** Obtains the scheme to use in the redirect location. */
+    const std::string& scheme() const;
+
+    /** Obtains the the authority to use in the redirect location. */
+    const std::string& authority() const;
+
+    /** Obtains the alias path. */
+    const std::string& alias() const;
+
+    /** Obtains the file serving options. */
+    HttpStatus status() const;
+
+private:
+    std::string route_;
+    std::string authority_;
+    std::string scheme_;
+    std::string alias_;
+    HttpStatus status_;
     bool hasAlias_ = false;
 };
 
@@ -145,10 +194,7 @@ private:
 };
 
 
-namespace internal
-{
-
-class HttpServeFilesImpl;
+namespace internal { class HttpServeFilesImpl; }
 
 //------------------------------------------------------------------------------
 template <>
@@ -168,7 +214,26 @@ public:
     void execute(HttpJob& job);
 
 private:
-    std::unique_ptr<HttpServeFilesImpl> impl_;
+    std::unique_ptr<internal::HttpServeFilesImpl> impl_;
+};
+
+//------------------------------------------------------------------------------
+template <>
+class HttpAction<HttpRedirect>
+{
+public:
+    explicit HttpAction(HttpRedirect properties);
+
+    std::string route() const;
+
+    void initialize(const HttpServerOptions& options);
+
+    void expect(HttpJob& job);
+
+    void execute(HttpJob& job);
+
+private:
+    HttpRedirect properties_;
 };
 
 //------------------------------------------------------------------------------
@@ -191,8 +256,6 @@ private:
 
     HttpWebsocketUpgrade properties_;
 };
-
-} // namespace internal
 
 } // namespace wamp
 

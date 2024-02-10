@@ -55,6 +55,9 @@ public:
 
     void deny(HttpDenial denial);
 
+    void redirect(std::string location,
+                  HttpStatus code = HttpStatus::temporaryRedirect);
+
     void upgradeToWebsocket(WebsocketOptions options,
                             const WebsocketServerLimits& limits);
 
