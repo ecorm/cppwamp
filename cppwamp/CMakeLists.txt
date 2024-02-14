@@ -152,6 +152,7 @@ set(HEADERS
     include/cppwamp/transports/tcpclient.hpp
     include/cppwamp/transports/tcpprotocol.hpp
     include/cppwamp/transports/tcpserver.hpp
+    include/cppwamp/transports/tlsprotocol.hpp
     include/cppwamp/transports/udsclient.hpp
     include/cppwamp/transports/udsprotocol.hpp
     include/cppwamp/transports/udsserver.hpp
@@ -223,6 +224,7 @@ set(INLINES
     include/cppwamp/internal/subscription.inl.hpp
     include/cppwamp/internal/tcpclient.inl.hpp
     include/cppwamp/internal/tcpprotocol.inl.hpp
+    include/cppwamp/internal/tlsprotocol.inl.hpp
     include/cppwamp/internal/tcpserver.inl.hpp
     include/cppwamp/internal/transport.inl.hpp
     include/cppwamp/internal/udsclient.inl.hpp

@@ -19,7 +19,9 @@
 #include "../internal/socketoptions.hpp"
 
 // Forward declaration
-namespace boost { namespace asio { namespace local { class stream_protocol; }}}
+namespace boost {
+    namespace asio { namespace local { class stream_protocol; } }
+}
 
 namespace wamp
 {

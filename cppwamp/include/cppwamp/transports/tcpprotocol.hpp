@@ -19,7 +19,7 @@
 #include "../internal/socketoptions.hpp"
 
 // Forward declaration
-namespace boost { namespace asio { namespace ip { class tcp; }}}
+namespace boost { namespace asio { namespace ip { class tcp; } } }
 
 namespace wamp
 {

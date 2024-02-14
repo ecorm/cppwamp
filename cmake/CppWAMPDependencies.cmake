@@ -33,12 +33,17 @@ set(CPPWAMP_VENDORIZED_JSONCONS_VERSION 0.170.2)
 set(CPPWAMP_VENDORIZED_JSONCONS_GIT_TAG
     "v${CPPWAMP_VENDORIZED_JSONCONS_VERSION}")
 
+set(CPPWAMP_VENDORIZED_OPENSSL_VERSION 3.2.1)
+set(CPPWAMP_VENDORIZED_OPENSSL_GIT_TAG
+    "openssl-${CPPWAMP_VENDORIZED_OPENSSL_VERSION}")
+
 set(CPPWAMP_MINIMUM_CATCH2_VERSION "2.3.0")
 set(CPPWAMP_VENDORIZED_CATCH2_VERSION "2.13.10")
 set(CPPWAMP_VENDORIZED_CATCH2_GIT_TAG "v${CPPWAMP_VENDORIZED_CATCH2_VERSION}")
 
 set(CPPWAMP_BOOST_VENDOR_DIR ${PROJECT_SOURCE_DIR}/_stage/boost)
 set(CPPWAMP_JSONCONS_VENDOR_DIR ${PROJECT_SOURCE_DIR}/_stage/jsoncons)
+set(CPPWAMP_OPENSSL_VENDOR_DIR ${PROJECT_SOURCE_DIR}/_stage/openssl)
 set(CPPWAMP_CATCH2_VENDOR_DIR ${PROJECT_SOURCE_DIR}/_stage/catch2)
 
 #-------------------------------------------------------------------------------
@@ -104,7 +109,7 @@ macro(cppwamp_resolve_boost_dependency)
                     URL_HASH SHA256=${CPPWAMP_VENDORIZED_BOOST_SHA256}
                     DOWNLOAD_EXTRACT_TIMESTAMP ON)
             FetchContent_GetProperties(fetchboost)
-            if(NOT fetchboost)
+            if(NOT fetchboost_POPULATED)
                 FetchContent_Populate(fetchboost)
             endif()
             message("CppWAMP is building Boost...")
@@ -160,7 +165,8 @@ macro(cppwamp_resolve_jsoncons_dependency)
             FetchContent_Declare(
                     fetchjsoncons
                     GIT_REPOSITORY "https://github.com/danielaparker/jsoncons"
-                    GIT_TAG ${CPPWAMP_VENDORIZED_JSONCONS_GIT_TAG})
+                    GIT_TAG ${CPPWAMP_VENDORIZED_JSONCONS_GIT_TAG}
+                    GIT_SHALLOW ON)
             FetchContent_GetProperties(fetchjsoncons)
             if(NOT fetchjsoncons_POPULATED)
                 FetchContent_Populate(fetchjsoncons)
@@ -202,6 +208,118 @@ endmacro()
 
 
 #-------------------------------------------------------------------------------
+# Finds the vendorized OpenSSL package
+#-------------------------------------------------------------------------------
+macro(cppwamp_find_vendorized_openssl)
+
+    # These need to be unset, otherwise it will keep finding
+    # the system's OpenSSL libraries first.
+    unset(OPENSSL_INCLUDE_DIR CACHE)
+    unset(OPENSSL_CRYPTO_LIBRARY CACHE)
+    unset(OPENSSL_SSL_LIBRARY CACHE)
+
+    if(BUILD_SHARED_LIBS)
+       set(OPENSSL_USE_STATIC_LIBS OFF)
+    else()
+        set(OPENSSL_USE_STATIC_LIBS ON)
+    endif()
+
+    set(OpenSSL_ROOT "${CPPWAMP_OPENSSL_VENDOR_DIR}")
+    set(OPENSSL_ROOT_DIR "${CPPWAMP_OPENSSL_VENDOR_DIR}")
+
+    find_package(OpenSSL ${CPPWAMP_VENDORIZED_OPENSSL_VERSION} EXACT)
+
+endmacro()
+
+#-------------------------------------------------------------------------------
+# Builds OpenSSL.
+#-------------------------------------------------------------------------------
+function(cppwamp_build_openssl source_dir install_dir)
+
+    set(CPPWAMP_OPENSSL_CONFIG_OPTIONS
+        "--prefix=${install_dir}" "--openssldir=${install_dir}" "--libdir=lib"
+        "no-afalgeng" "no-async" "no-capieng" "no-cmp" "no-cms" "no-comp"
+        "no-ct" "no-docs" "no-dgram" "no-dso" "no-dynamic-engine"
+        "no-engine" "no-filenames" "no-gost" "no-http" "no-legacy" "no-module"
+        "no-nextprotoneg" "no-ocsp" "no-padlockeng" "no-sock" "no-srp"
+        "no-srtp" "no-ssl-trace" "no-static-engine" "no-quic"
+        "no-ts" "no-ui-console" "no-uplink"
+        "no-ssl3-method" "no-tls1-method" "no-tls1_1-method" "no-dtls1-method"
+        "no-dtls1_2-method"
+        "no-argon2" "no-bf" "no-blake2" "no-cast" "no-cmac" "no-des" "no-dsa"
+        "no-idea" "no-md4" "no-mdc2" "no-ocb" "no-rc2" "no-rc4" "no-rmd160"
+        "no-scrypt" "no-siphash" "no-siv" "no-sm2" "no-sm3" "no-sm4"
+        "no-whirlpool"
+        # "no-tests"
+    )
+
+    if(OPENSSL_USE_STATIC_LIBS)
+        list(APPEND CPPWAMP_OPENSSL_CONFIG_OPTIONS "no-shared")
+    endif()
+
+    execute_process(
+        COMMAND "./Configure" ${CPPWAMP_OPENSSL_CONFIG_OPTIONS}
+        COMMAND_ECHO STDOUT
+        WORKING_DIRECTORY ${source_dir}
+    )
+
+    execute_process(
+        COMMAND "make" "-j${CPPWAMP_CORE_COUNT}"
+        COMMAND_ECHO STDOUT
+        WORKING_DIRECTORY ${source_dir}
+    )
+
+    execute_process(
+        COMMAND "make" "install"
+        COMMAND_ECHO STDOUT
+        WORKING_DIRECTORY ${source_dir}
+    )
+
+endfunction()
+
+#-------------------------------------------------------------------------------
+# Finds or fetches/builds the OpenSSL dependency.
+#-------------------------------------------------------------------------------
+macro(cppwamp_resolve_openssl_dependency)
+
+    if(CPPWAMP_OPT_VENDORIZE)
+        cppwamp_find_vendorized_openssl()
+        if(NOT OPENSSL_FOUND)
+            FetchContent_Declare(
+                    fetchopenssl
+                    GIT_REPOSITORY "https://github.com/openssl/openssl.git"
+                    GIT_TAG ${CPPWAMP_VENDORIZED_OPENSSL_GIT_TAG}
+                    GIT_SUBMODULES ""
+                    GIT_SHALLOW ON)
+            FetchContent_GetProperties(fetchopenssl)
+            if(NOT fetchopenssl_POPULATED)
+                FetchContent_Populate(fetchopenssl)
+            endif()
+            message("CppWAMP is building OpenSSL...")
+            cppwamp_build_openssl(${fetchopenssl_SOURCE_DIR}
+                                  ${CPPWAMP_OPENSSL_VENDOR_DIR})
+            cppwamp_find_vendorized_openssl()
+        endif()
+    else()
+        # Bypass find_package if a parent project has already imported OpenSSL
+        if(NOT TARGET OpenSSL::SSL)
+            if(BUILD_SHARED_LIBS)
+                set(OPENSSL_USE_STATIC_LIBS OFF)
+            else()
+                set(OPENSSL_USE_STATIC_LIBS ON)
+            endif()
+            find_package(OpenSSL)
+            if(NOT ${OPENSSL_FOUND})
+                message(WARNING
+"Cannot find OpenSSL libraries. Please either define OPENSSL_ROOT_DIR or \
+enable CPPWAMP_OPT_VENDORIZE")
+            endif()
+        endif()
+    endif()
+endmacro()
+
+
+#-------------------------------------------------------------------------------
 # Finds the vendorized Catch2 package
 #-------------------------------------------------------------------------------
 macro(cppwamp_find_vendorized_catch2)
@@ -225,6 +343,7 @@ macro(cppwamp_resolve_catch2_dependency)
                     fetchcatch2
                     GIT_REPOSITORY "https://github.com/catchorg/Catch2"
                     GIT_TAG ${CPPWAMP_VENDORIZED_CATCH2_GIT_TAG}
+                    GIT_SHALLOW ON
             )
             FetchContent_GetProperties(fetchcatch2)
             if(NOT fetchcatch2_POPULATED)
@@ -322,6 +441,9 @@ macro(cppwamp_resolve_dependencies)
 
     cppwamp_resolve_boost_dependency()
     cppwamp_resolve_jsoncons_dependency()
+    if(CPPWAMP_OPT_WITH_TLS)
+        cppwamp_resolve_openssl_dependency()
+    endif()
     if(CPPWAMP_OPT_WITH_TESTS)
         cppwamp_resolve_catch2_dependency()
     endif()
@@ -332,6 +454,12 @@ macro(cppwamp_resolve_dependencies)
         get_target_property(CPPWAMP_JSONCONS_INCLUDE_DIR jsoncons
                             INTERFACE_INCLUDE_DIRECTORIES)
         message("CppWAMP using jsoncons from ${CPPWAMP_JSONCONS_INCLUDE_DIR}")
+    endif()
+
+    if(CPPWAMP_OPT_WITH_TLS AND TARGET OpenSSL::SSL)
+        get_target_property(CPPWAMP_OPENSSL_INCLUDE_DIR OpenSSL::SSL
+                            INTERFACE_INCLUDE_DIRECTORIES)
+        message("CppWAMP using OpenSSL from ${CPPWAMP_OPENSSL_INCLUDE_DIR}")
     endif()
 
     if(CPPWAMP_OPT_WITH_TESTS AND TARGET Catch2::Catch2)

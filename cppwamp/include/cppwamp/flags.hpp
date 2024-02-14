@@ -13,7 +13,6 @@
 //------------------------------------------------------------------------------
 
 #include <bitset>
-#include <cstddef>
 #include <climits>
 #include <initializer_list>
 #include "config.hpp"

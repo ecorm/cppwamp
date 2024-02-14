@@ -41,6 +41,9 @@ project(CppWAMP
         VERSION 0.11.1
         LANGUAGES CXX)
 
+# Make GIT_SUBMODULES "" not initialize any submodules
+cmake_policy(SET CMP0097 NEW)
+
 include(ProcessorCount)
 ProcessorCount(CPPWAMP_CORE_COUNT)
 if(CPPWAMP_CORE_COUNT EQUAL 0)
@@ -80,9 +83,13 @@ already imported by a superproject, find_package calls will be skipped."
 OFF)
 
 option(CPPWAMP_OPT_WITH_WEB
-"Adds the Boost.Beast Boost.Filesystem dependencies and builds tests/examples \
-that depend on it"
+"Adds the Boost.Beast and Boost.Filesystem dependencies, and builds \
+tests/examples that depend on it"
 ON)
+
+option(CPPWAMP_OPT_WITH_TLS
+"Adds the OpenSSL dependency, and builds tests/examples that depend on it"
+OFF)
 
 option(CPPWAMP_OPT_WITH_CORO
 "Adds the Boost.Coroutine dependency and builds tests/examples \
@@ -144,6 +151,10 @@ add_subdirectory(cppwamp)
 
 if(CPPWAMP_OPT_WITH_WEB)
     add_subdirectory(cppwamp-web)
+endif()
+
+if(CPPWAMP_OPT_WITH_TLS)
+    add_subdirectory(cppwamp-tls)
 endif()
 
 if(CPPWAMP_OPT_WITH_CORO)
