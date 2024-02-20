@@ -20,6 +20,11 @@
 #include "../erroror.hpp"
 #include "tcpprotocol.hpp"
 
+// Determines whether OpenSSL's `SSL_CTX_set_dh_auto` function is available.
+#if defined(OPENSSL_VERSION_NUMBER) && OPENSSL_VERSION_NUMBER >= 0x30000000L
+    #define CPPWAMP_SSL_AUTO_DIFFIE_HELLMAN_AVAILABLE 1
+#endif
+
 // Forward declarations
 namespace boost { namespace asio { namespace ssl { class context; }}}
 
@@ -41,7 +46,7 @@ struct CPPWAMP_API Tls
 //------------------------------------------------------------------------------
 enum class SslVersion
 {
-    unspecified, ///< Don't limit minimum/maximum version
+    unspecified, ///< Don't limit minimum or maximum version
     ssl3_0,      ///< Deprecated in 2015, disabled in OpenSSL by default
     tls1_0,      ///< Deprecated in 2021
     tls1_1,      ///< Deprecated in 2021
@@ -90,9 +95,11 @@ struct CPPWAMP_API SslVerifyMode
 class CPPWAMP_API SslVerifyContext
 {
 public:
+    /// Opaque native handle type.
     using Handle = void*;
 
-    SslVerifyContext(Handle handle) : handle_(handle) {}
+    /** Constructor taking an opaque native handle. */
+    explicit SslVerifyContext(Handle handle) : handle_(handle) {}
 
     /** Obtains the underlying native handle. */
     Handle handle() {return handle_;}
@@ -114,91 +121,135 @@ private:
 class CPPWAMP_API SslContext
 {
 public:
+    /// Opaque native handle type.
     using Handle = void*;
 
+    /// Callback function type used for verifying peer certificates.
+    using VerifyCallback = std::function<bool (bool preverified,
+                                              SslVerifyContext)>;
+
+    /// Callback function type used obtain password information.
     using PasswordCallback = std::function<std::string (std::size_t maxLength,
                                                        SslPasswordPurpose)>;
 
-    using VerifyCallback = std::function<bool (bool preverified,
-                                               SslVerifyContext)>;
-
-
     /// @name Construction
     /// {
+    /** Default constructor using TLS1.2 as the minimum version. */
     SslContext();
 
-    SslContext(SslVersion min);
+    /** Constructor taking a minium SSL/TLS version. */
+    explicit SslContext(SslVersion min);
 
+    /** Constructor taking minium and maximum SSL/TLS versions. */
     SslContext(SslVersion min, SslVersion max);
 
+    /** Constructor taking ownership of the given Asio `ssl::context` object. */
     SslContext(boost::asio::ssl::context&& context);
 
+    /** Constructor taking ownership of the given native handle. */
     SslContext(void* nativeHandle);
     /// }
 
 
     /// @name Options
     /// {
-    // SSL_CTX_set_options
+    /** Sets options using the given Asio `ssl::context_base` flags. */
     CPPWAMP_NODISCARD ErrorOrDone setOptions(uint64_t options);
 
-    // SSL_CTX_clear_options
+    /** Clears options of the underlying context object. */
     CPPWAMP_NODISCARD ErrorOrDone clearOptions(uint64_t options);
     /// }
 
 
     /// @name Verification
     /// {
-    /** Adds a certification authority certificate, from a memory buffer, for
+    /** Loads a certification authority certificate, from a memory buffer, for
         performing verification. */
     CPPWAMP_NODISCARD ErrorOrDone addVerifyCertificate(const void* data,
                                                        std::size_t size);
-
+    /** Adds a directory containing certificate authority files to be used for
+        performing verification. */
     CPPWAMP_NODISCARD ErrorOrDone addVerifyPath(const std::string& path);
 
+    /** Loads a certification authority file for performing verification. */
     CPPWAMP_NODISCARD ErrorOrDone loadVerifyFile(const std::string& filename);
 
-    CPPWAMP_NODISCARD ErrorOrDone useDefaultVerifyPaths();
+    /** Configures the context to use the default directories for finding
+        certification authority certificates. */
+    CPPWAMP_NODISCARD ErrorOrDone resetVerifyPathsToDefault();
 
+    /** Sets the callback used to verify peer certificates. */
     CPPWAMP_NODISCARD ErrorOrDone setVerifyCallback(VerifyCallback cb);
 
+    /** Sets the maximum depth for the certificate chain verification. */
     CPPWAMP_NODISCARD ErrorOrDone setVerifyDepth(int depth);
 
+    /** Set the peer verification mode. */
     CPPWAMP_NODISCARD ErrorOrDone setVerifyMode(int mode);
     /// }
 
-    CPPWAMP_NODISCARD ErrorOrDone setPasswordCallback(PasswordCallback cb);
-
+    /// @name Server Certificates
+    /// {
+    /** Loads a certificate from a memory buffer. */
     CPPWAMP_NODISCARD ErrorOrDone
     useCertificate(const void* data, std::size_t size, SslFileFormat format);
 
+    /** Loads a certificate from a file. */
     CPPWAMP_NODISCARD ErrorOrDone
     useCertificateFile(const std::string& filename, SslFileFormat format);
 
+    /** Loads a certificate chain from a memory buffer. */
     CPPWAMP_NODISCARD ErrorOrDone
     useCertificateChain(const void* data, std::size_t size);
 
+    /** Loads a certificate chain from a file. */
     CPPWAMP_NODISCARD ErrorOrDone
     useCertificateChainFile(const std::string& filename);
+    /// }
 
+    /// @name Private Keys
+    /// {
+    /** Specifies a callback function for obtaining password information
+        about a PEM-formatted encrypted key. */
+    CPPWAMP_NODISCARD ErrorOrDone setPasswordCallback(PasswordCallback cb);
+
+    /** Loads a private key from a memory buffer. */
     CPPWAMP_NODISCARD ErrorOrDone
     usePrivateKey(const void* data, std::size_t size, SslFileFormat format);
 
+    /** Loads a private key from a file. */
     CPPWAMP_NODISCARD ErrorOrDone
     usePrivateKeyFile(const std::string& filename, SslFileFormat format);
 
+    /** Loads an RSA private key from a memory buffer. */
     CPPWAMP_NODISCARD ErrorOrDone
     useRsaPrivateKey(const void* data, std::size_t size, SslFileFormat format);
 
+    /** Loads an RSA private key from a file. */
     CPPWAMP_NODISCARD ErrorOrDone
     useRsaPrivateKeyFile(const std::string& filename, SslFileFormat format);
+    /// }
 
+    /// @name Diffie-Hellman KeyExchange
+    /// {
+    /** Load temporary Diffie-Hellman parameters from a memory buffer. */
     CPPWAMP_NODISCARD ErrorOrDone
     useTempDh(const void* data, std::size_t size);
 
+    /** Load temporary Diffie-Hellman parameters from a file. */
     CPPWAMP_NODISCARD ErrorOrDone
     useTempDhFile(const std::string& filename);
 
+    /** Indicates if the automatic built-in Diffie-Hellman parameters
+        are available. */
+    bool hasAutoDh() const;
+
+    /** Use automatic built-in Diffie-Hellman parameters. */
+    CPPWAMP_NODISCARD ErrorOrDone enableAutoDh(bool enabled = true);
+    /// }
+
+    /// @name SSL Context Access
+    /// {
     /** Accesses the underlying Asio ssl::context object. */
     const boost::asio::ssl::context& get() const;
 
@@ -211,6 +262,7 @@ public:
     /** Obtains the underlying native handle object pointer. */
     template <typename TObject>
     TObject* as();
+    /// }
 
 private:
     struct Impl;
@@ -229,6 +281,45 @@ private:
 
 
 //------------------------------------------------------------------------------
+/** Contains client options for verifying SSL peers. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API SslVerifyOptions
+{
+public:
+    /// Function type used for SSL verify callbacks.
+    using VerifyCallback = std::function<bool (bool preverified,
+                                              SslVerifyContext)>;
+
+    /** Sets the callback used to verify SSL peer certificates. */
+    SslVerifyOptions& withCallback(VerifyCallback callback);
+
+    /** Sets the maximum depth for the SSL certificate chain verification. */
+    SslVerifyOptions& withDepth(int depth);
+
+    /** Set the SSL peer verification mode. */
+    SslVerifyOptions& withMode(int mode);
+
+    /** Obtains the callback used to verify SSL peer certificates. */
+    const VerifyCallback& callback() const;
+
+    /** Sets the maximum depth for the SSL certificate chain verification. */
+    int depth() const;
+
+    /** Obtains the SSL peer verification mode. */
+    int mode() const;
+
+    /** Indicates whether the SSL peer verification mode was specified. */
+    bool modeIsSpecified() const;
+
+private:
+    VerifyCallback callback_;
+    int depth_ = 0;
+    int mode_ = 0;
+    bool modeIsSpecified_ = false;
+};
+
+
+//------------------------------------------------------------------------------
 /** Contains TLS host address information, as well as other socket options.
     Meets the requirements of @ref TransportSettings.
     @see ConnectionWish */
@@ -237,16 +328,27 @@ class CPPWAMP_API TlsHost
     : public SocketHost<TlsHost, Tls, TcpOptions, RawsockClientLimits>
 {
 public:
+    /// Function type used for SSL verify callbacks.
+    using VerifyCallback = std::function<bool (bool preverified,
+                                              SslVerifyContext)>;
+
     /** Constructor taking an URL/IP and a service string. */
     TlsHost(std::string address, std::string serviceName, SslContext context);
 
     /** Constructor taking an URL/IP and a numeric port number. */
     TlsHost(std::string address, Port port, SslContext context);
 
+    /** Specifies the SSL peer verification options. */
+    TlsHost& withSslVerifyOptions(SslVerifyOptions options);
+
+    /** Obtains the SSL peer verification options. */
+    const SslVerifyOptions& sslVerifyOptions() const;
+
 private:
     using Base = SocketHost<TlsHost, Tls, TcpOptions, RawsockClientLimits>;
 
     SslContext sslContext_;
+    SslVerifyOptions sslVerifyOptions_;
 };
 
 
