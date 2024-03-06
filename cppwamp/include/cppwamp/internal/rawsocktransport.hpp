@@ -49,6 +49,51 @@ inline std::error_code rawsockErrorCodeToStandard(
 
 //------------------------------------------------------------------------------
 template <typename TTraits>
+struct RawsockUnderlyingSocket
+{
+    using Socket           = typename TTraits::Socket;
+    using UnderlyingSocket = typename TTraits::UnderlyingSocket;
+
+    static UnderlyingSocket& get(Socket& socket)
+    {
+        return underlyingSocket(IsTls{}, socket);
+    }
+
+    static const UnderlyingSocket& get(const Socket& socket)
+    {
+        return underlyingSocket(IsTls{}, socket);
+    }
+
+private:
+    using IsTls = typename TTraits::IsTls;
+
+    template <typename S>
+    static UnderlyingSocket& underlyingSocket(FalseType, S& socket)
+    {
+        return socket;
+    }
+
+    template <typename S>
+    static const UnderlyingSocket& underlyingSocket(FalseType, const S& socket)
+    {
+        return socket;
+    }
+
+    template <typename S>
+    static UnderlyingSocket& underlyingSocket(TrueType, S& socket)
+    {
+        return socket.next_layer();
+    }
+
+    template <typename S>
+    static const UnderlyingSocket& underlyingSocket(TrueType, const S& socket)
+    {
+        return socket.next_layer();
+    }
+};
+
+//------------------------------------------------------------------------------
+template <typename TTraits>
 class RawsockStream
 {
 public:
@@ -432,7 +477,7 @@ private:
     void flush()
     {
         buffer_.resize(+flushReadSize_);
-        socket_.async_read_some(
+        underlyingSocket().async_read_some(
             boost::asio::buffer(buffer_.data(), +flushReadSize_),
             [this](boost::system::error_code netEc, size_t n)
             {
@@ -481,9 +526,14 @@ private:
                 auto handler = std::move(shutdownHandler_);
                 shutdownHandler_ = nullptr;
                 if (netEc != boost::asio::error::eof)
+                {
+                    close();
                     handler(rawsockErrorCodeToStandard(netEc));
+                }
                 else
+                {
                     shutdownUnderlying();
+                }
             });
     }
 
@@ -506,38 +556,12 @@ private:
 
     UnderlyingSocket& underlyingSocket()
     {
-        return getUnderlyingSocket(IsTls{}, socket_);
+        return RawsockUnderlyingSocket<Traits>::get(socket_);
     }
 
     const UnderlyingSocket& underlyingSocket() const
     {
-        return getUnderlyingSocket(IsTls{}, socket_);
-    }
-
-    template <typename S>
-    UnderlyingSocket& getUnderlyingSocket(FalseType, S& socket)
-    {
-        return socket;
-    }
-
-    template <typename S>
-    const UnderlyingSocket& getUnderlyingSocket(FalseType,
-                                                const S& socket) const
-    {
-        return socket;
-    }
-
-    template <typename S>
-    static UnderlyingSocket& getUnderlyingSocket(TrueType, S& socket)
-    {
-        return socket.next_layer();
-    }
-
-    template <typename S>
-    static const UnderlyingSocket& getUnderlyingSocket(TrueType,
-                                                       const S& socket)
-    {
-        return socket.next_layer();
+        return RawsockUnderlyingSocket<Traits>::get(socket_);
     }
 
     template <typename F, typename... Ts>
@@ -602,33 +626,16 @@ public:
             {
                 isReading_ = false;
                 if (checkShutdown(netEc) && check(netEc, "socket read"))
-                    onHandshakeReceived(Handshake::fromBigEndian(handshake_));
+                    onRawsocketHandshakeReceived(Handshake::fromBigEndian(handshake_));
             });
     }
 
     void shutdown(std::error_code reason, ShutdownHandler handler)
     {
-        if (handler_)
-        {
-            post(std::move(handler_), AdmitResult::cancelled(reason));
-            handler_ = nullptr;
-        }
-
-        boost::system::error_code netEc;
-        socket_.shutdown(Socket::shutdown_send, netEc);
-        auto ec = static_cast<std::error_code>(netEc);
-        if (ec)
-        {
-            post(std::move(handler), ec);
-            return;
-        }
-
-        shutdownHandler_ = std::move(handler);
-        if (!isReading_)
-            flush();
+        doShutdown(IsTls{}, reason, std::move(handler));
     }
 
-    void close() {socket_.close();}
+    void close() {underlyingSocket().close();}
 
     const TransportInfo& transportInfo() const {return transportInfo_;}
 
@@ -637,7 +644,9 @@ public:
     Socket&& releaseSocket() {return std::move(socket_);}
 
 private:
-    using Handshake = internal::RawsockHandshake;
+    using Handshake        = internal::RawsockHandshake;
+    using IsTls            = typename Traits::IsTls;
+    using UnderlyingSocket = typename Traits::UnderlyingSocket;
 
     bool checkShutdown(boost::system::error_code netEc)
     {
@@ -650,7 +659,7 @@ private:
             return false;
         }
 
-        socket_.close();
+        close();
         completeShutdown(netEc);
 
         if (handler_)
@@ -673,7 +682,7 @@ private:
             handler(rawsockErrorCodeToStandard(netEc));
     }
 
-    void onHandshakeReceived(Handshake hs)
+    void onRawsocketHandshakeReceived(Handshake hs)
     {
         auto peerCodec = hs.codecId();
 
@@ -750,12 +759,82 @@ private:
         finish(AdmitResult::wamp(codecId));
     }
 
+    // Non-TLS overload
+    template <typename F>
+    void doShutdown(FalseType, std::error_code reason, F&& handler)
+    {
+        if (handler_)
+        {
+            post(std::move(handler_), AdmitResult::cancelled(reason));
+            handler_ = nullptr;
+        }
+
+        boost::system::error_code netEc;
+        socket_.shutdown(Socket::shutdown_send, netEc);
+        auto ec = static_cast<std::error_code>(netEc);
+        if (ec)
+        {
+            post(std::forward<F>(handler), ec);
+            return;
+        }
+
+        shutdownHandler_ = std::forward<F>(handler);
+        if (!isReading_)
+            flush();
+    }
+
+    // TLS overload
+    template <typename F>
+    void doShutdown(TrueType, std::error_code reason, F&& handler)
+    {
+        if (handler_)
+        {
+            post(std::move(handler_), AdmitResult::cancelled(reason));
+            handler_ = nullptr;
+        }
+
+        socket_.async_shutdown(
+            [this](boost::system::error_code netEc)
+            {
+                if (!handler_)
+                    return;
+                auto handler = std::move(shutdownHandler_);
+                handler_ = nullptr;
+                if (netEc != boost::asio::error::eof)
+                {
+                    close();
+                    handler(rawsockErrorCodeToStandard(netEc));
+                }
+                else
+                {
+                    shutdownUnderlying();
+                }
+            });
+    }
+
+    void shutdownUnderlying()
+    {
+        boost::system::error_code netEc;
+        underlyingSocket().shutdown(Socket::shutdown_send, netEc);
+        auto ec = static_cast<std::error_code>(netEc);
+        if (ec)
+        {
+            auto handler = std::move(shutdownHandler_);
+            shutdownHandler_ = nullptr;
+            handler(ec);
+            return;
+        }
+
+        if (!isReading_)
+            flush();
+    }
+
     bool check(boost::system::error_code netEc, const char* operation)
     {
         if (!netEc)
             return true;
 
-        socket_.close();
+        close();
 
         auto ec = rawsockErrorCodeToStandard(netEc);
         if (ec == TransportErrc::disconnected)
@@ -783,15 +862,25 @@ private:
     {
         auto self = this->shared_from_this();
         buffer_.resize(+flushReadSize_);
-        socket_.async_read_some(
+        underlyingSocket().async_read_some(
             boost::asio::buffer(buffer_.data(), +flushReadSize_),
             [this, self](boost::system::error_code netEc, size_t n)
             {
                 if (!netEc)
                     return flush();
-                socket_.close();
+                close();
                 completeShutdown(netEc);
             });
+    }
+
+    UnderlyingSocket& underlyingSocket()
+    {
+        return RawsockUnderlyingSocket<Traits>::get(socket_);
+    }
+
+    const UnderlyingSocket& underlyingSocket() const
+    {
+        return RawsockUnderlyingSocket<Traits>::get(socket_);
     }
 
     template <typename F, typename... Ts>
