@@ -11,6 +11,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include "../connectioninfo.hpp"
 #include "../timeout.hpp"
+#include "../traits.hpp"
 #include "../transports/tcpprotocol.hpp"
 
 namespace wamp
@@ -22,9 +23,12 @@ namespace internal
 //------------------------------------------------------------------------------
 struct TcpTraits
 {
-    using NetProtocol = boost::asio::ip::tcp;
-    using ClientSettings = TcpHost;
-    using ServerSettings = TcpEndpoint;
+    using NetProtocol       = boost::asio::ip::tcp;
+    using UnderlyingSocket  = NetProtocol::socket;
+    using Socket            = UnderlyingSocket;
+    using ClientSettings    = TcpHost;
+    using ServerSettings    = TcpEndpoint;
+    using IsTls             = FalseType;
 
     static ConnectionInfo connectionInfo(const NetProtocol::socket& socket,
                                          const char* protocol = "TCP")
@@ -68,6 +72,11 @@ struct TcpTraits
     static Timeout heartbeatInterval(const TcpEndpoint&)
     {
         return unspecifiedTimeout;
+    }
+
+    static Socket makeClientSocket(IoStrand i, ClientSettings&)
+    {
+        return Socket{std::move(i)};
     }
 };
 

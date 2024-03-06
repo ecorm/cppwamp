@@ -35,6 +35,7 @@ public:
     template <typename F>
     void resolve(const Settings& settings, F&& callback)
     {
+        // TODO: Use tagged dispatched to omit this call
         callback(boost::system::error_code{}, Result{settings.address()});
     }
 

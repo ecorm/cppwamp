@@ -10,6 +10,7 @@
 #include <sstream>
 #include <boost/asio/local/stream_protocol.hpp>
 #include "../connectioninfo.hpp"
+#include "../traits.hpp"
 #include "../transports/udsprotocol.hpp"
 
 namespace wamp
@@ -21,9 +22,12 @@ namespace internal
 //------------------------------------------------------------------------------
 struct UdsTraits
 {
-    using NetProtocol = boost::asio::local::stream_protocol;
-    using ClientSettings = UdsHost;
-    using ServerSettings = UdsEndpoint;
+    using NetProtocol       = boost::asio::local::stream_protocol;
+    using UnderlyingSocket  = NetProtocol::socket;
+    using Socket            = UnderlyingSocket;
+    using ClientSettings    = UdsHost;
+    using ServerSettings    = UdsEndpoint;
+    using IsTls             = FalseType;
 
     static ConnectionInfo connectionInfo(const NetProtocol::socket& socket)
     {
@@ -51,6 +55,11 @@ struct UdsTraits
     static Timeout heartbeatInterval(const UdsHost&)
     {
         return unspecifiedTimeout;
+    }
+
+    static Socket makeClientSocket(IoStrand i, ClientSettings&)
+    {
+        return Socket{std::move(i)};
     }
 };
 

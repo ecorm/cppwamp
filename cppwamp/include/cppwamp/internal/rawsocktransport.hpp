@@ -53,8 +53,7 @@ class RawsockStream
 {
 public:
     using Traits           = TTraits;
-    using NetProtocol      = typename Traits::NetProtocol;
-    using Socket           = typename NetProtocol::socket;
+    using Socket           = typename Traits::Socket;
     using ShutdownHandler  = AnyCompletionHandler<void (std::error_code)>;
     using ReadHandler      =
         AnyCompletionHandler<void (std::error_code, std::size_t, bool)>;
@@ -78,7 +77,7 @@ public:
 
     AnyIoExecutor executor() {return socket_.get_executor();}
 
-    bool isOpen() const {return socket_.is_open();}
+    bool isOpen() const {return underlyingSocket().is_open();}
 
     void observeHeartbeats(HeartbeatHandler handler)
     {
@@ -131,22 +130,16 @@ public:
     // shared_from_this() to the given handler.
     void shutdown(std::error_code /*reason*/, ShutdownHandler handler)
     {
-        boost::system::error_code netEc;
-        socket_.shutdown(Socket::shutdown_send, netEc);
-        auto ec = static_cast<std::error_code>(netEc);
-        if (ec)
-            return post(std::move(handler), ec);
-
-        shutdownHandler_ = std::move(handler);
-        if (!isReading_)
-            flush();
+        doShutdown(IsTls{}, std::move(handler));
     }
 
-    void close() {socket_.close();}
+    void close() {underlyingSocket().close();}
 
 private:
-    using Header     = uint32_t;
-    using GatherBufs = std::array<boost::asio::const_buffer, 2>;
+    using Header           = uint32_t;
+    using GatherBufs       = std::array<boost::asio::const_buffer, 2>;
+    using IsTls            = typename Traits::IsTls;
+    using UnderlyingSocket = typename Traits::UnderlyingSocket;
 
     static Header computeHeader(TransportFrameKind kind, std::size_t size)
     {
@@ -403,7 +396,7 @@ private:
             return false;
         }
 
-        socket_.close();
+        close();
         completeShutdown(netEc);
         return false;
     }
@@ -451,13 +444,100 @@ private:
 
     void onFlushComplete(boost::system::error_code netEc)
     {
-        socket_.close();
+        close();
         completeShutdown(netEc);
 
         if (netEc == boost::asio::error::eof)
             completeRead(make_error_code(TransportErrc::ended), 0, true);
         else
             completeRead(make_error_code(TransportErrc::aborted), 0, true);
+    }
+
+    // Non-TLS overload
+    template <typename F>
+    void doShutdown(FalseType, F&& handler)
+    {
+        boost::system::error_code netEc;
+        socket_.shutdown(Socket::shutdown_send, netEc);
+        auto ec = static_cast<std::error_code>(netEc);
+        if (ec)
+            return post(std::forward<F>(handler), ec);
+
+        shutdownHandler_ = std::forward<F>(handler);
+        if (!isReading_)
+            flush();
+    }
+
+    // TLS overload
+    template <typename F>
+    void doShutdown(TrueType, F&& handler)
+    {
+        shutdownHandler_ = std::forward<F>(handler);
+        socket_.async_shutdown(
+            [this](boost::system::error_code netEc)
+            {
+                if (!shutdownHandler_)
+                    return;
+                auto handler = std::move(shutdownHandler_);
+                shutdownHandler_ = nullptr;
+                if (netEc != boost::asio::error::eof)
+                    handler(rawsockErrorCodeToStandard(netEc));
+                else
+                    shutdownUnderlying();
+            });
+    }
+
+    void shutdownUnderlying()
+    {
+        boost::system::error_code netEc;
+        underlyingSocket().shutdown(UnderlyingSocket::shutdown_send, netEc);
+        auto ec = static_cast<std::error_code>(netEc);
+        if (ec)
+        {
+            auto handler = std::move(shutdownHandler_);
+            shutdownHandler_ = nullptr;
+            handler(ec);
+            return;
+        }
+
+        if (!isReading_)
+            flush();
+    }
+
+    UnderlyingSocket& underlyingSocket()
+    {
+        return getUnderlyingSocket(IsTls{}, socket_);
+    }
+
+    const UnderlyingSocket& underlyingSocket() const
+    {
+        return getUnderlyingSocket(IsTls{}, socket_);
+    }
+
+    template <typename S>
+    UnderlyingSocket& getUnderlyingSocket(FalseType, S& socket)
+    {
+        return socket;
+    }
+
+    template <typename S>
+    const UnderlyingSocket& getUnderlyingSocket(FalseType,
+                                                const S& socket) const
+    {
+        return socket;
+    }
+
+    template <typename S>
+    static UnderlyingSocket& getUnderlyingSocket(TrueType, S& socket)
+    {
+        return socket.next_layer();
+    }
+
+    template <typename S>
+    static const UnderlyingSocket& getUnderlyingSocket(TrueType,
+                                                       const S& socket)
+    {
+        return socket.next_layer();
     }
 
     template <typename F, typename... Ts>
@@ -494,7 +574,7 @@ public:
     using Traits          = TTraits;
     using Ptr             = std::shared_ptr<RawsockAdmitter>;
     using Stream          = RawsockStream<Traits>;
-    using ListenerSocket  = typename Traits::NetProtocol::socket;
+    using ListenerSocket  = typename Traits::Socket;
     using Socket          = ListenerSocket;
     using Settings        = typename Traits::ServerSettings;
     using SettingsPtr     = std::shared_ptr<Settings>;

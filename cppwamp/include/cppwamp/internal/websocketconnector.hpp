@@ -13,7 +13,7 @@
 #include <boost/asio/connect.hpp>
 #include <boost/optional/optional.hpp>
 #include "../asiodefs.hpp"
-#include "../transports/httpprotocol.hpp"
+#include "../transports/httpstatus.hpp"
 #include "../transports/websocketprotocol.hpp"
 #include "websockettransport.hpp"
 

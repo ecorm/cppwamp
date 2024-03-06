@@ -19,6 +19,7 @@
 #include "../config.hpp"
 #include "../erroror.hpp"
 #include "tcpprotocol.hpp"
+#include "../internal/passkey.hpp"
 
 // Determines whether OpenSSL's `SSL_CTX_set_dh_auto` function is available.
 #if defined(OPENSSL_VERSION_NUMBER) && OPENSSL_VERSION_NUMBER >= 0x30000000L
@@ -349,6 +350,9 @@ private:
 
     SslContext sslContext_;
     SslVerifyOptions sslVerifyOptions_;
+
+public: // Internal use only
+    SslContext& sslContext(internal::PassKey);
 };
 
 

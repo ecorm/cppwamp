@@ -16,6 +16,7 @@
 #include "../asiodefs.hpp"
 #include "../errorcodes.hpp"
 #include "../erroror.hpp"
+#include "../traits.hpp"
 #include "../transport.hpp"
 #include "rawsockhandshake.hpp"
 
@@ -31,14 +32,14 @@ class RawsockConnector
     : public std::enable_shared_from_this<RawsockConnector<TResolver>>
 {
 public:
-    using Resolver  = TResolver;
-    using Ptr       = std::shared_ptr<RawsockConnector>;
-    using Settings  = typename Resolver::Settings;
-    using Handler   = std::function<void (ErrorOr<Transporting::Ptr>)>;
+    using Resolver      = TResolver;
+    using Ptr           = std::shared_ptr<RawsockConnector>;
+    using Settings      = typename Resolver::Settings;
+    using Handler       = std::function<void (ErrorOr<Transporting::Ptr>)>;
 
     RawsockConnector(IoStrand i, Settings s, int codecId)
         : resolver_(i),
-          socket_(std::move(i)),
+          socket_(Traits::makeClientSocket(std::move(i), s)),
           settings_(std::make_shared<Settings>(std::move(s))),
           codecId_(codecId)
     {}
@@ -63,35 +64,57 @@ public:
     void cancel()
     {
         resolver_.cancel();
-        socket_.close();
+        underlyingSocket().close();
     }
 
 private:
-    using Traits         = typename Resolver::Traits;
-    using Transport      = typename Resolver::Transport;
-    using ResolverResult = typename Resolver::Result;
-    using NetProtocol    = typename Traits::NetProtocol;
-    using Socket         = typename NetProtocol::socket;
-    using Handshake      = internal::RawsockHandshake;
+    using Handshake         = internal::RawsockHandshake;
+    using Traits            = typename Resolver::Traits;
+    using Transport         = typename Resolver::Transport;
+    using ResolverResult    = typename Resolver::Result;
+    using NetProtocol       = typename Traits::NetProtocol;
+    using Socket            = typename Traits::Socket;
+    using UnderlyingSocket  = typename Traits::UnderlyingSocket;
+    using IsTls             = typename Traits::IsTls;
 
     void connect(const ResolverResult& endpoints)
     {
-        assert(!socket_.is_open());
-        settings_->socketOptions().applyTo(socket_);
+        assert(!underlyingSocket().is_open());
+        settings_->socketOptions().applyTo(underlyingSocket());
 
         auto self = this->shared_from_this();
         boost::asio::async_connect(
-            socket_,
+            underlyingSocket(),
             endpoints,
             [this, self](boost::system::error_code netEc,
                          const typename NetProtocol::endpoint&)
             {
+
                 if (check(netEc))
-                    sendHandshake();
+                    performTlsHandshake(IsTls{}, socket_);
             });
     }
 
-    void sendHandshake()
+    template <typename S>
+    void performTlsHandshake(FalseType, S& /*socket*/)
+    {
+        sendRawsocketHandshake();
+    }
+
+    template <typename S>
+    void performTlsHandshake(TrueType, S& socket)
+    {
+        auto self = this->shared_from_this();
+        socket.async_handshake(
+            Socket::client,
+            [this, self](boost::system::error_code netEc)
+            {
+                if (check(netEc))
+                    sendRawsocketHandshake();
+            });
+    }
+
+    void sendRawsocketHandshake()
     {
         handshake_ = RawsockHandshake()
                          .setCodecId(codecId_)
@@ -104,11 +127,11 @@ private:
             [this, self](boost::system::error_code ec, size_t)
             {
                 if (check(ec))
-                    receiveHandshake();
+                    receiveRawsocketHandshake();
             });
     }
 
-    void receiveHandshake()
+    void receiveRawsocketHandshake()
     {
         handshake_ = 0;
         auto self = this->shared_from_this();
@@ -118,11 +141,14 @@ private:
             [this, self](boost::system::error_code ec, size_t)
             {
                 if (check(ec))
-                    onHandshakeReceived(Handshake::fromBigEndian(handshake_));
+                {
+                    onRawsocketHandshakeReceived(
+                        Handshake::fromBigEndian(handshake_));
+                }
             });
     }
 
-    void onHandshakeReceived(Handshake hs)
+    void onRawsocketHandshakeReceived(Handshake hs)
     {
         if (!hs.hasMagicOctet())
         {
@@ -140,11 +166,28 @@ private:
             fail(TransportErrc::badHandshake);
     }
 
+    UnderlyingSocket& underlyingSocket()
+    {
+        return getUnderlyingSocket(IsTls{}, socket_);
+    }
+
+    template <typename S>
+    static UnderlyingSocket& getUnderlyingSocket(FalseType, S& socket)
+    {
+        return socket;
+    }
+
+    template <typename S>
+    static UnderlyingSocket& getUnderlyingSocket(TrueType, S& socket)
+    {
+        return socket.next_layer();
+    }
+
     bool check(boost::system::error_code netEc)
     {
         if (netEc)
         {
-            socket_.close();
+            underlyingSocket().close();
             auto ec = static_cast<std::error_code>(netEc);
             if (netEc == boost::asio::error::operation_aborted)
                 ec = make_error_code(TransportErrc::aborted);
@@ -170,7 +213,7 @@ private:
 
     void fail(TransportErrc errc)
     {
-        socket_.close();
+        underlyingSocket().close();
         dispatchHandler(makeUnexpectedError(errc));
     }
 

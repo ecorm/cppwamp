@@ -8,7 +8,6 @@
 #define CPPWAMP_TRAITS_HPP
 
 #include <cstddef>
-#include <tuple>
 #include <type_traits>
 #include <vector>
 

@@ -10,10 +10,6 @@
 namespace wamp
 {
 
-//******************************************************************************
-// Connector<Uds>
-//******************************************************************************
-
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Connector<Uds>::Connector(IoStrand i, Settings s, int codecId)
     : impl_(std::make_shared<internal::UdsConnector>(

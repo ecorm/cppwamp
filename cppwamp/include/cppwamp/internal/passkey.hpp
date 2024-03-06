@@ -70,6 +70,7 @@ namespace internal
         friend class ServerSession;
         friend class StreamRecord;
         friend class SubscriptionRecord;
+        friend struct TlsTraits;
     };
 
 } // namespace internal
