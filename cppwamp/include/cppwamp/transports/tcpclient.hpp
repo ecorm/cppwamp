@@ -18,8 +18,6 @@
 #include "../connector.hpp"
 #include "tcpprotocol.hpp"
 
-// TODO: TLS Client Transport
-
 namespace wamp
 {
 

@@ -68,6 +68,8 @@ struct TlsTraits
         Socket sslStream{std::move(i), c.get()};
         const auto& vo = s.sslVerifyOptions();
 
+        // TODO: Handle SSL errors gracefully
+
         if (vo.modeIsSpecified())
             sslStream.set_verify_mode(vo.mode());
 

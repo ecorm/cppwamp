@@ -102,12 +102,13 @@ public:
     /** Constructor taking an opaque native handle. */
     explicit SslVerifyContext(Handle handle) : handle_(handle) {}
 
-    /** Obtains the underlying native handle. */
+    /** Obtains an opaque pointer to the native `X509_STORE_CTX` type. */
     Handle handle() {return handle_;}
 
-    /** Obtains the underlying native handle object pointer. */
+    /** Obtains the underlying native object pointer.
+        @tparam TObject Should be X509_STORE_CTX */
     template <typename TObject>
-    TObject* as() {return static_cast<TObject*>(handle);}
+    TObject* as() {return static_cast<TObject*>(handle_);}
 
 private:
     Handle handle_;
@@ -257,12 +258,13 @@ public:
     /** Accesses the underlying Asio ssl::context object. */
     boost::asio::ssl::context& get();
 
-    /** Obtains the underlying native handle. */
+    /** Obtains an opaque pointer to the underlying SSL_CTX object. */
     Handle handle();
 
-    /** Obtains the underlying native handle object pointer. */
+    /** Obtains the underlying native handle object pointer.
+        @tparam TObject Should be SSL_CTX */
     template <typename TObject>
-    TObject* as();
+    TObject* as() {return static_cast<TObject*>(handle());}
     /// }
 
 private:

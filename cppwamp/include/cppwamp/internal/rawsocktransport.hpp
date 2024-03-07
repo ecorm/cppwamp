@@ -614,20 +614,7 @@ public:
 
     void admit(bool isShedding, Handler handler)
     {
-        isShedding_ = isShedding;
-        handler_ = std::move(handler);
-
-        auto self = this->shared_from_this();
-        isReading_ = true;
-        boost::asio::async_read(
-            socket_,
-            boost::asio::buffer(&handshake_, sizeof(handshake_)),
-            [this, self](boost::system::error_code netEc, size_t)
-            {
-                isReading_ = false;
-                if (checkShutdown(netEc) && check(netEc, "socket read"))
-                    onRawsocketHandshakeReceived(Handshake::fromBigEndian(handshake_));
-            });
+        doAdmit(IsTls{}, isShedding, std::move(handler));
     }
 
     void shutdown(std::error_code reason, ShutdownHandler handler)
@@ -647,6 +634,120 @@ private:
     using Handshake        = internal::RawsockHandshake;
     using IsTls            = typename Traits::IsTls;
     using UnderlyingSocket = typename Traits::UnderlyingSocket;
+
+    // Non-TLS overload
+    template <typename F>
+    void doAdmit(FalseType, bool isShedding, F&& handler)
+    {
+        isShedding_ = isShedding;
+        handler_ = std::forward<F>(handler);
+        receiveRawsocketHandshake();
+    }
+
+    // TLS overload
+    template <typename F>
+    void doAdmit(TrueType, bool isShedding, F&& handler)
+    {
+        isShedding_ = isShedding;
+        handler_ = std::forward<F>(handler);
+
+        auto self = this->shared_from_this();
+        socket_.async_handshake(
+            Socket::server,
+            [this, self](boost::system::error_code netEc)
+            {
+                if (check(netEc, "SSL/TLS handshake"))
+                    receiveRawsocketHandshake();
+            });
+    }
+
+    void receiveRawsocketHandshake()
+    {
+        auto self = this->shared_from_this();
+
+        boost::asio::async_read(
+            socket_,
+            boost::asio::buffer(&handshake_, sizeof(handshake_)),
+            [this, self](boost::system::error_code netEc, size_t)
+            {
+                isReading_ = false;
+                if (checkShutdown(netEc) && check(netEc, "socket read"))
+                {
+                    onRawsocketHandshakeReceived(
+                        Handshake::fromBigEndian(handshake_));
+                }
+            });
+    }
+
+    // Non-TLS overload
+    template <typename F>
+    void doShutdown(FalseType, std::error_code reason, F&& handler)
+    {
+        if (handler_)
+        {
+            post(std::move(handler_), AdmitResult::cancelled(reason));
+            handler_ = nullptr;
+        }
+
+        boost::system::error_code netEc;
+        socket_.shutdown(Socket::shutdown_send, netEc);
+        auto ec = static_cast<std::error_code>(netEc);
+        if (ec)
+        {
+            post(std::forward<F>(handler), ec);
+            return;
+        }
+
+        shutdownHandler_ = std::forward<F>(handler);
+        if (!isReading_)
+            flush();
+    }
+
+    // TLS overload
+    template <typename F>
+    void doShutdown(TrueType, std::error_code reason, F&& handler)
+    {
+        if (handler_)
+        {
+            post(std::move(handler_), AdmitResult::cancelled(reason));
+            handler_ = nullptr;
+        }
+
+        socket_.async_shutdown(
+            [this](boost::system::error_code netEc)
+            {
+                if (!handler_)
+                    return;
+                auto handler = std::move(shutdownHandler_);
+                handler_ = nullptr;
+                if (netEc != boost::asio::error::eof)
+                {
+                    close();
+                    handler(rawsockErrorCodeToStandard(netEc));
+                }
+                else
+                {
+                    shutdownUnderlying();
+                }
+            });
+    }
+
+    void shutdownUnderlying()
+    {
+        boost::system::error_code netEc;
+        underlyingSocket().shutdown(UnderlyingSocket::shutdown_send, netEc);
+        auto ec = static_cast<std::error_code>(netEc);
+        if (ec)
+        {
+            auto handler = std::move(shutdownHandler_);
+            shutdownHandler_ = nullptr;
+            handler(ec);
+            return;
+        }
+
+        if (!isReading_)
+            flush();
+    }
 
     bool checkShutdown(boost::system::error_code netEc)
     {
@@ -757,76 +858,6 @@ private:
         transportInfo_ = TransportInfo{codecId, txLimit, rxLimit};
 
         finish(AdmitResult::wamp(codecId));
-    }
-
-    // Non-TLS overload
-    template <typename F>
-    void doShutdown(FalseType, std::error_code reason, F&& handler)
-    {
-        if (handler_)
-        {
-            post(std::move(handler_), AdmitResult::cancelled(reason));
-            handler_ = nullptr;
-        }
-
-        boost::system::error_code netEc;
-        socket_.shutdown(Socket::shutdown_send, netEc);
-        auto ec = static_cast<std::error_code>(netEc);
-        if (ec)
-        {
-            post(std::forward<F>(handler), ec);
-            return;
-        }
-
-        shutdownHandler_ = std::forward<F>(handler);
-        if (!isReading_)
-            flush();
-    }
-
-    // TLS overload
-    template <typename F>
-    void doShutdown(TrueType, std::error_code reason, F&& handler)
-    {
-        if (handler_)
-        {
-            post(std::move(handler_), AdmitResult::cancelled(reason));
-            handler_ = nullptr;
-        }
-
-        socket_.async_shutdown(
-            [this](boost::system::error_code netEc)
-            {
-                if (!handler_)
-                    return;
-                auto handler = std::move(shutdownHandler_);
-                handler_ = nullptr;
-                if (netEc != boost::asio::error::eof)
-                {
-                    close();
-                    handler(rawsockErrorCodeToStandard(netEc));
-                }
-                else
-                {
-                    shutdownUnderlying();
-                }
-            });
-    }
-
-    void shutdownUnderlying()
-    {
-        boost::system::error_code netEc;
-        underlyingSocket().shutdown(UnderlyingSocket::shutdown_send, netEc);
-        auto ec = static_cast<std::error_code>(netEc);
-        if (ec)
-        {
-            auto handler = std::move(shutdownHandler_);
-            shutdownHandler_ = nullptr;
-            handler(ec);
-            return;
-        }
-
-        if (!isReading_)
-            flush();
     }
 
     bool check(boost::system::error_code netEc, const char* operation)

@@ -241,16 +241,15 @@ function(cppwamp_build_openssl source_dir install_dir)
         "no-afalgeng" "no-async" "no-capieng" "no-cmp" "no-cms" "no-comp"
         "no-ct" "no-docs" "no-dgram" "no-dso" "no-dynamic-engine"
         "no-engine" "no-filenames" "no-gost" "no-http" "no-legacy" "no-module"
-        "no-nextprotoneg" "no-ocsp" "no-padlockeng" "no-sock" "no-srp"
-        "no-srtp" "no-ssl-trace" "no-static-engine" "no-quic"
+        "no-nextprotoneg" "no-ocsp" "no-padlockeng" "no-quic" "no-sock" "no-srp"
+        "no-srtp" "no-ssl-trace" "no-static-engine" "no-thread-pool"
         "no-ts" "no-ui-console" "no-uplink"
         "no-ssl3-method" "no-tls1-method" "no-tls1_1-method" "no-dtls1-method"
         "no-dtls1_2-method"
-        "no-argon2" "no-bf" "no-blake2" "no-cast" "no-cmac" "no-des" "no-dsa"
-        "no-idea" "no-md4" "no-mdc2" "no-ocb" "no-rc2" "no-rc4" "no-rmd160"
-        "no-scrypt" "no-siphash" "no-siv" "no-sm2" "no-sm3" "no-sm4"
-        "no-whirlpool"
-        # "no-tests"
+        "no-argon2" "no-bf" "no-blake2" "no-cast" "no-cmac" "no-dsa" "no-idea"
+        "no-md4" "no-mdc2" "no-ocb" "no-rc2" "no-rc4" "no-rmd160" "no-scrypt"
+        "no-siphash" "no-siv" "no-sm2" "no-sm3" "no-sm4" "no-whirlpool"
+        "no-tests"
     )
 
     if(OPENSSL_USE_STATIC_LIBS)

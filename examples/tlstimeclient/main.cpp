@@ -1,20 +1,22 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2023.
+    Copyright Butterfly Energy Systems 2024.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 //******************************************************************************
-// Example WAMP service consumer app using Websocket transport.
+// Example WAMP service consumer app using TLS transport.
 //******************************************************************************
 
 #include <ctime>
 #include <iostream>
+#include <openssl/ssl.h>
+#include <openssl/x509.h>
 #include <cppwamp/session.hpp>
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/variant.hpp>
 #include <cppwamp/codecs/json.hpp>
-#include <cppwamp/transports/websocketclient.hpp>
+#include <cppwamp/transports/tlsclient.hpp>
 
 const std::string realm = "cppwamp.examples";
 const char* defaultAddress = "localhost";
@@ -112,6 +114,29 @@ private:
 
 
 //------------------------------------------------------------------------------
+wamp::SslContext makeSslContext()
+{
+    // Uses the same options and certificates as the Asio SSL client example
+    // (https://www.boost.org/doc/libs/release/doc/html/boost_asio/example/cpp11/ssl/client.cpp).
+    wamp::SslContext ssl;
+    ssl.loadVerifyFile("./certs/localhost.crt").value();
+    return ssl;
+}
+
+//------------------------------------------------------------------------------
+bool verifyCertificate(bool preverified, wamp::SslVerifyContext ctx)
+{
+    // Simply print the certificate's subject name.
+    char name[256];
+    auto handle = ctx.as<X509_STORE_CTX>();
+    X509* cert = ::X509_STORE_CTX_get_current_cert(handle);
+    ::X509_NAME_oneline(::X509_get_subject_name(cert), name, sizeof(name));
+    std::cout << "Verifying " << name << "\n";
+
+    return preverified;
+}
+
+//------------------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
     const char* port = argc >= 2 ? argv[1] : defaultPort;
@@ -119,8 +144,15 @@ int main(int argc, char* argv[])
 
     wamp::IoContext ioctx;
     auto client = TimeClient::create(ioctx.get_executor());
-    client->start(wamp::WebsocketHost(address, port).withTarget("/time")
-                                                    .withFormat(wamp::json));
+
+    auto verif = wamp::SslVerifyOptions{}.withMode(wamp::SslVerifyMode::peer())
+                                         .withCallback(&verifyCertificate);
+
+    auto tls = wamp::TlsHost(address, port, &makeSslContext)
+                   .withSslVerifyOptions(std::move(verif))
+                   .withFormat(wamp::json);
+
+    client->start(tls);
     ioctx.run();
     return 0;
 }

@@ -55,6 +55,14 @@ if(CPPWAMP_OPT_WITH_WEB)
                      cppwamp-example-wstimeclient)
 endif()
 
+if(CPPWAMP_OPT_WITH_TLS)
+    add_subdirectory(tlsrouter)
+    add_subdirectory(tlstimeclient)
+    add_dependencies(cppwamp_examples
+                     cppwamp-example-tlsrouter
+                     cppwamp-example-tlstimeclient)
+endif()
+
 # Copy Crossbar node configuration to build directory
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/.crossbar/config.json

@@ -14,6 +14,8 @@
 # cppwamp-core         | CppWAMP::core         | Yes | Compiled libcppwamp-core library
 # cppwamp-core-headers | CppWAMP::core-headers | Yes | Header-only usage requirements
 # cppwamp-coro-usage   | CppWAMP::coro-usage   | Yes | Boost.Coroutine usage requirements
+# cppwamp-web          | CppWAMP::web          | Yes | Compiled libcppwamp-web library
+# cppwamp-tls          | CppWAMP::tls          | Yes | Compiled libcppwamp-tls library
 # cppwamp-doc          | <none>                | No  | Doxygen documentation
 # cppwamp-examples     | <none>                | No  | Compiled example programs
 # cppwamp-test         | <none>                | No  | Compiled test suite program
