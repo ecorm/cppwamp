@@ -8,6 +8,7 @@
 #define CPPWAMP_INTERNAL_TCPTRAITS_HPP
 
 #include <sstream>
+#include <tuple>
 #include <boost/asio/ip/tcp.hpp>
 #include "../connectioninfo.hpp"
 #include "../timeout.hpp"
@@ -23,12 +24,13 @@ namespace internal
 //------------------------------------------------------------------------------
 struct TcpTraits
 {
-    using NetProtocol       = boost::asio::ip::tcp;
-    using UnderlyingSocket  = NetProtocol::socket;
-    using Socket            = UnderlyingSocket;
-    using ClientSettings    = TcpHost;
-    using ServerSettings    = TcpEndpoint;
-    using IsTls             = FalseType;
+    using NetProtocol      = boost::asio::ip::tcp;
+    using UnderlyingSocket = NetProtocol::socket;
+    using Socket           = UnderlyingSocket;
+    using ClientSettings   = TcpHost;
+    using ServerSettings   = TcpEndpoint;
+    using IsTls            = FalseType;
+    using SslContextType   = std::tuple<>;
 
     static ConnectionInfo connectionInfo(const NetProtocol::socket& socket,
                                          const char* protocol = "TCP")
@@ -74,7 +76,12 @@ struct TcpTraits
         return unspecifiedTimeout;
     }
 
-    static Socket makeClientSocket(IoStrand i, ClientSettings&)
+    static SslContextType makeClientSslContext(const ClientSettings&)
+    {
+        return {};
+    }
+
+    static Socket makeClientSocket(IoStrand i, SslContextType&)
     {
         return Socket{std::move(i)};
     }

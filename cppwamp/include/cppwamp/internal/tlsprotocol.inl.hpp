@@ -729,15 +729,15 @@ CPPWAMP_INLINE bool SslVerifyOptions::modeIsSpecified() const
 //******************************************************************************
 
 CPPWAMP_INLINE TlsHost::TlsHost(std::string address, std::string serviceName,
-                                SslContext context)
+                                SslContextGenerator generator)
     : Base(std::move(address), std::move(serviceName)),
-      sslContext_(std::move(context))
+      sslContextGenerator_(std::move(generator))
 {}
 
 CPPWAMP_INLINE TlsHost::TlsHost(std::string address, Port port,
-                                SslContext context)
+                                SslContextGenerator generator)
     : Base(std::move(address), std::to_string(port)),
-      sslContext_(std::move(context))
+      sslContextGenerator_(std::move(generator))
 {}
 
 CPPWAMP_INLINE TlsHost& TlsHost::withSslVerifyOptions(SslVerifyOptions options)
@@ -751,22 +751,28 @@ CPPWAMP_INLINE const SslVerifyOptions& TlsHost::sslVerifyOptions() const
     return sslVerifyOptions_;
 }
 
+CPPWAMP_INLINE SslContext TlsHost::makeSslContext(internal::PassKey) const
+{
+    return sslContextGenerator_();
+}
+
 
 //******************************************************************************
 // TlsEndpoint
 //******************************************************************************
 
-CPPWAMP_INLINE TlsEndpoint::TlsEndpoint(Port port, SslContext context)
+CPPWAMP_INLINE TlsEndpoint::TlsEndpoint(Port port,
+                                        SslContextGenerator generator)
     : Base("", port),
-      sslContext_(std::move(context))
+      sslContextGenerator_(std::move(generator))
 {
     mutableAcceptorOptions().withReuseAddress(true);
 }
 
 CPPWAMP_INLINE TlsEndpoint::TlsEndpoint(
-    std::string address, unsigned short port, SslContext context)
+    std::string address, unsigned short port, SslContextGenerator generator)
     : Base(std::move(address), port),
-      sslContext_(std::move(context))
+      sslContextGenerator_(std::move(generator))
 {
     mutableAcceptorOptions().withReuseAddress(true);
 }
@@ -779,6 +785,12 @@ CPPWAMP_INLINE std::string TlsEndpoint::label() const
     return "TLS " + address() + ':' + portString;
 }
 
-CPPWAMP_INLINE void TcpEndpoint::initialize(internal::PassKey) {}
+CPPWAMP_INLINE void TlsEndpoint::initialize(internal::PassKey) {}
+
+CPPWAMP_INLINE SslContext TlsEndpoint::makeSslContext(internal::PassKey) const
+{
+    return sslContextGenerator_();
+}
+
 
 } // namespace wamp

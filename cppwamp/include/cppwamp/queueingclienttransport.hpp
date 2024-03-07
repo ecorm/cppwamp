@@ -8,6 +8,7 @@
 #define CPPWAMP_QUEUEINGCLIENTTRANSPORT_HPP
 
 #include <memory>
+#include <tuple>
 #include <utility>
 #include <boost/asio/steady_timer.hpp>
 #include "transport.hpp"
@@ -35,23 +36,26 @@ namespace wamp
     - `void shutdown(std::error_code reason, F&& callback)`
     - `void close()` */
 //------------------------------------------------------------------------------
-template <typename TSettings, typename TStream>
+template <typename TSettings, typename TStream,
+          typename TSslContext = std::tuple<>>
 class QueueingClientTransport : public Transporting
 {
 public:
-    using Settings    = TSettings;
-    using Stream      = TStream;
-    using Ptr         = std::shared_ptr<QueueingClientTransport>;
-    using Socket      = typename Stream::Socket;
-    using SettingsPtr = std::shared_ptr<Settings>;
+    using Settings       = TSettings;
+    using Stream         = TStream;
+    using Ptr            = std::shared_ptr<QueueingClientTransport>;
+    using Socket         = typename Stream::Socket;
+    using SettingsPtr    = std::shared_ptr<Settings>;
+    using SslContextType = TSslContext;
 
     QueueingClientTransport(Socket&& socket, SettingsPtr settings,
-                            TransportInfo ti)
+                            TransportInfo ti, SslContextType ssl = {})
         : Base(boost::asio::make_strand(socket.get_executor()),
                Stream::makeConnectionInfo(socket),
                std::move(ti)),
           queue_(makeQueue(std::move(socket), settings, Base::info())),
-          settings_(std::move(settings))
+          settings_(std::move(settings)),
+          sslContext_(std::move(ssl))
     {
         auto interval = settings_->heartbeatInterval();
         if (internal::timeoutIsDefinite(interval))
@@ -172,6 +176,7 @@ private:
     std::shared_ptr<Queue> queue_;
     SettingsPtr settings_;
     std::shared_ptr<Pinger> pinger_;
+    SslContextType sslContext_;
 };
 
 } // namespace wamp

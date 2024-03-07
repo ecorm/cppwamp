@@ -28,6 +28,7 @@ struct TlsTraits
     using ClientSettings   = TlsHost;
     using ServerSettings   = TlsEndpoint;
     using IsTls            = TrueType;
+    using SslContextType   = SslContext;
 
     static ConnectionInfo connectionInfo(const Socket& socket)
     {
@@ -44,9 +45,14 @@ struct TlsTraits
         return unspecifiedTimeout;
     }
 
-    static Socket makeClientSocket(IoStrand i, ClientSettings& s)
+    static SslContextType makeClientSslContext(const ClientSettings& s)
     {
-        return Socket{std::move(i), s.sslContext({}).get()};
+        return s.makeSslContext({});
+    }
+
+    static Socket makeClientSocket(IoStrand i, SslContextType& c)
+    {
+        return Socket{std::move(i), c.get()};
     }
 };
 

@@ -12,3 +12,4 @@
 
 #include <cppwamp/internal/tlsclient.inl.hpp>
 #include <cppwamp/internal/tlsprotocol.inl.hpp>
+#include <cppwamp/internal/tlsserver.inl.hpp>

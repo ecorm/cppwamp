@@ -815,7 +815,7 @@ private:
     void shutdownUnderlying()
     {
         boost::system::error_code netEc;
-        underlyingSocket().shutdown(Socket::shutdown_send, netEc);
+        underlyingSocket().shutdown(UnderlyingSocket::shutdown_send, netEc);
         auto ec = static_cast<std::error_code>(netEc);
         if (ec)
         {
@@ -909,13 +909,15 @@ private:
 template <typename TTraits>
 using RawsockClientTransport =
     QueueingClientTransport<typename TTraits::ClientSettings,
-                            RawsockStream<TTraits>>;
+                            RawsockStream<TTraits>,
+                            typename TTraits::SslContextType>;
 
 //------------------------------------------------------------------------------
 template <typename TTraits>
 using RawsockServerTransport =
     QueueingServerTransport<typename TTraits::ServerSettings,
-                            RawsockAdmitter<TTraits>>;
+                            RawsockAdmitter<TTraits>,
+                            typename TTraits::SslContextType>;
 
 } // namespace internal
 

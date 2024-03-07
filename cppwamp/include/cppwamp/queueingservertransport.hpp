@@ -8,6 +8,7 @@
 #define CPPWAMP_QUEUEINGSERVERTRANSPORT_HPP
 
 #include <memory>
+#include <tuple>
 #include <utility>
 #include "codec.hpp"
 #include "messagebuffer.hpp"
@@ -37,7 +38,8 @@ namespace wamp
     - `void shutdown(std::error_code reason, F&& callback)`
     - `void close()` */
 //------------------------------------------------------------------------------
-template <typename TSettings, typename TAdmitter>
+template <typename TSettings, typename TAdmitter,
+          typename TSslContext = std::tuple<>>
 class QueueingServerTransport : public Transporting
 {
 public:
@@ -46,9 +48,11 @@ public:
     using Ptr            = std::shared_ptr<QueueingServerTransport>;
     using ListenerSocket = typename Admitter::ListenerSocket;
     using SettingsPtr    = std::shared_ptr<Settings>;
+    using SslContextType = TSslContext;
 
     QueueingServerTransport(ListenerSocket&& socket, SettingsPtr settings,
-                            CodecIdSet codecIds, RouterLogger::Ptr)
+                            CodecIdSet codecIds, RouterLogger::Ptr,
+                            SslContextType = {})
         : Base(boost::asio::make_strand(socket.get_executor()),
                Stream::makeConnectionInfo(socket)),
           monitor_(std::make_shared<Monitor>(settings)),
@@ -235,6 +239,7 @@ private:
     SettingsPtr settings_;
     std::shared_ptr<Admitter> admitter_;
     AdmitHandler admitHandler_;
+    SslContextType sslContext_;
 };
 
 } // namespace wamp

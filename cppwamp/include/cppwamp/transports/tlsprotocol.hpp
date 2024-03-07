@@ -116,8 +116,8 @@ private:
 
 //------------------------------------------------------------------------------
 /** Holds various configuration and data relevant to TLS session establishment.
-    Wraps a reference-counted Asio `ssl::context` object, which is made
-    accessible. */
+    Wraps a reference-counted Asio `ssl::context` object, which can be
+    directly accessed. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API SslContext
 {
@@ -282,6 +282,12 @@ private:
 
 
 //------------------------------------------------------------------------------
+/** Function type used to generate SslContext objects on demand. */
+//------------------------------------------------------------------------------
+using SslContextGenerator = std::function<SslContext ()>;
+
+
+//------------------------------------------------------------------------------
 /** Contains client options for verifying SSL peers. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API SslVerifyOptions
@@ -329,15 +335,12 @@ class CPPWAMP_API TlsHost
     : public SocketHost<TlsHost, Tls, TcpOptions, RawsockClientLimits>
 {
 public:
-    /// Function type used for SSL verify callbacks.
-    using VerifyCallback = std::function<bool (bool preverified,
-                                              SslVerifyContext)>;
-
     /** Constructor taking an URL/IP and a service string. */
-    TlsHost(std::string address, std::string serviceName, SslContext context);
+    TlsHost(std::string address, std::string serviceName,
+            SslContextGenerator generator);
 
     /** Constructor taking an URL/IP and a numeric port number. */
-    TlsHost(std::string address, Port port, SslContext context);
+    TlsHost(std::string address, Port port, SslContextGenerator generator);
 
     /** Specifies the SSL peer verification options. */
     TlsHost& withSslVerifyOptions(SslVerifyOptions options);
@@ -348,11 +351,11 @@ public:
 private:
     using Base = SocketHost<TlsHost, Tls, TcpOptions, RawsockClientLimits>;
 
-    SslContext sslContext_;
+    SslContextGenerator sslContextGenerator_;
     SslVerifyOptions sslVerifyOptions_;
 
 public: // Internal use only
-    SslContext& sslContext(internal::PassKey);
+    SslContext makeSslContext(internal::PassKey) const;
 };
 
 
@@ -365,10 +368,11 @@ class CPPWAMP_API TlsEndpoint
 {
 public:
     /** Constructor taking a port number. */
-    explicit TlsEndpoint(Port port, SslContext context);
+    explicit TlsEndpoint(Port port, SslContextGenerator generator);
 
     /** Constructor taking an address string and a port number. */
-    TlsEndpoint(std::string address, unsigned short port, SslContext context);
+    TlsEndpoint(std::string address, unsigned short port,
+                SslContextGenerator generator);
 
     /** Generates a human-friendly string of the TLS address/port. */
     std::string label() const;
@@ -377,10 +381,11 @@ private:
     using Base = SocketEndpoint<TlsEndpoint, Tls, TcpOptions,
                                 RawsockServerLimits>;
 
-    SslContext sslContext_;
+    SslContextGenerator sslContextGenerator_;
 
 public: // Internal use only
     void initialize(internal::PassKey);
+    SslContext makeSslContext(internal::PassKey) const;
 };
 
 } // namespace wamp

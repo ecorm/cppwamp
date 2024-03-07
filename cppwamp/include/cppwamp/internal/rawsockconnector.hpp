@@ -32,14 +32,15 @@ class RawsockConnector
     : public std::enable_shared_from_this<RawsockConnector<TResolver>>
 {
 public:
-    using Resolver      = TResolver;
-    using Ptr           = std::shared_ptr<RawsockConnector>;
-    using Settings      = typename Resolver::Settings;
-    using Handler       = std::function<void (ErrorOr<Transporting::Ptr>)>;
+    using Resolver = TResolver;
+    using Ptr      = std::shared_ptr<RawsockConnector>;
+    using Settings = typename Resolver::Settings;
+    using Handler  = std::function<void (ErrorOr<Transporting::Ptr>)>;
 
     RawsockConnector(IoStrand i, Settings s, int codecId)
         : resolver_(i),
-          socket_(Traits::makeClientSocket(std::move(i), s)),
+          sslContext_(Traits::makeClientSslContext(s)),
+          socket_(Traits::makeClientSocket(std::move(i), sslContext_)),
           settings_(std::make_shared<Settings>(std::move(s))),
           codecId_(codecId)
     {}
@@ -76,6 +77,7 @@ private:
     using Socket            = typename Traits::Socket;
     using UnderlyingSocket  = typename Traits::UnderlyingSocket;
     using IsTls             = typename Traits::IsTls;
+    using SslContextType    = typename Traits::SslContextType;
 
     void connect(const ResolverResult& endpoints)
     {
@@ -89,7 +91,6 @@ private:
             [this, self](boost::system::error_code netEc,
                          const typename NetProtocol::endpoint&)
             {
-
                 if (check(netEc))
                     performTlsHandshake(IsTls{}, socket_);
             });
@@ -207,7 +208,7 @@ private:
 
         Transporting::Ptr transport =
             std::make_shared<Transport>(std::move(socket_), settings_,
-                                        std::move(i));
+                                        std::move(i), std::move(sslContext_));
         dispatchHandler(std::move(transport));
     }
 
@@ -226,6 +227,7 @@ private:
     }
 
     Resolver resolver_;
+    SslContextType sslContext_;
     Socket socket_;
     Handler handler_;
     std::shared_ptr<Settings> settings_;

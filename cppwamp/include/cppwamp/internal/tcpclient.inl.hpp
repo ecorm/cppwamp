@@ -12,8 +12,8 @@ namespace wamp
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Connector<Tcp>::Connector(IoStrand i, Settings s, int codecId)
-    : impl_(std::make_shared<internal::TcpConnector>(
-        std::move(i), std::move(s), codecId))
+    : impl_(std::make_shared<internal::TcpConnector>(std::move(i), std::move(s),
+                                                     codecId))
 {}
 
 //------------------------------------------------------------------------------

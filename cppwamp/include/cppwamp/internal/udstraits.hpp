@@ -8,6 +8,7 @@
 #define CPPWAMP_INTERNAL_UDSTRAITS_HPP
 
 #include <sstream>
+#include <tuple>
 #include <boost/asio/local/stream_protocol.hpp>
 #include "../connectioninfo.hpp"
 #include "../traits.hpp"
@@ -22,12 +23,13 @@ namespace internal
 //------------------------------------------------------------------------------
 struct UdsTraits
 {
-    using NetProtocol       = boost::asio::local::stream_protocol;
-    using UnderlyingSocket  = NetProtocol::socket;
-    using Socket            = UnderlyingSocket;
-    using ClientSettings    = UdsHost;
-    using ServerSettings    = UdsEndpoint;
-    using IsTls             = FalseType;
+    using NetProtocol      = boost::asio::local::stream_protocol;
+    using UnderlyingSocket = NetProtocol::socket;
+    using Socket           = UnderlyingSocket;
+    using ClientSettings   = UdsHost;
+    using ServerSettings   = UdsEndpoint;
+    using IsTls            = FalseType;
+    using SslContextType   = std::tuple<>;
 
     static ConnectionInfo connectionInfo(const NetProtocol::socket& socket)
     {
@@ -57,7 +59,12 @@ struct UdsTraits
         return unspecifiedTimeout;
     }
 
-    static Socket makeClientSocket(IoStrand i, ClientSettings&)
+    static SslContextType makeClientSslContext(const ClientSettings&)
+    {
+        return {};
+    }
+
+    static Socket makeClientSocket(IoStrand i, SslContextType&)
     {
         return Socket{std::move(i)};
     }

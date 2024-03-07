@@ -179,8 +179,8 @@ public:
 
     Transporting::Ptr take()
     {
-        return std::make_shared<Transport>(std::move(socket_), settings_,
-                                           codecIds_, logger_);
+        return TConfig::makeTransport(std::move(socket_), settings_, codecIds_,
+                                      logger_);
     }
 
     void drop() {socket_.close();}
@@ -284,7 +284,7 @@ private:
     SettingsPtr settings_;
     RouterLogger::Ptr logger_;
     typename NetProtocol::acceptor acceptor_;
-    typename NetProtocol::socket socket_;
+    typename TConfig::UnderlyingSocket socket_;
     Handler handler_;
     bool establishing_ = false;
 };

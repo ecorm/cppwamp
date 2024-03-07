@@ -71,6 +71,7 @@ namespace internal
         friend class StreamRecord;
         friend class SubscriptionRecord;
         friend struct TlsTraits;
+        friend struct TlsListenerConfig;
     };
 
 } // namespace internal

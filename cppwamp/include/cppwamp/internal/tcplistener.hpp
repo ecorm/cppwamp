@@ -25,9 +25,10 @@ using TcpServerTransport = RawsockServerTransport<TcpTraits>;
 template <typename TTransport, typename TSettings>
 struct BasicTcpListenerConfig
 {
-    using Transport   = TTransport;
-    using Settings    = TSettings;
-    using NetProtocol = boost::asio::ip::tcp;
+    using Transport        = TTransport;
+    using Settings         = TSettings;
+    using NetProtocol      = boost::asio::ip::tcp;
+    using UnderlyingSocket = typename NetProtocol::socket;
 
     static NetProtocol::endpoint makeEndpoint(const Settings& s)
     {
@@ -61,6 +62,15 @@ struct BasicTcpListenerConfig
         if (Helper::isAcceptFatalError(ec))
             return ListenStatus::fatal;
         return ListenStatus::transient;
+    }
+
+    static Transporting::Ptr makeTransport(
+        UnderlyingSocket&& socket, std::shared_ptr<Settings> settings,
+        CodecIdSet codecIds, RouterLogger::Ptr logger)
+    {
+        return std::make_shared<Transport>(
+            std::move(socket), std::move(settings), std::move(codecIds),
+            std::move(logger));
     }
 };
 

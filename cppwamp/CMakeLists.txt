@@ -129,6 +129,7 @@ set(HEADERS
     include/cppwamp/internal/timeformatting.hpp
     include/cppwamp/internal/timeoutscheduler.hpp
     include/cppwamp/internal/tlsconnector.hpp
+    include/cppwamp/internal/tlslistener.hpp
     include/cppwamp/internal/tlstraits.hpp
     include/cppwamp/internal/tokentriemapimpl.hpp
     include/cppwamp/internal/transportframe.hpp
@@ -156,6 +157,7 @@ set(HEADERS
     include/cppwamp/transports/tcpserver.hpp
     include/cppwamp/transports/tlsclient.hpp
     include/cppwamp/transports/tlsprotocol.hpp
+    include/cppwamp/transports/tlsserver.hpp
     include/cppwamp/transports/udsclient.hpp
     include/cppwamp/transports/udsprotocol.hpp
     include/cppwamp/transports/udsserver.hpp
@@ -230,6 +232,7 @@ set(INLINES
     include/cppwamp/internal/tcpserver.inl.hpp
     include/cppwamp/internal/tlsclient.inl.hpp
     include/cppwamp/internal/tlsprotocol.inl.hpp
+    include/cppwamp/internal/tlsserver.inl.hpp
     include/cppwamp/internal/transport.inl.hpp
     include/cppwamp/internal/udsclient.inl.hpp
     include/cppwamp/internal/udsprotocol.inl.hpp

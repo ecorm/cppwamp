@@ -24,9 +24,10 @@ using UdsServerTransport = RawsockServerTransport<UdsTraits>;
 //------------------------------------------------------------------------------
 struct UdsListenerConfig
 {
+    using Transport   = UdsServerTransport;
     using Settings    = UdsEndpoint;
     using NetProtocol = boost::asio::local::stream_protocol;
-    using Transport   = UdsServerTransport;
+    using UnderlyingSocket = typename NetProtocol::socket;
 
     static NetProtocol::endpoint makeEndpoint(const Settings& s)
     {
@@ -70,6 +71,15 @@ struct UdsListenerConfig
         if (Helper::isAcceptFatalError(ec) || Helper::isAcceptOutageError(ec))
             return ListenStatus::fatal;
         return ListenStatus::transient;
+    }
+
+    static Transporting::Ptr makeTransport(
+        UnderlyingSocket&& socket, std::shared_ptr<Settings> settings,
+        CodecIdSet codecIds, RouterLogger::Ptr logger)
+    {
+        return std::make_shared<Transport>(
+            std::move(socket), std::move(settings), std::move(codecIds),
+            std::move(logger));
     }
 };
 
