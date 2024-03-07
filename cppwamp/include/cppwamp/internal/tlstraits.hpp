@@ -50,9 +50,34 @@ struct TlsTraits
         return s.makeSslContext({});
     }
 
-    static Socket makeClientSocket(IoStrand i, SslContextType& c)
+    static Socket makeClientSocket(IoStrand i, const ClientSettings& s,
+                                   SslContextType& c)
     {
-        return Socket{std::move(i), c.get()};
+        struct Verified
+        {
+            SslVerifyOptions::VerifyCallback callback;
+
+            bool operator()(bool preverified,
+                            boost::asio::ssl::verify_context& ctx) const
+            {
+                return callback(preverified,
+                                SslVerifyContext{ctx.native_handle()});
+            }
+        };
+
+        Socket sslStream{std::move(i), c.get()};
+        const auto& vo = s.sslVerifyOptions();
+
+        if (vo.modeIsSpecified())
+            sslStream.set_verify_mode(vo.mode());
+
+        if (vo.depth() != 0)
+            sslStream.set_verify_depth(vo.depth());
+
+        if (vo.callback() != nullptr)
+            sslStream.set_verify_callback(Verified{vo.callback()});
+
+        return sslStream;
     }
 };
 

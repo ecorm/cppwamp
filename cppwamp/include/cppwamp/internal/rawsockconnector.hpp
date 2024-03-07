@@ -40,7 +40,7 @@ public:
     RawsockConnector(IoStrand i, Settings s, int codecId)
         : resolver_(i),
           sslContext_(Traits::makeClientSslContext(s)),
-          socket_(Traits::makeClientSocket(std::move(i), sslContext_)),
+          socket_(Traits::makeClientSocket(std::move(i), s, sslContext_)),
           settings_(std::make_shared<Settings>(std::move(s))),
           codecId_(codecId)
     {}

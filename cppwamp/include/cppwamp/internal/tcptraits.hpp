@@ -81,7 +81,8 @@ struct TcpTraits
         return {};
     }
 
-    static Socket makeClientSocket(IoStrand i, SslContextType&)
+    static Socket makeClientSocket(IoStrand i, const ClientSettings&,
+                                   SslContextType&)
     {
         return Socket{std::move(i)};
     }
