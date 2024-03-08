@@ -4,41 +4,73 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#include "../transports/tlsprotocol.hpp"
+#include "../transports/wssprotocol.hpp"
 #include "../api.hpp"
+#include "../version.hpp"
+#include "httpurlvalidator.hpp"
 
 namespace wamp
 {
 
 //******************************************************************************
-// TlsHost
+// WssHost
 //******************************************************************************
 
-CPPWAMP_INLINE TlsHost::TlsHost(std::string address, std::string serviceName,
+CPPWAMP_INLINE bool WssHost::targetIsValid(const std::string& target)
+{
+    return !internal::HttpUrlValidator::validateForWebsocket(target);
+}
+
+CPPWAMP_INLINE WssHost::WssHost(std::string address, std::string serviceName,
                                 SslContextGenerator generator)
     : Base(std::move(address), std::move(serviceName)),
+      target_("/"),
       sslContextGenerator_(std::move(generator))
-{}
+{
+    options_.withAgent(Version::clientAgentString());
+}
 
-CPPWAMP_INLINE TlsHost::TlsHost(std::string address, Port port,
+CPPWAMP_INLINE WssHost::WssHost(std::string address, Port port,
                                 SslContextGenerator generator)
-    : Base(std::move(address), std::to_string(port)),
-      sslContextGenerator_(std::move(generator))
+    : WssHost(std::move(address), std::to_string(port), std::move(generator))
 {}
 
-CPPWAMP_INLINE TlsHost& TlsHost::withSslVerifyOptions(SslVerifyOptions options)
+CPPWAMP_INLINE WssHost& WssHost::withTarget(std::string target)
+{
+    target_ = std::move(target);
+    return *this;
+}
+
+CPPWAMP_INLINE WssHost&
+WssHost::withOptions(WebsocketOptions options)
+{
+    options_ = std::move(options);
+    return *this;
+}
+
+CPPWAMP_INLINE WssHost& WssHost::withSslVerifyOptions(SslVerifyOptions options)
 {
     sslVerifyOptions_ = std::move(options);
     return *this;
 }
 
-CPPWAMP_INLINE const SslVerifyOptions& TlsHost::sslVerifyOptions() const
+CPPWAMP_INLINE const std::string& WssHost::target() const
+{
+    return target_;
+}
+
+CPPWAMP_INLINE const WebsocketOptions& WssHost::options() const
+{
+    return options_;
+}
+
+CPPWAMP_INLINE const SslVerifyOptions& WssHost::sslVerifyOptions() const
 {
     return sslVerifyOptions_;
 }
 
 CPPWAMP_INLINE ErrorOr<SslContext>
-TlsHost::makeSslContext(internal::PassKey) const
+WssHost::makeSslContext(internal::PassKey) const
 {
     ErrorOr<SslContext> context;
 
@@ -58,39 +90,48 @@ TlsHost::makeSslContext(internal::PassKey) const
     return context;
 }
 
-
 //******************************************************************************
-// TlsEndpoint
+// WssEndpoint
 //******************************************************************************
 
-CPPWAMP_INLINE TlsEndpoint::TlsEndpoint(Port port,
+CPPWAMP_INLINE WssEndpoint::WssEndpoint(Port port,
                                         SslContextGenerator generator)
-    : Base("", port),
-      sslContextGenerator_(std::move(generator))
-{
-    mutableAcceptorOptions().withReuseAddress(true);
-}
+    : WssEndpoint("", port, std::move(generator))
+{}
 
-CPPWAMP_INLINE TlsEndpoint::TlsEndpoint(
-    std::string address, unsigned short port, SslContextGenerator generator)
+CPPWAMP_INLINE WssEndpoint::WssEndpoint(std::string address, Port port,
+                                        SslContextGenerator generator)
     : Base(std::move(address), port),
       sslContextGenerator_(std::move(generator))
 {
+    options_.withAgent(Version::serverAgentString());
     mutableAcceptorOptions().withReuseAddress(true);
 }
 
-CPPWAMP_INLINE std::string TlsEndpoint::label() const
+CPPWAMP_INLINE WssEndpoint&
+WssEndpoint::withOptions(WebsocketOptions options)
+{
+    options_ = std::move(options);
+    return *this;
+}
+
+CPPWAMP_INLINE const WebsocketOptions& WssEndpoint::options() const
+{
+    return options_;
+}
+
+CPPWAMP_INLINE std::string WssEndpoint::label() const
 {
     auto portString = std::to_string(port());
     if (address().empty())
-        return "TLS Port " + portString;
-    return "TLS " + address() + ':' + portString;
+        return "Websocket Port " + portString;
+    return "Websocket " + address() + ':' + portString;
 }
 
-CPPWAMP_INLINE void TlsEndpoint::initialize(internal::PassKey) {}
+CPPWAMP_INLINE void WssEndpoint::initialize(internal::PassKey) {}
 
 CPPWAMP_INLINE ErrorOr<SslContext>
-TlsEndpoint::makeSslContext(internal::PassKey) const
+WssEndpoint::makeSslContext(internal::PassKey) const
 {
     ErrorOr<SslContext> context;
 

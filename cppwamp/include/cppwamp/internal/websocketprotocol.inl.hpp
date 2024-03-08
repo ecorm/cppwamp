@@ -340,14 +340,11 @@ CPPWAMP_INLINE std::size_t WebsocketServerLimits::websocketReadIncrement() const
 //******************************************************************************
 
 CPPWAMP_INLINE WebsocketEndpoint::WebsocketEndpoint(Port port)
-    : Base("", port)
-{
-    options_.withAgent(Version::serverAgentString());
-    mutableAcceptorOptions().withReuseAddress(true);
-}
+    : WebsocketEndpoint("", port)
+{}
 
 CPPWAMP_INLINE WebsocketEndpoint::WebsocketEndpoint(std::string address,
-                                                    unsigned short port)
+                                                    Port port)
     : Base(std::move(address), port)
 {
     options_.withAgent(Version::serverAgentString());

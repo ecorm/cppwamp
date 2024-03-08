@@ -10,7 +10,4 @@
 
 #include <cppwamp/config.hpp>
 
-#include <cppwamp/internal/sslcontext.inl.hpp>
-#include <cppwamp/internal/tlsclient.inl.hpp>
-#include <cppwamp/internal/tlsprotocol.inl.hpp>
-#include <cppwamp/internal/tlsserver.inl.hpp>
+#include <cppwamp/internal/wssprotocol.inl.hpp>

@@ -269,7 +269,7 @@ public:
     explicit WebsocketEndpoint(Port port);
 
     /** Constructor taking an address string and a port number. */
-    WebsocketEndpoint(std::string address, unsigned short port);
+    WebsocketEndpoint(std::string address, Port port);
 
     /** Specifies the Websocket options. */
     WebsocketEndpoint& withOptions(WebsocketOptions options);

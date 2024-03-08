@@ -14,8 +14,9 @@
 # cppwamp-core         | CppWAMP::core         | Yes | Compiled libcppwamp-core library
 # cppwamp-core-headers | CppWAMP::core-headers | Yes | Header-only usage requirements
 # cppwamp-coro-usage   | CppWAMP::coro-usage   | Yes | Boost.Coroutine usage requirements
-# cppwamp-web          | CppWAMP::web          | Yes | Compiled libcppwamp-web library
 # cppwamp-tls          | CppWAMP::tls          | Yes | Compiled libcppwamp-tls library
+# cppwamp-web          | CppWAMP::web          | Yes | Compiled libcppwamp-web library
+# cppwamp-web-tls      | CppWAMP::web-tls      | Yes | Compiled libcppwamp-web-tls library
 # cppwamp-doc          | <none>                | No  | Doxygen documentation
 # cppwamp-examples     | <none>                | No  | Compiled example programs
 # cppwamp-test         | <none>                | No  | Compiled test suite program
@@ -151,12 +152,15 @@ cppwamp_resolve_dependencies()
 
 add_subdirectory(cppwamp)
 
-if(CPPWAMP_OPT_WITH_WEB)
-    add_subdirectory(cppwamp-web)
-endif()
-
 if(CPPWAMP_OPT_WITH_TLS)
     add_subdirectory(cppwamp-tls)
+endif()
+
+if(CPPWAMP_OPT_WITH_WEB)
+    add_subdirectory(cppwamp-web)
+    if(CPPWAMP_OPT_WITH_TLS)
+        add_subdirectory(cppwamp-web-tls)
+    endif()
 endif()
 
 if(CPPWAMP_OPT_WITH_CORO)

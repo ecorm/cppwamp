@@ -152,6 +152,7 @@ set(HEADERS
     include/cppwamp/transports/rawsocklimits.hpp
     include/cppwamp/transports/socketendpoint.hpp
     include/cppwamp/transports/sockethost.hpp
+    include/cppwamp/transports/sslcontext.hpp
     include/cppwamp/transports/tcpclient.hpp
     include/cppwamp/transports/tcpprotocol.hpp
     include/cppwamp/transports/tcpserver.hpp
@@ -164,6 +165,7 @@ set(HEADERS
     include/cppwamp/transports/websocketclient.hpp
     include/cppwamp/transports/websocketprotocol.hpp
     include/cppwamp/transports/websocketserver.hpp
+    include/cppwamp/transports/wssprotocol.hpp
     include/cppwamp/types/array.hpp
     include/cppwamp/types/boostoptional.hpp
     include/cppwamp/types/optional.hpp
@@ -224,6 +226,7 @@ set(INLINES
     include/cppwamp/internal/rpcinfo.inl.hpp
     include/cppwamp/internal/session.inl.hpp
     include/cppwamp/internal/sessioninfo.inl.hpp
+    include/cppwamp/internal/sslcontext.inl.hpp
     include/cppwamp/internal/streaming.inl.hpp
     include/cppwamp/internal/streamlogger.inl.hpp
     include/cppwamp/internal/subscription.inl.hpp
@@ -243,6 +246,7 @@ set(INLINES
     include/cppwamp/internal/websocketprotocol.inl.hpp
     include/cppwamp/internal/websocketserver.inl.hpp
     include/cppwamp/internal/wildcarduri.inl.hpp
+    include/cppwamp/internal/wssprotocol.inl.hpp
 )
 
 set(SOURCES
