@@ -22,6 +22,7 @@
 #include "api.hpp"
 #include "asiodefs.hpp"
 #include "codec.hpp"
+#include "erroror.hpp"
 #include "routerlogger.hpp"
 #include "transport.hpp"
 #include "traits.hpp"
@@ -117,7 +118,7 @@ public:
     virtual void establish() = 0;
 
     /** Creates a new transport using the connected client socket. */
-    virtual Transporting::Ptr take() = 0;
+    virtual ErrorOr<Transporting::Ptr> take() = 0;
 
     /** Drops the connected client socket due to connection limits. */
     virtual void drop() = 0;

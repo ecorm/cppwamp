@@ -38,7 +38,10 @@ CPPWAMP_INLINE void Listener<Tls>::observe(Handler handler)
 CPPWAMP_INLINE void Listener<Tls>::establish() {impl_->establish();}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Transporting::Ptr Listener<Tls>::take() {return impl_->take();}
+CPPWAMP_INLINE ErrorOr<Transporting::Ptr> Listener<Tls>::take()
+{
+    return impl_->take();
+}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Listener<Tls>::drop() {impl_->drop();}

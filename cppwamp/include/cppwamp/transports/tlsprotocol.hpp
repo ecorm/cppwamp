@@ -286,7 +286,7 @@ private:
 //------------------------------------------------------------------------------
 /** Function type used to generate SslContext objects on demand. */
 //------------------------------------------------------------------------------
-using SslContextGenerator = std::function<SslContext ()>;
+using SslContextGenerator = std::function<ErrorOr<SslContext> ()>;
 
 
 //------------------------------------------------------------------------------
@@ -357,7 +357,7 @@ private:
     SslVerifyOptions sslVerifyOptions_;
 
 public: // Internal use only
-    SslContext makeSslContext(internal::PassKey) const;
+    ErrorOr<SslContext> makeSslContext(internal::PassKey) const;
 };
 
 
@@ -387,7 +387,7 @@ private:
 
 public: // Internal use only
     void initialize(internal::PassKey);
-    SslContext makeSslContext(internal::PassKey) const;
+    ErrorOr<SslContext> makeSslContext(internal::PassKey) const;
 };
 
 } // namespace wamp

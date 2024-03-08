@@ -45,13 +45,18 @@ struct TlsTraits
         return unspecifiedTimeout;
     }
 
-    static SslContextType makeClientSslContext(const ClientSettings& s)
+    static ErrorOr<SslContextType> makeClientSslContext(const ClientSettings& s)
     {
         return s.makeSslContext({});
     }
 
-    static Socket makeClientSocket(IoStrand i, const ClientSettings& s,
-                                   SslContextType& c)
+    static Socket makeClientSocket(IoStrand i, SslContextType& c)
+    {
+        return Socket{std::move(i), c.get()};
+    }
+
+    static std::error_code initializeClientSocket(
+        Socket& socket, const ClientSettings& settings)
     {
         struct Verified
         {
@@ -65,21 +70,20 @@ struct TlsTraits
             }
         };
 
-        Socket sslStream{std::move(i), c.get()};
-        const auto& vo = s.sslVerifyOptions();
+        const auto& vo = settings.sslVerifyOptions();
 
-        // TODO: Handle SSL errors gracefully
+        boost::system::error_code ec;
 
         if (vo.modeIsSpecified())
-            sslStream.set_verify_mode(vo.mode());
+            socket.set_verify_mode(vo.mode(), ec);
 
-        if (vo.depth() != 0)
-            sslStream.set_verify_depth(vo.depth());
+        if (!ec && vo.depth() != 0)
+            socket.set_verify_depth(vo.depth(), ec);
 
-        if (vo.callback() != nullptr)
-            sslStream.set_verify_callback(Verified{vo.callback()});
+        if (!ec && vo.callback() != nullptr)
+            socket.set_verify_callback(Verified{vo.callback()}, ec);
 
-        return sslStream;
+        return ec;
     }
 };
 

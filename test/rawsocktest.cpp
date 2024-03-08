@@ -71,7 +71,7 @@ struct LoopbackFixture
             [&](ListenResult result)
             {
                 REQUIRE(result.ok());
-                auto transport = lstn->take();
+                auto transport = lstn->take().value();
                 server = std::move(transport);
                 server->admit(
                     [this](AdmitResult result)
@@ -272,7 +272,7 @@ void checkConnection(TFixture& f, int expectedCodec,
     f.lstn->observe([&](ListenResult result)
     {
         REQUIRE( result.ok() );
-        auto transport = f.lstn->take();
+        auto transport = f.lstn->take().value();
         REQUIRE( transport != nullptr );
         f.server = transport;
         f.server->admit(
@@ -411,7 +411,7 @@ void checkUnsupportedSerializer(TFixture& f)
     f.lstn->observe([&](ListenResult result)
     {
         REQUIRE( result.ok() );
-        f.server = f.lstn->take();
+        f.server = f.lstn->take().value();
         f.server->admit(
             [&](AdmitResult result)
             {
@@ -474,7 +474,7 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
         [&](ListenResult result)
         {
             REQUIRE( result.ok() );
-            server = lstn->take();
+            server = lstn->take().value();
             server->admit(
                 [&serverEc, &server](AdmitResult result)
                 {
@@ -1094,7 +1094,7 @@ TEMPLATE_TEST_CASE( "Normal communications", "[Transport][Rawsock]",
         [&](ListenResult result)
         {
             REQUIRE( result.ok() );
-            auto transport = f.lstn->take();
+            auto transport = f.lstn->take().value();
             REQUIRE( transport != nullptr );
             server2 = transport;
             server2->admit(
@@ -1233,7 +1233,7 @@ TEST_CASE( "Raw socket shedding", "[Transport][Rawsock]" )
         [&](ListenResult result)
         {
             REQUIRE( result.ok() );
-            server = lstn->take();
+            server = lstn->take().value();
             server->shed(
                 [&](AdmitResult r)
                 {
@@ -1521,7 +1521,7 @@ TEMPLATE_TEST_CASE( "Cancel connect", "[Transport][Rawsock]",
     {
         if (result.ok())
         {
-            f.server = f.lstn->take();
+            f.server = f.lstn->take().value();
             f.server->admit(
                 [&](AdmitResult result)
                 {
@@ -1631,7 +1631,7 @@ TEMPLATE_TEST_CASE( "Cancel send", "[Transport][Rawsock]",
     f.lstn->observe([&](ListenResult result)
     {
         REQUIRE(result.ok());
-        f.server = f.lstn->take();
+        f.server = f.lstn->take().value();
         f.server->admit(
             [&](AdmitResult r)
             {
@@ -1775,7 +1775,7 @@ GIVEN ( "mock client sending a message exceeding the server's maximum length" )
         [&](ListenResult result)
         {
             REQUIRE( result.ok() );
-            server = lstn->take();
+            server = lstn->take().value();
             server->admit(
                 [](AdmitResult r) {REQUIRE(r.status() == AdmitStatus::wamp);});
         });
@@ -1884,7 +1884,7 @@ GIVEN ( "A mock client that sends an invalid message type" )
         [&](ListenResult result)
         {
             REQUIRE( result.ok() );
-            server = lstn->take();
+            server = lstn->take().value();
             server->admit(
                 [](AdmitResult r) {REQUIRE(r.status() == AdmitStatus::wamp);});
         });
@@ -2078,7 +2078,7 @@ TEST_CASE( "TCP rawsocket server pongs", "[Transport][Rawsock]" )
         [&](ListenResult result)
         {
             REQUIRE( result.ok() );
-            server = lstn->take();
+            server = lstn->take().value();
             server->admit(
                 [](AdmitResult r) {REQUIRE(r.status() == AdmitStatus::wamp);});
         });

@@ -69,7 +69,7 @@ TEST_CASE("WAMP Client Connection Timeouts", "[WAMP][Basic]")
         [&](ListenResult result)
         {
             REQUIRE(result.ok());
-            transport = lstn->take();
+            transport = lstn->take().value();
         });
     lstn->establish();
 

@@ -19,7 +19,7 @@
 #include <cppwamp/utils/consolelogger.hpp>
 
 //------------------------------------------------------------------------------
-wamp::SslContext makeSslContext()
+wamp::ErrorOr<wamp::SslContext> makeSslContext()
 {
     /*  Key/certificate pair generated using the following command:
             openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 \

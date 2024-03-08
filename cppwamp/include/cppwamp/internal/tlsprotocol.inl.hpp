@@ -751,9 +751,25 @@ CPPWAMP_INLINE const SslVerifyOptions& TlsHost::sslVerifyOptions() const
     return sslVerifyOptions_;
 }
 
-CPPWAMP_INLINE SslContext TlsHost::makeSslContext(internal::PassKey) const
+CPPWAMP_INLINE ErrorOr<SslContext>
+TlsHost::makeSslContext(internal::PassKey) const
 {
-    return sslContextGenerator_();
+    ErrorOr<SslContext> context;
+
+    try
+    {
+        context = sslContextGenerator_();
+    }
+    catch (const boost::system::system_error& e)
+    {
+        return makeUnexpected(static_cast<std::error_code>(e.code()));
+    }
+    catch (const std::system_error& e)
+    {
+        return makeUnexpected(e.code());
+    }
+
+    return context;
 }
 
 
@@ -787,9 +803,25 @@ CPPWAMP_INLINE std::string TlsEndpoint::label() const
 
 CPPWAMP_INLINE void TlsEndpoint::initialize(internal::PassKey) {}
 
-CPPWAMP_INLINE SslContext TlsEndpoint::makeSslContext(internal::PassKey) const
+CPPWAMP_INLINE ErrorOr<SslContext>
+TlsEndpoint::makeSslContext(internal::PassKey) const
 {
-    return sslContextGenerator_();
+    ErrorOr<SslContext> context;
+
+    try
+    {
+        context = sslContextGenerator_();
+    }
+    catch (const boost::system::system_error& e)
+    {
+        return makeUnexpected(static_cast<std::error_code>(e.code()));
+    }
+    catch (const std::system_error& e)
+    {
+        return makeUnexpected(e.code());
+    }
+
+    return context;
 }
 
 

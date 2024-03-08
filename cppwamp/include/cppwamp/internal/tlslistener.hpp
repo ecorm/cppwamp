@@ -9,6 +9,7 @@
 
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl/stream.hpp>
+#include "../erroror.hpp"
 #include "rawsocklistener.hpp"
 #include "rawsocktransport.hpp"
 #include "tcplistener.hpp"
@@ -28,16 +29,22 @@ using TlsServerTransport = RawsockServerTransport<TlsTraits>;
 struct TlsListenerConfig : public BasicTcpListenerConfig<TlsServerTransport,
                                                          TlsEndpoint>
 {
-    static Transporting::Ptr makeTransport(
+    static ErrorOr<Transporting::Ptr> makeTransport(
         UnderlyingSocket&& socket, std::shared_ptr<Settings> settings,
         CodecIdSet codecIds, RouterLogger::Ptr logger)
     {
+        auto sslContextOrError = settings->makeSslContext({});
+        if (!sslContextOrError.has_value())
+            return makeUnexpected(sslContextOrError.error());
+
         using Ssl = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
-        auto sslContext = settings->makeSslContext({});
-        Ssl stream{std::move(socket), sslContext.get()};
-        return std::make_shared<Transport>(
+        Ssl stream{std::move(socket), sslContextOrError->get()};
+
+        auto transport = std::make_shared<Transport>(
             std::move(stream), std::move(settings), std::move(codecIds),
-            std::move(logger), std::move(sslContext));
+            std::move(logger), std::move(*sslContextOrError));
+
+        return std::static_pointer_cast<Transporting>(transport);
     }
 };
 

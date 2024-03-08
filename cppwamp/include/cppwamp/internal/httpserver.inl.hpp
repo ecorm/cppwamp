@@ -189,7 +189,10 @@ CPPWAMP_INLINE void Listener<Http>::observe(Handler handler)
 CPPWAMP_INLINE void Listener<Http>::establish() {impl_->establish();}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Transporting::Ptr Listener<Http>::take() {return impl_->take();}
+CPPWAMP_INLINE ErrorOr<Transporting::Ptr> Listener<Http>::take()
+{
+    return impl_->take();
+}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Listener<Http>::drop() {impl_->drop();}

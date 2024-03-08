@@ -19,6 +19,7 @@
 #include <boost/asio/socket_base.hpp>
 #include "../asiodefs.hpp"
 #include "../errorcodes.hpp"
+#include "../erroror.hpp"
 #include "../listener.hpp"
 #include "../routerlogger.hpp"
 
@@ -177,7 +178,7 @@ public:
             });
     }
 
-    Transporting::Ptr take()
+    ErrorOr<Transporting::Ptr> take()
     {
         return TConfig::makeTransport(std::move(socket_), settings_, codecIds_,
                                       logger_);

@@ -8,6 +8,7 @@
 #define CPPWAMP_INTERNAL_UDSLISTENER_HPP
 
 #include <boost/asio/local/stream_protocol.hpp>
+#include "../erroror.hpp"
 #include "rawsocklistener.hpp"
 #include "rawsocktransport.hpp"
 #include "udstraits.hpp"
@@ -73,13 +74,15 @@ struct UdsListenerConfig
         return ListenStatus::transient;
     }
 
-    static Transporting::Ptr makeTransport(
+    static ErrorOr<Transporting::Ptr> makeTransport(
         UnderlyingSocket&& socket, std::shared_ptr<Settings> settings,
         CodecIdSet codecIds, RouterLogger::Ptr logger)
     {
-        return std::make_shared<Transport>(
+        auto transport = std::make_shared<Transport>(
             std::move(socket), std::move(settings), std::move(codecIds),
             std::move(logger));
+
+        return std::static_pointer_cast<Transporting>(transport);
     }
 };
 

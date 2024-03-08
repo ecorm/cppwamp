@@ -59,15 +59,20 @@ struct UdsTraits
         return unspecifiedTimeout;
     }
 
-    static SslContextType makeClientSslContext(const ClientSettings&)
+    static ErrorOr<SslContextType> makeClientSslContext(const ClientSettings&)
     {
         return {};
     }
 
-    static Socket makeClientSocket(IoStrand i, const ClientSettings&,
-                                   SslContextType&)
+    static Socket makeClientSocket(IoStrand i, SslContextType&)
     {
         return Socket{std::move(i)};
+    }
+
+    static std::error_code initializeClientSocket(Socket&,
+                                                  const ClientSettings&)
+    {
+        return {};
     }
 };
 

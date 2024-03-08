@@ -1002,11 +1002,18 @@ private:
         if (sessionCount >= options_->hardConnectionLimit())
             return hardShed();
 
-        auto transport = listener_->take();
+        auto transportOrError = listener_->take();
+        if (!transportOrError.has_value())
+        {
+            onListenerResult({transportOrError.error(), ListenStatus::fatal,
+                              "transport creation"});
+            return;
+        }
+
         if (sessionCount >= options_->softConnectionLimit())
         {
             if (!softShedStaleSession())
-                return softShedAccepted(std::move(transport));
+                return softShedAccepted(std::move(*transportOrError));
         }
 
         ServerContext ctx{router_, shared_from_this()};
@@ -1014,7 +1021,8 @@ private:
             nextSessionIndex_ = 1u;
         auto index = nextSessionIndex_;
         auto s = std::make_shared<ServerSession>(
-            executor_, std::move(transport), std::move(ctx), options_, index);
+            executor_, std::move(*transportOrError), std::move(ctx), options_,
+            index);
         sessions_.emplace(index, s);
         s->start();
     }

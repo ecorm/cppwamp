@@ -38,9 +38,8 @@ public:
     using Handler  = std::function<void (ErrorOr<Transporting::Ptr>)>;
 
     RawsockConnector(IoStrand i, Settings s, int codecId)
-        : resolver_(i),
-          sslContext_(Traits::makeClientSslContext(s)),
-          socket_(Traits::makeClientSocket(std::move(i), s, sslContext_)),
+        : strand_(std::move(i)),
+          resolver_(strand_),
           settings_(std::make_shared<Settings>(std::move(s))),
           codecId_(codecId)
     {}
@@ -49,6 +48,18 @@ public:
     {
         assert(!handler_ &&
                "RawsockConnector establishment already in progress");
+
+        if (!initialized_)
+        {
+            auto ec = initialize();
+
+            if (ec)
+            {
+                postAny(strand_, std::move(handler), makeUnexpected(ec));
+                return;
+            }
+        }
+
         handler_ = std::move(handler);
         auto self = this->shared_from_this();
         resolver_.resolve(
@@ -79,6 +90,18 @@ private:
     using IsTls             = typename Traits::IsTls;
     using SslContextType    = typename Traits::SslContextType;
 
+    std::error_code initialize()
+    {
+        auto contextOrError = Traits::makeClientSslContext(*settings_);
+        if (!contextOrError.has_value())
+            return contextOrError.error();
+
+        sslContext_ = std::move(contextOrError).value();
+        socket_ = std::make_shared<Socket>(
+            Traits::makeClientSocket(strand_, sslContext_));
+        return Traits::initializeClientSocket(*socket_, *settings_);
+    }
+
     void connect(const ResolverResult& endpoints)
     {
         assert(!underlyingSocket().is_open());
@@ -92,7 +115,7 @@ private:
                          const typename NetProtocol::endpoint&)
             {
                 if (check(netEc))
-                    performTlsHandshake(IsTls{}, socket_);
+                    performTlsHandshake(IsTls{}, *socket_);
             });
     }
 
@@ -123,7 +146,7 @@ private:
                          .toBigEndian();
         auto self = this->shared_from_this();
         boost::asio::async_write(
-            socket_,
+            *socket_,
             boost::asio::buffer(&handshake_, sizeof(handshake_)),
             [this, self](boost::system::error_code ec, size_t)
             {
@@ -137,7 +160,7 @@ private:
         handshake_ = 0;
         auto self = this->shared_from_this();
         boost::asio::async_read(
-            socket_,
+            *socket_,
             boost::asio::buffer(&handshake_, sizeof(handshake_)),
             [this, self](boost::system::error_code ec, size_t)
             {
@@ -169,7 +192,7 @@ private:
 
     UnderlyingSocket& underlyingSocket()
     {
-        return getUnderlyingSocket(IsTls{}, socket_);
+        return getUnderlyingSocket(IsTls{}, *socket_);
     }
 
     template <typename S>
@@ -207,7 +230,7 @@ private:
         TransportInfo i{codecId_, txLimit, rxLimit};
 
         Transporting::Ptr transport =
-            std::make_shared<Transport>(std::move(socket_), settings_,
+            std::make_shared<Transport>(std::move(*socket_), settings_,
                                         std::move(i), std::move(sslContext_));
         dispatchHandler(std::move(transport));
     }
@@ -226,13 +249,15 @@ private:
         handler(std::forward<TArg>(arg));
     }
 
+    IoStrand strand_;
     Resolver resolver_;
     SslContextType sslContext_;
-    Socket socket_;
+    std::shared_ptr<Socket> socket_; // TODO: Use std::optional
     Handler handler_;
     std::shared_ptr<Settings> settings_;
     int codecId_ = 0;
     uint32_t handshake_ = 0;
+    bool initialized_ = false;
 };
 
 } // namespace internal

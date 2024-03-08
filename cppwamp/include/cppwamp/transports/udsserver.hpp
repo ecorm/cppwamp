@@ -49,7 +49,7 @@ public:
 
     void establish() override;
 
-    Transporting::Ptr take() override;
+    ErrorOr<Transporting::Ptr> take() override;
 
     void drop() override;
 

@@ -83,7 +83,7 @@ struct LoopbackFixture
                     FAIL("LoopbackFixture ListenResult::error: "
                          << result.error());
                 }
-                auto transport = lstn->take();
+                auto transport = lstn->take().value();
                 server = std::move(transport);
                 server->admit(
                     [this](AdmitResult result)
@@ -322,7 +322,7 @@ struct MalformedWebsocketUpgradeTestVector
             [&](ListenResult result)
             {
                 REQUIRE( result.ok() );
-                server = lstn->take();
+                server = lstn->take().value();
                 server->admit(
                     [&](AdmitResult r)
                     {
@@ -377,7 +377,7 @@ void checkConnection(LoopbackFixture& f, int expectedCodec,
     f.lstn->observe([&](ListenResult result)
     {
         REQUIRE( result.ok() );
-        auto transport = f.lstn->take();
+        auto transport = f.lstn->take().value();
         REQUIRE( transport );
         f.server = transport;
         f.server->admit(
@@ -518,7 +518,7 @@ void checkUnsupportedSerializer(LoopbackFixture& f)
     f.lstn->observe([&](ListenResult result)
     {
         REQUIRE( result.ok() );
-        f.server = f.lstn->take();
+        f.server = f.lstn->take().value();
         f.server->admit(
             [&](AdmitResult result)
             {
@@ -640,7 +640,7 @@ TEST_CASE( "Normal websocket communications", "[Transport][Websocket]" )
         [&](ListenResult result)
         {
             REQUIRE( result.ok() );
-            auto transport = f.lstn->take();
+            auto transport = f.lstn->take().value();
             REQUIRE( transport != nullptr );
             server2 = transport;
             server2->admit(
@@ -781,7 +781,7 @@ TEST_CASE( "Websocket shedding", "[Transport][Websocket]" )
         [&](ListenResult result)
         {
             REQUIRE( result.ok() );
-            server = lstn->take();
+            server = lstn->take().value();
             server->shed(
                 [&](AdmitResult r)
                 {
@@ -1068,7 +1068,7 @@ TEST_CASE( "Cancel websocket connect", "[Transport][Websocket]" )
     {
         if (result.ok())
         {
-            f.server = f.lstn->take();
+            f.server = f.lstn->take().value();
             f.server->admit(
                 [&](AdmitResult result)
                 {
@@ -1174,7 +1174,7 @@ TEST_CASE( "Cancel websocket send", "[Transport][Websocket]" )
     f.lstn->observe([&](ListenResult result)
     {
         REQUIRE(result.ok());
-        f.server = f.lstn->take();
+        f.server = f.lstn->take().value();
         f.server->admit(
             [](AdmitResult r) {REQUIRE(r.status() == AdmitStatus::wamp);});
     });
@@ -1242,7 +1242,7 @@ TEST_CASE( "Invalid Websocket request-target", "[Transport][Websocket][thisone]"
         [&](ListenResult result)
         {
             REQUIRE( result.ok() );
-            f.server = f.lstn->take();
+            f.server = f.lstn->take().value();
             f.server->admit(
                 [&](AdmitResult result)
                 {
