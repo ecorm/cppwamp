@@ -74,6 +74,8 @@ set(HEADERS
     include/cppwamp/codecs/msgpack.hpp
     include/cppwamp/internal/authorizationlistener.hpp
     include/cppwamp/internal/base64.hpp
+    include/cppwamp/internal/basicwebsocketconnector.hpp
+    include/cppwamp/internal/basicwebsockettransport.hpp
     include/cppwamp/internal/broker.hpp
     include/cppwamp/internal/challenger.hpp
     include/cppwamp/internal/client.hpp
@@ -140,9 +142,11 @@ set(HEADERS
     include/cppwamp/internal/variantencoding.hpp
     include/cppwamp/internal/varianttraits.hpp
     include/cppwamp/internal/variantvisitors.hpp
-    include/cppwamp/internal/websocketconnector.hpp
     include/cppwamp/internal/websocketlistener.hpp
     include/cppwamp/internal/websockettransport.hpp
+    include/cppwamp/internal/websockettraits.hpp
+    include/cppwamp/internal/wsstraits.hpp
+    include/cppwamp/internal/wsstransport.hpp
     include/cppwamp/transports/httpjob.hpp
     include/cppwamp/transports/httpresponse.hpp
     include/cppwamp/transports/httpserver.hpp
@@ -165,6 +169,7 @@ set(HEADERS
     include/cppwamp/transports/websocketclient.hpp
     include/cppwamp/transports/websocketprotocol.hpp
     include/cppwamp/transports/websocketserver.hpp
+    include/cppwamp/transports/wssclient.hpp
     include/cppwamp/transports/wssprotocol.hpp
     include/cppwamp/types/array.hpp
     include/cppwamp/types/boostoptional.hpp
@@ -246,6 +251,7 @@ set(INLINES
     include/cppwamp/internal/websocketprotocol.inl.hpp
     include/cppwamp/internal/websocketserver.inl.hpp
     include/cppwamp/internal/wildcarduri.inl.hpp
+    include/cppwamp/internal/wssclient.inl.hpp
     include/cppwamp/internal/wssprotocol.inl.hpp
 )
 

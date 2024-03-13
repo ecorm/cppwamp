@@ -525,33 +525,18 @@ private:
                     return;
                 auto handler = std::move(shutdownHandler_);
                 shutdownHandler_ = nullptr;
-                if (netEc != boost::asio::error::eof)
-                {
-                    close();
-                    handler(rawsockErrorCodeToStandard(netEc));
-                }
-                else
-                {
-                    shutdownUnderlying();
-                }
+
+                // https://security.stackexchange.com/a/91442/169835
+                if (Traits::isSslTruncationError(netEc))
+                    netEc = {};
+
+                // There should be no need to flush the read buffer at this
+                // point, so don't bother performing the TCP-level lingering
+                // close.
+                close();
+
+                handler(rawsockErrorCodeToStandard(netEc));
             });
-    }
-
-    void shutdownUnderlying()
-    {
-        boost::system::error_code netEc;
-        underlyingSocket().shutdown(UnderlyingSocket::shutdown_send, netEc);
-        auto ec = static_cast<std::error_code>(netEc);
-        if (ec)
-        {
-            auto handler = std::move(shutdownHandler_);
-            shutdownHandler_ = nullptr;
-            handler(ec);
-            return;
-        }
-
-        if (!isReading_)
-            flush();
     }
 
     UnderlyingSocket& underlyingSocket()
@@ -614,7 +599,8 @@ public:
 
     void admit(bool isShedding, Handler handler)
     {
-        doAdmit(IsTls{}, isShedding, std::move(handler));
+        isShedding_ = isShedding;
+        doAdmit(IsTls{}, std::move(handler));
     }
 
     void shutdown(std::error_code reason, ShutdownHandler handler)
@@ -637,18 +623,16 @@ private:
 
     // Non-TLS overload
     template <typename F>
-    void doAdmit(FalseType, bool isShedding, F&& handler)
+    void doAdmit(FalseType, F&& handler)
     {
-        isShedding_ = isShedding;
         handler_ = std::forward<F>(handler);
         receiveRawsocketHandshake();
     }
 
     // TLS overload
     template <typename F>
-    void doAdmit(TrueType, bool isShedding, F&& handler)
+    void doAdmit(TrueType, F&& handler)
     {
-        isShedding_ = isShedding;
         handler_ = std::forward<F>(handler);
 
         auto self = this->shared_from_this();

@@ -41,6 +41,7 @@ namespace internal
         friend class wamp::Transporting;
         template <typename> friend class BasicCalleeChannelImpl;
         template <typename> friend class BasicCallerChannelImpl;
+        template <typename> friend class BasicWebsocketConnector;
         friend class Broker;
         friend class BrokerImpl;
         friend class BrokerPublication;

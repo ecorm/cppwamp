@@ -8,7 +8,6 @@
 #define CPPWAMP_INTERNAL_WEBSOCKETLISTENER_HPP
 
 #include <memory>
-#include <set>
 #include "tcplistener.hpp"
 #include "websockettransport.hpp"
 

@@ -7,6 +7,7 @@
 #ifndef CPPWAMP_INTERNAL_TLSTRAITS_HPP
 #define CPPWAMP_INTERNAL_TLSTRAITS_HPP
 
+#include <boost/asio/ssl/error.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include "../asiodefs.hpp"
 #include "../traits.hpp"
@@ -55,8 +56,9 @@ struct TlsTraits
         return Socket{std::move(i), c.get()};
     }
 
-    static std::error_code initializeClientSocket(
-        Socket& socket, const ClientSettings& settings)
+    template <typename TSslSocket, typename TSettings>
+    static std::error_code initializeClientSocket(TSslSocket& socket,
+                                                  const TSettings& settings)
     {
         struct Verified
         {
@@ -84,6 +86,11 @@ struct TlsTraits
             socket.set_verify_callback(Verified{vo.callback()}, ec);
 
         return ec;
+    }
+
+    static bool isSslTruncationError(boost::system::error_code ec)
+    {
+        return ec == boost::asio::ssl::error::stream_truncated;
     }
 };
 

@@ -74,6 +74,8 @@ struct UdsTraits
     {
         return {};
     }
+
+    static bool isSslTruncationError(boost::system::error_code) {return false;}
 };
 
 } // namespace internal

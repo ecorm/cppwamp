@@ -9,8 +9,9 @@
 #include <catch2/catch.hpp>
 #include <cppwamp/asiodefs.hpp>
 #include <cppwamp/codecs/cbor.hpp>
-#include <cppwamp/internal/websocketconnector.hpp>
+#include <cppwamp/internal/basicwebsocketconnector.hpp>
 #include <cppwamp/internal/websocketlistener.hpp>
+#include <cppwamp/internal/websockettraits.hpp>
 #include <cppwamp/transports/websocketclient.hpp>
 #include <cppwamp/transports/websocketserver.hpp>
 
@@ -37,7 +38,7 @@ auto wsEndpoint = WebsocketEndpoint{tcpTestPort};
 //------------------------------------------------------------------------------
 struct LoopbackFixture
 {
-    using Connector      = WebsocketConnector;
+    using Connector      = BasicWebsocketConnector<WebsocketTraits>;
     using ClientSettings = WebsocketHost;
     using Listener       = WebsocketListener;
     using ServerSettings = WebsocketEndpoint;
@@ -791,6 +792,7 @@ TEST_CASE( "Websocket shedding", "[Transport][Websocket]" )
         });
     lstn->establish();
 
+    using WebsocketConnector = BasicWebsocketConnector<WebsocketTraits>;
     auto cnct = std::make_shared<WebsocketConnector>(strand, wsHost, jsonId);
     Transporting::Ptr client;
     std::error_code clientError;

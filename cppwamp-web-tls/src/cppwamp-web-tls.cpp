@@ -10,4 +10,5 @@
 
 #include <cppwamp/config.hpp>
 
+#include <cppwamp/internal/wssclient.inl.hpp>
 #include <cppwamp/internal/wssprotocol.inl.hpp>

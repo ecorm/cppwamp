@@ -19,6 +19,7 @@
 #include "../api.hpp"
 #include "../config.hpp"
 #include "../erroror.hpp"
+#include "../internal/passkey.hpp"
 
 // Determines whether OpenSSL's `SSL_CTX_set_dh_auto` function is available.
 #if defined(OPENSSL_VERSION_NUMBER) && OPENSSL_VERSION_NUMBER >= 0x30000000L
@@ -287,7 +288,7 @@ class CPPWAMP_API SslVerifyOptions
 public:
     /// Function type used for SSL verify callbacks.
     using VerifyCallback = std::function<bool (bool preverified,
-                                              SslVerifyContext)>;
+                                               SslVerifyContext)>;
 
     /** Sets the callback used to verify SSL peer certificates. */
     SslVerifyOptions& withCallback(VerifyCallback callback);
