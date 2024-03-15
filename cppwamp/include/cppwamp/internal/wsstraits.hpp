@@ -47,6 +47,13 @@ struct WssTraits
         return s.next_layer().next_layer();
     }
 
+    static TcpSocket& tcpLayer(HttpSocket& s) {return s.next_layer();}
+
+    static const TcpSocket& tcpLayer(const HttpSocket& s)
+    {
+        return s.next_layer();
+    }
+
     static bool isSslTruncationError(boost::system::error_code ec)
     {
         return ec == boost::asio::ssl::error::stream_truncated;

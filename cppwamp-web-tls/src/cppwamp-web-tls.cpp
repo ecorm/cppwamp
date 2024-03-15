@@ -12,3 +12,4 @@
 
 #include <cppwamp/internal/wssclient.inl.hpp>
 #include <cppwamp/internal/wssprotocol.inl.hpp>
+#include <cppwamp/internal/wssserver.inl.hpp>

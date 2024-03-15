@@ -176,7 +176,8 @@ private:
     std::shared_ptr<Queue> queue_;
     SettingsPtr settings_;
     std::shared_ptr<Pinger> pinger_;
-    SslContextType sslContext_;
+    SslContextType sslContext_; // Not directly used by this class,
+                                // for lifetime management only.
 };
 
 } // namespace wamp

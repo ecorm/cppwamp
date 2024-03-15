@@ -523,9 +523,9 @@ public:
     void close()
     {
         if (websocket_.has_value())
-            websocket_->next_layer().close();
+            TTraits::tcpLayer(*websocket_).close();
         else
-            httpSocket_.close();
+            TTraits::tcpLayer(httpSocket_).close();
     }
 
     template <typename TRequest>
@@ -596,7 +596,7 @@ private:
 
         auto self = this->shared_from_this();
         httpSocket_.async_handshake(
-            Socket::server,
+            Socket::next_layer_type::server,
             [this, self](boost::system::error_code netEc)
             {
                 if (netEc)
@@ -876,17 +876,18 @@ private:
 //------------------------------------------------------------------------------
 template <typename TTraits>
 using BasicWebsocketClientTransport =
-    QueueingClientTransport<WebsocketHost, BasicWebsocketStream<TTraits>,
+    QueueingClientTransport<typename TTraits::ClientSettings,
+                            BasicWebsocketStream<TTraits>,
                             typename TTraits::SslContextType>;
 
 //------------------------------------------------------------------------------
 template <typename TTraits>
 class BasicWebsocketServerTransport
-    : public QueueingServerTransport<WebsocketEndpoint,
+    : public QueueingServerTransport<typename TTraits::ServerSettings,
                                      BasicWebsocketAdmitter<TTraits>,
                                      typename TTraits::SslContextType>
 {
-    using Base = QueueingServerTransport<WebsocketEndpoint,
+    using Base = QueueingServerTransport<typename TTraits::ServerSettings,
                                          BasicWebsocketAdmitter<TTraits>,
                                          typename TTraits::SslContextType>;
 
@@ -894,6 +895,7 @@ public:
     using Ptr = std::shared_ptr<BasicWebsocketServerTransport>;
     using ListenerSocket  = typename Base::ListenerSocket;
     using SettingsPtr     = typename Base::SettingsPtr;
+    using SslContextType  = typename Base::SslContextType;
     using RxHandler       = typename Base::RxHandler;
     using TxErrorHandler  = typename Base::TxErrorHandler;
     using ShutdownHandler = typename Base::ShutdownHandler;
@@ -905,7 +907,8 @@ public:
     };
 
     BasicWebsocketServerTransport(ListenerSocket&& l, SettingsPtr s,
-                                  CodecIdSet c, RouterLogger::Ptr = {})
+                                  CodecIdSet c, RouterLogger::Ptr = {},
+                                  SslContextType = {})
         : Base(std::move(l), std::move(s), std::move(c), {})
     {}
 

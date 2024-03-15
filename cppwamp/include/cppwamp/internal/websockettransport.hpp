@@ -16,10 +16,6 @@ namespace wamp
 namespace internal
 {
 
-using WebsocketStream = BasicWebsocketStream<WebsocketTraits>;
-
-using WebsocketAdmitter = BasicWebsocketAdmitter<WebsocketTraits>;
-
 using WebsocketClientTransport = BasicWebsocketClientTransport<WebsocketTraits>;
 
 using WebsocketServerTransport = BasicWebsocketServerTransport<WebsocketTraits>;

@@ -52,13 +52,14 @@ public:
 
     QueueingServerTransport(ListenerSocket&& socket, SettingsPtr settings,
                             CodecIdSet codecIds, RouterLogger::Ptr,
-                            SslContextType = {})
+                            SslContextType ssl = {})
         : Base(boost::asio::make_strand(socket.get_executor()),
                Stream::makeConnectionInfo(socket)),
           monitor_(std::make_shared<Monitor>(settings)),
           settings_(std::move(settings)),
           admitter_(std::make_shared<Admitter>(std::move(socket),
-                                               settings_, std::move(codecIds)))
+                                               settings_, std::move(codecIds))),
+          sslContext_(std::move(ssl))
     {}
 
     template <typename TRequest>
@@ -239,7 +240,8 @@ private:
     SettingsPtr settings_;
     std::shared_ptr<Admitter> admitter_;
     AdmitHandler admitHandler_;
-    SslContextType sslContext_;
+    SslContextType sslContext_; // Not directly used by this class,
+                                // for lifetime management only.
 };
 
 } // namespace wamp

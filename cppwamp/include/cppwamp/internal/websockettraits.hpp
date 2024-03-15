@@ -45,6 +45,10 @@ struct WebsocketTraits
 
     static const TcpSocket& tcpLayer(const Socket& s) {return s.next_layer();}
 
+    static TcpSocket& tcpLayer(HttpSocket& s) {return s;}
+
+    static const TcpSocket& tcpLayer(const HttpSocket& s) {return s;}
+
     static bool isSslTruncationError(boost::system::error_code) {return false;}
 };
 

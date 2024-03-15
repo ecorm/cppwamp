@@ -73,6 +73,7 @@ namespace internal
         friend class SubscriptionRecord;
         friend struct TlsTraits;
         friend struct TlsListenerConfig;
+        friend struct WssListenerConfig;
     };
 
 } // namespace internal

@@ -1,11 +1,11 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2023.
+    Copyright Butterfly Energy Systems 2024.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_TRANSPORTS_WEBSOCKETSERVER_HPP
-#define CPPWAMP_TRANSPORTS_WEBSOCKETSERVER_HPP
+#ifndef CPPWAMP_TRANSPORTS_WSSSERVER_HPP
+#define CPPWAMP_TRANSPORTS_WSSSERVER_HPP
 
 //------------------------------------------------------------------------------
 /** @file
@@ -15,9 +15,7 @@
 #include "../api.hpp"
 #include "../asiodefs.hpp"
 #include "../listener.hpp"
-#include "websocketprotocol.hpp"
-
-// TODO: Websocket over TLS server
+#include "wssprotocol.hpp"
 
 namespace wamp
 {
@@ -25,21 +23,21 @@ namespace wamp
 // Forward declaration
 namespace internal
 {
-class WebsocketListener;
+class WssListener;
 }
 
 //------------------------------------------------------------------------------
-/** Listener specialization that establishes a server-side Websocket transport.
+/** Listener specialization that establishes a server-side Websocket Secure
+    transport.
     Users do not need to use this class directly and should instead pass
-    wamp::WebsocketEndpoint to wamp::Router::openServer via
-    wamp::ServerOptions. */
+    wamp::WssEndpoint to wamp::Router::openServer via wamp::ServerOptions. */
 //------------------------------------------------------------------------------
 template <>
-class CPPWAMP_API Listener<Websocket> : public Listening
+class CPPWAMP_API Listener<Wss> : public Listening
 {
 public:
     /** Type containing the transport settings. */
-    using Settings = WebsocketEndpoint;
+    using Settings = WssEndpoint;
 
     /** Constructor. */
     Listener(AnyIoExecutor e, IoStrand i, Settings s, CodecIdSet c,
@@ -66,13 +64,13 @@ public:
     /// @}
 
 private:
-    std::shared_ptr<internal::WebsocketListener> impl_;
+    std::shared_ptr<internal::WssListener> impl_;
 };
 
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "../internal/websocketserver.inl.hpp"
+#include "../internal/wssserver.inl.hpp"
 #endif
 
-#endif // CPPWAMP_TRANSPORTS_WEBSOCKETSERVER_HPP
+#endif // CPPWAMP_TRANSPORTS_WSSSERVER_HPP

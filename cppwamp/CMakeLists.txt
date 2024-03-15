@@ -145,6 +145,7 @@ set(HEADERS
     include/cppwamp/internal/websocketlistener.hpp
     include/cppwamp/internal/websockettransport.hpp
     include/cppwamp/internal/websockettraits.hpp
+    include/cppwamp/internal/wsslistener.hpp
     include/cppwamp/internal/wsstraits.hpp
     include/cppwamp/internal/wsstransport.hpp
     include/cppwamp/transports/httpjob.hpp
@@ -171,6 +172,7 @@ set(HEADERS
     include/cppwamp/transports/websocketserver.hpp
     include/cppwamp/transports/wssclient.hpp
     include/cppwamp/transports/wssprotocol.hpp
+    include/cppwamp/transports/wssserver.hpp
     include/cppwamp/types/array.hpp
     include/cppwamp/types/boostoptional.hpp
     include/cppwamp/types/optional.hpp
@@ -253,6 +255,7 @@ set(INLINES
     include/cppwamp/internal/wildcarduri.inl.hpp
     include/cppwamp/internal/wssclient.inl.hpp
     include/cppwamp/internal/wssprotocol.inl.hpp
+    include/cppwamp/internal/wssserver.inl.hpp
 )
 
 set(SOURCES
