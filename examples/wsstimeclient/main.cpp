@@ -5,7 +5,7 @@
 ------------------------------------------------------------------------------*/
 
 //******************************************************************************
-// Example WAMP service consumer app using TLS transport.
+// Example WAMP service consumer app using Websocket Secure transport.
 //******************************************************************************
 
 #include <ctime>
@@ -16,7 +16,7 @@
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/variant.hpp>
 #include <cppwamp/codecs/json.hpp>
-#include <cppwamp/transports/tlsclient.hpp>
+#include <cppwamp/transports/wssclient.hpp>
 
 const std::string realm = "cppwamp.examples";
 const char* defaultAddress = "localhost";
@@ -146,7 +146,7 @@ int main(int argc, char* argv[])
     auto verif = wamp::SslVerifyOptions{}.withMode(wamp::SslVerifyMode::peer())
                                          .withCallback(&verifyCertificate);
 
-    auto tls = wamp::TlsHost(address, port, &makeSslContext)
+    auto tls = wamp::WssHost(address, port, &makeSslContext)
                    .withSslVerifyOptions(std::move(verif))
                    .withFormat(wamp::json);
 

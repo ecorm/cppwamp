@@ -63,8 +63,10 @@ if(CPPWAMP_OPT_WITH_TLS)
                      cppwamp-example-tlstimeclient)
     if(CPPWAMP_OPT_WITH_WEB)
         add_subdirectory(wssrouter)
+        add_subdirectory(wsstimeclient)
         add_dependencies(cppwamp_examples
-                         cppwamp-example-wssrouter)
+                         cppwamp-example-wssrouter
+                         cppwamp-example-wstimeclient)
     endif()
 endif()
 
