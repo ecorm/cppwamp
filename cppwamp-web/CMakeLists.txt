@@ -12,7 +12,7 @@ set(SOURCES
 add_library(cppwamp-web-headers INTERFACE)
 target_compile_features(cppwamp-web-headers INTERFACE cxx_std_11)
 target_link_libraries(cppwamp-web-headers
-    INTERFACE "$<TARGET_NAME_IF_EXISTS:CppWAMP::core>"
+    INTERFACE "$<TARGET_NAME_IF_EXISTS:CppWAMP::core-headers>"
               "$<TARGET_NAME_IF_EXISTS:Boost::headers>"
               "$<TARGET_NAME_IF_EXISTS:Boost::filesystem>"
               "$<TARGET_NAME_IF_EXISTS:Boost::url>"

@@ -12,7 +12,7 @@ set(SOURCES
 add_library(cppwamp-tls-headers INTERFACE)
 target_compile_features(cppwamp-tls-headers INTERFACE cxx_std_11)
 target_link_libraries(cppwamp-tls-headers
-    INTERFACE "$<TARGET_NAME_IF_EXISTS:CppWAMP::core>"
+    INTERFACE "$<TARGET_NAME_IF_EXISTS:CppWAMP::core-headers>"
               "$<TARGET_NAME_IF_EXISTS:Boost::headers>"
               "$<TARGET_NAME_IF_EXISTS:Boost::system>"
               "$<TARGET_NAME_IF_EXISTS:OpenSSL::SSL>"

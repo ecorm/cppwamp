@@ -61,6 +61,11 @@ if(CPPWAMP_OPT_WITH_TLS)
     add_dependencies(cppwamp_examples
                      cppwamp-example-tlsrouter
                      cppwamp-example-tlstimeclient)
+    if(CPPWAMP_OPT_WITH_WEB)
+        add_subdirectory(wssrouter)
+        add_dependencies(cppwamp_examples
+                         cppwamp-example-wssrouter)
+    endif()
 endif()
 
 # Copy Crossbar node configuration to build directory

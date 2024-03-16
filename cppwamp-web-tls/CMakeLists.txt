@@ -12,7 +12,8 @@ set(SOURCES
 add_library(cppwamp-web-tls-headers INTERFACE)
 target_compile_features(cppwamp-web-tls-headers INTERFACE cxx_std_11)
 target_link_libraries(cppwamp-web-tls-headers
-    INTERFACE "$<TARGET_NAME_IF_EXISTS:CppWAMP::core>"
+    INTERFACE "$<TARGET_NAME_IF_EXISTS:CppWAMP::tls-headers>"
+              "$<TARGET_NAME_IF_EXISTS:CppWAMP::web-headers>"
               "$<TARGET_NAME_IF_EXISTS:Boost::headers>"
               "$<TARGET_NAME_IF_EXISTS:Boost::filesystem>"
               "$<TARGET_NAME_IF_EXISTS:Boost::url>"
@@ -51,7 +52,8 @@ else()
 
     target_link_libraries(cppwamp-web-tls
         PUBLIC
-            "$<TARGET_NAME_IF_EXISTS:CppWAMP::core>"
+            "$<TARGET_NAME_IF_EXISTS:CppWAMP::tls>"
+            "$<TARGET_NAME_IF_EXISTS:CppWAMP::web>"
             "$<TARGET_NAME_IF_EXISTS:Boost::headers>"
             "$<TARGET_NAME_IF_EXISTS:Boost::filesystem>"
             "$<TARGET_NAME_IF_EXISTS:Boost::url>"
