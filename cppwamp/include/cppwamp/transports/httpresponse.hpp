@@ -11,12 +11,15 @@
 #include "../api.hpp"
 #include "../transport.hpp"
 #include "httpstatus.hpp"
-#include "../internal/httpserializer.hpp"
 
 namespace wamp
 {
 
-namespace internal { class HttpJobImpl; }
+namespace internal
+{
+template <typename> class HttpJobImpl;
+class HttpSerializerBase;
+}
 
 
 //------------------------------------------------------------------------------
@@ -61,7 +64,7 @@ private:
     bool htmlEnabled_ = false;
 
     friend class HttpJob;
-    friend class internal::HttpJobImpl;
+    template <typename> friend class internal::HttpJobImpl;
 };
 
 
@@ -91,7 +94,7 @@ private:
     SerializerPtr serializer_;
     HttpStatus status_;
 
-    friend class internal::HttpJobImpl;
+    template <typename> friend class internal::HttpJobImpl;
 };
 
 
@@ -112,6 +115,8 @@ class CPPWAMP_API HttpFile
 {
 public:
     HttpFile();
+
+    ~HttpFile();
 
     std::error_code open(const std::string& filename);
 
@@ -144,6 +149,7 @@ private:
 
     friend class HttpJob;
 };
+
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB

@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2023.
+    Copyright Butterfly Energy Systems 2023-2024.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -288,6 +288,13 @@ private:
 
 public: // Internal use only
     void initialize(internal::PassKey);
+
+    template <typename THttpSettings>
+    static std::shared_ptr<WebsocketEndpoint> fromHttp(internal::PassKey,
+                                                       const THttpSettings& s)
+    {
+        return std::make_shared<WebsocketEndpoint>(s.address(), s.port());
+    }
 };
 
 } // namespace wamp

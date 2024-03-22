@@ -10,6 +10,7 @@
 #include <boost/beast/http/message.hpp>
 #include <boost/beast/http/string_body.hpp>
 #include "../api.hpp"
+#include "httpserializer.hpp"
 
 namespace wamp
 {
@@ -155,9 +156,9 @@ struct HttpFile::Impl
     boost::beast::http::file_body::value_type file;
 };
 
-CPPWAMP_INLINE HttpFile::HttpFile()
-    : impl_(new Impl)
-{}
+CPPWAMP_INLINE HttpFile::HttpFile() : impl_(new Impl) {}
+
+CPPWAMP_INLINE HttpFile::~HttpFile() = default;
 
 CPPWAMP_INLINE std::error_code HttpFile::open(const std::string& filename)
 {

@@ -8,8 +8,12 @@
 #define CPPWAMP_INTERNAL_HTTPSERIALIZER_HPP
 
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/beast/http/empty_body.hpp>
+#include <boost/beast/http/file_body.hpp>
+#include <boost/beast/http/string_body.hpp>
 #include <boost/beast/http/write.hpp>
-#include "../anyhandler.hpp"
+
+// TODO: Hide HttpSerializer from httpresponse.hpp header
 
 namespace wamp
 {
@@ -18,20 +22,38 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
+class HttpSerializerVisitor
+{
+public:
+    template <typename TBody>
+    using Serializer = boost::beast::http::response_serializer<TBody>;
+
+    using EmptyBody = boost::beast::http::empty_body;
+    using StringBody = boost::beast::http::string_body;
+    using FileBody = boost::beast::http::file_body;
+
+    virtual ~HttpSerializerVisitor() = default;
+
+    virtual void visit(Serializer<EmptyBody>& serializer) = 0;
+
+    virtual void visit(Serializer<StringBody>& serializer) = 0;
+
+    virtual void visit(Serializer<FileBody>& serializer) = 0;
+};
+
+//------------------------------------------------------------------------------
 class HttpSerializerBase
 {
 public:
     using Ptr = std::unique_ptr<HttpSerializerBase>;
     using Socket = boost::asio::ip::tcp::socket;
-    using Handler = AnyCompletionHandler<void (boost::beast::error_code,
-                                               std::size_t)>;
 
     virtual ~HttpSerializerBase() = default;
 
     virtual void prepare(std::size_t limit, unsigned httpVersion,
                          const std::string& agent, bool keepAlive) = 0;
 
-    virtual void asyncWriteSome(Socket& tcp, Handler handler) = 0;
+    virtual void apply(HttpSerializerVisitor& visitor) = 0;
 
     virtual bool done() const = 0;
 
@@ -70,20 +92,9 @@ public:
         serializer_.limit(limit);
     }
 
-    void asyncWriteSome(Socket& tcp, Handler handler) override
+    void apply(HttpSerializerVisitor& visitor) override
     {
-        struct Written
-        {
-            Handler handler;
-
-            void operator()(boost::beast::error_code netEc, std::size_t n)
-            {
-                handler(netEc, n);
-            }
-        };
-
-        boost::beast::http::async_write_some(tcp, serializer_,
-                                             Written{std::move(handler)});
+        visitor.visit(serializer_);
     }
 
     bool done() const override
@@ -97,8 +108,7 @@ public:
 
 private:
     using Body = typename Response::body_type;
-    using Fields = typename Response::fields_type;
-    using Serializer = boost::beast::http::serializer<false, Body, Fields>;
+    using Serializer = boost::beast::http::response_serializer<Body>;
 
     Response response_;
     Serializer serializer_;

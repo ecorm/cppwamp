@@ -74,6 +74,7 @@ set(HEADERS
     include/cppwamp/codecs/msgpack.hpp
     include/cppwamp/internal/authorizationlistener.hpp
     include/cppwamp/internal/base64.hpp
+    include/cppwamp/internal/basichttptransport.hpp
     include/cppwamp/internal/basicwebsocketconnector.hpp
     include/cppwamp/internal/basicwebsockettransport.hpp
     include/cppwamp/internal/broker.hpp
@@ -91,7 +92,9 @@ set(HEADERS
     include/cppwamp/internal/httplistener.hpp
     include/cppwamp/internal/httpjobimpl.hpp
     include/cppwamp/internal/httpserializer.hpp
-    include/cppwamp/internal/httptransport.hpp
+    include/cppwamp/internal/httpslistener.hpp
+    include/cppwamp/internal/httpstraits.hpp
+    include/cppwamp/internal/httptraits.hpp
     include/cppwamp/internal/httpurlvalidator.hpp
     include/cppwamp/internal/invocationpolicyoption.hpp
     include/cppwamp/internal/lrucache.hpp
@@ -153,6 +156,8 @@ set(HEADERS
     include/cppwamp/transports/httpserver.hpp
     include/cppwamp/transports/httpserveroptions.hpp
     include/cppwamp/transports/httpprotocol.hpp
+    include/cppwamp/transports/httpsserver.hpp
+    include/cppwamp/transports/httpsprotocol.hpp
     include/cppwamp/transports/httpstatus.hpp
     include/cppwamp/transports/rawsocklimits.hpp
     include/cppwamp/transports/socketendpoint.hpp
@@ -219,6 +224,7 @@ set(INLINES
     include/cppwamp/internal/httpresponse.inl.hpp
     include/cppwamp/internal/httpserver.inl.hpp
     include/cppwamp/internal/httpserveroptions.inl.hpp
+    include/cppwamp/internal/httpsserver.inl.hpp
     include/cppwamp/internal/httpstatus.inl.hpp
     include/cppwamp/internal/json.inl.hpp
     include/cppwamp/internal/logging.inl.hpp

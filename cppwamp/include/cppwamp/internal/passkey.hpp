@@ -16,7 +16,6 @@ class CalleeInputChunk;
 class DirectRouterLink;
 class Error;
 class Event;
-class HttpEndpoint;
 class HttpServerBlock;
 class Outcome;
 class Session;
@@ -34,7 +33,6 @@ namespace internal
         friend class wamp::DirectRouterLink;
         friend class wamp::Error;
         friend class wamp::Event;
-        friend class wamp::HttpEndpoint;
         friend class wamp::HttpServerBlock;
         friend class wamp::Outcome;
         friend class wamp::Session;
@@ -53,7 +51,9 @@ namespace internal
         friend class DealerJobMap;
         friend class DirectPeer;
         friend class DirectRouterSession;
-        friend class HttpJobImpl;
+        template <typename> friend class HttpJobImpl;
+        friend class HttpServerBlockMap;
+        friend struct HttpsListenerConfig;
         friend class MatchUri;
         template <typename> friend class RawsockListener;
         template <typename> friend class RealmMetaProcedures;

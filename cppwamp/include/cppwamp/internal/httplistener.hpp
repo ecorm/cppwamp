@@ -8,14 +8,18 @@
 #define CPPWAMP_INTERNAL_HTTPLISTENER_HPP
 
 #include <memory>
+#include "basichttptransport.hpp"
+#include "httptraits.hpp"
 #include "tcplistener.hpp"
-#include "httptransport.hpp"
 
 namespace wamp
 {
 
 namespace internal
 {
+
+//------------------------------------------------------------------------------
+using HttpServerTransport = BasicHttpServerTransport<HttpTraits>;
 
 //------------------------------------------------------------------------------
 using HttpListenerConfig =

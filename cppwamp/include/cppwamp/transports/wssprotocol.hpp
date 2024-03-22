@@ -12,6 +12,7 @@
     @brief Contains basic Websocket Secure (wss) protocol facilities. */
 //------------------------------------------------------------------------------
 
+#include <memory>
 #include "sslcontext.hpp"
 #include "websocketprotocol.hpp"
 #include "../internal/passkey.hpp"
@@ -114,6 +115,13 @@ private:
 public: // Internal use only
     void initialize(internal::PassKey);
     ErrorOr<SslContext> makeSslContext(internal::PassKey) const;
+
+    template <typename THttpSettings>
+    static std::shared_ptr<WssEndpoint> fromHttp(internal::PassKey,
+                                                 const THttpSettings& s)
+    {
+        return std::make_shared<WssEndpoint>(s.address(), s.port(), nullptr);
+    }
 };
 
 } // namespace wamp

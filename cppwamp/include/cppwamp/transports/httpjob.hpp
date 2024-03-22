@@ -10,6 +10,7 @@
 #include <boost/url.hpp>
 #include "../erroror.hpp"
 #include "httpresponse.hpp"
+#include "httpserveroptions.hpp"
 #include "websocketprotocol.hpp"
 #include "../api.hpp"
 #include "../traits.hpp"
@@ -17,16 +18,17 @@
 namespace wamp
 {
 
-namespace internal { class HttpJobImpl; }
+namespace internal
+{
+class HttpJobImplBase;
+template <typename> class HttpJobImpl;
+}
 
 //------------------------------------------------------------------------------
 class CPPWAMP_API HttpJob
 {
 public:
     using Url = boost::urls::url;
-
-    template <typename TBody>
-    using Response = boost::beast::http::response<TBody>;
 
     explicit operator bool() const;
 
@@ -48,7 +50,7 @@ public:
 
     bool isWebsocketUpgrade() const;
 
-    const HttpEndpoint& settings() const;
+    const HttpServerOptions& blockOptions() const;
 
     void continueRequest();
 
@@ -84,11 +86,11 @@ public:
                             const WebsocketServerLimits& limits);
 
 private:
-    HttpJob(std::shared_ptr<internal::HttpJobImpl> impl);
+    HttpJob(std::shared_ptr<internal::HttpJobImplBase> impl);
 
-    std::shared_ptr<internal::HttpJobImpl> impl_;
+    std::shared_ptr<internal::HttpJobImplBase> impl_;
 
-    friend class internal::HttpJobImpl;
+    template <typename> friend class internal::HttpJobImpl;
 };
 
 } // namespace wamp

@@ -28,7 +28,7 @@
 #include "../transports/websocketprotocol.hpp"
 #include "httpserializer.hpp"
 #include "servertimeoutmonitor.hpp"
-#include "websockettransport.hpp"
+#include "basicwebsockettransport.hpp"
 
 namespace wamp
 {
@@ -37,11 +37,10 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-class HttpJobImpl : public std::enable_shared_from_this<HttpJobImpl>
+class HttpJobImplBase : public std::enable_shared_from_this<HttpJobImplBase>
 {
 public:
-    using Ptr             = std::shared_ptr<HttpJobImpl>;
-    using TcpSocket       = boost::asio::ip::tcp::socket;
+    using Ptr             = std::shared_ptr<HttpJobImplBase>;
     using Settings        = HttpEndpoint;
     using SettingsPtr     = std::shared_ptr<Settings>;
     using AdmitHandler    = AnyCompletionHandler<void (AdmitResult)>;
@@ -51,18 +50,10 @@ public:
     using StringView      = boost::beast::string_view;
     using FieldList       = std::initializer_list<std::pair<Field, StringView>>;
     using Url             = boost::urls::url;
-    using WebsocketServerTransportPtr =
-        std::shared_ptr<internal::WebsocketServerTransport>;
 
-    HttpJobImpl(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
-                ConnectionInfo i, RouterLogger::Ptr l)
-        : strand_(t.get_executor()),
-          tcpSocket_(std::move(t)),
-          codecIds_(c),
-          connectionInfo_(std::move(i)),
-          settings_(std::move(s)),
-          logger_(std::move(l))
-    {}
+    virtual ~HttpJobImplBase() = default;
+
+    const std::string& hostName() const {return hostName_;}
 
     const Url& target() const {return target_;}
 
@@ -94,8 +85,6 @@ public:
         return (iter == hdr.end()) ? fallback : std::string{iter->value()};
     }
 
-    const std::string& hostName() const {return hostName_;}
-
     bool isUpgrade() const
     {
         assert(parser_.has_value());
@@ -109,12 +98,108 @@ public:
         return boost::beast::websocket::is_upgrade(parser_->get().base());
     }
 
-    const HttpEndpoint& settings() const
+    std::error_code monitor()
     {
-        return *settings_;
+        return monitor_.check(std::chrono::steady_clock::now());
     }
 
-    void continueRequest()
+    virtual const HttpServerOptions& blockOptions() const = 0;
+
+    virtual void continueRequest() = 0;
+
+    virtual void respond(HttpResponse&& response) = 0;
+
+    virtual void upgradeToWebsocket(WebsocketOptions options,
+                                    const WebsocketServerLimits& limits) = 0;
+
+    virtual void deny(HttpDenial denial) = 0;
+
+    virtual void process(bool isShedding, AdmitHandler handler) = 0;
+
+    virtual void shutdown(std::error_code reason, ShutdownHandler handler) = 0;
+
+    virtual void close() = 0;
+
+protected:
+    using Body    = boost::beast::http::buffer_body;
+    using Parser  = boost::beast::http::request_parser<Body>;
+    using Monitor = internal::HttpServerTimeoutMonitor;
+
+    Monitor& getMonitor() {return monitor_;}
+
+    Parser& getParser()
+    {
+        assert(parser_.has_value());
+        return *parser_;
+    }
+
+    const Parser& getParser() const
+    {
+        assert(parser_.has_value());
+        return *parser_;
+    }
+
+    void clear()
+    {
+        hostName_.clear();
+        target_.clear();
+        body_.clear();
+        parser_.emplace();
+    }
+
+    void appendToBody(char* data, std::size_t size) {body_.append(data, size);}
+
+    void setHostName(std::string name) {hostName_ = std::move(name);}
+
+    void setTarget(Url url) {target_ = std::move(url);}
+
+private:
+    boost::optional<Parser> parser_;
+    boost::urls::url target_;
+    Monitor monitor_;
+    std::string hostName_;
+    std::string body_;
+};
+
+
+//------------------------------------------------------------------------------
+template <typename TTraits>
+class HttpJobImpl : public HttpJobImplBase
+{
+public:
+    using Ptr             = std::shared_ptr<HttpJobImpl>;
+    using Socket          = typename TTraits::Socket;
+    using Settings        = typename TTraits::ServerSettings;
+    using SettingsPtr     = std::shared_ptr<Settings>;
+    using AdmitHandler    = AnyCompletionHandler<void (AdmitResult)>;
+    using ShutdownHandler = AnyCompletionHandler<void (std::error_code)>;
+    using Header          = boost::beast::http::request_header<>;
+    using Field           = boost::beast::http::field;
+    using StringView      = boost::beast::string_view;
+    using FieldList       = std::initializer_list<std::pair<Field, StringView>>;
+    using Url             = boost::urls::url;
+
+    using WebsocketTransportType =
+        internal::BasicWebsocketServerTransport<typename TTraits::WsTraits>;
+
+    using WebsocketTransportPtr = std::shared_ptr<WebsocketTransportType>;
+
+    HttpJobImpl(Socket&& t, SettingsPtr s, const CodecIdSet& c,
+                ConnectionInfo i, RouterLogger::Ptr l)
+        : strand_(t.get_executor()),
+          socket_(std::move(t)),
+          codecIds_(c),
+          connectionInfo_(std::move(i)),
+          settings_(std::move(s)),
+          logger_(std::move(l))
+    {}
+
+    const HttpServerOptions& blockOptions() const override
+    {
+        return serverBlock_ ? serverBlock_->options() : settings_->options();
+    }
+
+    void continueRequest() override
     {
         struct Dispatched
         {
@@ -126,7 +211,7 @@ public:
         safelyDispatch<Dispatched>();
     }
 
-    void respond(HttpResponse&& response)
+    void respond(HttpResponse&& response) override
     {
         struct Dispatched
         {
@@ -140,7 +225,7 @@ public:
     }
 
     void upgradeToWebsocket(WebsocketOptions options,
-                            const WebsocketServerLimits& limits)
+                            const WebsocketServerLimits& limits) override
     {
         struct Dispatched
         {
@@ -154,7 +239,7 @@ public:
         safelyDispatch<Dispatched>(std::move(options), limits);
     }
 
-    void deny(HttpDenial denial)
+    void deny(HttpDenial denial) override
     {
         struct Dispatched
         {
@@ -167,20 +252,23 @@ public:
         safelyDispatch<Dispatched>(std::move(denial));
     }
 
-    std::error_code monitor()
-    {
-        return monitor_.check(steadyTime());
-    }
-
-    void process(bool isShedding, AdmitHandler handler)
+    void process(bool isShedding, AdmitHandler handler) override
     {
         isShedding_ = isShedding;
-        admitHandler_ = std::move(handler);
-        start();
+        getMonitor().startHeader(
+            steadyTime(), blockOptions().timeouts().requestHeaderTimeout());
+        tlsHandshake(IsTls{}, std::move(handler));
     }
 
-    void shutdown(std::error_code reason, ShutdownHandler handler)
+    void shutdown(std::error_code reason, ShutdownHandler handler) override
     {
+        if (isHandshaking_)
+        {
+            post(std::move(handler), std::error_code{});
+            close();
+            return;
+        }
+
         shutdownHandler_ = std::move(handler);
 
         if (isDone_ || !reason)
@@ -191,7 +279,7 @@ public:
                 admitHandler_ = nullptr;
             }
 
-            doShutdown();
+            doShutdown(IsTls{}, socket_);
             return;
         }
 
@@ -205,25 +293,29 @@ public:
                  .withResult(AdmitResult::cancelled(reason)));
     }
 
-    void close()
+    void close() override
     {
         isDone_ = true;
-        monitor_.endLinger();
-        tcpSocket_.close();
+        getMonitor().reset();
+        tcpSocket().close();
     }
 
-    const WebsocketServerTransportPtr& upgradedTransport() const
+    const WebsocketTransportPtr& upgradedTransport() const
     {
         return upgradedTransport_;
     }
 
 private:
-    using Body            = boost::beast::http::buffer_body;
-    using Request         = boost::beast::http::request<Body>;
-    using Parser          = boost::beast::http::request_parser<Body>;
-    using Verb            = boost::beast::http::verb;
-    using Monitor         = internal::HttpServerTimeoutMonitor;
-    using TimePoint       = std::chrono::steady_clock::time_point;
+    using Base       = HttpJobImplBase;
+    using Body       = typename Base::Body;
+    using Parser     = typename Base::Parser;
+    using Monitor    = typename Base::Monitor;
+    using Request    = boost::beast::http::request<Body>;
+    using Verb       = boost::beast::http::verb;
+    using TimePoint  = std::chrono::steady_clock::time_point;
+    using TcpSocket  = boost::asio::ip::tcp::socket;
+    using IsTls      = typename TTraits::IsTls;
+    using WsSettings = typename TTraits::WsTraits::ServerSettings;
 
     enum class RoutingStatus
     {
@@ -284,13 +376,13 @@ private:
 
         HttpResponse response{HttpStatus::continueRequest};
         serializer_ = response.takeSerializer();
-        assert(parser_.has_value());
+        auto& parser = getParser();
         serializer_->prepare(blockOptions().limits().responseIncrement(),
-                             parser_->get().version(), blockOptions().agent(),
-                             parser_->keep_alive());
+                             parser.get().version(), blockOptions().agent(),
+                             parser.keep_alive());
         status_ = HttpStatus::continueRequest;
-        monitor_.startResponse(steadyTime(),
-                               blockOptions().timeouts().responseTimeout());
+        getMonitor().startResponse(steadyTime(),
+                                   blockOptions().timeouts().responseTimeout());
         sendMoreResponse();
     }
 
@@ -340,35 +432,48 @@ private:
         if (isDone_ || responseSent_)
             return;
 
-        auto self = shared_from_this();
-        auto wsEndpoint = std::make_shared<WebsocketEndpoint>(settings_->address(),
-                                                              settings_->port());
+        auto self = this->shared_from_this();
+        auto wsEndpoint = WsSettings::fromHttp({}, *settings_);
         wsEndpoint->withOptions(std::move(options)).withLimits(limits);
-        auto t = std::make_shared<internal::WebsocketServerTransport>(
-            std::move(tcpSocket_), std::move(wsEndpoint), codecIds_);
+        auto t = std::make_shared<WebsocketTransportType>(
+            std::move(socket_), std::move(wsEndpoint), codecIds_);
         upgradedTransport_ = std::move(t);
-        assert(parser_.has_value());
         upgradedTransport_->upgrade(
-            parser_->get(),
+            getParser().get(),
             [this, self](AdmitResult result) {finish(result);});
     }
 
-    void doShutdown()
+    template <typename F>
+    WsSettings makeWebsocketSettings(FalseType, F&& sslContextGenerator)
     {
-        if (tcpSocket_.is_open())
+        std::make_shared<WsSettings>(settings_->address(), settings_->port());
+    }
+
+    template <typename F>
+    WsSettings makeWebsocketSettings(TrueType, F&& sslContextGenerator)
+    {
+        std::make_shared<WsSettings>(settings_->address(), settings_->port(),
+                                     std::forward<F>(sslContextGenerator));
+    }
+
+    // Non-TLS overload
+    template <typename TSocket>
+    void doShutdown(FalseType, TSocket& socket)
+    {
+        if (tcpSocket().is_open())
         {
             boost::system::error_code netEc;
-            tcpSocket_.shutdown(TcpSocket::shutdown_send, netEc);
+            socket.shutdown(Socket::shutdown_send, netEc);
             if (netEc)
             {
                 auto ec = static_cast<std::error_code>(netEc);
                 post(std::move(shutdownHandler_), ec);
-                tcpSocket_.close();
+                close();
             }
             else
             {
-                monitor_.startLinger(steadyTime(),
-                                     blockOptions().timeouts().lingerTimeout());
+                getMonitor().startLinger(
+                    steadyTime(), blockOptions().timeouts().lingerTimeout());
                 if (!isReading_)
                     flush();
             }
@@ -380,10 +485,41 @@ private:
         shutdownHandler_ = nullptr;
     }
 
+    // TLS overload
+    template <typename TSocket>
+    void doShutdown(TrueType, TSocket& socket)
+    {
+        if (tcpSocket().is_open())
+        {
+            getMonitor().startLinger(
+                steadyTime(), blockOptions().timeouts().lingerTimeout());
+
+            auto self = this->shared_from_this();
+            socket.async_shutdown(
+                [this, self](boost::system::error_code netEc)
+                {
+                    // https://security.stackexchange.com/a/91442/169835
+                    if (TTraits::isSslTruncationError(netEc))
+                        netEc = {};
+
+                    auto ec = static_cast<std::error_code>(netEc);
+
+                    post(std::move(shutdownHandler_), ec);
+                    shutdownHandler_ = nullptr;
+                    close();
+                });
+        }
+        else
+        {
+            post(std::move(shutdownHandler_), std::error_code{});
+            shutdownHandler_ = nullptr;
+        }
+    }
+
     void flush()
     {
         bodyBuffer_.resize(+flushReadSize_);
-        tcpSocket_.async_read_some(
+        socket_.async_read_some(
             boost::asio::buffer(&bodyBuffer_.front(), +flushReadSize_),
             [this](boost::system::error_code netEc, size_t n)
             {
@@ -395,8 +531,7 @@ private:
 
     void onFlushComplete(boost::system::error_code netEc)
     {
-        monitor_.endLinger();
-        tcpSocket_.close();
+        close();
 
         bool isEof = netEc == boost::beast::http::error::end_of_stream ||
                      netEc == boost::beast::http::error::partial_message;
@@ -410,22 +545,45 @@ private:
         }
     }
 
+    template <typename F>
+    void tlsHandshake(FalseType, F&& handler)
+    {
+        admitHandler_ = std::forward<F>(handler);
+        start();
+    }
+
+    template <typename F>
+    void tlsHandshake(TrueType, F&& handler)
+    {
+        admitHandler_ = std::forward<F>(handler);
+        isHandshaking_ = true;
+        auto self = this->shared_from_this();
+        socket_.async_handshake(
+            Socket::server,
+            [this, self](boost::system::error_code netEc)
+            {
+                isHandshaking_ = false;
+                if (checkTlsHandshake(netEc))
+                    start();
+            });
+    }
+
     void start()
     {
+        Base::clear();
+
+        const auto& limits = settings_->options().limits();
+        auto& parser = getParser();
+        parser.header_limit(limits.requestHeaderSize());
+
+        // Only set the body limit later after we parse the hostname and
+        // determine its associated server block.
+        parser.body_limit(boost::none);
+
         serverBlock_ = nullptr;
         status_ = HttpStatus::none;
         responseSent_ = false;
         expectationReceived_ = false;
-        hostName_.clear();
-        target_.clear();
-        body_.clear();
-        parser_.emplace();
-        const auto& limits = settings().options().limits();
-        parser_->header_limit(limits.requestHeaderSize());
-
-        // Only set the body limit after we parse the hostname and determine
-        // its associated server block.
-        parser_->body_limit(boost::none);
 
         // After the first request, hold off arming the read timeout until data
         // is available to be read, as the keep-alive timeout is already in
@@ -438,13 +596,19 @@ private:
 
     void waitForHeader()
     {
-        auto self = shared_from_this();
-        tcpSocket_.async_wait(
+        auto self = this->shared_from_this();
+        tcpSocket().async_wait(
             TcpSocket::wait_read,
             [this, self](boost::system::error_code netEc)
             {
-                if (checkRead(netEc))
-                    readHeader();
+                if (!checkRead(netEc))
+                    return;
+
+                getMonitor().startHeader(
+                    steadyTime(),
+                    settings_->options().timeouts().requestHeaderTimeout());
+
+                readHeader();
             });
     }
 
@@ -452,17 +616,13 @@ private:
     {
         alreadyRequested_ = true;
         isReading_ = true;
-        monitor_.startHeader(
-            steadyTime(),
-            settings_->options().timeouts().requestHeaderTimeout());
-
-        auto self = shared_from_this();
+        auto self = this->shared_from_this();
         boost::beast::http::async_read_header(
-            tcpSocket_, streamBuffer_, *parser_,
+            socket_, streamBuffer_, getParser(),
             [this, self] (boost::beast::error_code netEc, std::size_t)
             {
                 isReading_ = false;
-                monitor_.endHeader();
+                getMonitor().endHeader();
                 if (checkRead(netEc))
                     onHeaderRead(netEc);
             });
@@ -474,15 +634,16 @@ private:
 
         // Find the server block associated with the interpreted hostname.
         if (routingStatus == RoutingStatus::ok)
-            serverBlock_ = settings_->findBlock(hostName_);
+            serverBlock_ = settings_->findBlock(hostName());
 
         // If the request body exceeds the limit, mark the request as rejected
         // so that keep-alive is disabled and the connection is shut down
         // after sending the response. Otherwise, we would have to consume
         // the large request body until the parser inevitably overflows.
-        const auto bodyLength = parser_->content_length().value_or(0);
+        auto& parser = getParser();
+        const auto bodyLength = parser.content_length().value_or(0);
         const auto bodyLimit = blockOptions().limits().requestBodySize();
-        parser_->body_limit(bodyLimit);
+        parser.body_limit(bodyLimit);
         if (bodyLength > bodyLimit)
         {
             const auto s = HttpStatus::contentTooLarge;
@@ -510,8 +671,8 @@ private:
         }
 
         // Check if a 100-continue expectation was received
-        auto expectField = parser_->get().find(Field::expect);
-        if (expectField != parser_->get().end())
+        auto expectField = parser.get().find(Field::expect);
+        if (expectField != parser.get().end())
             return onExpectationReceived(expectField->value());
 
         readBody();
@@ -524,8 +685,9 @@ private:
 
         // Ignore 100-continue expectations if it's an HTTP/1.0 request, or if
         // the request has no body.
-        const auto bodyLength = parser_->content_length().value_or(0);
-        if (parser_->get().version() < 11 || bodyLength == 0)
+        auto& parser = getParser();
+        const auto bodyLength = parser.content_length().value_or(0);
+        if (parser.get().version() < 11 || bodyLength == 0)
             return readBody();
 
         expectationReceived_ = true;
@@ -533,23 +695,23 @@ private:
         // Lookup the action associated with the normalized target path,
         // and make it emit the expected status code.
         assert(serverBlock_ != nullptr);
-        auto* action = serverBlock_->findAction(target_.path());
+        auto* action = serverBlock_->findAction(target().path());
         if (action == nullptr)
             return doDeny(HttpStatus::notFound);
-        HttpJob job{shared_from_this()};
+        HttpJob job{this->shared_from_this()};
         action->expect({}, job);
     }
 
     void readBody()
     {
-        if (parser_->is_done())
+        if (getParser().is_done())
         {
             onRequestRead();
         }
         else
         {
-            monitor_.startBody(steadyTime(),
-                               blockOptions().timeouts().requestBodyTimeout());
+            getMonitor().startBody(
+                steadyTime(), blockOptions().timeouts().requestBodyTimeout());
             readMoreBody();
         }
     }
@@ -557,13 +719,14 @@ private:
     void readMoreBody()
     {
         bodyBuffer_.resize(blockOptions().limits().requestBodyIncrement());
-        parser_->get().body().data = &bodyBuffer_.front();
-        parser_->get().body().size = bodyBuffer_.size();
+        auto& parser = getParser();
+        parser.get().body().data = &bodyBuffer_.front();
+        parser.get().body().size = bodyBuffer_.size();
         isReading_ = true;
 
-        auto self = shared_from_this();
+        auto self = this->shared_from_this();
         boost::beast::http::async_read(
-            tcpSocket_, streamBuffer_, *parser_,
+            socket_, streamBuffer_, parser,
             [this, self] (boost::beast::error_code netEc, std::size_t)
             {
                 isReading_ = false;
@@ -572,24 +735,25 @@ private:
                     netEc = {};
 
                 if (!checkRead(netEc))
-                    return monitor_.endBody();
+                    return getMonitor().endBody();
 
-                assert(bodyBuffer_.size() >= parser_->get().body().size);
+                auto& parser = getParser();
+                assert(bodyBuffer_.size() >= parser.get().body().size);
                 auto bytesParsed = bodyBuffer_.size() -
-                                   parser_->get().body().size;
-                body_.append(&bodyBuffer_.front(), bytesParsed);
+                                   parser.get().body().size;
+                appendToBody(&bodyBuffer_.front(), bytesParsed);
 
-                if (parser_->is_done())
+                if (parser.is_done())
                     return onRequestRead();
 
-                monitor_.updateBody(steadyTime(), bytesParsed);
+                getMonitor().updateBody(steadyTime(), bytesParsed);
                 return readMoreBody();
             });
     }
 
     void onRequestRead()
     {
-        monitor_.endBody();
+        getMonitor().endBody();
 
         // If we already sent a response other than 100-continue, discard the
         // request.
@@ -606,37 +770,38 @@ private:
         // Lookup and execute the action associated with the normalized
         // target path.
         assert(serverBlock_ != nullptr);
-        auto* action = serverBlock_->findAction(target_.path());
+        auto* action = serverBlock_->findAction(target().path());
         if (action == nullptr)
             return doDeny(HttpStatus::notFound);
-        HttpJob job{shared_from_this()};
+        HttpJob job{this->shared_from_this()};
         action->execute({}, job);
     }
 
     RoutingStatus interpretRoutingInformation()
     {
-        auto hostField = parser_->get().find(Field::host);
-        if (hostField == parser_->get().end())
+        auto& parser = getParser();
+        auto hostField = parser.get().find(Field::host);
+        if (hostField == parser.get().end())
             return RoutingStatus::badHost;
 
         auto result = boost::urls::parse_authority(hostField->value());
         if (!result.has_value() || result->has_userinfo())
         {
             // Save the invalid host name anyway so that it's logged.
-            hostName_ = std::string{hostField->value()};
+            setHostName(hostField->value());
             return RoutingStatus::badHost;
         }
 
-        hostName_ = std::string{result->host()};
+        setHostName(result->host());
 
         if (result->has_port() && result->port_number() != settings_->port())
             return RoutingStatus::badPort;
 
         auto normalized = internal::HttpUrlValidator::interpretAndNormalize(
-            parser_->get().target(), parser_->get().method());
+            parser.get().target(), parser.get().method());
         if (!normalized)
             return RoutingStatus::badTarget;
-        target_ = std::move(*normalized);
+        setTarget(std::move(*normalized));
 
         /*  From RFC9112, subsection 3.2.2:
             "When an origin server receives a request with an absolute-form of
@@ -653,19 +818,22 @@ private:
             resource MUST be rejected unless it has been received over a
             connection that has been secured via a certificate valid for that
             target URI's origin, as defined by Section 4.2.2." */
-        if (target_.has_scheme())
+        if (target().has_scheme())
         {
-            if (target_.scheme_id() != boost::urls::scheme::http)
+            // TODO: Check that scheme matches transport?
+            using Scheme = boost::urls::scheme;
+            auto scheme = target().scheme_id();
+            if (scheme != Scheme::http && scheme != Scheme::https)
                 return RoutingStatus::badScheme;
 
-            if (target_.has_port() &&
-                target_.port_number() != settings_->port())
+            if (target().has_port() &&
+                target().port_number() != settings_->port())
             {
                 return RoutingStatus::badPort;
             }
 
-            if (target_.has_authority())
-                hostName_ = std::string{target_.authority().host()};
+            if (target().has_authority())
+                setHostName(target().authority().host());
         }
 
         return RoutingStatus::ok;
@@ -745,7 +913,7 @@ private:
         if (!netEc)
             return true;
 
-        monitor_.endResponse(steadyTime(), false);
+        getMonitor().endResponse(steadyTime(), false);
         close();
 
         auto ec = httpErrorCodeToStandard(netEc);
@@ -764,13 +932,28 @@ private:
         return false;
     }
 
+    bool checkTlsHandshake(boost::system::error_code netEc)
+    {
+        if (!netEc)
+            return true;
+
+        auto ec = httpErrorCodeToStandard(netEc);
+        close();
+
+        if (ec == TransportErrc::disconnected)
+            finish(AdmitResult::disconnected());
+        else
+            finish(AdmitResult::failed(ec, "SSL/TLS handshake"));
+
+        return false;
+    }
+
     void report(HttpStatus status)
     {
         if (!logger_)
             return;
 
-        assert(parser_.has_value());
-        const auto& hdr = parser_->get().base();
+        const auto& hdr = getParser().get().base();
         auto action = actionFromRequestVerb(hdr.method());
         auto statusStr = std::to_string(static_cast<unsigned>(status));
         AccessActionInfo info{action, hdr.target(), {}, std::move(statusStr)};
@@ -788,7 +971,7 @@ private:
         if (upgradeField != hdr.end())
             info.options.emplace("upgrade", std::string{upgradeField->value()});
 
-        HttpAccessInfo httpInfo{hostName_, fieldOr("User-Agent", {})};
+        HttpAccessInfo httpInfo{hostName(), fieldOr("User-Agent", {})};
         logger_->log(AccessLogEntry{connectionInfo_, std::move(httpInfo),
                                     std::move(info)});
     }
@@ -905,60 +1088,88 @@ private:
 
     void sendResponse(HttpResponse& response, AdmitResult result)
     {
+        auto& parser = getParser();
+
         responseSent_ = true;
-        assert(parser_.has_value());
 
         keepAlive_ =
             (result.status() == AdmitStatus::wamp) ||
             (result.status() == AdmitStatus::responded &&
              blockOptions().keepAliveEnabled() &&
-             parser_->keep_alive());
+             parser.keep_alive());
 
         auto increment = blockOptions().limits().responseIncrement();
 
         serializer_ = response.takeSerializer();
-        serializer_->prepare(increment, parser_->get().version(),
+        serializer_->prepare(increment, parser.get().version(),
                              blockOptions().agent(), keepAlive_);
         result_ = result;
         status_ = response.status();
-        monitor_.startResponse(steadyTime(),
-                               blockOptions().timeouts().responseTimeout());
+        getMonitor().startResponse(
+            steadyTime(), blockOptions().timeouts().responseTimeout());
         sendMoreResponse();
     }
 
+    class SerializerVisitor : public HttpSerializerVisitor
+    {
+    public:
+        SerializerVisitor(HttpJobImpl* self) : self_(self) {}
+
+        void visit(Serializer<EmptyBody>&  s) override {onVisit(s);}
+        void visit(Serializer<StringBody>& s) override {onVisit(s);}
+        void visit(Serializer<FileBody>&   s) override {onVisit(s);}
+
+    private:
+        template <typename TBody>
+        void onVisit(Serializer<TBody>& serializer)
+        {
+            auto me = std::dynamic_pointer_cast<HttpJobImpl>(
+                self_->shared_from_this());
+
+            boost::beast::http::async_write_some(
+                self_->socket_, serializer,
+                [me](boost::beast::error_code netEc, std::size_t n)
+                {
+                    me->onResponseSerialized(netEc, n);
+                });
+        }
+
+        HttpJobImpl* self_;
+    };
+
     void sendMoreResponse()
     {
-        auto self = shared_from_this();
-        serializer_->asyncWriteSome(
-            tcpSocket_,
-            [this, self](boost::beast::error_code netEc, std::size_t n)
-            {
-                if (!checkWrite(netEc))
-                    return;
+        SerializerVisitor visitor{this};
+        serializer_->apply(visitor);
+    }
 
-                auto now = steadyTime();
+    void onResponseSerialized(boost::beast::error_code netEc, std::size_t n)
+    {
+        if (!checkWrite(netEc))
+            return;
 
-                if (!serializer_->done())
-                {
-                    monitor_.updateResponse(now, n);
-                    return sendMoreResponse();
-                }
+        auto now = steadyTime();
 
-                monitor_.endResponse(
-                    now, keepAlive_,
-                    blockOptions().timeouts().keepaliveTimeout());
+        if (!serializer_->done())
+        {
+            getMonitor().updateResponse(now, n);
+            return sendMoreResponse();
+        }
 
-                if (isPoisoned_)
-                    onShutdownResponseSent();
-                else
-                    onResponseSent();
-            });
+        getMonitor().endResponse(
+            now, keepAlive_,
+            blockOptions().timeouts().keepaliveTimeout());
+
+        if (isPoisoned_)
+            onShutdownResponseSent();
+        else
+            onResponseSent();
     }
 
     void onShutdownResponseSent()
     {
         finish(result_);
-        doShutdown();
+        doShutdown(IsTls{}, socket_);
     }
 
     void onResponseSent()
@@ -999,6 +1210,28 @@ private:
         }
     }
 
+    template <typename TSocket>
+    static TcpSocket& getTcpSocket(FalseType, TSocket& s) {return s;}
+
+    template <typename TSocket>
+    static const TcpSocket& getTcpSocket(FalseType, const TSocket& s) {return s;}
+
+    template <typename TSocket>
+    static TcpSocket& getTcpSocket(TrueType, TSocket& s)
+    {
+        return s.next_layer();
+    }
+
+    template <typename TSocket>
+    static const TcpSocket& getTcpSocket(TrueType, const TSocket& s)
+    {
+        return s.next_layer();
+    }
+
+    TcpSocket& tcpSocket() {return getTcpSocket(IsTls{}, socket_);}
+
+    const TcpSocket& tcpSocket() const {return getTcpSocket(IsTls{}, socket_);}
+
     void finish(AdmitResult result)
     {
         isDone_ = true;
@@ -1006,7 +1239,6 @@ private:
             admitHandler_(result);
         admitHandler_ = nullptr;
     }
-
 
     template <typename F, typename... Ts>
     void post(F&& handler, Ts&&... args)
@@ -1017,35 +1249,27 @@ private:
     template <typename TFunctor, typename... Ts>
     void safelyDispatch(Ts&&... args)
     {
+        auto self =
+            std::static_pointer_cast<HttpJobImpl>(this->shared_from_this());
         boost::asio::dispatch(
             strand_,
-            TFunctor{shared_from_this(), std::forward<Ts>(args)...});
-    }
-
-    const HttpServerOptions& blockOptions() const
-    {
-        return serverBlock_ ? serverBlock_->options() : settings_->options();
+            TFunctor{std::move(self), std::forward<Ts>(args)...});
     }
 
     static constexpr std::size_t flushReadSize_ = 1536;
 
     IoStrand strand_;
-    TcpSocket tcpSocket_;
+    Socket socket_;
     CodecIdSet codecIds_;
     TransportInfo transportInfo_;
     boost::beast::flat_buffer streamBuffer_;
-    std::string body_;
     std::string bodyBuffer_;
-    boost::optional<Parser> parser_;
-    boost::urls::url target_;
-    Monitor monitor_;
     AdmitHandler admitHandler_;
     ShutdownHandler shutdownHandler_;
     ConnectionInfo connectionInfo_;
-    std::string hostName_;
     AdmitResult result_;
     internal::HttpSerializerBase::Ptr serializer_;
-    WebsocketServerTransportPtr upgradedTransport_;
+    WebsocketTransportPtr upgradedTransport_;
     SettingsPtr settings_;
     RouterLogger::Ptr logger_;
     HttpServerBlock* serverBlock_ = nullptr;
@@ -1053,13 +1277,14 @@ private:
     bool isShedding_ = false;
     bool isPoisoned_ = false;
     bool isReading_ = false;
+    bool isHandshaking_ = false;
     bool isDone_ = false;
     bool responseSent_ = false;
     bool keepAlive_ = false;
     bool alreadyRequested_ = false;
     bool expectationReceived_ = false;
 
-    friend class HttpServerTransport;
+    template <typename> friend class BasicHttpServerTransport;
 };
 
 } // namespace internal

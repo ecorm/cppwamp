@@ -1,26 +1,16 @@
 ﻿/*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2023.
+    Copyright Butterfly Energy Systems 2023-2024.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_INTERNAL_HTTPTRANSPORT_HPP
-#define CPPWAMP_INTERNAL_HTTPTRANSPORT_HPP
+#ifndef CPPWAMP_INTERNAL_BASICHTTPTRANSPORT_HPP
+#define CPPWAMP_INTERNAL_BASICHTTPTRANSPORT_HPP
 
-#include <boost/beast/core/flat_buffer.hpp>
-#include <boost/beast/core/string_type.hpp>
-#include <boost/beast/http/buffer_body.hpp>
-#include <boost/beast/http/field.hpp>
-#include <boost/beast/http/file_body.hpp>
-#include <boost/beast/http/parser.hpp>
-#include <boost/filesystem/path.hpp>
-#include <boost/url.hpp>
+#include <boost/asio/strand.hpp>
 #include "../routerlogger.hpp"
-#include "../transports/httpjob.hpp"
-#include "../transports/httpprotocol.hpp"
 #include "httpjobimpl.hpp"
-#include "tcptraits.hpp"
-#include "websockettransport.hpp"
+#include "basicwebsockettransport.hpp"
 
 namespace wamp
 {
@@ -29,30 +19,35 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-class HttpServerTransport : public Transporting
+template <typename TTraits>
+class BasicHttpServerTransport : public Transporting
 {
 public:
-    using Ptr = std::shared_ptr<HttpServerTransport>;
-    using TcpSocket = boost::asio::ip::tcp::socket;
-    using Settings = HttpEndpoint;
-    using SettingsPtr = std::shared_ptr<HttpEndpoint>;
+    using Ptr            = std::shared_ptr<BasicHttpServerTransport>;
+    using HttpSocket     = typename TTraits::Socket;
+    using Settings       = typename TTraits::ServerSettings;
+    using SettingsPtr    = std::shared_ptr<Settings>;
+    using SslContextType = typename TTraits::SslContextType;
 
-    HttpServerTransport(TcpSocket&& t, SettingsPtr s, const CodecIdSet& c,
-                        RouterLogger::Ptr l)
+    BasicHttpServerTransport(HttpSocket&& t, SettingsPtr s, const CodecIdSet& c,
+                             RouterLogger::Ptr l, SslContextType ssl = {})
         : Base(boost::asio::make_strand(t.get_executor()),
                makeConnectionInfo(t)),
-          job_(std::make_shared<HttpJobImpl>(std::move(t), std::move(s), c,
-                                             Base::connectionInfo(),
-                                             std::move(l)))
+          job_(std::make_shared<HttpJobImplType>(std::move(t), std::move(s), c,
+                                                 Base::connectionInfo(),
+                                                 std::move(l))),
+        sslContext_(std::move(ssl))
     {}
 
 private:
-    using Base = Transporting;
-    using WebsocketSocket = boost::beast::websocket::stream<TcpSocket>;
+    using Base            = Transporting;
+    using HttpJobImplType = HttpJobImpl<TTraits>;
+    using WsTraits        = typename TTraits::WsTraits;
+    using WsTransport     = BasicWebsocketServerTransport<WsTraits>;
 
-    static ConnectionInfo makeConnectionInfo(const TcpSocket& socket)
+    static ConnectionInfo makeConnectionInfo(const HttpSocket& socket)
     {
-        return TcpTraits::connectionInfo(socket, "HTTP");
+        return TTraits::makeConnectionInfo(socket);
     }
 
     static std::error_code
@@ -90,7 +85,7 @@ private:
             }
         };
 
-        auto self = std::dynamic_pointer_cast<HttpServerTransport>(
+        auto self = std::dynamic_pointer_cast<BasicHttpServerTransport>(
             this->shared_from_this());
 
         bool isShedding = Base::state() == TransportState::shedding;
@@ -163,12 +158,13 @@ private:
         handler(result);
     }
 
-    HttpJobImpl::Ptr job_;
-    WebsocketServerTransport::Ptr transport_;
+    std::shared_ptr<HttpJobImplType> job_;
+    std::shared_ptr<WsTransport> transport_;
+    SslContextType sslContext_; // Lifetime management only, not used directly
 };
 
 } // namespace internal
 
 } // namespace wamp
 
-#endif // CPPWAMP_INTERNAL_HTTPTRANSPORT_HPP
+#endif // CPPWAMP_INTERNAL_BASICHTTPTRANSPORT_HPP

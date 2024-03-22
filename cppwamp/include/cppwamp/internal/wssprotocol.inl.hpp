@@ -133,6 +133,7 @@ CPPWAMP_INLINE void WssEndpoint::initialize(internal::PassKey) {}
 CPPWAMP_INLINE ErrorOr<SslContext>
 WssEndpoint::makeSslContext(internal::PassKey) const
 {
+    assert(sslContextGenerator_ != nullptr);
     ErrorOr<SslContext> context;
 
     try

@@ -141,6 +141,28 @@ private:
 };
 
 
+namespace internal
+{
+
+//------------------------------------------------------------------------------
+class HttpServerBlockMap
+{
+public:
+    void initialize(const HttpServerOptions& options);
+
+    void upsert(HttpServerBlock block);
+
+    HttpServerBlock* find(std::string hostName);
+
+private:
+    static void toLowercase(std::string& str);
+
+    std::map<std::string, HttpServerBlock> serverBlocks_;
+};
+
+} // namespace internal
+
+
 //------------------------------------------------------------------------------
 /** Contains HTTP server address information, as well as other socket options.
     Meets the requirements of @ref TransportSettings. */
@@ -158,8 +180,8 @@ public:
     /** Constructor taking a port number. */
     explicit HttpEndpoint(Port port);
 
-    /** Constructor taking an address string, port number. */
-    HttpEndpoint(std::string address, unsigned short port);
+    /** Constructor taking an address string and port number. */
+    HttpEndpoint(std::string address, Port port);
 
     /** Specifies the default server block options. */
     HttpEndpoint& withOptions(HttpServerOptions options);
@@ -183,9 +205,7 @@ private:
     using Base = SocketEndpoint<HttpEndpoint, Http, TcpOptions,
                                 HttpListenerLimits>;
 
-    static void toLowercase(std::string& str);
-
-    std::map<std::string, HttpServerBlock> serverBlocks_;
+    internal::HttpServerBlockMap serverBlocks_;
     HttpServerOptions options_;
 
 public: // Internal use only

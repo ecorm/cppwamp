@@ -57,9 +57,9 @@ CPPWAMP_INLINE bool HttpJob::isWebsocketUpgrade() const
     return impl_->isWebsocketUpgrade();
 }
 
-CPPWAMP_INLINE const HttpEndpoint& HttpJob::settings() const
+CPPWAMP_INLINE const HttpServerOptions& HttpJob::blockOptions() const
 {
-    return impl_->settings();
+    return impl_->blockOptions();
 }
 
 CPPWAMP_INLINE void HttpJob::continueRequest() {impl_->continueRequest();}
@@ -105,7 +105,7 @@ CPPWAMP_INLINE void HttpJob::upgradeToWebsocket(
     return impl_->upgradeToWebsocket(std::move(options), limits);
 }
 
-CPPWAMP_INLINE HttpJob::HttpJob(std::shared_ptr<internal::HttpJobImpl> impl)
+CPPWAMP_INLINE HttpJob::HttpJob(std::shared_ptr<internal::HttpJobImplBase> impl)
     : impl_(std::move(impl))
 {}
 

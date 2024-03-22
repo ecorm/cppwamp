@@ -222,6 +222,15 @@ class HttpServerTimeoutMonitor
 public:
     using TimePoint = std::chrono::steady_clock::time_point;
 
+    void reset()
+    {
+        responseDeadline_.reset();
+        bodyDeadline_.reset();
+        headerDeadline_ = TimePoint::max();
+        keepaliveDeadline_ = TimePoint::max();
+        lingerDeadline_ = TimePoint::max();
+    }
+
     void startHeader(TimePoint now, Timeout requestHeaderTimeout)
     {
         if (timeoutIsDefinite(requestHeaderTimeout))

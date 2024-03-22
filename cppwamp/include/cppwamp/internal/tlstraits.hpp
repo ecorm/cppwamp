@@ -31,9 +31,10 @@ struct TlsTraits
     using IsTls            = TrueType;
     using SslContextType   = SslContext;
 
-    static ConnectionInfo connectionInfo(const Socket& socket)
+    static ConnectionInfo connectionInfo(const Socket& socket,
+                                         const char* protocol = "TLS")
     {
-        return TcpTraits::connectionInfo(socket.next_layer(), "TLS");
+        return TcpTraits::connectionInfo(socket.next_layer(), protocol);
     }
 
     static Timeout heartbeatInterval(const TlsHost& settings)

@@ -10,6 +10,8 @@
 
 #include <cppwamp/config.hpp>
 
+#include <cppwamp/internal/httpsserver.inl.hpp>
+#include <cppwamp/internal/httpsprotocol.inl.hpp>
 #include <cppwamp/internal/wssclient.inl.hpp>
 #include <cppwamp/internal/wssprotocol.inl.hpp>
 #include <cppwamp/internal/wssserver.inl.hpp>

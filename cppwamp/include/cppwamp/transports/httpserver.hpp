@@ -21,7 +21,6 @@
 #include "httpserveroptions.hpp"
 #include "websocketprotocol.hpp"
 
-// TODO: HTTPS
 // TODO: HTTP compression
 // TODO: HTTP range requests
 // TODO: HTTP caching: If-Modified-Since and Last-Modified
@@ -154,7 +153,7 @@ namespace internal {class HttpListener;}
 
 //------------------------------------------------------------------------------
 /** Listener specialization that implements an HTTP server.
-    Users should use this class directly and should instead pass
+    Users should not use this class directly and should instead pass
     wamp::HttpEndpoint to wamp::Router::openServer via wamp::ServerOptions. */
 //------------------------------------------------------------------------------
 template <>

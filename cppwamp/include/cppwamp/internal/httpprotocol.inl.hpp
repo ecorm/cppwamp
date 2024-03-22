@@ -121,16 +121,64 @@ CPPWAMP_INLINE void HttpServerBlock::initialize(
 // HttpListenerLimits
 //******************************************************************************
 
-HttpListenerLimits::HttpListenerLimits() = default;
+CPPWAMP_INLINE HttpListenerLimits::HttpListenerLimits() = default;
 
-HttpListenerLimits& HttpListenerLimits::withBacklogCapacity(int capacity)
+CPPWAMP_INLINE HttpListenerLimits&
+HttpListenerLimits::withBacklogCapacity(int capacity)
 {
     backlogCapacity_ = capacity;
     return *this;
 }
 
-int HttpListenerLimits::backlogCapacity() const {return backlogCapacity_;}
+CPPWAMP_INLINE int HttpListenerLimits::backlogCapacity() const
+{
+    return backlogCapacity_;
+}
 
+
+namespace internal
+{
+
+//******************************************************************************
+// HttpServerBlockMap
+//******************************************************************************
+
+CPPWAMP_INLINE void
+HttpServerBlockMap::initialize(const HttpServerOptions& options)
+{
+    for (auto& kv: serverBlocks_)
+        kv.second.initialize({}, options);
+}
+
+CPPWAMP_INLINE void HttpServerBlockMap::upsert(HttpServerBlock block)
+{
+    auto key = block.hostName();
+    toLowercase(key);
+    serverBlocks_[std::move(key)] = std::move(block);
+}
+
+CPPWAMP_INLINE HttpServerBlock* HttpServerBlockMap::find(std::string hostName)
+{
+    toLowercase(hostName);
+    auto found = serverBlocks_.find(hostName);
+    if (found != serverBlocks_.end())
+        return &found->second;
+
+    static const std::string empty;
+    found = serverBlocks_.find(empty);
+    if (found != serverBlocks_.end())
+        return &found->second;
+
+    return nullptr;
+}
+
+CPPWAMP_INLINE void HttpServerBlockMap::toLowercase(std::string& str)
+{
+    for (auto& c: str)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+}
+
+} // namespace internal
 
 //******************************************************************************
 // HttpEndpoint
@@ -140,8 +188,7 @@ CPPWAMP_INLINE HttpEndpoint::HttpEndpoint(Port port)
     : HttpEndpoint("", port)
 {}
 
-CPPWAMP_INLINE HttpEndpoint::HttpEndpoint(std::string address,
-                                          unsigned short port)
+CPPWAMP_INLINE HttpEndpoint::HttpEndpoint(std::string address, Port port)
     : Base(std::move(address), port)
 
 {
@@ -157,9 +204,7 @@ HttpEndpoint::withOptions(HttpServerOptions options)
 
 CPPWAMP_INLINE HttpEndpoint& HttpEndpoint::addBlock(HttpServerBlock block)
 {
-    auto key = block.hostName();
-    toLowercase(key);
-    serverBlocks_[std::move(key)] = std::move(block);
+    serverBlocks_.upsert(std::move(block));
     return *this;
 }
 
@@ -172,17 +217,7 @@ CPPWAMP_INLINE HttpServerOptions& HttpEndpoint::options() {return options_;}
 
 CPPWAMP_INLINE HttpServerBlock* HttpEndpoint::findBlock(std::string hostName)
 {
-    toLowercase(hostName);
-    auto found = serverBlocks_.find(hostName);
-    if (found != serverBlocks_.end())
-        return &found->second;
-
-    static const std::string empty;
-    found = serverBlocks_.find(empty);
-    if (found != serverBlocks_.end())
-        return &found->second;
-
-    return nullptr;
+    return serverBlocks_.find(hostName);
 }
 
 CPPWAMP_INLINE std::string HttpEndpoint::label() const
@@ -193,17 +228,10 @@ CPPWAMP_INLINE std::string HttpEndpoint::label() const
     return "HTTP " + address() + ':' + portString;
 }
 
-CPPWAMP_INLINE void HttpEndpoint::toLowercase(std::string& str)
-{
-    for (auto& c: str)
-        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-}
-
 CPPWAMP_INLINE void HttpEndpoint::initialize(internal::PassKey)
 {
     options_.merge(HttpServerOptions::defaults());
-    for (auto& kv: serverBlocks_)
-        kv.second.initialize({}, options_);
+    serverBlocks_.initialize(options_);
 }
 
 } // namespace wamp

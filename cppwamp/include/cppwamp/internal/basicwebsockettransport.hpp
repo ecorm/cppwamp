@@ -601,7 +601,7 @@ private:
             {
                 if (netEc)
                 {
-                    auto ec = static_cast<std::error_code>(netEc);
+                    auto ec = websocketErrorCodeToStandard(netEc);
                     return fail(ec, "SSL/TLS handshake");
                 }
 
@@ -908,8 +908,8 @@ public:
 
     BasicWebsocketServerTransport(ListenerSocket&& l, SettingsPtr s,
                                   CodecIdSet c, RouterLogger::Ptr = {},
-                                  SslContextType = {})
-        : Base(std::move(l), std::move(s), std::move(c), {})
+                                  SslContextType ssl = {})
+        : Base(std::move(l), std::move(s), std::move(c), {}, std::move(ssl))
     {}
 
     void httpStart(PassKey, RxHandler r, TxErrorHandler t)
