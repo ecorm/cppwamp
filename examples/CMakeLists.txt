@@ -46,11 +46,11 @@ if(CPPWAMP_OPT_WITH_CORO20)
 endif()
 
 if(CPPWAMP_OPT_WITH_WEB)
-    add_subdirectory(webserver)
+    add_subdirectory(httpserver)
     add_subdirectory(wsrouter)
     add_subdirectory(wstimeclient)
     add_dependencies(cppwamp_examples
-                     cppwamp-example-webserver
+                     cppwamp-example-httpserver
                      cppwamp-example-wsrouter
                      cppwamp-example-wstimeclient)
 endif()
@@ -62,9 +62,11 @@ if(CPPWAMP_OPT_WITH_TLS)
                      cppwamp-example-tlsrouter
                      cppwamp-example-tlstimeclient)
     if(CPPWAMP_OPT_WITH_WEB)
+        add_subdirectory(httpsserver)
         add_subdirectory(wssrouter)
         add_subdirectory(wsstimeclient)
         add_dependencies(cppwamp_examples
+                         cppwamp-example-httpsserver
                          cppwamp-example-wssrouter
                          cppwamp-example-wstimeclient)
     endif()

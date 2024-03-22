@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_TRANSPORTS_HTTPSERVER_HPP
-#define CPPWAMP_TRANSPORTS_HTTPSERVER_HPP
+#ifndef CPPWAMP_TRANSPORTS_HTTPSSERVER_HPP
+#define CPPWAMP_TRANSPORTS_HTTPSSERVER_HPP
 
 //------------------------------------------------------------------------------
 /** @file
@@ -17,6 +17,7 @@
 #include "../api.hpp"
 #include "../asiodefs.hpp"
 #include "../listener.hpp"
+#include "httpserver.hpp"
 #include "httpsprotocol.hpp"
 
 namespace wamp
@@ -72,4 +73,4 @@ private:
 #include "../internal/httpsserver.inl.hpp"
 #endif
 
-#endif // CPPWAMP_TRANSPORTS_HTTPSERVER_HPP
+#endif // CPPWAMP_TRANSPORTS_HTTPSSERVER_HPP

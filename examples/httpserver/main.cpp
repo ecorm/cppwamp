@@ -28,7 +28,7 @@ namespace wamp
 template <typename TConverter>
 void convert(TConverter& conv, std::tm& t)
 {
-    conv ("sec",   t.tm_sec)
+    conv("sec",   t.tm_sec)
         ("min",   t.tm_min)
         ("hour",  t.tm_hour)
         ("mday",  t.tm_mday)
