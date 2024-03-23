@@ -526,6 +526,7 @@ private:
 
         if (ec == TransportErrc::inactivityTimeout)
         {
+            // TODO: Investigate double-logging of inactivity timeouts
             // Don't report as loudly for inactivity timeouts, which are
             // ordinary occurrences.
             report({AccessAction::serverDisconnect, {},

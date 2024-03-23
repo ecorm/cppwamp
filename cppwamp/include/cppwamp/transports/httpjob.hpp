@@ -44,7 +44,7 @@ public:
 
     std::string fieldOr(const std::string& key, std::string fallback) const;
 
-    const std::string& hostName() const;
+    const std::string& host() const;
 
     bool isUpgrade() const;
 

@@ -45,9 +45,9 @@ HttpJob::fieldOr(const std::string& key, std::string fallback) const
     return impl_->fieldOr(key, std::move(fallback));
 }
 
-CPPWAMP_INLINE const std::string& HttpJob::hostName() const
+CPPWAMP_INLINE const std::string& HttpJob::host() const
 {
-    return impl_->hostName();
+    return impl_->host();
 }
 
 CPPWAMP_INLINE bool HttpJob::isUpgrade() const {return impl_->isUpgrade();}

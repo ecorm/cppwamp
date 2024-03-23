@@ -168,7 +168,7 @@ wamp::ErrorOr<wamp::SslContext> makeSslContext()
 }
 
 //------------------------------------------------------------------------------
-wamp::ServerOptions serverOptions()
+wamp::ServerOptions httpsServerOptions()
 {
     // These options are inherited by all blocks
     auto baseFileServerOptions =
@@ -216,13 +216,33 @@ wamp::ServerOptions serverOptions()
             .addPrefixRoute(altBlockMainRoute);
 
     auto httpsEndpoint =
-        wamp::HttpsEndpoint{8080, &makeSslContext}
+        wamp::HttpsEndpoint{8443, &makeSslContext}
             .withOptions(httpOptions)
             .addBlock(mainBlock)
             .addBlock(altBlock);
 
     auto serverOptions =
-        wamp::ServerOptions("http8080", std::move(httpsEndpoint),
+        wamp::ServerOptions("https8443", std::move(httpsEndpoint),
+                            wamp::jsonWithMaxDepth(10));
+
+    return serverOptions;
+}
+
+//------------------------------------------------------------------------------
+wamp::ServerOptions httpServerOptions()
+{
+    auto redirectRoute =
+        wamp::HttpRedirect{"/"}
+            .withScheme("https")
+            .withPort(8443)
+            .withStatus(wamp::HttpStatus::temporaryRedirect);
+
+    auto mainBlock = wamp::HttpServerBlock{}.addPrefixRoute(redirectRoute);
+
+    auto httpEndpoint = wamp::HttpEndpoint{8080}.addBlock(mainBlock);
+
+    auto serverOptions =
+        wamp::ServerOptions("http8080", std::move(httpEndpoint),
                             wamp::jsonWithMaxDepth(10));
 
     return serverOptions;
@@ -250,7 +270,8 @@ int main()
 
         wamp::Router router{ioctx, routerOptions};
         auto realm = router.openRealm(realmOptions).value();
-        router.openServer(serverOptions());
+        router.openServer(httpsServerOptions());
+        router.openServer(httpServerOptions());
 
         auto service = TimeService::create(ioctx.get_executor(), realm);
         service->start(router);

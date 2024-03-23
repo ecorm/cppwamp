@@ -185,9 +185,6 @@ public:
         return TTraits::makeConnectionInfo(s);
     }
 
-    // TODO
-    // BasicWebsocketStream(AnyIoExecutor e) : websocket_(std::move(e)) {}
-
     template <typename S>
     explicit BasicWebsocketStream(Socket&& ws,
                                   const std::shared_ptr<S>& settings)

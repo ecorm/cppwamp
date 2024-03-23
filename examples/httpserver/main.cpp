@@ -139,7 +139,7 @@ private:
 };
 
 //------------------------------------------------------------------------------
-wamp::ServerOptions serverOptions()
+wamp::ServerOptions httpsServerOptions()
 {
     // These options are inherited by all blocks
     auto baseFileServerOptions =
@@ -220,7 +220,7 @@ int main()
 
         wamp::Router router{ioctx, routerOptions};
         auto realm = router.openRealm(realmOptions).value();
-        router.openServer(serverOptions());
+        router.openServer(httpsServerOptions());
 
         auto service = TimeService::create(ioctx.get_executor(), realm);
         service->start(router);

@@ -53,7 +53,7 @@ public:
 
     virtual ~HttpJobImplBase() = default;
 
-    const std::string& hostName() const {return hostName_;}
+    const std::string& host() const {return host_;}
 
     const Url& target() const {return target_;}
 
@@ -141,7 +141,7 @@ protected:
 
     void clear()
     {
-        hostName_.clear();
+        host_.clear();
         target_.clear();
         body_.clear();
         parser_.emplace();
@@ -149,7 +149,7 @@ protected:
 
     void appendToBody(char* data, std::size_t size) {body_.append(data, size);}
 
-    void setHostName(std::string name) {hostName_ = std::move(name);}
+    void setHost(std::string name) {host_ = std::move(name);}
 
     void setTarget(Url url) {target_ = std::move(url);}
 
@@ -157,7 +157,7 @@ private:
     boost::optional<Parser> parser_;
     boost::urls::url target_;
     Monitor monitor_;
-    std::string hostName_;
+    std::string host_;
     std::string body_;
 };
 
@@ -634,7 +634,7 @@ private:
 
         // Find the server block associated with the interpreted hostname.
         if (routingStatus == RoutingStatus::ok)
-            serverBlock_ = settings_->findBlock(hostName());
+            serverBlock_ = settings_->findBlock(host());
 
         // If the request body exceeds the limit, mark the request as rejected
         // so that keep-alive is disabled and the connection is shut down
@@ -788,11 +788,11 @@ private:
         if (!result.has_value() || result->has_userinfo())
         {
             // Save the invalid host name anyway so that it's logged.
-            setHostName(hostField->value());
+            setHost(hostField->value());
             return RoutingStatus::badHost;
         }
 
-        setHostName(result->host());
+        setHost(result->host());
 
         if (result->has_port() && result->port_number() != settings_->port())
             return RoutingStatus::badPort;
@@ -833,7 +833,7 @@ private:
             }
 
             if (target().has_authority())
-                setHostName(target().authority().host());
+                setHost(target().authority().host());
         }
 
         return RoutingStatus::ok;
@@ -971,7 +971,7 @@ private:
         if (upgradeField != hdr.end())
             info.options.emplace("upgrade", std::string{upgradeField->value()});
 
-        HttpAccessInfo httpInfo{hostName(), fieldOr("User-Agent", {})};
+        HttpAccessInfo httpInfo{host(), fieldOr("User-Agent", {})};
         logger_->log(AccessLogEntry{connectionInfo_, std::move(httpInfo),
                                     std::move(info)});
     }

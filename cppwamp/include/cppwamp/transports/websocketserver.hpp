@@ -17,8 +17,6 @@
 #include "../listener.hpp"
 #include "websocketprotocol.hpp"
 
-// TODO: Websocket over TLS server
-
 namespace wamp
 {
 

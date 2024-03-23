@@ -88,6 +88,23 @@ CPPWAMP_INLINE HttpRedirect& HttpRedirect::withAuthority(std::string authority)
     return *this;
 }
 
+/** @details
+    This property is applied after the authority property. */
+CPPWAMP_INLINE HttpRedirect& HttpRedirect::withHost(std::string host)
+{
+    host_ = std::move(host);
+    return *this;
+}
+
+/** @details
+    This property is applied after the authority property. */
+CPPWAMP_INLINE HttpRedirect& HttpRedirect::withPort(Port port)
+{
+    port_ = port;
+    hasPort_ = true;
+    return *this;
+}
+
 CPPWAMP_INLINE HttpRedirect& HttpRedirect::withAlias(std::string alias)
 {
     alias_ = std::move(alias);
@@ -110,14 +127,20 @@ CPPWAMP_INLINE HttpRedirect& HttpRedirect::withStatus(HttpStatus s)
 
 CPPWAMP_INLINE const std::string& HttpRedirect::route() const {return route_;}
 
-CPPWAMP_INLINE bool HttpRedirect::hasAlias() const {return hasAlias_;}
-
 CPPWAMP_INLINE const std::string& HttpRedirect::scheme() const {return scheme_;}
 
 CPPWAMP_INLINE const std::string& HttpRedirect::authority() const
 {
     return authority_;
 }
+
+CPPWAMP_INLINE const std::string& HttpRedirect::host() const {return host_;}
+
+CPPWAMP_INLINE bool HttpRedirect::hasPort() const {return hasPort_;}
+
+CPPWAMP_INLINE HttpRedirect::Port HttpRedirect::port() const {return port_;}
+
+CPPWAMP_INLINE bool HttpRedirect::hasAlias() const {return hasAlias_;}
 
 CPPWAMP_INLINE const std::string& HttpRedirect::alias() const {return alias_;}
 
@@ -700,6 +723,14 @@ CPPWAMP_INLINE void HttpAction<HttpRedirect>::execute(HttpJob& job)
 
         if (!properties_.authority().empty())
             location.set_encoded_authority(properties_.authority());
+        else
+            location.set_encoded_authority(job.host());
+
+        if (!properties_.host().empty())
+            location.set_host(properties_.host());
+
+        if (properties_.hasPort())
+            location.set_port_number(properties_.port());
 
         if (properties_.hasAlias())
         {

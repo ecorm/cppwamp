@@ -13,6 +13,7 @@
            and services. */
 //------------------------------------------------------------------------------
 
+#include <cstdint>
 #include <memory>
 #include "../api.hpp"
 #include "../asiodefs.hpp"
@@ -73,6 +74,9 @@ private:
 class CPPWAMP_API HttpRedirect
 {
 public:
+    /** Port number type. */
+    using Port = uint_least16_t;
+
     /** Constructor. */
     explicit HttpRedirect(std::string route);
 
@@ -81,6 +85,12 @@ public:
 
     /** Specifies the authority to use in the redirect location. */
     HttpRedirect& withAuthority(std::string authority);
+
+    /** Specifies the host name to use in the redirect location. */
+    HttpRedirect& withHost(std::string host);
+
+    /** Specified the port number to use in the redirect location. */
+    HttpRedirect& withPort(Port port);
 
     /** Specifies that the route portion of the target path should be
         substituted with the given alias. */
@@ -92,14 +102,23 @@ public:
     /** Obtains the route associated with this action. */
     const std::string& route() const;
 
-    /** Determines if aliasing is enabled. */
-    bool hasAlias() const;
-
     /** Obtains the scheme to use in the redirect location. */
     const std::string& scheme() const;
 
-    /** Obtains the the authority to use in the redirect location. */
+    /** Obtains the authority to use in the redirect location. */
     const std::string& authority() const;
+
+    /** Obtains the host name to use in the redirect location. */
+    const std::string& host() const;
+
+    /** Determines if the port number was specified. */
+    bool hasPort() const;
+
+    /** Obtains the port number to use in the redirect location. */
+    Port port() const;
+
+    /** Determines if aliasing is enabled. */
+    bool hasAlias() const;
 
     /** Obtains the alias path. */
     const std::string& alias() const;
@@ -110,10 +129,13 @@ public:
 private:
     std::string route_;
     std::string authority_;
+    std::string host_;
     std::string scheme_;
     std::string alias_;
     HttpStatus status_;
+    Port port_;
     bool hasAlias_ = false;
+    bool hasPort_ = false;
 };
 
 
