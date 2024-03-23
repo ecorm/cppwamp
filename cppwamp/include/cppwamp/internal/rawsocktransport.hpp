@@ -647,6 +647,7 @@ private:
 
     void receiveRawsocketHandshake()
     {
+        isReading_ = true;
         auto self = this->shared_from_this();
 
         boost::asio::async_read(
@@ -759,6 +760,7 @@ private:
 
     void completeShutdown(boost::system::error_code netEc)
     {
+        assert(shutdownHandler_ != nullptr);
         auto handler = std::move(shutdownHandler_);
         shutdownHandler_ = nullptr;
         if (netEc == boost::asio::error::eof)
