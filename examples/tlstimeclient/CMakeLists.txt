@@ -8,9 +8,3 @@ add_executable(cppwamp-example-tlstimeclient main.cpp)
 
 target_link_libraries(cppwamp-example-tlstimeclient
                       PRIVATE CppWAMP::tls)
-
-# Copy SSL certificate to build directory
-configure_file(
-      ${CMAKE_CURRENT_SOURCE_DIR}/certs/localhost.crt
-      ${CMAKE_CURRENT_BINARY_DIR}/certs/localhost.crt
-      COPYONLY)

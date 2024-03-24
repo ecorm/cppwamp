@@ -9,6 +9,5 @@ add_executable(cppwamp-example-httpsserver main.cpp)
 target_link_libraries(cppwamp-example-httpsserver
                       PRIVATE CppWAMP::web-tls)
 
-install(DIRECTORY certs/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/certs/)
 install(DIRECTORY www/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/www/)
 install(DIRECTORY www-alt/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/www-alt/)
