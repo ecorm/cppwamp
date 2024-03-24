@@ -99,7 +99,7 @@ private:
         auto t = std::time(nullptr);
         const std::tm* local = std::localtime(&t);
         session_.publish(wamp::Pub("time_tick").withArgs(*local));
-        std::cout << "Tick: " << std::asctime(local) << "\n";
+        std::cout << "Tick: " << std::asctime(local);
     }
 
     wamp::Session session_;

@@ -54,7 +54,7 @@ boost::asio::awaitable<void> service(wamp::Session& session,
         const std::tm* local = std::localtime(&t);
         (co_await session.publish(Pub("time_tick").withArgs(*local),
                                    use_awaitable)).value();
-        std::cout << "Tick: " << std::asctime(local) << "\n";
+        std::cout << "Tick: " << std::asctime(local);
     }
 }
 

@@ -101,7 +101,7 @@ public:
 
                 time = std::time(nullptr);
                 local = std::localtime(&time);
-                std::cout << "Tick: " << std::asctime(local) << std::endl;
+                std::cout << "Tick: " << std::asctime(local);
                 yield session_->publish(
                     wamp::Pub("time_tick").withArgs(*local),
                     *this);

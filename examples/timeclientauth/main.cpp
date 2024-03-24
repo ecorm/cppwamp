@@ -20,7 +20,7 @@
 //------------------------------------------------------------------------------
 void onTimeTick(std::tm time)
 {
-    std::cout << "The current time is: " << std::asctime(&time) << "\n";
+    std::cout << "The current time is: " << std::asctime(&time);
 }
 
 //------------------------------------------------------------------------------
@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
 
         auto result = session.call(wamp::Rpc("get_time"), yield).value();
         auto time = result[0].to<std::tm>();
-        std::cout << "The current time is: " << std::asctime(&time) << "\n";
+        std::cout << "The current time is: " << std::asctime(&time);
 
         session.subscribe("time_tick",
                           wamp::simpleEvent<std::tm>(&onTimeTick),

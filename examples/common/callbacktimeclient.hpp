@@ -42,7 +42,7 @@ private:
 
     static void onTimeTick(std::tm time)
     {
-        std::cout << "The current time is: " << std::asctime(&time) << "\n";
+        std::cout << "The current time is: " << std::asctime(&time);
     }
 
     void join()
@@ -66,8 +66,7 @@ private:
             {
                 // result.value() throws if the call failed
                 auto time = result.value()[0].to<std::tm>();
-                std::cout << "The current time is: " << std::asctime(&time)
-                          << "\n";
+                std::cout << "The current time is: " << std::asctime(&time);
                 subscribe();
             });
     }

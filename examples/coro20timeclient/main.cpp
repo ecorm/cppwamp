@@ -23,7 +23,7 @@
 //------------------------------------------------------------------------------
 void onTimeTick(std::tm time)
 {
-    std::cout << "The current time is: " << std::asctime(&time) << "\n";
+    std::cout << "The current time is: " << std::asctime(&time);
 }
 
 //------------------------------------------------------------------------------
@@ -39,7 +39,7 @@ boost::asio::awaitable<void> client(wamp::Session& session, std::string realm,
     auto result = (co_await session.call(Rpc("get_time"),
                                           use_awaitable)).value();
     auto time = result[0].to<std::tm>();
-    std::cout << "The current time is: " << std::asctime(&time) << "\n";
+    std::cout << "The current time is: " << std::asctime(&time);
 
     (co_await session.subscribe("time_tick",
                                  wamp::simpleEvent<std::tm>(&onTimeTick),

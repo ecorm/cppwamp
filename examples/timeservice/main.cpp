@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
                 const std::tm* local = std::localtime(&t);
                 session.publish(wamp::Pub("time_tick").withArgs(*local),
                                 yield).value();
-                std::cout << "Tick: " << std::asctime(local) << "\n";
+                std::cout << "Tick: " << std::asctime(local);
             }
         });
 

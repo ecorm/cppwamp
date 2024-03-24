@@ -21,7 +21,7 @@
 //------------------------------------------------------------------------------
 void onTimeTick(std::tm time)
 {
-    std::cout << "The current time is: " << std::asctime(&time) << std::endl;
+    std::cout << "The current time is: " << std::asctime(&time);
 }
 
 //------------------------------------------------------------------------------
@@ -80,8 +80,7 @@ public:
 
             yield session_->call(wamp::Rpc("get_time"), *this);
             time = boost::variant2::get<3>(aftermath).value()[0].to<std::tm>();
-            std::cout << "The current time is: " << std::asctime(&time)
-                      << std::endl;
+            std::cout << "The current time is: " << std::asctime(&time);
 
             yield session_->subscribe("time_tick",
                                       wamp::simpleEvent<std::tm>(&onTimeTick),
