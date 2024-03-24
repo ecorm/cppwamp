@@ -12,12 +12,7 @@
     @brief Contains the API used by a _router_ peer in WAMP applications. */
 //------------------------------------------------------------------------------
 
-#include <cassert>
-#include <functional>
-#include <map>
 #include <memory>
-#include <set>
-#include <vector>
 #include "api.hpp"
 #include "anyhandler.hpp"
 #include "asiodefs.hpp"

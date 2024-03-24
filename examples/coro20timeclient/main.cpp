@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2022.
+    Copyright Butterfly Energy Systems 2022, 2024.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -8,7 +8,6 @@
 // Example WAMP service consumer app using stackful coroutines.
 //******************************************************************************
 
-#include <ctime>
 #include <iostream>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/co_spawn.hpp>
@@ -16,32 +15,10 @@
 #include <boost/asio/use_awaitable.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/unpacker.hpp>
-#include <cppwamp/variant.hpp>
 #include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcpclient.hpp>
-
-const std::string realm = "cppwamp.demo.time";
-const std::string address = "localhost";
-const short port = 12345u;
-
-//------------------------------------------------------------------------------
-namespace wamp
-{
-// Convert a std::tm to/from an object variant.
-template <typename TConverter>
-void convert(TConverter& conv, std::tm& t)
-{
-    conv("sec",   t.tm_sec)
-        ("min",   t.tm_min)
-        ("hour",  t.tm_hour)
-        ("mday",  t.tm_mday)
-        ("mon",   t.tm_mon)
-        ("year",  t.tm_year)
-        ("wday",  t.tm_wday)
-        ("yday",  t.tm_yday)
-        ("isdst", t.tm_isdst);
-}
-}
+#include "../common/argsparser.hpp"
+#include "../common/tmconversion.hpp"
 
 //------------------------------------------------------------------------------
 void onTimeTick(std::tm time)
@@ -50,7 +27,7 @@ void onTimeTick(std::tm time)
 }
 
 //------------------------------------------------------------------------------
-boost::asio::awaitable<void> client(wamp::Session& session,
+boost::asio::awaitable<void> client(wamp::Session& session, std::string realm,
                                     wamp::ConnectionWish where)
 {
     using namespace wamp;
@@ -70,12 +47,24 @@ boost::asio::awaitable<void> client(wamp::Session& session,
 }
 
 //------------------------------------------------------------------------------
-int main()
+// Usage: cppwamp-example-coro20timeclient [port [host [realm]]] | help
+// Use with cppwamp-example-router and cppwamp-example-coro20timeservice.
+//------------------------------------------------------------------------------
+int main(int argc, char* argv[])
 {
+    ArgsParser args{{{"port", "12345"},
+                     {"host", "localhost"},
+                     {"realm", "cppwamp.examples"}}};
+
+    std::string port, host, realm;
+    if (!args.parse(argc, argv, port, host, realm))
+        return 0;
+
     wamp::IoContext ioctx;
-    auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
+    auto tcp = wamp::TcpHost(host, port).withFormat(wamp::json);
     wamp::Session session(ioctx);
-    boost::asio::co_spawn(ioctx, client(session, tcp), boost::asio::detached);
+    boost::asio::co_spawn(ioctx, client(session, realm, tcp),
+                          boost::asio::detached);
     ioctx.run();
     return 0;
 }

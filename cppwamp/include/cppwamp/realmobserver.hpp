@@ -17,7 +17,6 @@
 #include <memory>
 #include <mutex>
 #include <set>
-#include <vector>
 #include "anyhandler.hpp"
 #include "api.hpp"
 #include "pubsubinfo.hpp"

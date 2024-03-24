@@ -8,119 +8,32 @@
 // Example WAMP service consumer app using Websocket transport.
 //******************************************************************************
 
-#include <ctime>
-#include <iostream>
 #include <cppwamp/session.hpp>
-#include <cppwamp/unpacker.hpp>
-#include <cppwamp/variant.hpp>
 #include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/websocketclient.hpp>
-
-const std::string realm = "cppwamp.examples";
-const char* defaultAddress = "localhost";
-const char* defaultPort = "23456";
+#include "../common/argsparser.hpp"
+#include "../common/callbacktimeclient.hpp"
 
 //------------------------------------------------------------------------------
-namespace wamp
-{
-// Convert a std::tm to/from an object variant.
-template <typename TConverter>
-void convert(TConverter& conv, std::tm& t)
-{
-    conv("sec",   t.tm_sec)
-        ("min",   t.tm_min)
-        ("hour",  t.tm_hour)
-        ("mday",  t.tm_mday)
-        ("mon",   t.tm_mon)
-        ("year",  t.tm_year)
-        ("wday",  t.tm_wday)
-        ("yday",  t.tm_yday)
-        ("isdst", t.tm_isdst);
-}
-}
-
-//------------------------------------------------------------------------------
-class TimeClient : public std::enable_shared_from_this<TimeClient>
-{
-public:
-    static std::shared_ptr<TimeClient> create(wamp::AnyIoExecutor exec)
-    {
-        return std::shared_ptr<TimeClient>(new TimeClient(std::move(exec)));
-    }
-
-    void start(wamp::ConnectionWish where)
-    {
-        auto self = shared_from_this();
-        session_.connect(
-            std::move(where),
-            [this, self](wamp::ErrorOr<size_t> index)
-            {
-                index.value(); // Throws if connect failed
-                join();
-            });
-    }
-
-private:
-    TimeClient(wamp::AnyIoExecutor exec)
-        : session_(std::move(exec))
-    {}
-
-    static void onTimeTick(std::tm time)
-    {
-        std::cout << "The current time is: " << std::asctime(&time) << "\n";
-    }
-
-    void join()
-    {
-        auto self = shared_from_this();
-        session_.join(
-            realm,
-            [this, self](wamp::ErrorOr<wamp::Welcome> info)
-            {
-                info.value(); // Throws if join failed
-                getTime();
-            });
-    }
-
-    void getTime()
-    {
-        auto self = shared_from_this();
-        session_.call(
-            wamp::Rpc("get_time"),
-            [this, self](wamp::ErrorOr<wamp::Result> result)
-            {
-                // result.value() throws if the call failed
-                auto time = result.value()[0].to<std::tm>();
-                std::cout << "The current time is: " << std::asctime(&time) << "\n";
-                subscribe();
-            });
-    }
-
-    void subscribe()
-    {
-        session_.subscribe(
-            "time_tick",
-            wamp::simpleEvent<std::tm>(&TimeClient::onTimeTick),
-            [](wamp::ErrorOr<wamp::Subscription> sub)
-            {
-                sub.value(); // Throws if subscribe failed
-            });
-    }
-
-    wamp::Session session_;
-};
-
-
+// Usage: cppwamp-example-wstimeclient [port [host [realm]]] | help
 //------------------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
-    const char* port = argc >= 2 ? argv[1] : defaultPort;
-    const char* address = argc >= 3 ? argv[2] : defaultAddress;
+    ArgsParser args{{{"port", "23456"},
+                     {"host", "localhost"},
+                     {"realm", "cppwamp.examples"}}};
+
+    unsigned short port = 0;
+    std::string host;
+    std::string realm;
+    if (!args.parse(argc, argv, port, host, realm))
+        return 0;
 
     wamp::IoContext ioctx;
     auto client = TimeClient::create(ioctx.get_executor());
-    client->start(wamp::WebsocketHost(address, port).withTarget("/time")
-                                                    .withFormat(wamp::json));
+    auto ws = wamp::WebsocketHost(host, port).withTarget("/time")
+                                             .withFormat(wamp::json);
+    client->start(std::move(realm), std::move(ws));
     ioctx.run();
     return 0;
 }

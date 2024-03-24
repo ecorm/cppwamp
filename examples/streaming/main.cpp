@@ -10,10 +10,7 @@
 #include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcpclient.hpp>
 #include <cppwamp/unpacker.hpp>
-
-const std::string realm = "cppwamp.examples";
-const std::string address = "localhost";
-const short port = 12345;
+#include "../common/argsparser.hpp"
 
 //------------------------------------------------------------------------------
 class Producer
@@ -23,7 +20,8 @@ public:
         : session_(std::move(exec))
     {}
 
-    void start(wamp::ConnectionWishList where, wamp::YieldContext yield)
+    void start(std::string realm, wamp::ConnectionWishList where,
+               wamp::YieldContext yield)
     {
         using namespace wamp;
         auto index = session_.connect(std::move(where), yield).value();
@@ -76,7 +74,8 @@ public:
         : session_(std::move(exec))
     {}
 
-    void join(wamp::ConnectionWishList where, wamp::YieldContext yield)
+    void join(std::string realm, wamp::ConnectionWishList where,
+              wamp::YieldContext yield)
     {
         using namespace wamp;
 
@@ -127,11 +126,23 @@ private:
 
 
 //------------------------------------------------------------------------------
-int main()
+// Usage: cppwamp-example-streaming [port [host [realm]]] | help
+// Use with cppwamp-example-router.
+//------------------------------------------------------------------------------
+int main(int argc, char* argv[])
 {
+    ArgsParser args{{{"port", "12345"},
+                     {"host", "localhost"},
+                     {"realm", "cppwamp.examples"}}};
+
+    std::string port, host, realm;
+    if (!args.parse(argc, argv, port, host, realm))
+        return 0;
+
     wamp::IoContext ioctx;
 
-    auto tcp = wamp::TcpHost("localhost", 12345).withFormat(wamp::json);
+    auto tcp = wamp::TcpHost(std::move(host), std::move(port))
+                   .withFormat(wamp::json);
 
     // Normally, the service and client instances would be in separate programs.
     // We run them all here in the same coroutine for demonstration purposes.
@@ -140,8 +151,8 @@ int main()
 
     wamp::spawn(ioctx, [&](wamp::YieldContext yield)
     {
-        service.start({tcp}, yield);
-        client.join({tcp}, yield);
+        service.start(realm, {tcp}, yield);
+        client.join(realm, {tcp}, yield);
         client.consumeFeed(yield);
         client.leave(yield);
         service.quit(yield);

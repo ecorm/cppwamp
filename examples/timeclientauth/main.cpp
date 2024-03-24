@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2023.
+    Copyright Butterfly Energy Systems 2023-2024.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -8,37 +8,14 @@
 // Example WAMP service consumer app that authenticates.
 //******************************************************************************
 
-#include <ctime>
 #include <iostream>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcpclient.hpp>
 #include <cppwamp/unpacker.hpp>
-#include <cppwamp/variant.hpp>
-
-const std::string realm = "cppwamp.examples";
-const std::string address = "localhost";
-const short port = 23456u;
-
-//------------------------------------------------------------------------------
-namespace wamp
-{
-    // Convert a std::tm to/from an object variant.
-    template <typename TConverter>
-    void convert(TConverter& conv, std::tm& t)
-    {
-        conv ("sec",   t.tm_sec)
-             ("min",   t.tm_min)
-             ("hour",  t.tm_hour)
-             ("mday",  t.tm_mday)
-             ("mon",   t.tm_mon)
-             ("year",  t.tm_year)
-             ("wday",  t.tm_wday)
-             ("yday",  t.tm_yday)
-             ("isdst", t.tm_isdst);
-    }
-}
+#include "../common/argsparser.hpp"
+#include "../common/tmconversion.hpp"
 
 //------------------------------------------------------------------------------
 void onTimeTick(std::tm time)
@@ -47,15 +24,25 @@ void onTimeTick(std::tm time)
 }
 
 //------------------------------------------------------------------------------
-// Command line usage: timeclientauth [username [password]]
+// Usage:
+// cppwamp-example-timeclientauth [username [password [port [host [realm]]]]]
+//                                | help
+// Use with cppwamp-example-router and cppwamp-example-timeservice.
 //------------------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
-    const char* username = argc >= 2 ? argv[1] : "alice";
-    const char* password = argc >= 3 ? argv[2] : "password123";
+    ArgsParser args{{{"username", "alice"},
+                     {"password", "password123"},
+                     {"port", "12345"},
+                     {"host", "localhost"},
+                     {"realm", "cppwamp.examples"}}};
+
+    std::string username, password, port, host, realm;
+    if (!args.parse(argc, argv, username, password, port, host, realm))
+        return 0;
 
     wamp::IoContext ioctx;
-    auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
+    auto tcp = wamp::TcpHost(host, port).withFormat(wamp::json);
     wamp::Session session(ioctx);
 
     auto onChallenge = [password](wamp::Challenge challenge)

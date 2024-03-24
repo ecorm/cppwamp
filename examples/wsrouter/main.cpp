@@ -8,66 +8,57 @@
 // WAMP router executable for running Websocket example.
 //******************************************************************************
 
-#include <csignal>
 #include <utility>
-#include <boost/asio/signal_set.hpp>
 #include <cppwamp/authenticators/anonymousauthenticator.hpp>
-#include <cppwamp/router.hpp>
 #include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcpserver.hpp>
 #include <cppwamp/transports/websocketserver.hpp>
-#include <cppwamp/utils/consolelogger.hpp>
+#include "../common/argsparser.hpp"
+#include "../common/examplerouter.hpp"
 
 //------------------------------------------------------------------------------
-int main()
+// Usage: cppwamp-example-wsrouter [ws_port [tcp_port [realm]]] | help
+//------------------------------------------------------------------------------
+int main(int argc, char* argv[])
 {
     try
     {
+        ArgsParser args{{{"ws_port",  "23456"},
+                         {"tcp_port", "12345"},
+                         {"realm",    "cppwamp.examples"}}};
+
+        uint_least16_t wsPort = 0;
+        uint_least16_t tcpPort = 0;
+        std::string realm;
+        if (!args.parse(argc, argv, wsPort, tcpPort, realm))
+            return 0;
+
         auto loggerOptions =
             wamp::utils::ConsoleLoggerOptions{}.withOriginLabel("router")
                                                .withColor();
         wamp::utils::ConsoleLogger logger{std::move(loggerOptions)};
 
-        auto routerOptions = wamp::RouterOptions()
-            .withLogHandler(logger)
-            .withLogLevel(wamp::LogLevel::info)
-            .withAccessLogHandler(wamp::AccessLogFilter(logger));
-
-        auto realmOptions = wamp::RealmOptions("cppwamp.examples");
-
-        auto tcpServerOptions =
-            wamp::ServerOptions("tcp12345", wamp::TcpEndpoint{12345},
+        auto tcpOptions =
+            wamp::ServerOptions("tcp" + std::to_string(tcpPort),
+                                wamp::TcpEndpoint{tcpPort},
                                 wamp::jsonWithMaxDepth(10))
                 .withAuthenticator(wamp::AnonymousAuthenticator::create());
 
-        auto websockServerOptions =
-            wamp::ServerOptions("ws23456", wamp::WebsocketEndpoint{23456},
+        auto wsOptions =
+            wamp::ServerOptions("ws" + std::to_string(wsPort),
+                                wamp::WebsocketEndpoint{wsPort},
                                 wamp::jsonWithMaxDepth(10))
                 .withAuthenticator(wamp::AnonymousAuthenticator::create());
 
-        logger({wamp::LogLevel::info, "CppWAMP example Websocket router launched"});
         wamp::IoContext ioctx;
 
-        wamp::Router router{ioctx, routerOptions};
-        router.openRealm(realmOptions);
-        router.openServer(tcpServerOptions);
-        router.openServer(websockServerOptions);
+        wamp::Router router = initRouter(
+            ioctx,
+            {realm},
+            {std::move(tcpOptions), std::move(wsOptions)},
+            logger);
 
-        boost::asio::signal_set signals{ioctx, SIGINT, SIGTERM};
-        signals.async_wait(
-            [&router](const boost::system::error_code& ec, int sig)
-            {
-                if (ec)
-                    return;
-                const char* sigName = (sig == SIGINT)  ? "SIGINT" :
-                                      (sig == SIGTERM) ? "SIGTERM" : "unknown";
-                router.log({wamp::LogLevel::info,
-                            std::string("Received ") + sigName + " signal"});
-                router.close();
-            });
-
-        ioctx.run();
-        logger({wamp::LogLevel::info, "CppWAMP example Websocket router exit"});
+        runRouter(ioctx, router, logger);
     }
     catch (const std::exception& e)
     {

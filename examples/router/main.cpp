@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2022-2023.
+    Copyright Butterfly Energy Systems 2022-2024.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -8,15 +8,14 @@
 // WAMP router executable for running examples.
 //******************************************************************************
 
-#include <csignal>
 #include <map>
 #include <utility>
-#include <boost/asio/signal_set.hpp>
 #include <cppwamp/authenticators/anonymousauthenticator.hpp>
 #include <cppwamp/router.hpp>
 #include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcpserver.hpp>
-#include <cppwamp/utils/consolelogger.hpp>
+#include "../common/argsparser.hpp"
+#include "../common/examplerouter.hpp"
 
 //------------------------------------------------------------------------------
 struct UserRecord
@@ -71,10 +70,22 @@ private:
 };
 
 //------------------------------------------------------------------------------
-int main()
+// Usage: cppwamp-example-router [anonymous_port [ticket_port [realm]]] | help
+//------------------------------------------------------------------------------
+int main(int argc, char* argv[])
 {
     try
     {
+        ArgsParser args{{{"anonymous_port", "12345"},
+                         {"ticket_port",    "23456"},
+                         {"realm",          "cppwamp.examples"}}};
+
+        uint_least16_t anonymousPort = 0;
+        uint_least16_t ticketPort = 0;
+        std::string realm;
+        if (!args.parse(argc, argv, anonymousPort, ticketPort, realm))
+            return 0;
+
         auto ticketAuth = std::make_shared<TicketAuthenticator>();
         ticketAuth->upsertUser({"alice", "password123", "guest"});
 
@@ -83,47 +94,28 @@ int main()
                                                .withColor();
         wamp::utils::ConsoleLogger logger{std::move(loggerOptions)};
 
-        auto routerOptions = wamp::RouterOptions()
-            .withLogHandler(logger)
-            .withLogLevel(wamp::LogLevel::info)
-            .withAccessLogHandler(wamp::AccessLogFilter(logger));
-
-        auto realmOptions = wamp::RealmOptions("cppwamp.examples");
-
-        auto anonymousServerOptions =
-            wamp::ServerOptions("tcp12345", wamp::TcpEndpoint{12345},
+        auto anonymousServer =
+            wamp::ServerOptions("tcp" + std::to_string(anonymousPort),
+                                wamp::TcpEndpoint{anonymousPort},
                                 wamp::jsonWithMaxDepth(10))
                 .withAuthenticator(wamp::AnonymousAuthenticator::create());
 
-        auto ticketServerOptions =
-            wamp::ServerOptions("tcp23456", wamp::TcpEndpoint{23456},
+        auto ticketServer =
+            wamp::ServerOptions("tcp" + std::to_string(ticketPort),
+                                wamp::TcpEndpoint{ticketPort},
                                 wamp::jsonWithMaxDepth(10))
                 .withAuthenticator(ticketAuth)
                 .withChallengeTimeout(std::chrono::milliseconds(1000));
 
-        logger({wamp::LogLevel::info, "CppWAMP example router launched"});
         wamp::IoContext ioctx;
 
-        wamp::Router router{ioctx, routerOptions};
-        router.openRealm(realmOptions);
-        router.openServer(anonymousServerOptions);
-        router.openServer(ticketServerOptions);
+        wamp::Router router = initRouter(
+            ioctx,
+            {realm},
+            {std::move(anonymousServer), std::move(ticketServer)},
+            logger);
 
-        boost::asio::signal_set signals{ioctx, SIGINT, SIGTERM};
-        signals.async_wait(
-            [&router](const boost::system::error_code& ec, int sig)
-            {
-                if (ec)
-                    return;
-                const char* sigName = (sig == SIGINT)  ? "SIGINT" :
-                                      (sig == SIGTERM) ? "SIGTERM" : "unknown";
-                router.log({wamp::LogLevel::info,
-                            std::string("Received ") + sigName + " signal"});
-                router.close();
-            });
-
-        ioctx.run();
-        logger({wamp::LogLevel::info, "CppWAMP example router exit"});
+        runRouter(ioctx, router, logger);
     }
     catch (const std::exception& e)
     {

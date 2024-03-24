@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2014-2015, 2022, 2024.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -10,10 +10,7 @@
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcpclient.hpp>
-
-const std::string realm = "cppwamp.examples";
-const std::string address = "localhost";
-const short port = 12345;
+#include "../common/argsparser.hpp"
 
 //------------------------------------------------------------------------------
 class ChatService
@@ -23,7 +20,8 @@ public:
         : session_(std::move(exec))
     {}
 
-    void start(wamp::ConnectionWishList where, wamp::YieldContext yield)
+    void start(std::string realm, wamp::ConnectionWishList where,
+               wamp::YieldContext yield)
     {
         using namespace wamp;
         auto index = session_.connect(std::move(where), yield).value();
@@ -74,7 +72,8 @@ public:
           user_(std::move(user))
     {}
 
-    void join(wamp::ConnectionWishList where, wamp::YieldContext yield)
+    void join(std::string realm, wamp::ConnectionWishList where,
+              wamp::YieldContext yield)
     {
         using namespace wamp;
 
@@ -124,11 +123,20 @@ private:
 
 
 //------------------------------------------------------------------------------
-int main()
+// Usage: cppwamp-example-chat [port [host [realm]]] | help
+//------------------------------------------------------------------------------
+int main(int argc, char* argv[])
 {
-    wamp::IoContext ioctx;
+    ArgsParser args{{{"port", "12345"},
+                     {"host", "localhost"},
+                     {"realm", "cppwamp.examples"}}};
 
-    auto tcp = wamp::TcpHost("localhost", 12345).withFormat(wamp::json);
+    std::string port, host, realm;
+    if (!args.parse(argc, argv, port, host, realm))
+        return 0;
+
+    wamp::IoContext ioctx;
+    auto tcp = wamp::TcpHost(host, port).withFormat(wamp::json);
 
     // Normally, the service and client instances would be in separate programs.
     // We run them all here in the same coroutine for demonstration purposes.
@@ -138,12 +146,12 @@ int main()
 
     wamp::spawn(ioctx, [&](wamp::YieldContext yield)
     {
-        chat.start({tcp}, yield);
+        chat.start(realm, {tcp}, yield);
 
-        alice.join({tcp}, yield);
+        alice.join(realm, {tcp}, yield);
         alice.say("Hello?", yield);
 
-        bob.join({tcp}, yield);
+        bob.join(realm, {tcp}, yield);
 
         alice.say("Is anybody there?", yield);
         bob.say("Yes, I'm here!", yield);

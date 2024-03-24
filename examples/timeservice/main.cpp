@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2014-2015, 2022, 2024.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -9,38 +9,15 @@
 //******************************************************************************
 
 #include <chrono>
-#include <ctime>
 #include <iostream>
 #include <boost/asio/steady_timer.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/unpacker.hpp>
-#include <cppwamp/variant.hpp>
 #include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcpclient.hpp>
-
-const std::string realm = "cppwamp.examples";
-const std::string address = "localhost";
-const short port = 12345u;
-
-//------------------------------------------------------------------------------
-namespace wamp
-{
-    // Convert a std::tm to/from an object variant.
-    template <typename TConverter>
-    void convert(TConverter& conv, std::tm& t)
-    {
-        conv ("sec",   t.tm_sec)
-             ("min",   t.tm_min)
-             ("hour",  t.tm_hour)
-             ("mday",  t.tm_mday)
-             ("mon",   t.tm_mon)
-             ("year",  t.tm_year)
-             ("wday",  t.tm_wday)
-             ("yday",  t.tm_yday)
-             ("isdst", t.tm_isdst);
-    }
-}
+#include "../common/argsparser.hpp"
+#include "../common/tmconversion.hpp"
 
 //------------------------------------------------------------------------------
 std::tm getTime()
@@ -50,15 +27,26 @@ std::tm getTime()
 }
 
 //------------------------------------------------------------------------------
-int main()
+// Usage: cppwamp-example-timeclient [port [host [realm]]] | help
+// Use with cppwamp-example-router and cppwamp-example-timeservice.
+//------------------------------------------------------------------------------
+int main(int argc, char* argv[])
 {
+    ArgsParser args{{{"port", "12345"},
+                     {"host", "localhost"},
+                     {"realm", "cppwamp.examples"}}};
+
+    std::string port, host, realm;
+    if (!args.parse(argc, argv, port, host, realm))
+        return 0;
+
     wamp::IoContext ioctx;
-    auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
+    auto tcp = wamp::TcpHost(host, port).withFormat(wamp::json);
     wamp::Session session(ioctx.get_executor());
     boost::asio::steady_timer timer(ioctx);
 
     wamp::spawn(ioctx,
-        [tcp, &session, &timer](wamp::YieldContext yield)
+        [tcp, realm, &session, &timer](wamp::YieldContext yield)
         {
             session.connect(tcp, yield).value();
             session.join(realm, yield).value();

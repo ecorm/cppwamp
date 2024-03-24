@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2022.
+    Copyright Butterfly Energy Systems 2022, 2024.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -9,7 +9,6 @@
 //******************************************************************************
 
 #include <chrono>
-#include <ctime>
 #include <iostream>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/variant2.hpp>
@@ -17,36 +16,14 @@
 #include <cppwamp/codecs/json.hpp>
 #include <cppwamp/transports/tcpclient.hpp>
 #include <cppwamp/unpacker.hpp>
-#include <cppwamp/variant.hpp>
 #include <boost/asio/yield.hpp>
-
-const std::string realm = "cppwamp.examples";
-const std::string address = "localhost";
-const short port = 12345u;
-
-//------------------------------------------------------------------------------
-namespace wamp
-{
-    // Convert a std::tm to/from an object variant.
-    template <typename TConverter>
-    void convert(TConverter& conv, std::tm& t)
-    {
-        conv ("sec",   t.tm_sec)
-             ("min",   t.tm_min)
-             ("hour",  t.tm_hour)
-             ("mday",  t.tm_mday)
-             ("mon",   t.tm_mon)
-             ("year",  t.tm_year)
-             ("wday",  t.tm_wday)
-             ("yday",  t.tm_yday)
-             ("isdst", t.tm_isdst);
-    }
-}
+#include "../common/argsparser.hpp"
+#include "../common/tmconversion.hpp"
 
 //------------------------------------------------------------------------------
 // This variant type is necessary for TimeService::operator() to resume Session
 // operations emitting different result types. This makes Boost stackless
-// coroutines awkward to use with CppWAMP, but this example demonstrates
+// coroutines awkward to use with CppWAMP, but this example demonstrates that
 // it is still possible.
 //------------------------------------------------------------------------------
 using Aftermath = boost::variant2::variant<
@@ -82,9 +59,11 @@ struct AftermathChecker
 class TimeService : boost::asio::coroutine
 {
 public:
-    explicit TimeService(wamp::AnyIoExecutor exec, wamp::ConnectionWish where)
+    explicit TimeService(wamp::AnyIoExecutor exec, std::string realm,
+                         wamp::ConnectionWish where)
         : session_(std::make_shared<wamp::Session>(exec)),
           timer_(std::make_shared<Timer>(std::move(exec))),
+          realm_(std::move(realm)),
           where_(std::move(where))
     {}
 
@@ -100,7 +79,7 @@ public:
             yield session_->connect(where_, *this);
             std::cout << "Connected via "
                       << boost::variant2::get<1>(aftermath).value() << std::endl;
-            yield session_->join(realm, *this);
+            yield session_->join(realm_, *this);
             std::cout << "Joined, SessionId="
                       << boost::variant2::get<2>(aftermath).value().sessionId()
                       << std::endl;
@@ -143,16 +122,28 @@ private:
     // due to TimeService getting copied around.
     std::shared_ptr<wamp::Session> session_;
     std::shared_ptr<Timer> timer_;
+    std::string realm_;
     wamp::ConnectionWish where_;
     std::chrono::steady_clock::time_point deadline_;
 };
 
 //------------------------------------------------------------------------------
-int main()
+// Usage: cppwamp-example-stacklesstimeservice [port [host [realm]]] | help
+// Use with cppwamp-example-router and cppwamp-example-stacklesstimeclient.
+//------------------------------------------------------------------------------
+int main(int argc, char* argv[])
 {
+    ArgsParser args{{{"port", "12345"},
+                     {"host", "localhost"},
+                     {"realm", "cppwamp.examples"}}};
+
+    std::string port, host, realm;
+    if (!args.parse(argc, argv, port, host, realm))
+        return 0;
+
     wamp::IoContext ioctx;
-    auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
-    TimeService service(ioctx.get_executor(), std::move(tcp));
+    auto tcp = wamp::TcpHost(host, port).withFormat(wamp::json);
+    TimeService service(ioctx.get_executor(), std::move(realm), std::move(tcp));
     service();
     ioctx.run();
     return 0;
