@@ -357,6 +357,7 @@ private:
     void onWampPayloadRead(boost::system::error_code netEc,
                            std::size_t bytesRead)
     {
+        // TODO: Shouldn't checkRead be used here?
         if (!checkShutdown(netEc))
             return;
 
@@ -411,6 +412,8 @@ private:
 
     bool checkRead(boost::system::error_code netEc)
     {
+        // TODO: Consider not treating SSL stream truncated errors as
+        // failures.
         bool canContinueReading = checkShutdown(netEc);
 
         if (netEc == boost::asio::error::eof)

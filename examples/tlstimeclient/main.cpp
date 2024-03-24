@@ -22,6 +22,8 @@
 //------------------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
+    // TODO: Capture SIGINT/SIGTERM signal and perform orderly TLS shutdown
+
     ArgsParser args{{{"port", "23456"},
                      {"host", "localhost"},
                      {"realm", "cppwamp.examples"}}};
