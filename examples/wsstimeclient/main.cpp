@@ -22,10 +22,10 @@
 //------------------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
-    ArgsParser args{{{"port", "23456"},
-                     {"host", "localhost"},
-                     {"realm", "cppwamp.examples"},
-                     {"ws_target", "/time"}}};
+    ArgsParser args{{{"port",   "23456"},
+                     {"host",   "localhost"},
+                     {"realm",  "cppwamp.examples"},
+                     {"target", "/time"}}};
 
     unsigned short port = 0;
     std::string host, realm, target;

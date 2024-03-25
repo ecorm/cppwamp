@@ -130,7 +130,7 @@ int main(int argc, char* argv[])
         wamp::Router router = initRouter(
             ioctx,
             {realmUri},
-            {httpsOptions(httpsPort), httpOptions(httpsPort, httpPort)},
+            {httpsOptions(httpsPort), httpOptions(httpPort, httpsPort)},
             logger);
 
         auto service = DirectTimeService::create(
