@@ -24,12 +24,12 @@ int main(int argc, char* argv[])
 {
     ArgsParser args{{{"port", "23456"},
                      {"host", "localhost"},
-                     {"realm", "cppwamp.examples"}}};
+                     {"realm", "cppwamp.examples"},
+                     {"ws_target", "/time"}}};
 
     unsigned short port = 0;
-    std::string host;
-    std::string realm;
-    if (!args.parse(argc, argv, port, host, realm))
+    std::string host, realm, target;
+    if (!args.parse(argc, argv, port, host, realm, target))
         return 0;
 
     wamp::IoContext ioctx;
@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
                      .withCallback(&verifySslCertificate);
 
     auto wss = wamp::WssHost(host, port, &makeClientSslContext)
-                   .withTarget("/time")
+                   .withTarget(std::move(target))
                    .withSslVerifyOptions(std::move(verif))
                    .withFormat(wamp::json);
 

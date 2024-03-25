@@ -82,6 +82,8 @@ wamp::ServerOptions httpOptions(uint_least16_t port)
 //------------------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
+    // TODO: Investigate why shutdown gets stuck
+
     try
     {
         ArgsParser args{{{"port", "8080"},
