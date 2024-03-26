@@ -106,8 +106,6 @@ wamp::ServerOptions httpOptions(uint_least16_t httpPort,
 //------------------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
-    // TODO: Investigate segfault when interrupting/terminating program.
-
     try
     {
         ArgsParser args{{{"https_port", "8443"},

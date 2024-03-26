@@ -1112,6 +1112,10 @@ private:
 
     void onClose(Abort reason)
     {
+        // May already be closed due to a listener failure.
+        if (!listener_)
+            return;
+
         std::string msg = "Shutting down server listening on " +
                           listener_->where() + " with reason " + reason.uri();
         if (!reason.options().empty())
@@ -1120,8 +1124,6 @@ private:
 
         backoffTimer_.cancel();
 
-        if (!listener_)
-            return;
         listener_->cancel();
         listener_.reset();
         for (const auto& kv: sessions_)
