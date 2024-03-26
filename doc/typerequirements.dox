@@ -136,7 +136,7 @@ Expression          | Effect
 `CodecFormat::id()` | Returns the `int` ID to use during raw socket handshaking.
 
 Furthermore, the wamp::IsCodecFormat traits template must be specialized so
-that `IsCodecFormat<CodecFormat>::value` evaluates to `true`.
+that `IsCodecFormat<CodecFormat>::%value` evaluates to `true`.
 
 The following classes meet the requirements of `CodecFormat`:
 - wamp::Json
