@@ -47,8 +47,9 @@ void runRouter(wamp::IoContext& ioctx, wamp::Router& router,
         {
             if (ec)
                 return;
-            const char* sigName = (sig == SIGINT)  ? "SIGINT" :
-                                      (sig == SIGTERM) ? "SIGTERM" : "unknown";
+            const char* sigName =
+                (sig == SIGINT)  ? "SIGINT" :
+                                   (sig == SIGTERM) ? "SIGTERM" : "unknown";
             router.log({wamp::LogLevel::info,
                         std::string("Received ") + sigName + " signal"});
             router.close();

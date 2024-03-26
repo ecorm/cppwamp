@@ -9,7 +9,6 @@
 
 #include <map>
 #include <memory>
-#include <thread>
 #include <string>
 #include <utility>
 #include "../routeroptions.hpp"

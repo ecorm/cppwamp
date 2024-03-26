@@ -15,7 +15,7 @@
 #include "../common/callbacktimeclient.hpp"
 
 //------------------------------------------------------------------------------
-// Usage: cppwamp-example-wstimeclient [port [host [realm [ws_target]]]] | help
+// Usage: cppwamp-example-wstimeclient [port [host [realm [target]]]] | help
 // Use with cppwamp-example-wsrouter or cppwamp-example-httpserver.
 //------------------------------------------------------------------------------
 int main(int argc, char* argv[])

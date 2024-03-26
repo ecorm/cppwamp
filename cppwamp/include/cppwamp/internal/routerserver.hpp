@@ -872,8 +872,6 @@ private:
                     onListenerResult(std::move(result));
             });
 
-        monitoringDeadline_ = steadyTime();
-        monitor();
         listen();
     }
 
@@ -1027,6 +1025,13 @@ private:
             index);
         sessions_.emplace(index, s);
         s->start();
+
+        if (previousSessionCount_ == 0)
+        {
+            monitoringDeadline_ = steadyTime();
+            monitor();
+        }
+        previousSessionCount_ = sessionCount;
     }
 
     void hardShed()
@@ -1129,10 +1134,17 @@ private:
         {
             Ptr self;
             ServerSessionKey key;
-            void operator()() const {self->sessions_.erase(key);}
+            void operator()() const {self->doRemoveSession(key);}
         };
 
         safelyDispatch<Dispatched>(key);
+    }
+
+    void doRemoveSession(ServerSessionKey key)
+    {
+        sessions_.erase(key);
+        if (sessions_.empty() && sheddingTransportsCount_ == 0)
+            monitoringTimer_.cancel();
     }
 
     void report(const Transporting& transport, AccessActionInfo&& info)
@@ -1184,6 +1196,7 @@ private:
     ServerSession::Key nextSessionIndex_ = 0;
     TimePoint monitoringDeadline_;
     std::size_t sheddingTransportsCount_ = 0;
+    std::size_t previousSessionCount_ = 0;
 
     friend class ServerContext;
 };

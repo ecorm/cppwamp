@@ -18,7 +18,7 @@
 #include "../common/sslclient.hpp"
 
 //------------------------------------------------------------------------------
-// Usage: cppwamp-example-wstimeclient [port [host [realm]]] | help
+// Usage: cppwamp-example-wstimeclient [port [host [realm [target]]]] | help
 //------------------------------------------------------------------------------
 int main(int argc, char* argv[])
 {

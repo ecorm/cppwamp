@@ -121,13 +121,9 @@ ${isTopLevel})
 
 #--------------------------- Advanced options ----------------------------------
 
-set(CPPWAMP_OPT_BOOST_CONFIG "" CACHE FILEPATH
-    "The user-config file to use when building Boost (optional)")
-mark_as_advanced(CPPWAMP_OPT_BOOST_CONFIG)
-
-set(CPPWAMP_OPT_BOOST_JOBS ${CPPWAMP_CORE_COUNT} CACHE STRING
-    "Number of threads (-j option) to use when building Boost")
-mark_as_advanced(CPPWAMP_OPT_BOOST_JOBS)
+set(CPPWAMP_OPT_ASIO_HANDLER_TRACKING OFF CACHE BOOL
+    "Enable support for Asio asynchronous handler tracking")
+mark_as_advanced(CPPWAMP_OPT_ASIO_HANDLER_TRACKING)
 
 #------------------------ End of user options ----------------------------------
 

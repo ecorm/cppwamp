@@ -301,6 +301,7 @@ else()
     target_compile_definitions(cppwamp-core
         PUBLIC
             CPPWAMP_COMPILED_LIB=1
+            "$<$<BOOL:${CPPWAMP_OPT_ASIO_HANDLER_TRACKING}>:BOOST_ASIO_ENABLE_HANDLER_TRACKING>"
             "$<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:CPPWAMP_IS_STATIC>")
     target_compile_features(cppwamp-core PUBLIC cxx_std_11)
     target_compile_options(cppwamp-core PRIVATE
