@@ -88,6 +88,8 @@ private:
         timer_.async_wait(
             [this, self](boost::system::error_code ec)
             {
+                if (session_.state() != wamp::SessionState::established)
+                    return;
                 if (ec)
                     throw boost::system::system_error(ec);
                 if (subscriptionCount_ != 0)
