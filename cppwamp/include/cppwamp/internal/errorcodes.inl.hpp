@@ -170,7 +170,7 @@ CPPWAMP_INLINE WampErrc errorUriToCode(const std::string& uri)
         {"wamp.close.close_realm",                   WE::closeRealm},
         {"wamp.close.goodbye_and_out",               WE::goodbyeAndOut},
         {"wamp.close.killed",                        WE::sessionKilled},
-        {"wamp.close.normal",                        WE::closedNormally},
+        {"wamp.close.normal",           /*Crossbar*/ WE::closedNormally},
         {"wamp.close.system_shutdown",               WE::systemShutdown},
         {"wamp.error.authentication_denied",         WE::authenticationDenied},
         {"wamp.error.authentication_failed",         WE::authenticationFailed},

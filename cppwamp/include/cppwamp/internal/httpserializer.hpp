@@ -7,13 +7,10 @@
 #ifndef CPPWAMP_INTERNAL_HTTPSERIALIZER_HPP
 #define CPPWAMP_INTERNAL_HTTPSERIALIZER_HPP
 
-#include <boost/asio/ip/tcp.hpp>
 #include <boost/beast/http/empty_body.hpp>
 #include <boost/beast/http/file_body.hpp>
 #include <boost/beast/http/string_body.hpp>
 #include <boost/beast/http/write.hpp>
-
-// TODO: Hide HttpSerializer from httpresponse.hpp header
 
 namespace wamp
 {
@@ -46,7 +43,6 @@ class HttpSerializerBase
 {
 public:
     using Ptr = std::unique_ptr<HttpSerializerBase>;
-    using Socket = boost::asio::ip::tcp::socket;
 
     virtual ~HttpSerializerBase() = default;
 
