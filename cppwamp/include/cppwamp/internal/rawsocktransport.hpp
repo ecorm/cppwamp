@@ -191,6 +191,21 @@ private:
         return RawsockHeader().setFrameKind(kind).setLength(size).toBigEndian();
     }
 
+    static void
+    treatSslTruncationAsDisconnection(boost::system::error_code& netEc)
+    {
+        // https://security.stackexchange.com/a/91442/169835
+        if (TTraits::isSslTruncationError(netEc))
+            netEc = make_error_code(boost::asio::error::connection_reset);
+    }
+
+    static void ignoreSslTruncation(boost::system::error_code& netEc)
+    {
+        // https://security.stackexchange.com/a/91442/169835
+        if (TTraits::isSslTruncationError(netEc))
+            netEc = {};
+    }
+
     template <typename F>
     void sendHeartbeatFrame(TransportFrameKind kind, const uint8_t* data,
                             std::size_t size, F&& callback)
@@ -275,7 +290,7 @@ private:
 
     void doAwaitRead()
     {
-        // Wait until the header bytes of WAMP frame read, so that the read
+        // Wait until the header bytes of WAMP frame are read, so that the read
         // timeout logic in QueueingTransport only applies to WAMP frames.
 
         rxHeader_ = 0;
@@ -285,15 +300,13 @@ private:
             boost::asio::buffer(&rxHeader_, sizeof(rxHeader_)),
             [this](boost::system::error_code netEc, std::size_t n)
             {
-                onHeaderRead(netEc);
+                if (checkRead(netEc))
+                    onHeaderRead(netEc);
             });
     }
 
     void onHeaderRead(boost::system::error_code netEc)
     {
-        if (!checkRead(netEc))
-            return;
-
         const auto header = RawsockHeader::fromBigEndian(rxHeader_);
         if (!header.frameKindIsValid())
             return failRead(TransportErrc::badCommand);
@@ -350,17 +363,14 @@ private:
             boost::asio::buffer(ptr, wampRxBytesRemaining_),
             [this](boost::system::error_code netEc, std::size_t n)
             {
-                onWampPayloadRead(netEc, n);
+                if (checkRead(netEc))
+                    onWampPayloadRead(netEc, n);
             });
     }
 
     void onWampPayloadRead(boost::system::error_code netEc,
                            std::size_t bytesRead)
     {
-        // TODO: Shouldn't checkRead be used here?
-        if (!checkShutdown(netEc))
-            return;
-
         assert(bytesRead <= wampRxBytesRemaining_);
         wampRxBytesRemaining_ -= bytesRead;
         bool done = wampRxBytesRemaining_ == 0;
@@ -394,16 +404,14 @@ private:
             boost::asio::buffer(buffer_.data(), length),
             [this, kind](boost::system::error_code netEc, std::size_t)
             {
-                onHeartbeatPayloadRead(netEc, kind);
+                if (checkRead(netEc))
+                    onHeartbeatPayloadRead(netEc, kind);
             });
     }
 
     void onHeartbeatPayloadRead(boost::system::error_code netEc,
                                 TransportFrameKind kind)
     {
-        if (!checkRead(netEc))
-            return;
-
         if (heartbeatHandler_ != nullptr)
             post(heartbeatHandler_, kind, buffer_.data(), buffer_.size());
 
@@ -412,9 +420,16 @@ private:
 
     bool checkRead(boost::system::error_code netEc)
     {
-        // TODO: Consider not treating SSL stream truncated errors as
-        // failures.
-        bool canContinueReading = checkShutdown(netEc);
+        isReading_ = false;
+        const bool isShuttingDown = shutdownHandler_ != nullptr;
+
+        if (isShuttingDown)
+        {
+            if (netEc)
+                completeShutdown(netEc);
+            else
+                flush();
+        }
 
         if (netEc == boost::asio::error::eof)
         {
@@ -422,31 +437,14 @@ private:
             return false;
         }
 
-        if (!canContinueReading)
+        if (isShuttingDown)
             return false;
 
+        treatSslTruncationAsDisconnection(netEc);
         if (netEc)
             completeRead(rawsockErrorCodeToStandard(netEc), 0, false);
 
         return !netEc;
-    }
-
-    bool checkShutdown(boost::system::error_code netEc)
-    {
-        isReading_ = false;
-
-        if (shutdownHandler_ == nullptr)
-            return true;
-
-        if (!netEc)
-        {
-            flush();
-            return false;
-        }
-
-        close();
-        completeShutdown(netEc);
-        return false;
     }
 
     void completeRead(std::error_code ec, std::size_t length, bool done)
@@ -460,10 +458,15 @@ private:
 
     void completeShutdown(boost::system::error_code netEc)
     {
+        close();
+
         if (!shutdownHandler_)
             return;
+
         auto handler = std::move(shutdownHandler_);
         shutdownHandler_ = nullptr;
+        ignoreSslTruncation(netEc);
+
         if (netEc == boost::asio::error::eof)
             handler(std::error_code{});
         else
@@ -492,7 +495,6 @@ private:
 
     void onFlushComplete(boost::system::error_code netEc)
     {
-        close();
         completeShutdown(netEc);
 
         if (netEc == boost::asio::error::eof)
@@ -529,15 +531,12 @@ private:
                 auto handler = std::move(shutdownHandler_);
                 shutdownHandler_ = nullptr;
 
-                // https://security.stackexchange.com/a/91442/169835
-                if (Traits::isSslTruncationError(netEc))
-                    netEc = {};
-
                 // There should be no need to flush the read buffer at this
                 // point, so don't bother performing the TCP-level lingering
                 // close.
                 close();
 
+                ignoreSslTruncation(netEc);
                 handler(rawsockErrorCodeToStandard(netEc));
             });
     }
@@ -576,6 +575,7 @@ private:
     bool payloadReadStarted_ = false;
     bool isReading_ = false;
 };
+
 
 //------------------------------------------------------------------------------
 template <typename TTraits>
@@ -624,6 +624,21 @@ private:
     using IsTls            = typename Traits::IsTls;
     using UnderlyingSocket = typename Traits::UnderlyingSocket;
 
+    static void
+    treatSslTruncationAsDisconnection(boost::system::error_code& netEc)
+    {
+        // https://security.stackexchange.com/a/91442/169835
+        if (TTraits::isSslTruncationError(netEc))
+            netEc = make_error_code(boost::asio::error::connection_reset);
+    }
+
+    static void ignoreSslTruncation(boost::system::error_code& netEc)
+    {
+        // https://security.stackexchange.com/a/91442/169835
+        if (TTraits::isSslTruncationError(netEc))
+            netEc = {};
+    }
+
     // Non-TLS overload
     template <typename F>
     void doAdmit(FalseType, F&& handler)
@@ -658,8 +673,7 @@ private:
             boost::asio::buffer(&handshake_, sizeof(handshake_)),
             [this, self](boost::system::error_code netEc, size_t)
             {
-                isReading_ = false;
-                if (checkShutdown(netEc) && check(netEc, "socket read"))
+                if (checkRead(netEc))
                 {
                     onRawsocketHandshakeReceived(
                         Handshake::fromBigEndian(handshake_));
@@ -706,41 +720,30 @@ private:
             {
                 if (!handler_)
                     return;
+
                 auto handler = std::move(shutdownHandler_);
                 handler_ = nullptr;
-                if (netEc != boost::asio::error::eof)
-                {
-                    close();
-                    handler(rawsockErrorCodeToStandard(netEc));
-                }
-                else
-                {
-                    shutdownUnderlying();
-                }
+
+                // There should be no need to flush the read buffer at this
+                // point, so don't bother performing the TCP-level lingering
+                // close.
+                close();
+
+                ignoreSslTruncation(netEc);
+                handler(rawsockErrorCodeToStandard(netEc));
             });
     }
 
-    void shutdownUnderlying()
+    bool checkRead(boost::system::error_code netEc)
     {
-        boost::system::error_code netEc;
-        underlyingSocket().shutdown(UnderlyingSocket::shutdown_send, netEc);
-        auto ec = static_cast<std::error_code>(netEc);
-        if (ec)
+        isReading_ = false;
+        const bool isShuttingDown = shutdownHandler_ != nullptr;
+
+        if (!isShuttingDown)
         {
-            auto handler = std::move(shutdownHandler_);
-            shutdownHandler_ = nullptr;
-            handler(ec);
-            return;
+            treatSslTruncationAsDisconnection(netEc);
+            return check(netEc, "socket read");
         }
-
-        if (!isReading_)
-            flush();
-    }
-
-    bool checkShutdown(boost::system::error_code netEc)
-    {
-        if (shutdownHandler_ == nullptr)
-            return true;
 
         if (!netEc)
         {
@@ -766,6 +769,7 @@ private:
         assert(shutdownHandler_ != nullptr);
         auto handler = std::move(shutdownHandler_);
         shutdownHandler_ = nullptr;
+        ignoreSslTruncation(netEc);
         if (netEc == boost::asio::error::eof)
             handler(std::error_code{});
         else

@@ -312,6 +312,9 @@ public:
 
             void operator()(boost::beast::error_code netEc)
             {
+                // https://security.stackexchange.com/a/91442/169835
+                ignoreSslTruncation(netEc);
+
                 callback(static_cast<std::error_code>(netEc));
             }
         };
@@ -347,6 +350,21 @@ private:
         return ec;
     }
 
+    static void
+    treatSslTruncationAsDisconnection(boost::system::error_code& netEc)
+    {
+        // https://security.stackexchange.com/a/91442/169835
+        if (TTraits::isSslTruncationError(netEc))
+            netEc = make_error_code(boost::asio::error::connection_reset);
+    }
+
+    static void ignoreSslTruncation(boost::system::error_code& netEc)
+    {
+        // https://security.stackexchange.com/a/91442/169835
+        if (TTraits::isSslTruncationError(netEc))
+            netEc = {};
+    }
+
     template <typename F>
     void doReadSome(MessageBuffer& buffer, std::size_t limit, F&& callback)
     {
@@ -373,7 +391,7 @@ private:
                 F& callback)
     {
         rxBuffer_.reset();
-
+        treatSslTruncationAsDisconnection(netEc);
         std::error_code ec = websocketErrorCodeToStandard(netEc);
         if (netEc == boost::beast::websocket::error::closed)
             ec = interpretCloseReason(websocket_->reason());
@@ -409,12 +427,10 @@ private:
             Decay<F> callback;
             BasicWebsocketStream* self;
 
-            void operator()(boost::system::error_code ec)
+            void operator()(boost::system::error_code netEc)
             {
-                // https://security.stackexchange.com/a/91442/169835
-                if (TTraits::isSslTruncationError(ec))
-                    ec = {};
-                callback(ec);
+                ignoreSslTruncation(netEc);
+                callback(netEc);
             }
         };
 
@@ -432,6 +448,7 @@ private:
 
             void operator()(boost::beast::error_code netEc)
             {
+                ignoreSslTruncation(netEc);
                 callback(static_cast<std::error_code>(netEc), false);
             }
         };
@@ -508,6 +525,7 @@ public:
 
             void operator()(boost::beast::error_code netEc)
             {
+                ignoreSslTruncation(netEc);
                 callback(static_cast<std::error_code>(netEc));
             }
         };
@@ -577,6 +595,21 @@ private:
         return 0;
     }
 
+    static void
+    treatSslTruncationAsDisconnection(boost::system::error_code& netEc)
+    {
+        // https://security.stackexchange.com/a/91442/169835
+        if (TTraits::isSslTruncationError(netEc))
+            netEc = make_error_code(boost::asio::error::connection_reset);
+    }
+
+    static void ignoreSslTruncation(boost::system::error_code& netEc)
+    {
+        // https://security.stackexchange.com/a/91442/169835
+        if (TTraits::isSslTruncationError(netEc))
+            netEc = {};
+    }
+
     // Non-TLS overload
     template <typename F>
     void doAdmit(FalseType, F&& handler)
@@ -598,6 +631,7 @@ private:
             {
                 if (netEc)
                 {
+                    treatSslTruncationAsDisconnection(netEc);
                     auto ec = websocketErrorCodeToStandard(netEc);
                     return fail(ec, "SSL/TLS handshake");
                 }
@@ -623,6 +657,7 @@ private:
         if (!netEc)
             return true;
 
+        treatSslTruncationAsDisconnection(netEc);
         auto ec = websocketErrorCodeToStandard(netEc);
 
         if (isHttpParseErrorDueToClient(netEc))
@@ -816,6 +851,7 @@ private:
 
             void operator()(boost::system::error_code netEc)
             {
+                ignoreSslTruncation(netEc);
                 auto ec = static_cast<std::error_code>(netEc);
                 self->post(std::move(callback), ec);
             }

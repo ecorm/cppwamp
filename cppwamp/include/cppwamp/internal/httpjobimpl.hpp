@@ -369,6 +369,21 @@ private:
         return HttpStatus::internalServerError;
     }
 
+    static void
+    treatSslTruncationAsDisconnection(boost::system::error_code& netEc)
+    {
+        // https://security.stackexchange.com/a/91442/169835
+        if (TTraits::isSslTruncationError(netEc))
+            netEc = make_error_code(boost::asio::error::connection_reset);
+    }
+
+    static void ignoreSslTruncation(boost::system::error_code& netEc)
+    {
+        // https://security.stackexchange.com/a/91442/169835
+        if (TTraits::isSslTruncationError(netEc))
+            netEc = {};
+    }
+
     void doContinueRequest()
     {
         if (isDone_ || responseSent_)
@@ -498,12 +513,8 @@ private:
             socket.async_shutdown(
                 [this, self](boost::system::error_code netEc)
                 {
-                    // https://security.stackexchange.com/a/91442/169835
-                    if (TTraits::isSslTruncationError(netEc))
-                        netEc = {};
-
+                    ignoreSslTruncation(netEc);
                     auto ec = static_cast<std::error_code>(netEc);
-
                     post(std::move(shutdownHandler_), ec);
                     shutdownHandler_ = nullptr;
                     close();
@@ -888,6 +899,7 @@ private:
             return false;
         }
 
+        treatSslTruncationAsDisconnection(netEc);
         auto ec = httpErrorCodeToStandard(netEc);
 
         if (ec == TransportErrc::disconnected)
