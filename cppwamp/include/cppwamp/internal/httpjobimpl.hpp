@@ -290,7 +290,8 @@ public:
         what += reason.message();
         doDeny(HttpDenial{shutdownReasonToHttpStatus(reason)}
                  .withMessage(std::move(what))
-                 .withResult(AdmitResult::cancelled(reason)));
+                 .withResult(AdmitResult::cancelled(reason)),
+               true);
     }
 
     void close() override
@@ -408,9 +409,9 @@ private:
         sendResponse(response, AdmitResult::responded());
     }
 
-    void doDeny(HttpDenial denial)
+    void doDeny(HttpDenial denial, bool shuttingDown = false)
     {
-        if (isDone_ || responseSent_)
+        if ((!shuttingDown && isDone_) || responseSent_)
             return;
 
         if (!denial.htmlEnabled())
@@ -920,30 +921,6 @@ private:
         return false;
     }
 
-    bool checkWrite(boost::system::error_code netEc)
-    {
-        if (!netEc)
-            return true;
-
-        getMonitor().endResponse(steadyTime(), false);
-        close();
-
-        auto ec = httpErrorCodeToStandard(netEc);
-
-        if (isPoisoned_ && shutdownHandler_ != nullptr)
-        {
-            post(std::move(shutdownHandler_), ec);
-            shutdownHandler_ = nullptr;
-            return false;
-        }
-
-        if (ec == TransportErrc::disconnected)
-            finish(AdmitResult::disconnected());
-        else
-            finish(AdmitResult::failed(ec, "socket write"));
-        return false;
-    }
-
     bool checkTlsHandshake(boost::system::error_code netEc)
     {
         if (!netEc)
@@ -1176,6 +1153,30 @@ private:
             onShutdownResponseSent();
         else
             onResponseSent();
+    }
+
+    bool checkWrite(boost::system::error_code netEc)
+    {
+        if (!netEc)
+            return true;
+
+        getMonitor().endResponse(steadyTime(), false);
+        close();
+
+        auto ec = httpErrorCodeToStandard(netEc);
+
+        if (isPoisoned_ && shutdownHandler_ != nullptr)
+        {
+            post(std::move(shutdownHandler_), ec);
+            shutdownHandler_ = nullptr;
+            return false;
+        }
+
+        if (ec == TransportErrc::disconnected)
+            finish(AdmitResult::disconnected());
+        else
+            finish(AdmitResult::failed(ec, "socket write"));
+        return false;
     }
 
     void onShutdownResponseSent()
