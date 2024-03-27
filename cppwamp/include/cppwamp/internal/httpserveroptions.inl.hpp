@@ -118,10 +118,13 @@ CPPWAMP_INLINE const HttpServerTimeouts& HttpServerTimeouts::defaults()
         // Using Apache's RequestReadTimeout, with ~1/4 of ADSL2 0.8Mbps rate
         .withRequestBodyTimeout({seconds{20}, 24*1024})
 
-        // NGINX's keepalive_timeout of 75s
+        // Using NGINX's keepalive_timeout of 75s
         // Apache default: 5s
         // Browser defaults: Firefox: 115s, IE: 60s, Chromium: never
-        .withKeepaliveTimeout(seconds{75});
+        .withKeepaliveTimeout(seconds{75})
+
+        // Using NGINX's lingering_timeout of 5s
+        .withLingerTimeout(seconds{5});
 
     return timeouts;
 }
@@ -153,6 +156,13 @@ CPPWAMP_INLINE HttpServerTimeouts&
 HttpServerTimeouts::withKeepaliveTimeout(Timeout t)
 {
     keepaliveTimeout_ = internal::checkTimeout(t);
+    return *this;
+}
+
+CPPWAMP_INLINE HttpServerTimeouts&
+HttpServerTimeouts::withLingerTimeout(Timeout t)
+{
+    lingerTimeout_ =  internal::checkTimeout(t);
     return *this;
 }
 
